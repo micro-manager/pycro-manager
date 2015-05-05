@@ -7,9 +7,9 @@ package main;
 import autofocus.CrossCorrelationAutofocus;
 import gui.GUI;
 import java.util.prefs.Preferences;
-import org.micromanager.MMStudio;
-import org.micromanager.api.MMPlugin;
-import org.micromanager.api.ScriptInterface;
+import org.micromanager.internal.MMStudio;
+import org.micromanager.MMPlugin;
+import org.micromanager.Studio;
 
 /**
  *
@@ -23,7 +23,7 @@ public class Magellan implements MMPlugin{
    public static final String tooltipDescription = "Micro-Magellan: A plugin for exploring samples in space and time";
 
    private static Preferences prefs_;
-   private static ScriptInterface mmAPI_;
+   private static Studio mmAPI_;
    private static GUI gui_;
    
    public Magellan() {
