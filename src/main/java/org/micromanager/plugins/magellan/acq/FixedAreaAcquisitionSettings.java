@@ -16,14 +16,15 @@
 //
 package main.java.org.micromanager.plugins.magellan.acq;
 
-import main.java.org.micromanager.plugins.magellan.channels.ChannelSetting;
-import main.java.org.micromanager.plugins.magellan.channels.ChannelUtils;
-import main.java.org.micromanager.plugins.magellan.propsandcovariants.CovariantPairing;
-import main.java.org.micromanager.plugins.magellan.propsandcovariants.CovariantPairingsManager;
+import java.awt.Color;
 import java.util.ArrayList;
 import java.util.prefs.Preferences;
+import main.java.org.micromanager.plugins.magellan.channels.ChannelSetting;
+import main.java.org.micromanager.plugins.magellan.channels.ChannelUtils;
 import main.java.org.micromanager.plugins.magellan.main.Magellan;
 import main.java.org.micromanager.plugins.magellan.misc.Log;
+import main.java.org.micromanager.plugins.magellan.propsandcovariants.CovariantPairing;
+import main.java.org.micromanager.plugins.magellan.propsandcovariants.CovariantPairingsManager;
 import main.java.org.micromanager.plugins.magellan.surfacesandregions.SurfaceInterpolator;
 import main.java.org.micromanager.plugins.magellan.surfacesandregions.XYFootprint;
 
@@ -33,7 +34,7 @@ import main.java.org.micromanager.plugins.magellan.surfacesandregions.XYFootprin
  */
 public class FixedAreaAcquisitionSettings  {
    
-   private static final String PREF_PREFIX = "Fixed area acquisition ";
+   public static final String PREF_PREFIX = "Fixed area acquisition ";
 
    public static final int NO_SPACE = 0;
    public static final int SIMPLE_Z_STACK = 1;
@@ -57,10 +58,11 @@ public class FixedAreaAcquisitionSettings  {
    public double zStep_, zStart_, zEnd_, distanceBelowFixedSurface_, distanceAboveFixedSurface_,
            distanceAboveTopSurface_, distanceBelowBottomSurface_;
    public int spaceMode_;
-   public SurfaceInterpolator topSurface_, bottomSurface_, fixedSurface_;
+   public SurfaceInterpolator topSurface_, bottomSurface_, fixedSurface_, collectionPlane_;
    public XYFootprint footprint_;
    public int useTopOrBottomFootprint_;
    public double tileOverlap_; //stored as percent * 100, i.e. 55 => 55%
+   public boolean channelsAtEverySlice_;
    
    //channels
    public String channelGroup_;
@@ -90,6 +92,7 @@ public class FixedAreaAcquisitionSettings  {
       numTimePoints_ = prefs.getInt(PREF_PREFIX + "NTP", 1);
       timeIntervalUnit_ = prefs.getInt(PREF_PREFIX + "TPIU", 0);
       //space
+      channelsAtEverySlice_ = prefs.getBoolean(PREF_PREFIX +"ACQORDER", true);
       zStep_ = prefs.getDouble(PREF_PREFIX + "ZSTEP", 1);
       zStart_ = prefs.getDouble(PREF_PREFIX + "ZSTART", 0);
       zEnd_ = prefs.getDouble(PREF_PREFIX + "ZEND", 0);
@@ -102,7 +105,17 @@ public class FixedAreaAcquisitionSettings  {
       //channels
       channelGroup_ = prefs.get(PREF_PREFIX + "CHANNELGROUP", "");
       channels_ = ChannelUtils.getAvailableChannels(channelGroup_);
-      
+      //load individual channel group settings
+       for (int i = 0; i < channels_.size(); i++) {
+           channels_.get(i).use_ = prefs.getBoolean(PREF_PREFIX + "CHANNELGROUP" + channelGroup_ + "CHANNELNAME" + channels_.get(i).name_ + "USE", true);
+          try { 
+              channels_.get(i).exposure_ = prefs.getDouble(PREF_PREFIX + "CHANNELGROUP" + channelGroup_ + "CHANNELNAME" + channels_.get(i).name_ + "EXPOSURE", Magellan.getCore().getExposure());
+          } catch (Exception ex) {
+              throw new RuntimeException();
+          }
+          channels_.get(i).color_ = new Color(prefs.getInt(PREF_PREFIX + "CHANNELGROUP" + channelGroup_ + "CHANNELNAME" + channels_.get(i).name_ + "COLOR", Color.white.getRGB()));                   
+       }
+       
       //autofocus
       autofocusMaxDisplacemnet_um_ =  prefs.getDouble(PREF_PREFIX + "AFMAXDISP", 0.0);
       autofocusChannelName_ = prefs.get(PREF_PREFIX + "AFCHANNELNAME", null);
@@ -176,8 +189,11 @@ public class FixedAreaAcquisitionSettings  {
       prefs.putDouble(PREF_PREFIX + "ZDISTABOVETOP", distanceAboveTopSurface_);
       prefs.putInt(PREF_PREFIX + "SPACEMODE", spaceMode_);
       prefs.putDouble(PREF_PREFIX + "TILEOVERLAP", tileOverlap_);
+      prefs.putBoolean(PREF_PREFIX + "ACQORDER", channelsAtEverySlice_);
       //channels
       prefs.put(PREF_PREFIX + "CHANNELGROUP", channelGroup_);
+      //Individual channel settings sotred in ChannelUtils
+
       
       //autofocus
       prefs.putDouble(PREF_PREFIX + "AFMAXDISP", autofocusMaxDisplacemnet_um_);
