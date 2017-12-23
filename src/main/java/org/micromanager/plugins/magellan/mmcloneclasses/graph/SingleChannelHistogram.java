@@ -21,7 +21,6 @@
 //
 package main.java.org.micromanager.plugins.magellan.mmcloneclasses.graph;
 
-import com.swtdesigner.SwingResourceManager;
 import ij.ImagePlus;
 import ij.process.ImageProcessor;
 import ij.process.ImageStatistics;
