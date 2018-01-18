@@ -1,0 +1,17 @@
+#compiled python files
+*.pyc
+*.pyo
+
+#pycharm files
+analysis/.idea/*
+Icon
+
+*.xml
+
+*.iml
+
+analysis/.idea/analysis.iml
+
+analysis/.idea/misc.xml
+
+analysis/.idea/workspace.xml
