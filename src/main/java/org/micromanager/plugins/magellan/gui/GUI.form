@@ -1955,6 +1955,9 @@
                               <Connection code="new SimpleChannelTableModel()" type="code"/>
                             </Property>
                           </Properties>
+                          <AuxValues>
+                            <AuxValue name="JavaCodeGenerator_InitCodePost" type="java.lang.String" value="channelsTable_.getTableHeader().addMouseListener(new MouseAdapter() {&#xd;&#xa;    @Override&#xd;&#xa;    public void mouseClicked(MouseEvent e) {&#xd;&#xa;        int col = channelsTable_.columnAtPoint(e.getPoint());&#xd;&#xa;        if (col ==0) {&#xd;&#xa;        //Select all&#xd;&#xa;            ((SimpleChannelTableModel) channelsTable_.getModel()).selectAllChannels();&#xd;&#xa;        } else if(col == 2) {&#xd;&#xa;            //set all exposures to exposure of first&#xd;&#xa;            ((SimpleChannelTableModel) channelsTable_.getModel()).synchronizeExposures();&#xd;&#xa;        }&#xd;&#xa;    }&#xd;&#xa;});&#xd;&#xa;"/>
+                          </AuxValues>
                         </Component>
                       </SubComponents>
                     </Container>

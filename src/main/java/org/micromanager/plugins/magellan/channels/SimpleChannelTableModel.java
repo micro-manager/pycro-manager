@@ -41,6 +41,7 @@ public class SimpleChannelTableModel extends AbstractTableModel implements Table
       private final CMMCore core_;
       private String channelGroup_ = null;
       private final boolean exploreTable_;
+      private boolean selectAll_ = true;
       public final String[] COLUMN_NAMES = new String[]{
          "Use",
          "Configuration",
@@ -61,6 +62,24 @@ public class SimpleChannelTableModel extends AbstractTableModel implements Table
       core_ = Magellan.getCore();
       refreshChannels();
       Magellan.getStudio().getEventManager().registerForEvents(this);
+   }
+   
+   public void selectAllChannels() {
+       //Alternately select all channels or deselect channels
+       for (ChannelSetting c : channels_) {
+         c.use_ = selectAll_;
+      }
+       selectAll_ = !selectAll_;
+       fireTableDataChanged();
+   }
+
+   public void synchronizeExposures() {
+       //Alternately select all channels or deselect channels
+       double  e = channels_.get(0).exposure_;
+       for (ChannelSetting c : channels_) {
+         c.exposure_ = e;
+      }
+       fireTableDataChanged();
    }
    
    public void shutdown() {
