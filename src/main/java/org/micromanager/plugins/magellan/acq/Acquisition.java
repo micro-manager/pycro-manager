@@ -25,6 +25,7 @@ import main.java.org.micromanager.plugins.magellan.channels.ChannelSetting;
 import java.awt.Color;
 import java.util.ArrayList;
 import java.util.concurrent.LinkedBlockingDeque;
+import main.java.org.micromanager.plugins.magellan.channels.ChannelSpec;
 import main.java.org.micromanager.plugins.magellan.json.JSONArray;
 import main.java.org.micromanager.plugins.magellan.json.JSONObject;
 import main.java.org.micromanager.plugins.magellan.main.Magellan;
@@ -54,9 +55,9 @@ public abstract class Acquisition implements AcquisitionEventSource{
    private int overlapX_, overlapY_;
    private volatile boolean pause_ = false;
    private Object pauseLock_ = new Object();
-   protected ArrayList<ChannelSetting> channels_ = new ArrayList<ChannelSetting>();
+   protected ChannelSpec channels_;
 
-   public Acquisition(double zStep, ArrayList<ChannelSetting> channels) throws Exception {
+   public Acquisition(double zStep, ChannelSpec channels) throws Exception {
       xyStage_ = Magellan.getCore().getXYStageDevice();
       zStage_ = Magellan.getCore().getFocusDevice();
       channels_ = channels;
@@ -119,10 +120,10 @@ public abstract class Acquisition implements AcquisitionEventSource{
     * @return 
     */
    public int getNumChannels() {
-      return channels_.size();
+      return channels_.getNumActiveChannels();
    }
    
-   public ArrayList<ChannelSetting> getChannels() {
+   public ChannelSpec getChannels() {
       return channels_;
    }
    
@@ -218,19 +219,11 @@ public abstract class Acquisition implements AcquisitionEventSource{
 
    
    public String[] getChannelNames() {
-      String[] names = new String[channels_.size()];
-      for (int i = 0; i < names.length; i++) {
-         names[i] = channels_.get(i).name_;
-      }
-      return names; 
+      return channels_.getActiveChannelNames();
    }
    
     public Color[] getChannelColors() {
-      Color[] colors = new Color[channels_.size()];
-      for (int i = 0; i < colors.length; i++) {
-         colors[i] = channels_.get(i).color_;
-      }
-      return colors;
+      return channels_.getActiveChannelColors();
     }
 
 }

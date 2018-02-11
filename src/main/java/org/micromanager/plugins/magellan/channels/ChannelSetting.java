@@ -23,66 +23,66 @@
 //
 package main.java.org.micromanager.plugins.magellan.channels;
 import java.awt.Color; 
-
-import com.google.gson.Gson;
-import com.google.gson.GsonBuilder;
+import java.util.Random;
+import main.java.org.micromanager.plugins.magellan.acq.FixedAreaAcquisitionSettings;
+import main.java.org.micromanager.plugins.magellan.main.Magellan;
+import main.java.org.micromanager.plugins.magellan.misc.GlobalSettings;
+import main.java.org.micromanager.plugins.magellan.misc.Log;
 
 /**
  * Channel acquisition protocol. 
  */
 public class ChannelSetting {
 
+   private static final String PREF_EXPOSURE = "EXPOSURE";
+   private static final String PREF_COLOR = "COLOR";
+   private static final String PREF_USE = "USE";
+   private static final String PREF_OFFSET = "OFFSET";
+   private static final Color[] DEFAULT_COLORS = {new Color(160, 32, 240), Color.blue, Color.green, Color.yellow, Color.red, Color.pink};
+
+    
    final public String group_;
    final public String config_; // Configuration setting name
    final public String name_; 
    public double exposure_; // ms
+   public double offset_;
    public Color color_;
    public boolean use_ = true;
    final public boolean uniqueEvent_;
 
-   public ChannelSetting(String group, String config, String name, double exposure, Color color, boolean use, boolean uniqueEvent) {
+   public ChannelSetting(String group, String config, String name, boolean uniqueEvent) {       
+      /**
+       * Automatically load channel settings in preferences
+       */
+       String prefix = FixedAreaAcquisitionSettings.PREF_PREFIX + "CHANNELGROUP" + group + "CHANNELNAME" + name;
       group_ = group;
-      color_ = color;
+      color_ = new Color(GlobalSettings.getInstance().getIntInPrefs(prefix + PREF_COLOR, DEFAULT_COLORS[new Random().nextInt(DEFAULT_COLORS.length)].getRGB()));
       config_ = config;
       name_ = name;
-      exposure_ = exposure;
-      use_ = use;
+       try {
+           exposure_ = GlobalSettings.getInstance().getDoubleInPrefs(prefix + PREF_EXPOSURE, Magellan.getCore().getExposure());
+       } catch (Exception ex) {
+          Log.log(ex);
+       }
+      offset_ = GlobalSettings.getInstance().getDoubleInPrefs(prefix + PREF_OFFSET, 0.0);
+      use_ = GlobalSettings.getInstance().getBooleanInPrefs(prefix + PREF_USE, true);
       uniqueEvent_ = uniqueEvent; // true for only first on multichannel camera
    }
 
-   public ChannelSetting copy() {
-      return new ChannelSetting(group_, config_, name_, exposure_, new Color(color_.getRGB()), use_, uniqueEvent_);
-   }
+    public ChannelSetting copy() {
+        ChannelSetting s = new ChannelSetting(group_, config_, name_, uniqueEvent_);
+        s.exposure_ = exposure_;
+        s.color_ = new Color(color_.getRGB());
+        s.use_ = use_;
+        s.offset_ = offset_;
+        return s;
+    }
 
-   /**
-    * Serialize to JSON encoded string
-    */
-   public static String toJSONStream(ChannelSetting cs) {
-      Gson gson = new GsonBuilder().setPrettyPrinting().create();
-      return gson.toJson(cs);
-   }
-   
-   /**
-    * De-serialize from JSON encoded string
-    */
-   public static ChannelSetting fromJSONStream(String stream) {
-      Gson gson = new Gson();
-      ChannelSetting cs = gson.fromJson(stream, ChannelSetting.class);
-      return cs;
-   }
-   
-//   // test serialization
-//   public synchronized static void main(String[] args) {
-//      
-//      // encode
-//      ChannelSettings cs = new ChannelSettings();
-//      String stream = ChannelSettings.toJSONStream(cs);
-//      System.out.println("Encoded:\n" + stream);
-//      
-//      // decode
-//      ChannelSettings resultCs = ChannelSettings.fromJSONStream(stream);
-//      System.out.println("Decoded:\n" + ChannelSettings.toJSONStream(resultCs));
-//   }
-//   
+    public void storeChannelInfoInPrefs() {
+        String prefix = FixedAreaAcquisitionSettings.PREF_PREFIX + "CHANNELGROUP" + group_ + "CHANNELNAME" + name_;
+        GlobalSettings.getInstance().storeBooleanInPrefs(prefix + PREF_USE, use_);
+        GlobalSettings.getInstance().storeDoubleInPrefs(prefix + PREF_EXPOSURE, exposure_);
+        GlobalSettings.getInstance().storeIntInPrefs(prefix + PREF_COLOR, color_.getRGB());
+        GlobalSettings.getInstance().storeDoubleInPrefs(prefix + PREF_OFFSET, offset_);
+    }
 }
-

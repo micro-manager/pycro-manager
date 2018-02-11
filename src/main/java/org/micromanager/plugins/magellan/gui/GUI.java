@@ -310,7 +310,7 @@ public class GUI extends javax.swing.JFrame {
 
        //set color renderer for channel table
        for (int col = 1; col < channelsTable_.getColumnModel().getColumnCount(); col++) {
-          if (col == 3) {
+          if (col == 4) {
              ColorRenderer cr = new ColorRenderer(true);
              ColorEditor ce = new ColorEditor((AbstractTableModel) channelsTable_.getModel(), col);
              channelsTable_.getColumnModel().getColumn(col).setCellRenderer(cr);
@@ -554,9 +554,6 @@ public class GUI extends javax.swing.JFrame {
         } else {
             settings.spaceMode_ = FixedAreaAcquisitionSettings.NO_SPACE;
         }
-        //channels
-        settings.channelGroup_ = (String) ChannelGroupCombo_.getSelectedItem();
-        settings.channels_ = ((SimpleChannelTableModel)channelsTable_.getModel()).getChannels();
               
         //autofocus
         settings.autofocusEnabled_ = useAutofocusCheckBox_.isSelected();
@@ -1962,7 +1959,8 @@ public class GUI extends javax.swing.JFrame {
 
         jScrollPane1.setFont(new java.awt.Font("Tahoma", 0, 14)); // NOI18N
 
-        channelsTable_.setModel(new SimpleChannelTableModel());
+        channelsTable_.setModel(new SimpleChannelTableModel(null, true)
+        );
         channelsTable_.getTableHeader().addMouseListener(new MouseAdapter() {
             @Override
             public void mouseClicked(MouseEvent e) {
@@ -2688,7 +2686,6 @@ public class GUI extends javax.swing.JFrame {
 
    private void ChannelGroupCombo_ActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_ChannelGroupCombo_ActionPerformed
       ((SimpleChannelTableModel) channelsTable_.getModel()).setChannelGroup((String) ChannelGroupCombo_.getSelectedItem());
-      ((SimpleChannelTableModel) channelsTable_.getModel()).refreshChannels();
       ((SimpleChannelTableModel) channelsTable_.getModel()).fireTableDataChanged();
       acquisitionSettingsChanged();
    }//GEN-LAST:event_ChannelGroupCombo_ActionPerformed

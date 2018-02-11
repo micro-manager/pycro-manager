@@ -20,7 +20,7 @@ import java.awt.Color;
 import java.util.ArrayList;
 import java.util.prefs.Preferences;
 import main.java.org.micromanager.plugins.magellan.channels.ChannelSetting;
-import main.java.org.micromanager.plugins.magellan.channels.ChannelUtils;
+import main.java.org.micromanager.plugins.magellan.channels.ChannelSpec;
 import main.java.org.micromanager.plugins.magellan.main.Magellan;
 import main.java.org.micromanager.plugins.magellan.misc.Log;
 import main.java.org.micromanager.plugins.magellan.propsandcovariants.CovariantPairing;
@@ -66,7 +66,7 @@ public class FixedAreaAcquisitionSettings  {
    
    //channels
    public String channelGroup_;
-   public ArrayList<ChannelSetting> channels_ ;
+   public ChannelSpec channels_ ;
    
    //Covarying props
    public ArrayList<CovariantPairing> covariantPairings_ = new ArrayList<CovariantPairing>();
@@ -104,18 +104,8 @@ public class FixedAreaAcquisitionSettings  {
       tileOverlap_ = prefs.getDouble(PREF_PREFIX + "TILEOVERLAP", 5);
       //channels
       channelGroup_ = prefs.get(PREF_PREFIX + "CHANNELGROUP", "");
-      channels_ = ChannelUtils.getAvailableChannels(channelGroup_);
-      //load individual channel group settings
-       for (int i = 0; i < channels_.size(); i++) {
-           channels_.get(i).use_ = prefs.getBoolean(PREF_PREFIX + "CHANNELGROUP" + channelGroup_ + "CHANNELNAME" + channels_.get(i).name_ + "USE", true);
-          try { 
-              channels_.get(i).exposure_ = prefs.getDouble(PREF_PREFIX + "CHANNELGROUP" + channelGroup_ + "CHANNELNAME" + channels_.get(i).name_ + "EXPOSURE", Magellan.getCore().getExposure());
-          } catch (Exception ex) {
-              throw new RuntimeException();
-          }
-          channels_.get(i).color_ = new Color(prefs.getInt(PREF_PREFIX + "CHANNELGROUP" + channelGroup_ + "CHANNELNAME" + channels_.get(i).name_ + "COLOR", Color.white.getRGB()));                   
-       }
-       
+      //This creates a new Object of channelSpecs that is "Owned" by the accquisition
+      channels_ = new ChannelSpec(channelGroup_); 
       //autofocus
       autofocusMaxDisplacemnet_um_ =  prefs.getDouble(PREF_PREFIX + "AFMAXDISP", 0.0);
       autofocusChannelName_ = prefs.get(PREF_PREFIX + "AFCHANNELNAME", null);

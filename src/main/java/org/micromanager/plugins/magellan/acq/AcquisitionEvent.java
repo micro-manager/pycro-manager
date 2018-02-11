@@ -18,8 +18,6 @@
 package main.java.org.micromanager.plugins.magellan.acq;
 
 import java.util.List;
-import java.util.logging.Level;
-import java.util.logging.Logger;
 import main.java.org.micromanager.plugins.magellan.coordinates.XYStagePosition;
 import main.java.org.micromanager.plugins.magellan.propsandcovariants.CovariantPairing;
 import main.java.org.micromanager.plugins.magellan.propsandcovariants.SurfaceData;

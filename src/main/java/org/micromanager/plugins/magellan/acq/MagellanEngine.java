@@ -298,7 +298,8 @@ public class MagellanEngine {
         loopHardwareCommandRetries(new HardwareCommand() {
             @Override
             public void run() throws Exception {
-                JavaLayerImageConstructor.getInstance().getMagellanTaggedImagesAndAddToAcq(event, currentTime, event.acquisition_.channels_.get(event.channelIndex_).exposure_);
+                JavaLayerImageConstructor.getInstance().getMagellanTaggedImagesAndAddToAcq(
+                        event, currentTime, event.acquisition_.channels_.getActiveChannelSetting(event.channelIndex_).exposure_);
             }
         }, "getting tagged image");
 
@@ -327,7 +328,7 @@ public class MagellanEngine {
 
         //move Z before XY 
         /////////////////////////////Z stage/////////////////////////////
-        if (lastEvent_ == null || event.sliceIndex_ != lastEvent_.sliceIndex_ || event.positionIndex_ != lastEvent_.positionIndex_ ) {
+        if (lastEvent_ == null || event.zPosition_ != lastEvent_.zPosition_ || event.positionIndex_ != lastEvent_.positionIndex_ ) {
             double startTime = System.currentTimeMillis();
             //wait for it to not be busy (is this even needed?)
             loopHardwareCommandRetries(new HardwareCommand() {
@@ -407,10 +408,10 @@ public class MagellanEngine {
 
         /////////////////////////////Channels/////////////////////////////
         if (lastEvent_ == null || event.channelIndex_ != lastEvent_.channelIndex_
-                && event.acquisition_.channels_ != null && !event.acquisition_.channels_.isEmpty()) {
+                && event.acquisition_.channels_ != null && event.acquisition_.channels_.getNumActiveChannels() != 0) {
             double startTime = System.currentTimeMillis();
             try {
-                final ChannelSetting setting = event.acquisition_.channels_.get(event.channelIndex_);
+                final ChannelSetting setting = event.acquisition_.channels_.getActiveChannelSetting(event.channelIndex_);
                 if (setting.use_ && setting.config_ != null) {
                     loopHardwareCommandRetries(new HardwareCommand() {
                         @Override

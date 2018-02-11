@@ -30,7 +30,6 @@ import java.util.concurrent.TimeUnit;
 import java.awt.geom.Point2D;
 import main.java.org.micromanager.plugins.magellan.autofocus.CrossCorrelationAutofocus;
 import main.java.org.micromanager.plugins.magellan.bidc.JavaLayerImageConstructor;
-import main.java.org.micromanager.plugins.magellan.channels.ChannelSetting;
 import main.java.org.micromanager.plugins.magellan.coordinates.AffineUtils;
 import main.java.org.micromanager.plugins.magellan.coordinates.XYStagePosition;
 import main.java.org.micromanager.plugins.magellan.json.JSONArray;
@@ -180,8 +179,9 @@ public class FixedAreaAcquisition extends Acquisition implements SurfaceChangedL
 
    private int getAutofocusChannelIndex() {
       int index = 0;
-      for (ChannelSetting channel : channels_) {
-         if (channel.name_.equals(settings_.autofocusChannelName_)) {
+      String[] activeChannelNames = channels_.getActiveChannelNames();
+      for (String name : activeChannelNames) {
+         if (name.equals(settings_.autofocusChannelName_)) {
             Log.log("Autofocus channel index: " + index, true);
             return index;
          }
@@ -471,13 +471,13 @@ public class FixedAreaAcquisition extends Acquisition implements SurfaceChangedL
                   continue; //position is above imaging volume or range of focus device
                }
 
-               for (int channelIndex = 0; channelIndex < settings_.channels_.size(); channelIndex++) {
-                  if (!settings_.channels_.get(channelIndex).uniqueEvent_ || !settings_.channels_.get(channelIndex).use_) {
+               for (int channelIndex = 0; channelIndex < settings_.channels_.getNumActiveChannels(); channelIndex++) {
+                  if (!settings_.channels_.getActiveChannelSetting(channelIndex).uniqueEvent_) {
                      continue;
                   }
                   
                   AcquisitionEvent event = new AcquisitionEvent(FixedAreaAcquisition.this, timeIndex, channelIndex, sliceIndex,
-                          positionIndex, zPos, position, settings_.covariantPairings_);
+                          positionIndex, zPos + settings_.channels_.getActiveChannelSetting(channelIndex).offset_, position, settings_.covariantPairings_);
                   if (eventGenerator_.isShutdown()) {
                      throw new InterruptedException();
                   }
@@ -500,8 +500,8 @@ public class FixedAreaAcquisition extends Acquisition implements SurfaceChangedL
             } //slice loop finish
          } else {
             //Z stacks at each channel
-            for (int channelIndex = 0; channelIndex < settings_.channels_.size(); channelIndex++) {
-               if (!settings_.channels_.get(channelIndex).uniqueEvent_ || !settings_.channels_.get(channelIndex).use_) {
+            for (int channelIndex = 0; channelIndex < settings_.channels_.getNumActiveChannels(); channelIndex++) {
+               if (!settings_.channels_.getActiveChannelSetting(channelIndex).uniqueEvent_ ) {
                   continue;
                }
                //Special case: 2D tilted plane
@@ -510,7 +510,7 @@ public class FixedAreaAcquisition extends Acquisition implements SurfaceChangedL
                   int sliceIndex = 0;
                   double zPos = settings_.collectionPlane_.getExtrapolatedValue(position.getCenter().x, position.getCenter().y);
                   AcquisitionEvent event = new AcquisitionEvent(FixedAreaAcquisition.this, timeIndex, channelIndex, sliceIndex,
-                          positionIndex, zPos, position, settings_.covariantPairings_);
+                          positionIndex, zPos + settings_.channels_.getActiveChannelSetting(channelIndex).offset_, position, settings_.covariantPairings_);
                   events_.put(event);
                   continue;
                }
@@ -542,7 +542,7 @@ public class FixedAreaAcquisition extends Acquisition implements SurfaceChangedL
                   }
 
                   AcquisitionEvent event = new AcquisitionEvent(FixedAreaAcquisition.this, timeIndex, channelIndex, sliceIndex,
-                          positionIndex, zPos, position, settings_.covariantPairings_);
+                          positionIndex, zPos + settings_.channels_.getActiveChannelSetting(channelIndex).offset_, position, settings_.covariantPairings_);
                   if (eventGenerator_.isShutdown()) {
                      throw new InterruptedException();
                   }

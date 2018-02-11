@@ -37,48 +37,37 @@ import main.java.org.micromanager.plugins.magellan.misc.NumberUtils;
 public class SimpleChannelTableModel extends AbstractTableModel implements TableModelListener {
 
    
-      private ArrayList<ChannelSetting> channels_ = new ArrayList<ChannelSetting>();
+      private ChannelSpec channels_;
       private final CMMCore core_;
-      private String channelGroup_ = null;
       private final boolean exploreTable_;
       private boolean selectAll_ = true;
       public final String[] COLUMN_NAMES = new String[]{
          "Use",
          "Configuration",
          "Exposure",
-          "Color"
+         "Z-offset (um)",
+         "Color",
+         
    };
       
       
-   public SimpleChannelTableModel(ArrayList<ChannelSetting> channels) {
-      exploreTable_ = true;
+   public SimpleChannelTableModel(ChannelSpec channels, boolean showColor) {
+      exploreTable_ = !showColor;
       core_ = Magellan.getCore();   
       channels_ = channels;
       Magellan.getStudio().getEventManager().registerForEvents(this);
    }
 
-   public SimpleChannelTableModel() {
-      exploreTable_ = false;
-      core_ = Magellan.getCore();
-      refreshChannels();
-      Magellan.getStudio().getEventManager().registerForEvents(this);
-   }
-   
    public void selectAllChannels() {
        //Alternately select all channels or deselect channels
-       for (ChannelSetting c : channels_) {
-         c.use_ = selectAll_;
-      }
+       channels_.setUseOnAll(selectAll_);
        selectAll_ = !selectAll_;
        fireTableDataChanged();
    }
 
    public void synchronizeExposures() {
        //Alternately select all channels or deselect channels
-       double  e = channels_.get(0).exposure_;
-       for (ChannelSetting c : channels_) {
-         c.exposure_ = e;
-      }
+       channels_.synchronizeExposures();
        fireTableDataChanged();
    }
    
@@ -87,41 +76,22 @@ public class SimpleChannelTableModel extends AbstractTableModel implements Table
    }
    
    public boolean anyChannelsActive() {
-      for (ChannelSetting c : channels_) {
-         if (c.use_) {
-            return true;
-         }
-      }
-      return false;
+      return channels_ == null ? false : channels_.anyActive();
    }
 
    public void setChannelGroup(String group) {
-      channelGroup_ = group;
+      if (channels_ != null) {
+          channels_.updateChannelGroup(group);
+      }
    }
    
-   public void setChannels(ArrayList<ChannelSetting> channels) {
+   public void setChannels(ChannelSpec channels) {
       channels_ = channels;
    }
    
-   public ArrayList<ChannelSetting> getChannels() {
-       return channels_;
-   }
-
-   public void refreshChannels() {
-      channels_ = ChannelUtils.getAvailableChannels(channelGroup_);
-   }
       
    public String[] getActiveChannelNames() {
-      int count = 0;
-      for (ChannelSetting c : channels_) {
-         count += c.use_ ? 1 : 0;
-      }
-      
-      String[] channelNames = new String[count];
-      for (int i = 0; i < channelNames.length; i++) {
-         channelNames[i] = channels_.get(i).name_;
-      }
-      return channelNames;
+      return channels_ == null ? new String[]{} : channels_.getActiveChannelNames();
    }
 
    @Override
@@ -129,7 +99,7 @@ public class SimpleChannelTableModel extends AbstractTableModel implements Table
       if (channels_ == null) {
          return 0;
       } else {
-         return channels_.size();
+         return channels_.getNumChannels();
       }
    }
 
@@ -147,23 +117,27 @@ public class SimpleChannelTableModel extends AbstractTableModel implements Table
    public Object getValueAt(int rowIndex, int columnIndex) {
             //use name exposure, color
       if (columnIndex == 0) {
-         return channels_.get(rowIndex).use_;
+         return channels_.getChannelSetting(rowIndex).use_;
       } else if (columnIndex == 1) {
-         return channels_.get(rowIndex).name_;
+         return channels_.getChannelSetting(rowIndex).name_;
       } else if (columnIndex == 2) {
-         return channels_.get(rowIndex).exposure_;
+         return channels_.getChannelSetting(rowIndex).exposure_;
+      } else if (columnIndex == 3) {         
+        return channels_.getChannelSetting(rowIndex).offset_; 
       } else {
-         return channels_.get(rowIndex).color_;
+          return channels_.getChannelSetting(rowIndex).color_;             
       }
    }
 
    @Override
    public Class getColumnClass(int columnIndex) {
-            if (columnIndex == 0) {
+      if (columnIndex == 0) {
          return Boolean.class;
       } else if (columnIndex == 1) {
          return String.class;
       } else if (columnIndex == 2) {
+         return Double.class;
+      } else if (columnIndex == 3) {
          return Double.class;
       } else {
          return Color.class;
@@ -176,29 +150,32 @@ public class SimpleChannelTableModel extends AbstractTableModel implements Table
       int numCamChannels = (int) (GlobalSettings.getInstance().getDemoMode() ? DemoModeImageData.getNumChannels() : core_.getNumberOfCameraChannels());
       
       if (columnIndex == 0) {                   
-         channels_.get(row).use_ = (Boolean) value;
+         channels_.getChannelSetting(row).use_ = (Boolean) value;
          //same for all other channels of the same camera_
          if (numCamChannels > 1) {
             for (int i = (row - row % numCamChannels); i < (row /numCamChannels + 1) * numCamChannels;i++ ) {
-               channels_.get(i).use_ = (Boolean) value;
+               channels_.getChannelSetting(i).use_ = (Boolean) value;
             }
             fireTableDataChanged();
          }       
       } else if (columnIndex == 1) {       
          //cant edit channel name
       } else if (columnIndex == 2) {
-         channels_.get(row).exposure_ = NumberUtils.parseDouble((String) value);
+         channels_.getChannelSetting(row).exposure_ = NumberUtils.parseDouble((String) value);
          //same for all other channels of the same camera_
          if (numCamChannels > 1) {
             for (int i = (row - row % numCamChannels); i < (row / numCamChannels + 1) * numCamChannels; i++) {
-               channels_.get(i).exposure_ = NumberUtils.parseDouble((String) value);
+               channels_.getChannelSetting(i).exposure_ = NumberUtils.parseDouble((String) value);
             }
             fireTableDataChanged();
          }
+      } else if (columnIndex == 3) {
+          channels_.getChannelSetting(row).offset_ =  (Double) value;
       } else {
-         channels_.get(row).color_ = (Color) value;
+         channels_.getChannelSetting(row).color_ = (Color) value;
       }
-      ChannelUtils.storeChannelInfo(channels_);
+      //Store the newly selected value in preferences
+      channels_.storeCurrentSettingsInPrefs();
    }
 
    @Override
@@ -212,8 +189,8 @@ public class SimpleChannelTableModel extends AbstractTableModel implements Table
 
     @Subscribe
     public void onExposureChanged(ExposureChangedEvent event) {
-        for (ChannelSetting c : channels_) {
-            c.exposure_ = event.getNewExposureTime();
+        for (int i = 0; i < channels_.getNumChannels(); i++) {
+            channels_.getChannelSetting(i).exposure_ = event.getNewExposureTime();
         }
         fireTableDataChanged();
     }

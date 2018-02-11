@@ -209,8 +209,8 @@ public class AcqDurationEstimator {
                      }
 
                      numImages++;
-                     for (int channelIndex = 0; channelIndex < settings.channels_.size(); channelIndex++) {
-                        if (!settings.channels_.get(channelIndex).uniqueEvent_ || !settings.channels_.get(channelIndex).use_) {
+                     for (int channelIndex = 0; channelIndex < settings.channels_.getNumActiveChannels(); channelIndex++) {
+                        if (!settings.channels_.getActiveChannelSetting(channelIndex).uniqueEvent_ ) {
                            continue;
                         }
                         channelSwitches++;

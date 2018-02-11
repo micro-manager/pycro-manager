@@ -17,10 +17,9 @@
 package main.java.org.micromanager.plugins.magellan.acq;
 
 import main.java.org.micromanager.plugins.magellan.channels.ChannelSetting;
-import main.java.org.micromanager.plugins.magellan.channels.ChannelUtils;
 import java.util.ArrayList;
-import java.util.prefs.Preferences;
-import main.java.org.micromanager.plugins.magellan.main.Magellan;
+import main.java.org.micromanager.plugins.magellan.channels.ChannelSpec;
+import main.java.org.micromanager.plugins.magellan.misc.GlobalSettings;
 
 /**
  * Container for settings specific to explore acquisition
@@ -39,7 +38,7 @@ public class ExploreAcqSettings {
    public final String dir_, name_;
    public final double tileOverlap_;
    public final int filterType_;
-   public final ArrayList<ChannelSetting> channels_;
+   public final ChannelSpec channels_;
 
    public ExploreAcqSettings(double zStep, double overlapPercent, String dir, String name, int filterType, double rank, String channelGroup) {
       zStep_ = zStep;
@@ -48,32 +47,26 @@ public class ExploreAcqSettings {
       tileOverlap_ = overlapPercent;
       filterType_ = filterType;
       //channels is all available channels for group
-      channels_ = ChannelUtils.getAvailableChannels(channelGroup);
+      channels_ = new ChannelSpec(channelGroup);
       
-      Preferences prefs = Magellan.getPrefs();
       //now that explore acquisition is being run, store values
-      prefs.put(EXPLORE_DIR_PREF, dir);
-      prefs.put(EXPLORE_NAME_PREF, name);
-      prefs.putDouble(EXPLORE_Z_STEP, zStep_);
-      prefs.putDouble(EXPLORE_TILE_OVERLAP, overlapPercent);
-//      prefs.putInt(EXPLORE_FILTER_METHOD, filterType);
-      prefs.putDouble(EXPLORE_RANK, rank);
-      
+      GlobalSettings.getInstance().storeStringInPrefs(EXPLORE_DIR_PREF, dir);
+      GlobalSettings.getInstance().storeStringInPrefs(EXPLORE_NAME_PREF, name);
+      GlobalSettings.getInstance().storeDoubleInPrefs(EXPLORE_Z_STEP, zStep_);
+      GlobalSettings.getInstance().storeDoubleInPrefs(EXPLORE_TILE_OVERLAP, overlapPercent);
+      GlobalSettings.getInstance().storeDoubleInPrefs(EXPLORE_RANK, rank);
    }
    
    public static String getNameFromPrefs() {
-      Preferences prefs = Magellan.getPrefs();
-      return prefs.get(EXPLORE_NAME_PREF, "Untitled Explore Acquisition" );
+      return GlobalSettings.getInstance().getStringInPrefs(EXPLORE_NAME_PREF, "Untitled Explore Acquisition" );
    } 
    
    public static double getZStepFromPrefs() {
-      Preferences prefs = Magellan.getPrefs();
-      return prefs.getDouble(EXPLORE_Z_STEP, 1);
+      return GlobalSettings.getInstance().getDoubleInPrefs(EXPLORE_Z_STEP, 1);
    }
 
    public static double getExploreTileOverlapFromPrefs() {
-      Preferences prefs = Magellan.getPrefs();
-      return prefs.getDouble(EXPLORE_TILE_OVERLAP, 0);
+      return GlobalSettings.getInstance().getDoubleInPrefs(EXPLORE_TILE_OVERLAP, 0);
    }
 
    
