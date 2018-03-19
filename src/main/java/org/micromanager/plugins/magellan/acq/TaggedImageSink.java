@@ -74,6 +74,7 @@ public class TaggedImageSink  {
                         imageCache_.putImage(image);
                      } catch (Exception ex) {
                         Log.log("Couldn't add image to storage");
+                        throw new RuntimeException();
                      }
                   }
                } 
