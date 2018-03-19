@@ -82,11 +82,11 @@ public class AffineCalibrator {
       CMMCore core = Magellan.getCore();
       String xyStage = core.getXYStageDevice();
       
-      int numImages = 5;
+      int numImages = 13;
       Point2D.Double currentPos = new Point2D.Double(core.getXPosition(xyStage), core.getYPosition(xyStage));
       Point2D.Double[] targetPositions = new Point2D.Double[numImages];
       targetPositions[0] = currentPos;  
-      for (int i = 0; i < numImages; i++) {
+      for (int i = 1; i < numImages; i++) {
           double theta = (2*Math.PI / (double) (numImages-1)) * i;
           double radius = fovDiameter_um_ / 2;
           targetPositions[i] = new Point2D.Double(currentPos.x + Math.cos(theta)*radius, currentPos.y + Math.sin(theta)*radius);          
@@ -96,8 +96,7 @@ public class AffineCalibrator {
       ArrayList<Image> images = new ArrayList<Image>();
        for (int i = 0; i < numImages; i++) {
            //move stage to new position
-           core.setXYPosition(targetPositions[i].x, targetPositions[i].y);
-           core.waitForDevice(xyStage);
+           moveFromSameDirection(targetPositions[i].x, targetPositions[i].y);
            //capture new image, add it to display, and store it
            stagePositions[i] = new Point2D.Double(core.getXPosition(xyStage), core.getYPosition(xyStage));
            images.add(snapAndAdd(i));
@@ -126,6 +125,15 @@ public class AffineCalibrator {
          AffineUtils.transformUpdated(core.getCurrentPixelSizeConfig(), transform);
       }
    }
+   
+    private void moveFromSameDirection(double x, double y) throws Exception {
+        //move to a postion up and the the left of the  one requested, then to the one requested
+        CMMCore core = Magellan.getCore();
+        core.setXYPosition(x - fovDiameter_um_ / 2, y - fovDiameter_um_ / 2);
+        core.waitForDevice(core.getXYStageDevice());
+        core.setXYPosition(x, y);
+        core.waitForDevice(core.getXYStageDevice());
+    }
    
    private Point2D.Double computePixelShift(Image img1, Image img2) {
        String name1 = "ImageToFT1";
@@ -198,7 +206,6 @@ public class AffineCalibrator {
         return images.get(0);
     }
 
-   //see http://stackoverflow.com/questions/22954239/given-three-points-compute-affine-transformation
    private AffineTransform computeAffine(Point2D.Double[] stagePositions, Point2D.Double[] pixPositions) {
       // s = Ma
       //aLS = (M^t * M)^-1 * s
@@ -233,7 +240,7 @@ public class AffineCalibrator {
       RealMatrix hatMat = M.transpose().multiply(M);
       RealMatrix pInv = (new LUDecomposition(hatMat)).getSolver().getInverse().multiply(M.transpose());
       RealMatrix A = pInv.multiply(s);
-      AffineTransform transform = new AffineTransform(new double[]{A.getEntry(0,0),A.getEntry(1,0),A.getEntry(3,0),A.getEntry(4,0)});
+      AffineTransform transform = new AffineTransform(new double[]{A.getEntry(0,0),A.getEntry(3,0),A.getEntry(1,0),A.getEntry(4,0)});
       return transform;  
    } 
 
