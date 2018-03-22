@@ -124,6 +124,14 @@ public class AffineCalibrator {
          //mark as updated
          AffineUtils.transformUpdated(core.getCurrentPixelSizeConfig(), transform);
       }
+      double pixelSize = (transform.getScaleX() + transform.getScaleY()) / 2.0;
+      result = JOptionPane.showConfirmDialog(affineGui_, "Would you like to store a pixel size of "+ pixelSize +"?",
+               "Store pixel size calibration?", JOptionPane.YES_NO_OPTION);
+      if (result == JOptionPane.YES_OPTION) {
+         //store affine
+         Magellan.getCore().setPixelSizeUm(Magellan.getCore().getCurrentPixelSizeConfig(), pixelSize);         
+         JOptionPane.showMessageDialog(affineGui_, "Don't forget to save the updated Hardware configuration");
+      }
    }
    
     private void moveFromSameDirection(double x, double y) throws Exception {
