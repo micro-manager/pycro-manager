@@ -13,7 +13,6 @@ import java.rmi.activation.ActivationSystem;
 import java.util.Arrays;
 import java.util.Random;
 import java.util.Scanner;
-import main.java.org.micromanager.plugins.magellan.bidc.JavaLayerImageConstructor;
 import main.java.org.micromanager.plugins.magellan.coordinates.AffineUtils;
 import main.java.org.micromanager.plugins.magellan.coordinates.XYStagePosition;
 import main.java.org.micromanager.plugins.magellan.main.Magellan;
@@ -58,7 +57,7 @@ public class LaserPredNet {
 
     public byte[] getExcitations(XYStagePosition xyPos, double zPos, SurfaceInterpolator surf) throws InterruptedException {
       Point2D.Double[] corners = xyPos.getFullTileCorners();
-      int pixelDim = JavaLayerImageConstructor.getInstance().getImageHeight();      
+      int pixelDim = (int) Magellan.getCore().getImageHeight();      
       AffineTransform posTransform = AffineUtils.getAffineTransform(getCurrentPixelSizeConfig(), xyPos.getCenter().x, xyPos.getCenter().y);
       
       double[][] designMat = new double[FOV_LASER_MODULATION_RESOLUTION*FOV_LASER_MODULATION_RESOLUTION][N_HIST_BINS+3];

@@ -66,8 +66,8 @@ import main.java.org.micromanager.plugins.magellan.acq.MagellanEngine;
 import main.java.org.micromanager.plugins.magellan.acq.MultipleAcquisitionManager;
 import main.java.org.micromanager.plugins.magellan.acq.MultipleAcquisitionTableModel;
 import main.java.org.micromanager.plugins.magellan.autofocus.AutofocusChannelComboModel;
+import main.java.org.micromanager.plugins.magellan.autofocus.SingleShotAutofocus;
 import main.java.org.micromanager.plugins.magellan.bidc.FrameIntegrationMethod;
-import main.java.org.micromanager.plugins.magellan.bidc.JavaLayerImageConstructor;
 import main.java.org.micromanager.plugins.magellan.channels.ChannelComboBoxModel;
 import main.java.org.micromanager.plugins.magellan.channels.ColorEditor;
 import main.java.org.micromanager.plugins.magellan.channels.ColorRenderer;
@@ -109,6 +109,7 @@ public class GUI extends javax.swing.JFrame {
     private Preferences prefs_;
     private RegionManager regionManager_ = new RegionManager();
     private SurfaceManager surfaceManager_ = new SurfaceManager();
+    private SingleShotAutofocus autofocus_ = new SingleShotAutofocus();
     private CovariantPairingsManager covariantPairManager_;
     private MultipleAcquisitionManager multiAcqManager_;
     private GlobalSettings settings_;
@@ -121,7 +122,6 @@ public class GUI extends javax.swing.JFrame {
       singleton_ = this;
       prefs_ = prefs;
       settings_ = new GlobalSettings(prefs_, this);
-      new JavaLayerImageConstructor();
       this.setTitle("Micro-Magellan " + version);
       acqDurationEstimator_ = new AcqDurationEstimator();
       eng_ = new MagellanEngine(Magellan.getCore(), acqDurationEstimator_);
@@ -369,35 +369,6 @@ public class GUI extends javax.swing.JFrame {
        });
        fitSplitPaneToWindowSize();
         
-        
-       if (GlobalSettings.getInstance().isBIDCTwoPhoton()) {
-          //store offsetSpinners in list for fast access
-          offsetSpinners_.add(ch0OffsetSpinner_);
-          offsetSpinners_.add(ch1OffsetSpinner_);
-          offsetSpinners_.add(ch2OffsetSpinner_);
-          offsetSpinners_.add(ch3OffsetSpinner_);
-          offsetSpinners_.add(ch4OffsetSpinner_);
-          offsetSpinners_.add(ch5OffsetSpinner_);
-          //synchronize cpp layer offsets with these
-          settings_.channelOffsetChanged();
-       } else {
-          //disable BIDC 2P features
-          acqTabbedPane_.remove(imageFilteringTab_);
-          splitPaneBottomPanel_.remove(exploreRankFilterButton_);
-          splitPaneBottomPanel_.remove(exploreRankSpinner_);
-          splitPaneBottomPanel_.remove(exploreFrameAverageButton_);
-       }
-    }
-
-    public static double getExploreRankSetting() {
-        return ((Number) singleton_.exploreRankSpinner_.getValue()).doubleValue();
-    }
-    
-    public Integer getChannelOffset(int i) {
-        if (i < offsetSpinners_.size()) {
-            return ((Number) offsetSpinners_.get(i).getValue()).intValue();
-        }
-        return null;
     }
     
     public void selectNewCovariantPair() {
@@ -432,7 +403,7 @@ public class GUI extends javax.swing.JFrame {
        l5.setForeground(((CovariantPairingsTableModel) covariantPairingsTable_.getModel()).isAnyPairingActive() ? DARK_GREEN : Color.black);
        l5.setFont(acqTabbedPane_.getComponent(4).getFont().deriveFont(((CovariantPairingsTableModel) covariantPairingsTable_.getModel()).isAnyPairingActive() ? Font.BOLD : Font.PLAIN));
         acqTabbedPane_.setTabComponentAt(4, l5);
-        JLabel l6 = new JLabel("Drift Compensation");
+        JLabel l6 = new JLabel("Autofocus");
         l6.setForeground(useAutofocusCheckBox_.isSelected() ? DARK_GREEN : Color.black);
         l6.setFont(acqTabbedPane_.getComponent(5).getFont().deriveFont((useAutofocusCheckBox_.isSelected() ? Font.BOLD : Font.PLAIN)));
         acqTabbedPane_.setTabComponentAt(5, l6);
@@ -500,7 +471,7 @@ public class GUI extends javax.swing.JFrame {
         for (Component c : autofocusComponentsPanel_.getComponents()) {
             c.setEnabled(useAutofocusCheckBox_.isSelected());
         }
-        autofocusInitialPositionSpinner_.setEnabled(autofocusInitialPositionCheckBox_.isSelected());
+        
     }
 
     private void storeCurrentAcqSettings() {
@@ -560,15 +531,8 @@ public class GUI extends javax.swing.JFrame {
         if (settings.autofocusEnabled_) {
             settings.autofocusChannelName_ = autofocusChannelCombo_.getSelectedItem().toString();
             settings.autofocusMaxDisplacemnet_um_ = (Double) autofocusMaxDisplacementSpinner_.getValue();
-            settings.autoFocusZDevice_ = autofocusZDeviceComboBox_.getSelectedItem().toString();
-            settings.setInitialAutofocusPosition_ = autofocusInitialPositionCheckBox_.isSelected();
-            settings.initialAutofocusPosition_ = (Double) autofocusInitialPositionSpinner_.getValue();
         }
 
-        //2photon
-        settings.imageFilterType_ = frameAverageRadioButton_.isSelected() ? FrameIntegrationMethod.FRAME_AVERAGE :
-                (rankFilterRadioButton_.isSelected() ? FrameIntegrationMethod.RANK_FILTER : FrameIntegrationMethod.FRAME_SUMMATION );
-        settings.rank_ = ((Number) rankSpinner_.getValue()).doubleValue();
 
         settings.storePreferedValues();
         multipleAcqTable_.repaint();
@@ -627,15 +591,6 @@ public class GUI extends javax.swing.JFrame {
         useAutofocusCheckBox_.setSelected(settings.autofocusEnabled_);
         autofocusChannelCombo_.setSelectedItem(settings.autofocusChannelName_);
         autofocusMaxDisplacementSpinner_.setValue(settings.autofocusMaxDisplacemnet_um_);
-        autofocusZDeviceComboBox_.setSelectedItem(settings.autoFocusZDevice_);
-        autofocusInitialPositionCheckBox_.setSelected(settings.setInitialAutofocusPosition_);
-        autofocusInitialPositionSpinner_.setValue(settings.initialAutofocusPosition_);
-
-        //2photon specific stuff
-        frameAverageRadioButton_.setSelected(settings.imageFilterType_ == FrameIntegrationMethod.FRAME_AVERAGE);
-        rankFilterRadioButton_.setSelected(settings.imageFilterType_ == FrameIntegrationMethod.RANK_FILTER);
-        frameSummationButton_.setSelected(settings.imageFilterType_ == FrameIntegrationMethod.FRAME_SUMMATION);
-        rankSpinner_.setValue(settings.rank_);
 
         enableAcquisitionComponentsAsNeeded();
 
@@ -777,9 +732,6 @@ public class GUI extends javax.swing.JFrame {
         exploreSavingDirLabel_ = new javax.swing.JLabel();
         globalSavingDirTextField_ = new javax.swing.JTextField();
         exploreSampleLabel_ = new javax.swing.JLabel();
-        exploreRankSpinner_ = new javax.swing.JSpinner();
-        exploreRankFilterButton_ = new javax.swing.JRadioButton();
-        exploreFrameAverageButton_ = new javax.swing.JRadioButton();
         explorePercentLabel_ = new javax.swing.JLabel();
         exploreTileOverlapSpinner_ = new javax.swing.JSpinner();
         exploreOverlapLabel_ = new javax.swing.JLabel();
@@ -885,34 +837,13 @@ public class GUI extends javax.swing.JFrame {
         autofocusTab_l = new javax.swing.JPanel();
         useAutofocusCheckBox_ = new javax.swing.JCheckBox();
         autofocusComponentsPanel_ = new javax.swing.JPanel();
-        autofocusZLabel_ = new javax.swing.JLabel();
-        autofocusZDeviceComboBox_ = new javax.swing.JComboBox();
+        autofocusModelLabel_ = new javax.swing.JLabel();
         autofocusMaxDisplacementLabel_ = new javax.swing.JLabel();
         autofocusMaxDisplacementSpinner_ = new javax.swing.JSpinner();
         jLabel7 = new javax.swing.JLabel();
         autofocusChannelCombo_ = new javax.swing.JComboBox();
-        autofocusInitialPositionSpinner_ = new javax.swing.JSpinner();
-        autofocusInitialPositionCheckBox_ = new javax.swing.JCheckBox();
-        imageFilteringTab_ = new javax.swing.JPanel();
-        frameAverageRadioButton_ = new javax.swing.JRadioButton();
-        rankFilterRadioButton_ = new javax.swing.JRadioButton();
-        rankSpinner_ = new javax.swing.JSpinner();
-        jLabel9 = new javax.swing.JLabel();
-        ch0OffsetSpinner_ = new javax.swing.JSpinner();
-        jLabel10 = new javax.swing.JLabel();
-        offsetsLabel_ = new javax.swing.JLabel();
-        ch0OffsetLabel_ = new javax.swing.JLabel();
-        ch1OffsetLabel_ = new javax.swing.JLabel();
-        ch1OffsetSpinner_ = new javax.swing.JSpinner();
-        ch2OffsetLabel_ = new javax.swing.JLabel();
-        ch2OffsetSpinner_ = new javax.swing.JSpinner();
-        ch3OffsetLabel_ = new javax.swing.JLabel();
-        ch3OffsetSpinner_ = new javax.swing.JSpinner();
-        ch4OffsetLabel_ = new javax.swing.JLabel();
-        ch4OffsetSpinner_ = new javax.swing.JSpinner();
-        ch5OffsetLabel_ = new javax.swing.JLabel();
-        ch5OffsetSpinner_ = new javax.swing.JSpinner();
-        frameSummationButton_ = new javax.swing.JRadioButton();
+        loadModelAFButton_ = new javax.swing.JButton();
+        chosenModelAFLabel_ = new javax.swing.JLabel();
         runAcqButton_ = new javax.swing.JButton();
         configPropsButton_ = new javax.swing.JButton();
         jButton1 = new javax.swing.JButton();
@@ -1219,23 +1150,6 @@ public class GUI extends javax.swing.JFrame {
 
         exploreSampleLabel_.setFont(new java.awt.Font("Tahoma", 1, 16)); // NOI18N
         exploreSampleLabel_.setText("Explore sample");
-
-        exploreRankSpinner_.setFont(new java.awt.Font("Tahoma", 0, 14)); // NOI18N
-        exploreRankSpinner_.setModel(new javax.swing.SpinnerNumberModel(0.95d, 0.0d, 1.0d, 0.01d));
-
-        exploreFilterMethodButtonGroup_.add(exploreRankFilterButton_);
-        exploreRankFilterButton_.setFont(new java.awt.Font("Tahoma", 0, 14)); // NOI18N
-        exploreRankFilterButton_.setText("Rank filter");
-        exploreRankFilterButton_.addActionListener(new java.awt.event.ActionListener() {
-            public void actionPerformed(java.awt.event.ActionEvent evt) {
-                exploreRankFilterButton_ActionPerformed(evt);
-            }
-        });
-
-        exploreFilterMethodButtonGroup_.add(exploreFrameAverageButton_);
-        exploreFrameAverageButton_.setFont(new java.awt.Font("Tahoma", 0, 14)); // NOI18N
-        exploreFrameAverageButton_.setSelected(true);
-        exploreFrameAverageButton_.setText("Frame average");
 
         explorePercentLabel_.setFont(new java.awt.Font("Tahoma", 0, 14)); // NOI18N
         explorePercentLabel_.setText("%");
@@ -2139,29 +2053,15 @@ public class GUI extends javax.swing.JFrame {
         acqTabbedPane_.addTab("Covaried settings", covariedSettingsTab_);
 
         useAutofocusCheckBox_.setFont(new java.awt.Font("Tahoma", 0, 14)); // NOI18N
-        useAutofocusCheckBox_.setText("Activate cross-correlation based drift compensation");
+        useAutofocusCheckBox_.setText("Activate");
         useAutofocusCheckBox_.addActionListener(new java.awt.event.ActionListener() {
             public void actionPerformed(java.awt.event.ActionEvent evt) {
                 useAutofocusCheckBox_ActionPerformed(evt);
             }
         });
 
-        autofocusZLabel_.setFont(new java.awt.Font("Tahoma", 0, 14)); // NOI18N
-        autofocusZLabel_.setText("Drift compensation Z device: ");
-
-        StrVector zVec = Magellan.getCore().getLoadedDevicesOfType(mmcorej.DeviceType.StageDevice);
-        String[] zNames = new String[(int)zVec.size()];
-        for (int i = 0; i < zNames.length; i++) {
-            zNames[i] = zVec.get(i);
-        }
-        ComboBoxModel afzModel = new DefaultComboBoxModel(zNames);
-        autofocusZDeviceComboBox_.setFont(new java.awt.Font("Tahoma", 0, 14)); // NOI18N
-        autofocusZDeviceComboBox_.setModel(afzModel);
-        autofocusZDeviceComboBox_.addActionListener(new java.awt.event.ActionListener() {
-            public void actionPerformed(java.awt.event.ActionEvent evt) {
-                autofocusZDeviceComboBox_ActionPerformed(evt);
-            }
-        });
+        autofocusModelLabel_.setFont(new java.awt.Font("Tahoma", 0, 14)); // NOI18N
+        autofocusModelLabel_.setText("Autofocus model: ");
 
         autofocusMaxDisplacementLabel_.setFont(new java.awt.Font("Tahoma", 0, 14)); // NOI18N
         autofocusMaxDisplacementLabel_.setText("<html>Maxmimum displacement (&mu;m): </html>");
@@ -2186,21 +2086,14 @@ public class GUI extends javax.swing.JFrame {
             }
         });
 
-        autofocusInitialPositionSpinner_.setFont(new java.awt.Font("Tahoma", 0, 14)); // NOI18N
-        autofocusInitialPositionSpinner_.setModel(new javax.swing.SpinnerNumberModel(1.0d, null, null, 1.0d));
-        autofocusInitialPositionSpinner_.addChangeListener(new javax.swing.event.ChangeListener() {
-            public void stateChanged(javax.swing.event.ChangeEvent evt) {
-                autofocusInitialPositionSpinner_StateChanged(evt);
+        loadModelAFButton_.setText("Open model");
+        loadModelAFButton_.addActionListener(new java.awt.event.ActionListener() {
+            public void actionPerformed(java.awt.event.ActionEvent evt) {
+                loadModelAFButton_ActionPerformed(evt);
             }
         });
 
-        autofocusInitialPositionCheckBox_.setFont(new java.awt.Font("Tahoma", 0, 14)); // NOI18N
-        autofocusInitialPositionCheckBox_.setText("Set initial position");
-        autofocusInitialPositionCheckBox_.addActionListener(new java.awt.event.ActionListener() {
-            public void actionPerformed(java.awt.event.ActionEvent evt) {
-                autofocusInitialPositionCheckBox_ActionPerformed(evt);
-            }
-        });
+        chosenModelAFLabel_.setText("None selected");
 
         javax.swing.GroupLayout autofocusComponentsPanel_Layout = new javax.swing.GroupLayout(autofocusComponentsPanel_);
         autofocusComponentsPanel_.setLayout(autofocusComponentsPanel_Layout);
@@ -2218,14 +2111,12 @@ public class GUI extends javax.swing.JFrame {
                         .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
                         .addComponent(autofocusMaxDisplacementSpinner_, javax.swing.GroupLayout.PREFERRED_SIZE, 64, javax.swing.GroupLayout.PREFERRED_SIZE))
                     .addGroup(autofocusComponentsPanel_Layout.createSequentialGroup()
-                        .addComponent(autofocusZLabel_)
+                        .addComponent(autofocusModelLabel_)
                         .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                        .addComponent(autofocusZDeviceComboBox_, javax.swing.GroupLayout.PREFERRED_SIZE, 128, javax.swing.GroupLayout.PREFERRED_SIZE))
-                    .addGroup(autofocusComponentsPanel_Layout.createSequentialGroup()
-                        .addComponent(autofocusInitialPositionCheckBox_)
+                        .addComponent(loadModelAFButton_, javax.swing.GroupLayout.PREFERRED_SIZE, 100, javax.swing.GroupLayout.PREFERRED_SIZE)
                         .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                        .addComponent(autofocusInitialPositionSpinner_, javax.swing.GroupLayout.PREFERRED_SIZE, 91, javax.swing.GroupLayout.PREFERRED_SIZE)))
-                .addContainerGap(javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
+                        .addComponent(chosenModelAFLabel_)))
+                .addContainerGap(61, Short.MAX_VALUE))
         );
         autofocusComponentsPanel_Layout.setVerticalGroup(
             autofocusComponentsPanel_Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
@@ -2238,15 +2129,16 @@ public class GUI extends javax.swing.JFrame {
                 .addGroup(autofocusComponentsPanel_Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
                     .addComponent(autofocusMaxDisplacementSpinner_, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
                     .addComponent(autofocusMaxDisplacementLabel_, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE))
-                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
-                .addGroup(autofocusComponentsPanel_Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
-                    .addComponent(autofocusZLabel_)
-                    .addComponent(autofocusZDeviceComboBox_, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE))
-                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
-                .addGroup(autofocusComponentsPanel_Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
-                    .addComponent(autofocusInitialPositionSpinner_, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
-                    .addComponent(autofocusInitialPositionCheckBox_))
-                .addContainerGap(27, Short.MAX_VALUE))
+                .addGroup(autofocusComponentsPanel_Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING, false)
+                    .addGroup(autofocusComponentsPanel_Layout.createSequentialGroup()
+                        .addGap(12, 12, 12)
+                        .addComponent(autofocusModelLabel_))
+                    .addGroup(autofocusComponentsPanel_Layout.createSequentialGroup()
+                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                        .addGroup(autofocusComponentsPanel_Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
+                            .addComponent(loadModelAFButton_, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                            .addComponent(chosenModelAFLabel_))))
+                .addContainerGap(62, Short.MAX_VALUE))
         );
 
         javax.swing.GroupLayout autofocusTab_lLayout = new javax.swing.GroupLayout(autofocusTab_l);
@@ -2258,7 +2150,7 @@ public class GUI extends javax.swing.JFrame {
                 .addGroup(autofocusTab_lLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
                     .addComponent(useAutofocusCheckBox_)
                     .addComponent(autofocusComponentsPanel_, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE))
-                .addContainerGap(615, Short.MAX_VALUE))
+                .addContainerGap(593, Short.MAX_VALUE))
         );
         autofocusTab_lLayout.setVerticalGroup(
             autofocusTab_lLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
@@ -2267,214 +2159,10 @@ public class GUI extends javax.swing.JFrame {
                 .addComponent(useAutofocusCheckBox_)
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
                 .addComponent(autofocusComponentsPanel_, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
-                .addContainerGap(141, Short.MAX_VALUE))
+                .addContainerGap(146, Short.MAX_VALUE))
         );
 
-        acqTabbedPane_.addTab("Drift Compensation", autofocusTab_l);
-
-        filterMethodButtonGroup_.add(frameAverageRadioButton_);
-        frameAverageRadioButton_.setFont(new java.awt.Font("Tahoma", 0, 14)); // NOI18N
-        frameAverageRadioButton_.setSelected(true);
-        frameAverageRadioButton_.setText("Frame average");
-        frameAverageRadioButton_.addActionListener(new java.awt.event.ActionListener() {
-            public void actionPerformed(java.awt.event.ActionEvent evt) {
-                frameAverageRadioButton_ActionPerformed(evt);
-            }
-        });
-
-        filterMethodButtonGroup_.add(rankFilterRadioButton_);
-        rankFilterRadioButton_.setFont(new java.awt.Font("Tahoma", 0, 14)); // NOI18N
-        rankFilterRadioButton_.setText("Rank filter");
-        rankFilterRadioButton_.addActionListener(new java.awt.event.ActionListener() {
-            public void actionPerformed(java.awt.event.ActionEvent evt) {
-                rankFilterRadioButton_ActionPerformed(evt);
-            }
-        });
-
-        rankSpinner_.setFont(new java.awt.Font("Tahoma", 0, 14)); // NOI18N
-        rankSpinner_.setModel(new javax.swing.SpinnerNumberModel(0.95d, 0.0d, 1.0d, 0.01d));
-        rankSpinner_.addChangeListener(new javax.swing.event.ChangeListener() {
-            public void stateChanged(javax.swing.event.ChangeEvent evt) {
-                rankSpinner_StateChanged(evt);
-            }
-        });
-
-        jLabel9.setFont(new java.awt.Font("Tahoma", 0, 14)); // NOI18N
-        jLabel9.setText("Rank:");
-
-        ch0OffsetSpinner_.setFont(new java.awt.Font("Tahoma", 0, 14)); // NOI18N
-        ch0OffsetSpinner_.setModel(new javax.swing.SpinnerNumberModel());
-        ch0OffsetSpinner_.setValue(GlobalSettings.getInstance().getChannelOffset(0));
-        ch0OffsetSpinner_.addChangeListener(new javax.swing.event.ChangeListener() {
-            public void stateChanged(javax.swing.event.ChangeEvent evt) {
-                ch0OffsetSpinner_StateChanged(evt);
-            }
-        });
-
-        jLabel10.setFont(new java.awt.Font("Tahoma", 1, 11)); // NOI18N
-        jLabel10.setText("Image construction method");
-
-        offsetsLabel_.setFont(new java.awt.Font("Tahoma", 1, 11)); // NOI18N
-        offsetsLabel_.setText("Offsets");
-
-        ch0OffsetLabel_.setFont(new java.awt.Font("Tahoma", 0, 14)); // NOI18N
-        ch0OffsetLabel_.setText("Ch0");
-
-        ch1OffsetLabel_.setFont(new java.awt.Font("Tahoma", 0, 14)); // NOI18N
-        ch1OffsetLabel_.setText("Ch1");
-
-        ch1OffsetSpinner_.setFont(new java.awt.Font("Tahoma", 0, 14)); // NOI18N
-        ch1OffsetSpinner_.setModel(new javax.swing.SpinnerNumberModel());
-        ch1OffsetSpinner_.setValue(GlobalSettings.getInstance().getChannelOffset(1));
-        ch1OffsetSpinner_.addChangeListener(new javax.swing.event.ChangeListener() {
-            public void stateChanged(javax.swing.event.ChangeEvent evt) {
-                ch1OffsetSpinner_StateChanged(evt);
-            }
-        });
-
-        ch2OffsetLabel_.setFont(new java.awt.Font("Tahoma", 0, 14)); // NOI18N
-        ch2OffsetLabel_.setText("Ch2");
-
-        ch2OffsetSpinner_.setFont(new java.awt.Font("Tahoma", 0, 14)); // NOI18N
-        ch2OffsetSpinner_.setModel(new javax.swing.SpinnerNumberModel());
-        ch2OffsetSpinner_.setValue(GlobalSettings.getInstance().getChannelOffset(2));
-        ch2OffsetSpinner_.addChangeListener(new javax.swing.event.ChangeListener() {
-            public void stateChanged(javax.swing.event.ChangeEvent evt) {
-                ch2OffsetSpinner_StateChanged(evt);
-            }
-        });
-
-        ch3OffsetLabel_.setFont(new java.awt.Font("Tahoma", 0, 14)); // NOI18N
-        ch3OffsetLabel_.setText("Ch3");
-
-        ch3OffsetSpinner_.setFont(new java.awt.Font("Tahoma", 0, 14)); // NOI18N
-        ch3OffsetSpinner_.setModel(new javax.swing.SpinnerNumberModel());
-        ch3OffsetSpinner_.setValue(GlobalSettings.getInstance().getChannelOffset(3));
-        ch3OffsetSpinner_.addChangeListener(new javax.swing.event.ChangeListener() {
-            public void stateChanged(javax.swing.event.ChangeEvent evt) {
-                ch3OffsetSpinner_StateChanged(evt);
-            }
-        });
-
-        ch4OffsetLabel_.setFont(new java.awt.Font("Tahoma", 0, 14)); // NOI18N
-        ch4OffsetLabel_.setText("Ch4");
-
-        ch4OffsetSpinner_.setFont(new java.awt.Font("Tahoma", 0, 14)); // NOI18N
-        ch4OffsetSpinner_.setModel(new javax.swing.SpinnerNumberModel());
-        ch4OffsetSpinner_.setValue(GlobalSettings.getInstance().getChannelOffset(4));
-        ch4OffsetSpinner_.addChangeListener(new javax.swing.event.ChangeListener() {
-            public void stateChanged(javax.swing.event.ChangeEvent evt) {
-                ch4OffsetSpinner_StateChanged(evt);
-            }
-        });
-
-        ch5OffsetLabel_.setFont(new java.awt.Font("Tahoma", 0, 14)); // NOI18N
-        ch5OffsetLabel_.setText("Ch5");
-
-        ch5OffsetSpinner_.setFont(new java.awt.Font("Tahoma", 0, 14)); // NOI18N
-        ch5OffsetSpinner_.setModel(new javax.swing.SpinnerNumberModel());
-        ch5OffsetSpinner_.setValue(GlobalSettings.getInstance().getChannelOffset(5));
-        ch5OffsetSpinner_.addChangeListener(new javax.swing.event.ChangeListener() {
-            public void stateChanged(javax.swing.event.ChangeEvent evt) {
-                ch5OffsetSpinner_StateChanged(evt);
-            }
-        });
-
-        filterMethodButtonGroup_.add(frameSummationButton_);
-        frameSummationButton_.setFont(new java.awt.Font("Tahoma", 0, 14)); // NOI18N
-        frameSummationButton_.setText("Frame summation");
-        frameSummationButton_.addActionListener(new java.awt.event.ActionListener() {
-            public void actionPerformed(java.awt.event.ActionEvent evt) {
-                frameSummationButton_ActionPerformed(evt);
-            }
-        });
-
-        javax.swing.GroupLayout imageFilteringTab_Layout = new javax.swing.GroupLayout(imageFilteringTab_);
-        imageFilteringTab_.setLayout(imageFilteringTab_Layout);
-        imageFilteringTab_Layout.setHorizontalGroup(
-            imageFilteringTab_Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-            .addGroup(imageFilteringTab_Layout.createSequentialGroup()
-                .addContainerGap()
-                .addGroup(imageFilteringTab_Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-                    .addGroup(imageFilteringTab_Layout.createSequentialGroup()
-                        .addGroup(imageFilteringTab_Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-                            .addComponent(frameAverageRadioButton_)
-                            .addComponent(frameSummationButton_))
-                        .addGap(0, 817, Short.MAX_VALUE))
-                    .addGroup(imageFilteringTab_Layout.createSequentialGroup()
-                        .addGroup(imageFilteringTab_Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-                            .addComponent(jLabel10)
-                            .addComponent(rankFilterRadioButton_)
-                            .addGroup(imageFilteringTab_Layout.createSequentialGroup()
-                                .addGap(17, 17, 17)
-                                .addComponent(jLabel9)
-                                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
-                                .addComponent(rankSpinner_, javax.swing.GroupLayout.PREFERRED_SIZE, 72, javax.swing.GroupLayout.PREFERRED_SIZE)))
-                        .addGroup(imageFilteringTab_Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-                            .addGroup(imageFilteringTab_Layout.createSequentialGroup()
-                                .addGap(71, 71, 71)
-                                .addComponent(offsetsLabel_)
-                                .addGap(0, 683, Short.MAX_VALUE))
-                            .addGroup(imageFilteringTab_Layout.createSequentialGroup()
-                                .addGap(55, 55, 55)
-                                .addGroup(imageFilteringTab_Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING, false)
-                                    .addComponent(ch0OffsetLabel_)
-                                    .addComponent(ch1OffsetLabel_)
-                                    .addGroup(imageFilteringTab_Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-                                        .addComponent(ch5OffsetLabel_)
-                                        .addComponent(ch2OffsetLabel_, javax.swing.GroupLayout.Alignment.TRAILING))
-                                    .addComponent(ch4OffsetLabel_)
-                                    .addComponent(ch3OffsetLabel_))
-                                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
-                                .addGroup(imageFilteringTab_Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-                                    .addComponent(ch1OffsetSpinner_, javax.swing.GroupLayout.PREFERRED_SIZE, 46, javax.swing.GroupLayout.PREFERRED_SIZE)
-                                    .addComponent(ch2OffsetSpinner_, javax.swing.GroupLayout.PREFERRED_SIZE, 46, javax.swing.GroupLayout.PREFERRED_SIZE)
-                                    .addComponent(ch3OffsetSpinner_, javax.swing.GroupLayout.PREFERRED_SIZE, 46, javax.swing.GroupLayout.PREFERRED_SIZE)
-                                    .addComponent(ch5OffsetSpinner_, javax.swing.GroupLayout.PREFERRED_SIZE, 46, javax.swing.GroupLayout.PREFERRED_SIZE)
-                                    .addComponent(ch4OffsetSpinner_, javax.swing.GroupLayout.PREFERRED_SIZE, 46, javax.swing.GroupLayout.PREFERRED_SIZE)
-                                    .addComponent(ch0OffsetSpinner_, javax.swing.GroupLayout.PREFERRED_SIZE, 46, javax.swing.GroupLayout.PREFERRED_SIZE))
-                                .addGap(187, 658, Short.MAX_VALUE))))))
-        );
-        imageFilteringTab_Layout.setVerticalGroup(
-            imageFilteringTab_Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-            .addGroup(imageFilteringTab_Layout.createSequentialGroup()
-                .addContainerGap()
-                .addGroup(imageFilteringTab_Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
-                    .addComponent(jLabel10)
-                    .addComponent(offsetsLabel_))
-                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
-                .addGroup(imageFilteringTab_Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
-                    .addComponent(frameAverageRadioButton_)
-                    .addComponent(ch0OffsetSpinner_, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
-                    .addComponent(ch0OffsetLabel_))
-                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                .addGroup(imageFilteringTab_Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
-                    .addComponent(rankFilterRadioButton_)
-                    .addComponent(ch1OffsetSpinner_, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
-                    .addComponent(ch1OffsetLabel_))
-                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                .addGroup(imageFilteringTab_Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
-                    .addComponent(rankSpinner_, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
-                    .addComponent(jLabel9)
-                    .addComponent(ch2OffsetSpinner_, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
-                    .addComponent(ch2OffsetLabel_))
-                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                .addGroup(imageFilteringTab_Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
-                    .addComponent(ch3OffsetSpinner_, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
-                    .addComponent(ch3OffsetLabel_)
-                    .addComponent(frameSummationButton_))
-                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                .addGroup(imageFilteringTab_Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
-                    .addComponent(ch4OffsetSpinner_, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
-                    .addComponent(ch4OffsetLabel_))
-                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                .addGroup(imageFilteringTab_Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
-                    .addComponent(ch5OffsetSpinner_, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
-                    .addComponent(ch5OffsetLabel_))
-                .addContainerGap(145, Short.MAX_VALUE))
-        );
-
-        acqTabbedPane_.addTab("2Photon settings", imageFilteringTab_);
+        acqTabbedPane_.addTab("Autofocus", autofocusTab_l);
 
         runAcqButton_.setFont(new java.awt.Font("Tahoma", 0, 14)); // NOI18N
         runAcqButton_.setText("Run acquisition");
@@ -2551,13 +2239,7 @@ public class GUI extends javax.swing.JFrame {
                                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
                                 .addComponent(exploreTileOverlapSpinner_, javax.swing.GroupLayout.PREFERRED_SIZE, 65, javax.swing.GroupLayout.PREFERRED_SIZE)
                                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                                .addComponent(explorePercentLabel_)
-                                .addGap(12, 12, 12)
-                                .addComponent(exploreFrameAverageButton_)
-                                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                                .addComponent(exploreRankFilterButton_)
-                                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                                .addComponent(exploreRankSpinner_, javax.swing.GroupLayout.PREFERRED_SIZE, 56, javax.swing.GroupLayout.PREFERRED_SIZE))
+                                .addComponent(explorePercentLabel_))
                             .addGroup(splitPaneBottomPanel_Layout.createSequentialGroup()
                                 .addComponent(exploreSavingNameLabel_)
                                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
@@ -2617,10 +2299,7 @@ public class GUI extends javax.swing.JFrame {
                     .addComponent(exploreChannelGroupCombo_, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
                     .addComponent(exploreOverlapLabel_)
                     .addComponent(exploreTileOverlapSpinner_, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
-                    .addComponent(explorePercentLabel_)
-                    .addComponent(exploreFrameAverageButton_)
-                    .addComponent(exploreRankFilterButton_)
-                    .addComponent(exploreRankSpinner_, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE))
+                    .addComponent(explorePercentLabel_))
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
                 .addGroup(splitPaneBottomPanel_Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
                     .addComponent(exploreSavingNameTextField_, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
@@ -2674,119 +2353,9 @@ public class GUI extends javax.swing.JFrame {
    private void newExploreWindowButton_ActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_newExploreWindowButton_ActionPerformed
        ExploreAcqSettings settings = new ExploreAcqSettings(
                ((Number) exploreZStepSpinner_.getValue()).doubleValue(), (Double) exploreTileOverlapSpinner_.getValue(),
-               globalSavingDirTextField_.getText(), exploreSavingNameTextField_.getText(), exploreFrameAverageButton_.isSelected()
-               ? FrameIntegrationMethod.FRAME_AVERAGE : FrameIntegrationMethod.RANK_FILTER, ((Number) exploreRankSpinner_.getValue()).doubleValue(),
-               (String) exploreChannelGroupCombo_.getSelectedItem());
+               globalSavingDirTextField_.getText(), exploreSavingNameTextField_.getText(), (String) exploreChannelGroupCombo_.getSelectedItem());
        eng_.runExploreAcquisition(settings);
    }//GEN-LAST:event_newExploreWindowButton_ActionPerformed
-
-   private void autofocusChannelCombo_ActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_autofocusChannelCombo_ActionPerformed
-       acquisitionSettingsChanged();
-   }//GEN-LAST:event_autofocusChannelCombo_ActionPerformed
-
-   private void ChannelGroupCombo_ActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_ChannelGroupCombo_ActionPerformed
-      ((SimpleChannelTableModel) channelsTable_.getModel()).setChannelGroup((String) ChannelGroupCombo_.getSelectedItem());
-      ((SimpleChannelTableModel) channelsTable_.getModel()).fireTableDataChanged();
-      acquisitionSettingsChanged();
-   }//GEN-LAST:event_ChannelGroupCombo_ActionPerformed
-
-   private void zStepSpinner_StateChanged(javax.swing.event.ChangeEvent evt) {//GEN-FIRST:event_zStepSpinner_StateChanged
-       acquisitionSettingsChanged();
-   }//GEN-LAST:event_zStepSpinner_StateChanged
-
-   private void checkBox2D_ActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_checkBox2D_ActionPerformed
-       if (checkBox2D_.isSelected()) {
-           checkBox3D_.setSelected(false);
-       }
-       enableAcquisitionComponentsAsNeeded();
-       acquisitionSettingsChanged();
-   }//GEN-LAST:event_checkBox2D_ActionPerformed
-
-   private void checkBox3D_ActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_checkBox3D_ActionPerformed
-       if (checkBox3D_.isSelected()) {
-           checkBox2D_.setSelected(false);
-       }
-       if ((!simpleZStackRadioButton_.isSelected()) && (!volumeBetweenSurfacesRadioButton_.isSelected())
-               && (!fixedDistanceFromSurfaceRadioButton_.isSelected())) {
-           simpleZStackRadioButton_.setSelected(true);
-       }
-       enableAcquisitionComponentsAsNeeded();
-       acquisitionSettingsChanged();
-   }//GEN-LAST:event_checkBox3D_ActionPerformed
-
-   private void footprint2DComboBox_ActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_footprint2DComboBox_ActionPerformed
-       acquisitionSettingsChanged();
-   }//GEN-LAST:event_footprint2DComboBox_ActionPerformed
-
-   private void distanceAboveFixedSurfaceSpinner_StateChanged(javax.swing.event.ChangeEvent evt) {//GEN-FIRST:event_distanceAboveFixedSurfaceSpinner_StateChanged
-       acquisitionSettingsChanged();
-   }//GEN-LAST:event_distanceAboveFixedSurfaceSpinner_StateChanged
-
-   private void distanceBelowFixedSurfaceSpinner_StateChanged(javax.swing.event.ChangeEvent evt) {//GEN-FIRST:event_distanceBelowFixedSurfaceSpinner_StateChanged
-       acquisitionSettingsChanged();
-   }//GEN-LAST:event_distanceBelowFixedSurfaceSpinner_StateChanged
-
-   private void fixedDistanceSurfaceComboBox_ActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_fixedDistanceSurfaceComboBox_ActionPerformed
-       acquisitionSettingsChanged();
-   }//GEN-LAST:event_fixedDistanceSurfaceComboBox_ActionPerformed
-
-   private void fixedDistanceFromSurfaceRadioButton_ActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_fixedDistanceFromSurfaceRadioButton_ActionPerformed
-       enableAcquisitionComponentsAsNeeded();
-       acquisitionSettingsChanged();
-   }//GEN-LAST:event_fixedDistanceFromSurfaceRadioButton_ActionPerformed
-
-   private void volumeBetweenFootprintCombo_ActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_volumeBetweenFootprintCombo_ActionPerformed
-       acquisitionSettingsChanged();
-   }//GEN-LAST:event_volumeBetweenFootprintCombo_ActionPerformed
-
-   private void bottomSurfaceCombo_ActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_bottomSurfaceCombo_ActionPerformed
-       acquisitionSettingsChanged();
-   }//GEN-LAST:event_bottomSurfaceCombo_ActionPerformed
-
-   private void topSurfaceCombo_ActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_topSurfaceCombo_ActionPerformed
-       acquisitionSettingsChanged();
-   }//GEN-LAST:event_topSurfaceCombo_ActionPerformed
-
-   private void volumeBetweenSurfacesRadioButton_ActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_volumeBetweenSurfacesRadioButton_ActionPerformed
-       enableAcquisitionComponentsAsNeeded();
-       acquisitionSettingsChanged();
-   }//GEN-LAST:event_volumeBetweenSurfacesRadioButton_ActionPerformed
-
-   private void zEndSpinner_StateChanged(javax.swing.event.ChangeEvent evt) {//GEN-FIRST:event_zEndSpinner_StateChanged
-       acquisitionSettingsChanged();
-   }//GEN-LAST:event_zEndSpinner_StateChanged
-
-   private void zStartSpinner_StateChanged(javax.swing.event.ChangeEvent evt) {//GEN-FIRST:event_zStartSpinner_StateChanged
-       acquisitionSettingsChanged();
-   }//GEN-LAST:event_zStartSpinner_StateChanged
-
-   private void simpleZStackFootprintCombo_ActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_simpleZStackFootprintCombo_ActionPerformed
-       acquisitionSettingsChanged();
-   }//GEN-LAST:event_simpleZStackFootprintCombo_ActionPerformed
-
-   private void simpleZStackRadioButton_ActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_simpleZStackRadioButton_ActionPerformed
-       enableAcquisitionComponentsAsNeeded();
-       acquisitionSettingsChanged();
-   }//GEN-LAST:event_simpleZStackRadioButton_ActionPerformed
-
-   private void timePointsCheckBox_ActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_timePointsCheckBox_ActionPerformed
-       for (Component c : timePointsPanel_.getComponents()) {
-           c.setEnabled(timePointsCheckBox_.isSelected());
-       }
-       acquisitionSettingsChanged();
-   }//GEN-LAST:event_timePointsCheckBox_ActionPerformed
-
-   private void timeIntervalSpinner_StateChanged(javax.swing.event.ChangeEvent evt) {//GEN-FIRST:event_timeIntervalSpinner_StateChanged
-       acquisitionSettingsChanged();
-   }//GEN-LAST:event_timeIntervalSpinner_StateChanged
-
-   private void numTimePointsSpinner_StateChanged(javax.swing.event.ChangeEvent evt) {//GEN-FIRST:event_numTimePointsSpinner_StateChanged
-       acquisitionSettingsChanged();
-   }//GEN-LAST:event_numTimePointsSpinner_StateChanged
-
-   private void timeIntevalUnitCombo_ActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_timeIntevalUnitCombo_ActionPerformed
-       acquisitionSettingsChanged();
-   }//GEN-LAST:event_timeIntevalUnitCombo_ActionPerformed
 
    private void deleteAllSurfacesButton_ActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_deleteAllSurfacesButton_ActionPerformed
        surfaceManager_.deleteAll();
@@ -2874,151 +2443,9 @@ public class GUI extends javax.swing.JFrame {
    private void exploreSavingNameTextField_ActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_exploreSavingNameTextField_ActionPerformed
    }//GEN-LAST:event_exploreSavingNameTextField_ActionPerformed
 
-   private void newParingButton_ActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_newParingButton_ActionPerformed
-       new PropertyPairCreationDialog(GUI.this, true);
-   }//GEN-LAST:event_newParingButton_ActionPerformed
-
-   private void addCovariedPairingValueButton_ActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_addCovariedPairingValueButton_ActionPerformed
-       ((CovariantPairValuesTableModel) covariantPairValuesTable_.getModel()).getPairing().addNewValuePairing();
-       ((CovariantPairValuesTableModel) covariantPairValuesTable_.getModel()).fireTableDataChanged();
-   }//GEN-LAST:event_addCovariedPairingValueButton_ActionPerformed
-
-   private void savePairingsButton_ActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_savePairingsButton_ActionPerformed
-       covariantPairManager_.saveAllPairings(this);
-   }//GEN-LAST:event_savePairingsButton_ActionPerformed
-
-   private void loadPairingsButton_ActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_loadPairingsButton_ActionPerformed
-       new Thread(new Runnable() {
-           @Override
-           public void run() {
-               covariantPairManager_.loadPairingsFile(GUI.this);
-           }
-       } ).start();     
-   }//GEN-LAST:event_loadPairingsButton_ActionPerformed
-
-   private void removePairingButtonActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_removePairingButtonActionPerformed
-       int newSelectionIndex = covariantPairingsTable_.getSelectedRow();
-       if (newSelectionIndex == covariantPairingsTable_.getRowCount() - 1) {
-           newSelectionIndex--;
-       }
-       covariantPairManager_.deletePair((CovariantPairing) ((CovariantPairingsTableModel) covariantPairingsTable_.getModel()).getValueAt(covariantPairingsTable_.getSelectedRow(), 1));
-       covariantPairingsTable_.getSelectionModel().setSelectionInterval(newSelectionIndex, newSelectionIndex);
-//       covariantPairingsTable_.valueChanged(new ListSelectionEvent(this, covariantPairingsTable_.getSelectedRow(),
-//               covariantPairingsTable_.getSelectedRow(), true));
-   }//GEN-LAST:event_removePairingButtonActionPerformed
-
-   private void deleteCovariedPairingValueButton_ActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_deleteCovariedPairingValueButton_ActionPerformed
-       int selectedRow = covariantPairValuesTable_.getSelectedRow();
-       if (selectedRow != -1) {
-           //finish editing so editor doesn't refer to a deleted row index
-           covariantPairValuesTable_.editingStopped(null);
-           covariantPairManager_.deleteValuePair(covariantPairingsTable_.getSelectedRow(), selectedRow);
-           ((CovariantPairValuesTableModel) covariantPairValuesTable_.getModel()).fireTableDataChanged();
-           //re add selection for quick serial deleting
-           if (covariantPairValuesTable_.getRowCount() > 0) {
-               if (selectedRow == covariantPairValuesTable_.getRowCount()) {
-                   covariantPairValuesTable_.setRowSelectionInterval(selectedRow - 1, selectedRow - 1);
-               } else {
-                   covariantPairValuesTable_.setRowSelectionInterval(selectedRow, selectedRow);
-               }
-           } 
-       }
-   }//GEN-LAST:event_deleteCovariedPairingValueButton_ActionPerformed
-
-   private void useAutofocusCheckBox_ActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_useAutofocusCheckBox_ActionPerformed
-       enableAcquisitionComponentsAsNeeded();
-       acquisitionSettingsChanged();
-   }//GEN-LAST:event_useAutofocusCheckBox_ActionPerformed
-
-   private void acqOverlapPercentSpinner_StateChanged(javax.swing.event.ChangeEvent evt) {//GEN-FIRST:event_acqOverlapPercentSpinner_StateChanged
-       acquisitionSettingsChanged();
-       //update any grids/surface shown
-       for (int i = 0; i < regionManager_.getNumberOfRegions(); i++) {
-           regionManager_.drawRegionOverlay(regionManager_.getRegion(i));
-       }
-
-       for (int i = 0; i < surfaceManager_.getNumberOfSurfaces(); i++) {
-           surfaceManager_.drawSurfaceOverlay(surfaceManager_.getSurface(i));
-       }
-   }//GEN-LAST:event_acqOverlapPercentSpinner_StateChanged
-
-   private void umAboveTopSurfaceSpinner_StateChanged(javax.swing.event.ChangeEvent evt) {//GEN-FIRST:event_umAboveTopSurfaceSpinner_StateChanged
-       acquisitionSettingsChanged();
-   }//GEN-LAST:event_umAboveTopSurfaceSpinner_StateChanged
-
-   private void umBelowBottomSurfaceSpinner_StateChanged(javax.swing.event.ChangeEvent evt) {//GEN-FIRST:event_umBelowBottomSurfaceSpinner_StateChanged
-       acquisitionSettingsChanged();
-   }//GEN-LAST:event_umBelowBottomSurfaceSpinner_StateChanged
-
-    private void autofocusZDeviceComboBox_ActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_autofocusZDeviceComboBox_ActionPerformed
-        acquisitionSettingsChanged();
-    }//GEN-LAST:event_autofocusZDeviceComboBox_ActionPerformed
-
-    private void autofocusMaxDisplacementSpinner_StateChanged(javax.swing.event.ChangeEvent evt) {//GEN-FIRST:event_autofocusMaxDisplacementSpinner_StateChanged
-        acquisitionSettingsChanged();
-    }//GEN-LAST:event_autofocusMaxDisplacementSpinner_StateChanged
-
-   private void autofocusInitialPositionSpinner_StateChanged(javax.swing.event.ChangeEvent evt) {//GEN-FIRST:event_autofocusInitialPositionSpinner_StateChanged
-       acquisitionSettingsChanged();
-   }//GEN-LAST:event_autofocusInitialPositionSpinner_StateChanged
-
-   private void autofocusInitialPositionCheckBox_ActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_autofocusInitialPositionCheckBox_ActionPerformed
-       enableAcquisitionComponentsAsNeeded();
-       acquisitionSettingsChanged();
-   }//GEN-LAST:event_autofocusInitialPositionCheckBox_ActionPerformed
-
    private void jButton1ActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_jButton1ActionPerformed
        new AffineGUI();
    }//GEN-LAST:event_jButton1ActionPerformed
-
-   private void rankFilterRadioButton_ActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_rankFilterRadioButton_ActionPerformed
-       acquisitionSettingsChanged();
-   }//GEN-LAST:event_rankFilterRadioButton_ActionPerformed
-
-   private void exploreRankFilterButton_ActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_exploreRankFilterButton_ActionPerformed
-   }//GEN-LAST:event_exploreRankFilterButton_ActionPerformed
-
-   private void ch0OffsetSpinner_StateChanged(javax.swing.event.ChangeEvent evt) {//GEN-FIRST:event_ch0OffsetSpinner_StateChanged
-       validateChannelOffsets();
-       settings_.channelOffsetChanged();
-   }//GEN-LAST:event_ch0OffsetSpinner_StateChanged
-
-   private void ch1OffsetSpinner_StateChanged(javax.swing.event.ChangeEvent evt) {//GEN-FIRST:event_ch1OffsetSpinner_StateChanged
-       validateChannelOffsets();
-       settings_.channelOffsetChanged();
-   }//GEN-LAST:event_ch1OffsetSpinner_StateChanged
-
-   private void ch2OffsetSpinner_StateChanged(javax.swing.event.ChangeEvent evt) {//GEN-FIRST:event_ch2OffsetSpinner_StateChanged
-       validateChannelOffsets();
-       settings_.channelOffsetChanged();
-   }//GEN-LAST:event_ch2OffsetSpinner_StateChanged
-
-   private void ch3OffsetSpinner_StateChanged(javax.swing.event.ChangeEvent evt) {//GEN-FIRST:event_ch3OffsetSpinner_StateChanged
-       validateChannelOffsets();
-       settings_.channelOffsetChanged();
-   }//GEN-LAST:event_ch3OffsetSpinner_StateChanged
-
-   private void ch4OffsetSpinner_StateChanged(javax.swing.event.ChangeEvent evt) {//GEN-FIRST:event_ch4OffsetSpinner_StateChanged
-       validateChannelOffsets();
-       settings_.channelOffsetChanged();
-   }//GEN-LAST:event_ch4OffsetSpinner_StateChanged
-
-   private void ch5OffsetSpinner_StateChanged(javax.swing.event.ChangeEvent evt) {//GEN-FIRST:event_ch5OffsetSpinner_StateChanged
-       validateChannelOffsets();
-       settings_.channelOffsetChanged();
-   }//GEN-LAST:event_ch5OffsetSpinner_StateChanged
-
-    private void frameAverageRadioButton_ActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_frameAverageRadioButton_ActionPerformed
-       acquisitionSettingsChanged();
-    }//GEN-LAST:event_frameAverageRadioButton_ActionPerformed
-
-    private void rankSpinner_StateChanged(javax.swing.event.ChangeEvent evt) {//GEN-FIRST:event_rankSpinner_StateChanged
-        acquisitionSettingsChanged();
-    }//GEN-LAST:event_rankSpinner_StateChanged
-
-    private void frameSummationButton_ActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_frameSummationButton_ActionPerformed
-       acquisitionSettingsChanged();
-    }//GEN-LAST:event_frameSummationButton_ActionPerformed
 
    private void openDatasetButton_ActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_openDatasetButton_ActionPerformed
        File selectedFile = null;
@@ -3075,22 +2502,251 @@ public class GUI extends javax.swing.JFrame {
       regionManager_.saveRegions(this);
    }//GEN-LAST:event_saveButton_ActionPerformed
 
-   private void withinDistanceFromFootprintCombo_ActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_withinDistanceFromFootprintCombo_ActionPerformed
-      acquisitionSettingsChanged();
-   }//GEN-LAST:event_withinDistanceFromFootprintCombo_ActionPerformed
+    private void autofocusChannelCombo_ActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_autofocusChannelCombo_ActionPerformed
+        acquisitionSettingsChanged();
+    }//GEN-LAST:event_autofocusChannelCombo_ActionPerformed
 
-   private void acqOrderCombo_ActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_acqOrderCombo_ActionPerformed
-      acquisitionSettingsChanged();
-   }//GEN-LAST:event_acqOrderCombo_ActionPerformed
+    private void autofocusMaxDisplacementSpinner_StateChanged(javax.swing.event.ChangeEvent evt) {//GEN-FIRST:event_autofocusMaxDisplacementSpinner_StateChanged
+        acquisitionSettingsChanged();
+    }//GEN-LAST:event_autofocusMaxDisplacementSpinner_StateChanged
 
-   private void collectionPlaneCombo_ActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_collectionPlaneCombo_ActionPerformed
-      acquisitionSettingsChanged();
-   }//GEN-LAST:event_collectionPlaneCombo_ActionPerformed
+    private void useAutofocusCheckBox_ActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_useAutofocusCheckBox_ActionPerformed
+        enableAcquisitionComponentsAsNeeded();
+        acquisitionSettingsChanged();
+    }//GEN-LAST:event_useAutofocusCheckBox_ActionPerformed
 
-   private void collectionPlaneCheckBox_ActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_collectionPlaneCheckBox_ActionPerformed
-       enableAcquisitionComponentsAsNeeded();
-       acquisitionSettingsChanged();
-   }//GEN-LAST:event_collectionPlaneCheckBox_ActionPerformed
+    private void deleteCovariedPairingValueButton_ActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_deleteCovariedPairingValueButton_ActionPerformed
+        int selectedRow = covariantPairValuesTable_.getSelectedRow();
+        if (selectedRow != -1) {
+            //finish editing so editor doesn't refer to a deleted row index
+            covariantPairValuesTable_.editingStopped(null);
+            covariantPairManager_.deleteValuePair(covariantPairingsTable_.getSelectedRow(), selectedRow);
+            ((CovariantPairValuesTableModel) covariantPairValuesTable_.getModel()).fireTableDataChanged();
+            //re add selection for quick serial deleting
+            if (covariantPairValuesTable_.getRowCount() > 0) {
+                if (selectedRow == covariantPairValuesTable_.getRowCount()) {
+                    covariantPairValuesTable_.setRowSelectionInterval(selectedRow - 1, selectedRow - 1);
+                } else {
+                    covariantPairValuesTable_.setRowSelectionInterval(selectedRow, selectedRow);
+                }
+            }
+        }
+    }//GEN-LAST:event_deleteCovariedPairingValueButton_ActionPerformed
+
+    private void addCovariedPairingValueButton_ActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_addCovariedPairingValueButton_ActionPerformed
+        ((CovariantPairValuesTableModel) covariantPairValuesTable_.getModel()).getPairing().addNewValuePairing();
+        ((CovariantPairValuesTableModel) covariantPairValuesTable_.getModel()).fireTableDataChanged();
+    }//GEN-LAST:event_addCovariedPairingValueButton_ActionPerformed
+
+    private void loadPairingsButton_ActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_loadPairingsButton_ActionPerformed
+        new Thread(new Runnable() {
+            @Override
+            public void run() {
+                covariantPairManager_.loadPairingsFile(GUI.this);
+            }
+        } ).start();
+    }//GEN-LAST:event_loadPairingsButton_ActionPerformed
+
+    private void savePairingsButton_ActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_savePairingsButton_ActionPerformed
+        covariantPairManager_.saveAllPairings(this);
+    }//GEN-LAST:event_savePairingsButton_ActionPerformed
+
+    private void removePairingButtonActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_removePairingButtonActionPerformed
+        int newSelectionIndex = covariantPairingsTable_.getSelectedRow();
+        if (newSelectionIndex == covariantPairingsTable_.getRowCount() - 1) {
+            newSelectionIndex--;
+        }
+        covariantPairManager_.deletePair((CovariantPairing) ((CovariantPairingsTableModel) covariantPairingsTable_.getModel()).getValueAt(covariantPairingsTable_.getSelectedRow(), 1));
+        covariantPairingsTable_.getSelectionModel().setSelectionInterval(newSelectionIndex, newSelectionIndex);
+        //       covariantPairingsTable_.valueChanged(new ListSelectionEvent(this, covariantPairingsTable_.getSelectedRow(),
+            //               covariantPairingsTable_.getSelectedRow(), true));
+    }//GEN-LAST:event_removePairingButtonActionPerformed
+
+    private void newParingButton_ActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_newParingButton_ActionPerformed
+        new PropertyPairCreationDialog(GUI.this, true);
+    }//GEN-LAST:event_newParingButton_ActionPerformed
+
+    private void ChannelGroupCombo_ActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_ChannelGroupCombo_ActionPerformed
+        ((SimpleChannelTableModel) channelsTable_.getModel()).setChannelGroup((String) ChannelGroupCombo_.getSelectedItem());
+        ((SimpleChannelTableModel) channelsTable_.getModel()).fireTableDataChanged();
+        acquisitionSettingsChanged();
+    }//GEN-LAST:event_ChannelGroupCombo_ActionPerformed
+
+    private void acqOrderCombo_ActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_acqOrderCombo_ActionPerformed
+        acquisitionSettingsChanged();
+    }//GEN-LAST:event_acqOrderCombo_ActionPerformed
+
+    private void acqOverlapPercentSpinner_StateChanged(javax.swing.event.ChangeEvent evt) {//GEN-FIRST:event_acqOverlapPercentSpinner_StateChanged
+        acquisitionSettingsChanged();
+        //update any grids/surface shown
+        for (int i = 0; i < regionManager_.getNumberOfRegions(); i++) {
+            regionManager_.drawRegionOverlay(regionManager_.getRegion(i));
+        }
+
+        for (int i = 0; i < surfaceManager_.getNumberOfSurfaces(); i++) {
+            surfaceManager_.drawSurfaceOverlay(surfaceManager_.getSurface(i));
+        }
+    }//GEN-LAST:event_acqOverlapPercentSpinner_StateChanged
+
+    private void zStepSpinner_StateChanged(javax.swing.event.ChangeEvent evt) {//GEN-FIRST:event_zStepSpinner_StateChanged
+        acquisitionSettingsChanged();
+    }//GEN-LAST:event_zStepSpinner_StateChanged
+
+    private void checkBox2D_ActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_checkBox2D_ActionPerformed
+        if (checkBox2D_.isSelected()) {
+            checkBox3D_.setSelected(false);
+        }
+        enableAcquisitionComponentsAsNeeded();
+        acquisitionSettingsChanged();
+    }//GEN-LAST:event_checkBox2D_ActionPerformed
+
+    private void checkBox3D_ActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_checkBox3D_ActionPerformed
+        if (checkBox3D_.isSelected()) {
+            checkBox2D_.setSelected(false);
+        }
+        if ((!simpleZStackRadioButton_.isSelected()) && (!volumeBetweenSurfacesRadioButton_.isSelected())
+            && (!fixedDistanceFromSurfaceRadioButton_.isSelected())) {
+            simpleZStackRadioButton_.setSelected(true);
+        }
+        enableAcquisitionComponentsAsNeeded();
+        acquisitionSettingsChanged();
+    }//GEN-LAST:event_checkBox3D_ActionPerformed
+
+    private void collectionPlaneCheckBox_ActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_collectionPlaneCheckBox_ActionPerformed
+        enableAcquisitionComponentsAsNeeded();
+        acquisitionSettingsChanged();
+    }//GEN-LAST:event_collectionPlaneCheckBox_ActionPerformed
+
+    private void collectionPlaneCombo_ActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_collectionPlaneCombo_ActionPerformed
+        acquisitionSettingsChanged();
+    }//GEN-LAST:event_collectionPlaneCombo_ActionPerformed
+
+    private void footprint2DComboBox_ActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_footprint2DComboBox_ActionPerformed
+        acquisitionSettingsChanged();
+    }//GEN-LAST:event_footprint2DComboBox_ActionPerformed
+
+    private void withinDistanceFromFootprintCombo_ActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_withinDistanceFromFootprintCombo_ActionPerformed
+        acquisitionSettingsChanged();
+    }//GEN-LAST:event_withinDistanceFromFootprintCombo_ActionPerformed
+
+    private void fixedDistanceSurfaceComboBox_ActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_fixedDistanceSurfaceComboBox_ActionPerformed
+        acquisitionSettingsChanged();
+    }//GEN-LAST:event_fixedDistanceSurfaceComboBox_ActionPerformed
+
+    private void distanceAboveFixedSurfaceSpinner_StateChanged(javax.swing.event.ChangeEvent evt) {//GEN-FIRST:event_distanceAboveFixedSurfaceSpinner_StateChanged
+        acquisitionSettingsChanged();
+    }//GEN-LAST:event_distanceAboveFixedSurfaceSpinner_StateChanged
+
+    private void distanceBelowFixedSurfaceSpinner_StateChanged(javax.swing.event.ChangeEvent evt) {//GEN-FIRST:event_distanceBelowFixedSurfaceSpinner_StateChanged
+        acquisitionSettingsChanged();
+    }//GEN-LAST:event_distanceBelowFixedSurfaceSpinner_StateChanged
+
+    private void fixedDistanceFromSurfaceRadioButton_ActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_fixedDistanceFromSurfaceRadioButton_ActionPerformed
+        enableAcquisitionComponentsAsNeeded();
+        acquisitionSettingsChanged();
+    }//GEN-LAST:event_fixedDistanceFromSurfaceRadioButton_ActionPerformed
+
+    private void umBelowBottomSurfaceSpinner_StateChanged(javax.swing.event.ChangeEvent evt) {//GEN-FIRST:event_umBelowBottomSurfaceSpinner_StateChanged
+        acquisitionSettingsChanged();
+    }//GEN-LAST:event_umBelowBottomSurfaceSpinner_StateChanged
+
+    private void umAboveTopSurfaceSpinner_StateChanged(javax.swing.event.ChangeEvent evt) {//GEN-FIRST:event_umAboveTopSurfaceSpinner_StateChanged
+        acquisitionSettingsChanged();
+    }//GEN-LAST:event_umAboveTopSurfaceSpinner_StateChanged
+
+    private void volumeBetweenFootprintCombo_ActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_volumeBetweenFootprintCombo_ActionPerformed
+        acquisitionSettingsChanged();
+    }//GEN-LAST:event_volumeBetweenFootprintCombo_ActionPerformed
+
+    private void bottomSurfaceCombo_ActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_bottomSurfaceCombo_ActionPerformed
+        acquisitionSettingsChanged();
+    }//GEN-LAST:event_bottomSurfaceCombo_ActionPerformed
+
+    private void topSurfaceCombo_ActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_topSurfaceCombo_ActionPerformed
+        acquisitionSettingsChanged();
+    }//GEN-LAST:event_topSurfaceCombo_ActionPerformed
+
+    private void volumeBetweenSurfacesRadioButton_ActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_volumeBetweenSurfacesRadioButton_ActionPerformed
+        enableAcquisitionComponentsAsNeeded();
+        acquisitionSettingsChanged();
+    }//GEN-LAST:event_volumeBetweenSurfacesRadioButton_ActionPerformed
+
+    private void zEndSpinner_StateChanged(javax.swing.event.ChangeEvent evt) {//GEN-FIRST:event_zEndSpinner_StateChanged
+        acquisitionSettingsChanged();
+    }//GEN-LAST:event_zEndSpinner_StateChanged
+
+    private void zStartSpinner_StateChanged(javax.swing.event.ChangeEvent evt) {//GEN-FIRST:event_zStartSpinner_StateChanged
+        acquisitionSettingsChanged();
+    }//GEN-LAST:event_zStartSpinner_StateChanged
+
+    private void simpleZStackFootprintCombo_ActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_simpleZStackFootprintCombo_ActionPerformed
+        acquisitionSettingsChanged();
+    }//GEN-LAST:event_simpleZStackFootprintCombo_ActionPerformed
+
+    private void simpleZStackRadioButton_ActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_simpleZStackRadioButton_ActionPerformed
+        enableAcquisitionComponentsAsNeeded();
+        acquisitionSettingsChanged();
+    }//GEN-LAST:event_simpleZStackRadioButton_ActionPerformed
+
+    private void timePointsCheckBox_ActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_timePointsCheckBox_ActionPerformed
+        for (Component c : timePointsPanel_.getComponents()) {
+            c.setEnabled(timePointsCheckBox_.isSelected());
+        }
+        acquisitionSettingsChanged();
+    }//GEN-LAST:event_timePointsCheckBox_ActionPerformed
+
+    private void timeIntervalSpinner_StateChanged(javax.swing.event.ChangeEvent evt) {//GEN-FIRST:event_timeIntervalSpinner_StateChanged
+        acquisitionSettingsChanged();
+    }//GEN-LAST:event_timeIntervalSpinner_StateChanged
+
+    private void numTimePointsSpinner_StateChanged(javax.swing.event.ChangeEvent evt) {//GEN-FIRST:event_numTimePointsSpinner_StateChanged
+        acquisitionSettingsChanged();
+    }//GEN-LAST:event_numTimePointsSpinner_StateChanged
+
+    private void timeIntevalUnitCombo_ActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_timeIntevalUnitCombo_ActionPerformed
+        acquisitionSettingsChanged();
+    }//GEN-LAST:event_timeIntevalUnitCombo_ActionPerformed
+
+    private void loadModelAFButton_ActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_loadModelAFButton_ActionPerformed
+           File selectedFile = null;
+      if (JavaUtils.isMac()) {
+         System.setProperty("apple.awt.fileDialogForDirectories", "true");
+         FileDialog fd = new FileDialog(this, "Select Magellan dataset to load", FileDialog.LOAD);
+
+         fd.setVisible(true);
+         if (fd.getFile() != null) {
+            selectedFile = new File(fd.getDirectory() + File.separator + fd.getFile());
+            selectedFile = new File(selectedFile.getAbsolutePath());
+         }
+         fd.dispose();
+         System.setProperty("apple.awt.fileDialogForDirectories", "false");
+      } else {
+         JFileChooser fc = new JFileChooser(globalSavingDirTextField_.getText());
+         fc.setFileSelectionMode(JFileChooser.DIRECTORIES_ONLY);
+         fc.setDialogTitle("Select Magellan dataset to load");
+         int returnVal = fc.showOpenDialog(this);
+         if (returnVal == JFileChooser.APPROVE_OPTION) {
+            selectedFile = fc.getSelectedFile();
+         }
+      }
+      if (selectedFile == null) {
+         return; //canceled
+      }
+      final File finalFile = selectedFile;
+      new Thread(new Runnable() {
+         @Override
+         public void run() {
+            SingleShotAutofocus af = SingleShotAutofocus.getInstance();
+            try {
+                af.loadModel(finalFile);
+            } catch (Exception e) {
+                Log.log(e);
+            }
+            chosenModelAFLabel_.setText(af.getModelName());
+         }
+      }).start();
+      
+    }//GEN-LAST:event_loadModelAFButton_ActionPerformed
 
     // Variables declaration - do not modify//GEN-BEGIN:variables
     private javax.swing.JComboBox ChannelGroupCombo_;
@@ -3104,31 +2760,17 @@ public class GUI extends javax.swing.JFrame {
     private javax.swing.JButton addCovariedPairingValueButton_;
     private javax.swing.JComboBox autofocusChannelCombo_;
     private javax.swing.JPanel autofocusComponentsPanel_;
-    private javax.swing.JCheckBox autofocusInitialPositionCheckBox_;
-    private javax.swing.JSpinner autofocusInitialPositionSpinner_;
     private javax.swing.JLabel autofocusMaxDisplacementLabel_;
     private javax.swing.JSpinner autofocusMaxDisplacementSpinner_;
+    private javax.swing.JLabel autofocusModelLabel_;
     private javax.swing.JPanel autofocusTab_l;
-    private javax.swing.JComboBox autofocusZDeviceComboBox_;
-    private javax.swing.JLabel autofocusZLabel_;
     private javax.swing.JComboBox bottomSurfaceCombo_;
     private javax.swing.JLabel bottomSurfaceLabel_;
-    private javax.swing.JLabel ch0OffsetLabel_;
-    private javax.swing.JSpinner ch0OffsetSpinner_;
-    private javax.swing.JLabel ch1OffsetLabel_;
-    private javax.swing.JSpinner ch1OffsetSpinner_;
-    private javax.swing.JLabel ch2OffsetLabel_;
-    private javax.swing.JSpinner ch2OffsetSpinner_;
-    private javax.swing.JLabel ch3OffsetLabel_;
-    private javax.swing.JSpinner ch3OffsetSpinner_;
-    private javax.swing.JLabel ch4OffsetLabel_;
-    private javax.swing.JSpinner ch4OffsetSpinner_;
-    private javax.swing.JLabel ch5OffsetLabel_;
-    private javax.swing.JSpinner ch5OffsetSpinner_;
     private javax.swing.JLabel channelGroupLabel_;
     private javax.swing.JTable channelsTable_;
     private javax.swing.JCheckBox checkBox2D_;
     private javax.swing.JCheckBox checkBox3D_;
+    private javax.swing.JLabel chosenModelAFLabel_;
     private javax.swing.JLabel citeLink_;
     private javax.swing.JCheckBox collectionPlaneCheckBox_;
     private javax.swing.JComboBox collectionPlaneCombo_;
@@ -3155,11 +2797,8 @@ public class GUI extends javax.swing.JFrame {
     private javax.swing.JButton exploreBrowseButton_;
     private javax.swing.JComboBox exploreChannelGroupCombo_;
     private javax.swing.ButtonGroup exploreFilterMethodButtonGroup_;
-    private javax.swing.JRadioButton exploreFrameAverageButton_;
     private javax.swing.JLabel exploreOverlapLabel_;
     private javax.swing.JLabel explorePercentLabel_;
-    private javax.swing.JRadioButton exploreRankFilterButton_;
-    private javax.swing.JSpinner exploreRankSpinner_;
     private javax.swing.JLabel exploreSampleLabel_;
     private javax.swing.JLabel exploreSavingDirLabel_;
     private javax.swing.JLabel exploreSavingNameLabel_;
@@ -3174,17 +2813,13 @@ public class GUI extends javax.swing.JFrame {
     private javax.swing.JLabel fixedSurfaceLabel_;
     private javax.swing.JLabel footprin2DLabel_;
     private javax.swing.JComboBox footprint2DComboBox_;
-    private javax.swing.JRadioButton frameAverageRadioButton_;
-    private javax.swing.JRadioButton frameSummationButton_;
     private javax.swing.JTextField globalSavingDirTextField_;
     private javax.swing.JTable gridTable_;
     private javax.swing.JPanel gridsPanel_;
     private javax.swing.JButton helpButton_;
-    private javax.swing.JPanel imageFilteringTab_;
     private javax.swing.JButton intereaveButton_;
     private javax.swing.JButton jButton1;
     private javax.swing.JLabel jLabel1;
-    private javax.swing.JLabel jLabel10;
     private javax.swing.JLabel jLabel11;
     private javax.swing.JLabel jLabel12;
     private javax.swing.JLabel jLabel2;
@@ -3193,12 +2828,12 @@ public class GUI extends javax.swing.JFrame {
     private javax.swing.JLabel jLabel6;
     private javax.swing.JLabel jLabel7;
     private javax.swing.JLabel jLabel8;
-    private javax.swing.JLabel jLabel9;
     private javax.swing.JPanel jPanel1;
     private javax.swing.JScrollPane jScrollPane1;
     private javax.swing.JScrollPane jScrollPane2;
     private javax.swing.JScrollPane jScrollPane3;
     private javax.swing.JButton loadButton_;
+    private javax.swing.JButton loadModelAFButton_;
     private javax.swing.JButton loadPairingsButton_;
     private javax.swing.JButton loadSurfacesButton_;
     private javax.swing.JButton moveAcqDownButton_;
@@ -3210,13 +2845,10 @@ public class GUI extends javax.swing.JFrame {
     private javax.swing.JButton newParingButton_;
     private javax.swing.JLabel numTimePointsLabel_;
     private javax.swing.JSpinner numTimePointsSpinner_;
-    private javax.swing.JLabel offsetsLabel_;
     private javax.swing.JButton openDatasetButton_;
     private javax.swing.JPanel panel2D_;
     private javax.swing.JScrollPane propertyPairValuesScrollpane_;
     private javax.swing.JScrollPane propertyPairingsScrollpane_;
-    private javax.swing.JRadioButton rankFilterRadioButton_;
-    private javax.swing.JSpinner rankSpinner_;
     private javax.swing.JButton removeAcqButton_;
     private javax.swing.JButton removePairingButton;
     private javax.swing.JButton runAcqButton_;

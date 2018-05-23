@@ -28,8 +28,6 @@ import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.TimeUnit;
 import java.awt.geom.Point2D;
-import main.java.org.micromanager.plugins.magellan.autofocus.CrossCorrelationAutofocus;
-import main.java.org.micromanager.plugins.magellan.bidc.JavaLayerImageConstructor;
 import main.java.org.micromanager.plugins.magellan.coordinates.AffineUtils;
 import main.java.org.micromanager.plugins.magellan.coordinates.XYStagePosition;
 import main.java.org.micromanager.plugins.magellan.json.JSONArray;
@@ -61,14 +59,14 @@ public class FixedAreaAcquisition extends Acquisition implements SurfaceChangedL
    //executor service to wait for next execution
    final private ScheduledExecutorService waitForNextTPSerivice_ = Executors.newScheduledThreadPool(1);
    final private ExecutorService eventGenerator_;
-   final private CrossCorrelationAutofocus autofocus_;
    private int maxSliceIndex_ = 0, minSliceIndex_ = 0;
    private double zOrigin_;
    private final boolean towardsSampleIsPositive_;
    private volatile boolean acqSettingsUpdated_ = false;
    private volatile boolean tpImagesFinishedWriting_ = false;
    private final Object tpFinishedLockObject_ = new Object();
-
+   private volatile double afCorrection_ = 0;
+   
    /**
     * Acquisition with fixed XY positions (although they can potentially all be
     * translated between time points Supports time points Z stacks that can
@@ -108,15 +106,6 @@ public class FixedAreaAcquisition extends Acquisition implements SurfaceChangedL
       setupXYPositions();
       initialize(settings.dir_, settings.name_, settings.tileOverlap_);
       createEventGenerator();
-      if (settings_.autofocusEnabled_) {
-         //convert channel name to channel index
-         int cIndex = getAutofocusChannelIndex();
-         autofocus_ = new CrossCorrelationAutofocus(this, cIndex, settings_.autofocusMaxDisplacemnet_um_,
-                 settings_.setInitialAutofocusPosition_ ? settings_.initialAutofocusPosition_
-                         : Magellan.getCore().getPosition(settings_.autoFocusZDevice_));
-      } else {
-         autofocus_ = null;
-      }
    }
 
    @Override
@@ -162,8 +151,8 @@ public class FixedAreaAcquisition extends Acquisition implements SurfaceChangedL
          } else {
             //no space mode, use current stage positon
             positions_ = new ArrayList<XYStagePosition>();
-            int fullTileWidth = JavaLayerImageConstructor.getInstance().getImageWidth();
-            int fullTileHeight = JavaLayerImageConstructor.getInstance().getImageHeight();
+            int fullTileWidth = (int) Magellan.getCore().getImageWidth();
+            int fullTileHeight = (int) Magellan.getCore().getImageHeight();
             int tileWidthMinusOverlap = fullTileWidth - this.getOverlapX();
             int tileHeightMinusOverlap = fullTileHeight - this.getOverlapY();
             Point2D.Double currentStagePos = Magellan.getCore().getXYStagePosition(xyStage_);
@@ -182,7 +171,7 @@ public class FixedAreaAcquisition extends Acquisition implements SurfaceChangedL
       String[] activeChannelNames = channels_.getActiveChannelNames();
       for (String name : activeChannelNames) {
          if (name.equals(settings_.autofocusChannelName_)) {
-            Log.log("Autofocus channel index: " + index, true);
+//            Log.log("Autofocus channel index: " + index, true);
             return index;
          }
          index++;
@@ -208,7 +197,19 @@ public class FixedAreaAcquisition extends Acquisition implements SurfaceChangedL
    public double getTimeInterval_ms() {
       return settings_.timePointInterval_ * (settings_.timeIntervalUnit_ == 1 ? 1000 : (settings_.timeIntervalUnit_ == 2 ? 60000 : 1));
    }
+   
+   public double getAFMaxDisplacement() {
+       return settings_.autofocusMaxDisplacemnet_um_;
+   }
 
+   public void setAFCorrection(double val) {
+       afCorrection_ = val;
+   }
+   
+   public double getAFCorrection() {
+       return afCorrection_;
+   }
+   
    public long getNumRows() {
       long maxIndex = 0;
       synchronized (positions_) {
@@ -356,15 +357,6 @@ public class FixedAreaAcquisition extends Acquisition implements SurfaceChangedL
                      throw new InterruptedException();
                   }
 
-                  //set autofocus position
-                  if (settings_.autofocusEnabled_ && timeIndex > 1) { //read it from settings so that you can turn it off during acq                    
-                     Log.log(getName() + "Setting AF position", true);
-                     events_.put(AcquisitionEvent.createAutofocusEvent(settings_.autoFocusZDevice_, autofocus_.getAutofocusPosition()));
-                  } else if (settings_.autofocusEnabled_ && timeIndex <= 1 && settings_.setInitialAutofocusPosition_) {
-                     Log.log(getName() + "Setting AF position", true);
-                     events_.put(AcquisitionEvent.createAutofocusEvent(settings_.autoFocusZDevice_, settings_.initialAutofocusPosition_));
-                  }
-
                   //set the next time point start time
                   double interval_ms = settings_.timePointInterval_ * (settings_.timeIntervalUnit_ == 1 ? 1000 : (settings_.timeIntervalUnit_ == 2 ? 60000 : 1));
                   nextTimePointStartTime_ms_ = (long) (System.currentTimeMillis() + interval_ms);
@@ -406,15 +398,6 @@ public class FixedAreaAcquisition extends Acquisition implements SurfaceChangedL
                   //signal to next acquisition in parallel group to start generating events, then continue using the event generator thread
                   //to calculate autofocus
                   acqGroup_.finishedTPEventGeneration(FixedAreaAcquisition.this);
-
-                  //all images finished writing--can now run autofocus
-                  if (autofocus_ != null) {
-                     try {
-                        autofocus_.run(timeIndex);
-                     } catch (Exception ex) {
-                        IJ.log("Problem running autofocus " + ex.getMessage());
-                     }
-                  }
                }
                //acqusiition has generated all of its events
                eventGeneratorShutdown();
@@ -499,23 +482,33 @@ public class FixedAreaAcquisition extends Acquisition implements SurfaceChangedL
                sliceIndex++;
             } //slice loop finish
          } else {
+             //create autofocus event starting at the position we believe to be correct
+             double afZPos = settings_.collectionPlane_.getExtrapolatedValue(position.getCenter().x, position.getCenter().y);
+             if (settings_.autofocusEnabled_) {
+                 //create event for determining autofocus offset                        
+                 AcquisitionEvent event = AcquisitionEvent.createAutofocusEvent(FixedAreaAcquisition.this, timeIndex, getAutofocusChannelIndex(), 0,
+                         positionIndex, afZPos, position, settings_.covariantPairings_);
+                 events_.put(event);
+             }
+
+             
             //Z stacks at each channel
             for (int channelIndex = 0; channelIndex < settings_.channels_.getNumActiveChannels(); channelIndex++) {
                if (!settings_.channels_.getActiveChannelSetting(channelIndex).uniqueEvent_ ) {
                   continue;
                }
                //Special case: 2D tilted plane
-               if (tiltedPlane2D) {
-                  //index all slcies as 0, even though they may nto be in the same plane
-                  int sliceIndex = 0;
-                  double zPos = settings_.collectionPlane_.getExtrapolatedValue(position.getCenter().x, position.getCenter().y);
-                  AcquisitionEvent event = new AcquisitionEvent(FixedAreaAcquisition.this, timeIndex, channelIndex, sliceIndex,
-                          positionIndex, zPos + settings_.channels_.getActiveChannelSetting(channelIndex).offset_, position, settings_.covariantPairings_);
-                  events_.put(event);
-                  continue;
-               }
-               
-               
+                if (tiltedPlane2D) {
+                    //index all slcies as 0, even though they may nto be in the same plane
+                    int sliceIndex = 0;
+                    double zPos = settings_.collectionPlane_.getExtrapolatedValue(position.getCenter().x, position.getCenter().y);
+                    AcquisitionEvent event = new AcquisitionEvent(FixedAreaAcquisition.this, timeIndex, channelIndex, sliceIndex,
+                            positionIndex, zPos + settings_.channels_.getActiveChannelSetting(channelIndex).offset_, position, settings_.covariantPairings_);
+                    events_.put(event);
+                    continue;
+                }
+
+
                int sliceIndex = (int) Math.round((getZTopCoordinate() - zOrigin_) / zStep_);
                while (true) {
                   if (eventGenerator_.isShutdown()) { // check for aborts
@@ -581,9 +574,6 @@ public class FixedAreaAcquisition extends Acquisition implements SurfaceChangedL
    private void eventGeneratorShutdown() {
       eventGenerator_.shutdown();
       waitForNextTPSerivice_.shutdown();
-      if (autofocus_ != null) {
-         autofocus_.close();
-      }
       SurfaceManager.getInstance().removeSurfaceChangedListener(this);
    }
 
@@ -704,16 +694,6 @@ public class FixedAreaAcquisition extends Acquisition implements SurfaceChangedL
          pList.put(xyPos.getMMPosition());
       }
       return pList;
-   }
-
-   @Override
-   public double getRank() {
-      return settings_.rank_;
-   }
-
-   @Override
-   public int getFilterType() {
-      return settings_.imageFilterType_;
    }
 
    @Override

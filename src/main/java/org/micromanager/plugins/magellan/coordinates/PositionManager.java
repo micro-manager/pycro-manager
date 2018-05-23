@@ -22,9 +22,6 @@ import java.awt.geom.NoninvertibleTransformException;
 import java.awt.geom.Point2D;
 import java.util.TreeMap;
 import java.util.TreeSet;
-import main.java.org.micromanager.plugins.magellan.bidc.JavaLayerImageConstructor;
-import java.util.logging.Level;
-import java.util.logging.Logger;
 import main.java.org.micromanager.plugins.magellan.json.JSONArray;
 import main.java.org.micromanager.plugins.magellan.json.JSONException;
 import main.java.org.micromanager.plugins.magellan.json.JSONObject;
@@ -510,8 +507,8 @@ public class PositionManager {
             long existingRow = MD.getGridRow(existingPosition);
             long existingColumn = MD.getGridCol(existingPosition);
 
-            double xPixelOffset = (col - existingColumn) * (JavaLayerImageConstructor.getInstance().getImageWidth() - pixelOverlapX);
-            double yPixelOffset = (row - existingRow) * (JavaLayerImageConstructor.getInstance().getImageHeight() - pixelOverlapY);
+            double xPixelOffset = (col - existingColumn) * (Magellan.getCore().getImageWidth() - pixelOverlapX);
+            double yPixelOffset = (row - existingRow) * (Magellan.getCore().getImageHeight() - pixelOverlapY);
 
             Point2D.Double stagePos = new Point2D.Double();
             double[] mat = new double[4];

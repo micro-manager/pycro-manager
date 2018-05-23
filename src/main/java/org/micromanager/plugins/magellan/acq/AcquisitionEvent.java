@@ -35,8 +35,6 @@ public class AcquisitionEvent  {
    final public XYStagePosition xyPosition_;
    private SpecialFlag specialFlag_;
    final public List<CovariantPairing> covariants_;
-   public String autofocusZName_;
-   public double autofocusPosition_;
    public byte[] nnEOM1Settings_, nnEOM2Settings_;
    
    
@@ -65,11 +63,10 @@ public class AcquisitionEvent  {
         }
     }
    
-   public static AcquisitionEvent createAutofocusEvent(String zName, double pos )  {   
+   public static AcquisitionEvent createAutofocusEvent(Acquisition acq, int frameIndex, int channelIndex, int sliceIndex, int positionIndex, 
+            double zPos, XYStagePosition xyPos, List<CovariantPairing> covariants )  {   
        try {
-           AcquisitionEvent evt = new AcquisitionEvent(null, 0, 0, 0, 0, 0, null, null);
-           evt.autofocusZName_ = zName;
-           evt.autofocusPosition_ = pos;
+           AcquisitionEvent evt = new AcquisitionEvent( acq,  frameIndex, channelIndex,  sliceIndex,  positionIndex,  zPos, xyPos, covariants);
            evt.specialFlag_ = SpecialFlag.AutofocusAdjustment;
            return evt;
        } catch (InterruptedException ex) {
@@ -78,7 +75,7 @@ public class AcquisitionEvent  {
        }
    }
    
-    public boolean isAutofocusAdjustmentEvent() {
+    public boolean isAutofocusEvent() {
       return specialFlag_ == SpecialFlag.AutofocusAdjustment;
    }
    

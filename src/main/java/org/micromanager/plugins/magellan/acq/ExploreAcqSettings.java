@@ -37,15 +37,14 @@ public class ExploreAcqSettings {
    public final double zStep_;
    public final String dir_, name_;
    public final double tileOverlap_;
-   public final int filterType_;
+
    public final ChannelSpec channels_;
 
-   public ExploreAcqSettings(double zStep, double overlapPercent, String dir, String name, int filterType, double rank, String channelGroup) {
+   public ExploreAcqSettings(double zStep, double overlapPercent, String dir, String name, String channelGroup) {
       zStep_ = zStep;
       dir_ = dir;
       name_ = name;   
       tileOverlap_ = overlapPercent;
-      filterType_ = filterType;
       //channels is all available channels for group
       channels_ = new ChannelSpec(channelGroup);
       
@@ -54,7 +53,6 @@ public class ExploreAcqSettings {
       GlobalSettings.getInstance().storeStringInPrefs(EXPLORE_NAME_PREF, name);
       GlobalSettings.getInstance().storeDoubleInPrefs(EXPLORE_Z_STEP, zStep_);
       GlobalSettings.getInstance().storeDoubleInPrefs(EXPLORE_TILE_OVERLAP, overlapPercent);
-      GlobalSettings.getInstance().storeDoubleInPrefs(EXPLORE_RANK, rank);
    }
    
    public static String getNameFromPrefs() {

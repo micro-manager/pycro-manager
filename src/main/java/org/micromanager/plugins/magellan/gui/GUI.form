@@ -523,12 +523,6 @@
                                       <Component id="exploreTileOverlapSpinner_" min="-2" pref="65" max="-2" attributes="0"/>
                                       <EmptySpace max="-2" attributes="0"/>
                                       <Component id="explorePercentLabel_" min="-2" max="-2" attributes="0"/>
-                                      <EmptySpace min="-2" pref="12" max="-2" attributes="0"/>
-                                      <Component id="exploreFrameAverageButton_" min="-2" max="-2" attributes="0"/>
-                                      <EmptySpace max="-2" attributes="0"/>
-                                      <Component id="exploreRankFilterButton_" min="-2" max="-2" attributes="0"/>
-                                      <EmptySpace max="-2" attributes="0"/>
-                                      <Component id="exploreRankSpinner_" min="-2" pref="56" max="-2" attributes="0"/>
                                   </Group>
                                   <Group type="102" alignment="0" attributes="0">
                                       <Component id="exploreSavingNameLabel_" min="-2" max="-2" attributes="0"/>
@@ -603,9 +597,6 @@
                           <Component id="exploreOverlapLabel_" alignment="3" min="-2" max="-2" attributes="0"/>
                           <Component id="exploreTileOverlapSpinner_" alignment="3" min="-2" max="-2" attributes="0"/>
                           <Component id="explorePercentLabel_" alignment="3" min="-2" max="-2" attributes="0"/>
-                          <Component id="exploreFrameAverageButton_" alignment="3" min="-2" max="-2" attributes="0"/>
-                          <Component id="exploreRankFilterButton_" alignment="3" min="-2" max="-2" attributes="0"/>
-                          <Component id="exploreRankSpinner_" alignment="3" min="-2" max="-2" attributes="0"/>
                       </Group>
                       <EmptySpace type="unrelated" max="-2" attributes="0"/>
                       <Group type="103" groupAlignment="3" attributes="0">
@@ -663,42 +654,6 @@
                   <Font name="Tahoma" size="16" style="1"/>
                 </Property>
                 <Property name="text" type="java.lang.String" value="Explore sample"/>
-              </Properties>
-            </Component>
-            <Component class="javax.swing.JSpinner" name="exploreRankSpinner_">
-              <Properties>
-                <Property name="font" type="java.awt.Font" editor="org.netbeans.beaninfo.editors.FontEditor">
-                  <Font name="Tahoma" size="14" style="0"/>
-                </Property>
-                <Property name="model" type="javax.swing.SpinnerModel" editor="org.netbeans.modules.form.editors2.SpinnerModelEditor">
-                  <SpinnerModel initial="0.95" maximum="1.0" minimum="0.0" numberType="java.lang.Double" stepSize="0.01" type="number"/>
-                </Property>
-              </Properties>
-            </Component>
-            <Component class="javax.swing.JRadioButton" name="exploreRankFilterButton_">
-              <Properties>
-                <Property name="buttonGroup" type="javax.swing.ButtonGroup" editor="org.netbeans.modules.form.RADComponent$ButtonGroupPropertyEditor">
-                  <ComponentRef name="exploreFilterMethodButtonGroup_"/>
-                </Property>
-                <Property name="font" type="java.awt.Font" editor="org.netbeans.beaninfo.editors.FontEditor">
-                  <Font name="Tahoma" size="14" style="0"/>
-                </Property>
-                <Property name="text" type="java.lang.String" value="Rank filter"/>
-              </Properties>
-              <Events>
-                <EventHandler event="actionPerformed" listener="java.awt.event.ActionListener" parameters="java.awt.event.ActionEvent" handler="exploreRankFilterButton_ActionPerformed"/>
-              </Events>
-            </Component>
-            <Component class="javax.swing.JRadioButton" name="exploreFrameAverageButton_">
-              <Properties>
-                <Property name="buttonGroup" type="javax.swing.ButtonGroup" editor="org.netbeans.modules.form.RADComponent$ButtonGroupPropertyEditor">
-                  <ComponentRef name="exploreFilterMethodButtonGroup_"/>
-                </Property>
-                <Property name="font" type="java.awt.Font" editor="org.netbeans.beaninfo.editors.FontEditor">
-                  <Font name="Tahoma" size="14" style="0"/>
-                </Property>
-                <Property name="selected" type="boolean" value="true"/>
-                <Property name="text" type="java.lang.String" value="Frame average"/>
               </Properties>
             </Component>
             <Component class="javax.swing.JLabel" name="explorePercentLabel_">
@@ -2190,8 +2145,8 @@
                 <Container class="javax.swing.JPanel" name="autofocusTab_l">
                   <Constraints>
                     <Constraint layoutClass="org.netbeans.modules.form.compat2.layouts.support.JTabbedPaneSupportLayout" value="org.netbeans.modules.form.compat2.layouts.support.JTabbedPaneSupportLayout$JTabbedPaneConstraintsDescription">
-                      <JTabbedPaneConstraints tabName="Drift Compensation">
-                        <Property name="tabTitle" type="java.lang.String" value="Drift Compensation"/>
+                      <JTabbedPaneConstraints tabName="Autofocus">
+                        <Property name="tabTitle" type="java.lang.String" value="Autofocus"/>
                       </JTabbedPaneConstraints>
                     </Constraint>
                   </Constraints>
@@ -2205,7 +2160,7 @@
                                   <Component id="useAutofocusCheckBox_" min="-2" max="-2" attributes="0"/>
                                   <Component id="autofocusComponentsPanel_" min="-2" max="-2" attributes="0"/>
                               </Group>
-                              <EmptySpace pref="615" max="32767" attributes="0"/>
+                              <EmptySpace pref="593" max="32767" attributes="0"/>
                           </Group>
                       </Group>
                     </DimensionLayout>
@@ -2216,7 +2171,7 @@
                               <Component id="useAutofocusCheckBox_" min="-2" max="-2" attributes="0"/>
                               <EmptySpace max="-2" attributes="0"/>
                               <Component id="autofocusComponentsPanel_" min="-2" max="-2" attributes="0"/>
-                              <EmptySpace pref="141" max="32767" attributes="0"/>
+                              <EmptySpace pref="146" max="32767" attributes="0"/>
                           </Group>
                       </Group>
                     </DimensionLayout>
@@ -2227,7 +2182,7 @@
                         <Property name="font" type="java.awt.Font" editor="org.netbeans.beaninfo.editors.FontEditor">
                           <Font name="Tahoma" size="14" style="0"/>
                         </Property>
-                        <Property name="text" type="java.lang.String" value="Activate cross-correlation based drift compensation"/>
+                        <Property name="text" type="java.lang.String" value="Activate"/>
                       </Properties>
                       <Events>
                         <EventHandler event="actionPerformed" listener="java.awt.event.ActionListener" parameters="java.awt.event.ActionEvent" handler="useAutofocusCheckBox_ActionPerformed"/>
@@ -2252,17 +2207,14 @@
                                           <Component id="autofocusMaxDisplacementSpinner_" min="-2" pref="64" max="-2" attributes="0"/>
                                       </Group>
                                       <Group type="102" alignment="0" attributes="0">
-                                          <Component id="autofocusZLabel_" min="-2" max="-2" attributes="0"/>
+                                          <Component id="autofocusModelLabel_" min="-2" max="-2" attributes="0"/>
                                           <EmptySpace max="-2" attributes="0"/>
-                                          <Component id="autofocusZDeviceComboBox_" min="-2" pref="128" max="-2" attributes="0"/>
-                                      </Group>
-                                      <Group type="102" alignment="0" attributes="0">
-                                          <Component id="autofocusInitialPositionCheckBox_" min="-2" max="-2" attributes="0"/>
+                                          <Component id="loadModelAFButton_" min="-2" pref="100" max="-2" attributes="0"/>
                                           <EmptySpace max="-2" attributes="0"/>
-                                          <Component id="autofocusInitialPositionSpinner_" min="-2" pref="91" max="-2" attributes="0"/>
+                                          <Component id="chosenModelAFLabel_" min="-2" max="-2" attributes="0"/>
                                       </Group>
                                   </Group>
-                                  <EmptySpace max="32767" attributes="0"/>
+                                  <EmptySpace pref="61" max="32767" attributes="0"/>
                               </Group>
                           </Group>
                         </DimensionLayout>
@@ -2279,45 +2231,32 @@
                                       <Component id="autofocusMaxDisplacementSpinner_" min="-2" max="-2" attributes="0"/>
                                       <Component id="autofocusMaxDisplacementLabel_" alignment="0" min="-2" max="-2" attributes="0"/>
                                   </Group>
-                                  <EmptySpace type="unrelated" max="-2" attributes="0"/>
-                                  <Group type="103" groupAlignment="3" attributes="0">
-                                      <Component id="autofocusZLabel_" alignment="3" min="-2" max="-2" attributes="0"/>
-                                      <Component id="autofocusZDeviceComboBox_" alignment="3" min="-2" max="-2" attributes="0"/>
+                                  <Group type="103" groupAlignment="0" max="-2" attributes="0">
+                                      <Group type="102" attributes="0">
+                                          <EmptySpace min="-2" pref="12" max="-2" attributes="0"/>
+                                          <Component id="autofocusModelLabel_" min="-2" max="-2" attributes="0"/>
+                                      </Group>
+                                      <Group type="102" attributes="0">
+                                          <EmptySpace max="-2" attributes="0"/>
+                                          <Group type="103" groupAlignment="3" attributes="0">
+                                              <Component id="loadModelAFButton_" alignment="3" max="32767" attributes="0"/>
+                                              <Component id="chosenModelAFLabel_" alignment="3" min="-2" max="-2" attributes="0"/>
+                                          </Group>
+                                      </Group>
                                   </Group>
-                                  <EmptySpace type="unrelated" max="-2" attributes="0"/>
-                                  <Group type="103" groupAlignment="3" attributes="0">
-                                      <Component id="autofocusInitialPositionSpinner_" alignment="3" min="-2" max="-2" attributes="0"/>
-                                      <Component id="autofocusInitialPositionCheckBox_" alignment="3" min="-2" max="-2" attributes="0"/>
-                                  </Group>
-                                  <EmptySpace pref="27" max="32767" attributes="0"/>
+                                  <EmptySpace pref="62" max="32767" attributes="0"/>
                               </Group>
                           </Group>
                         </DimensionLayout>
                       </Layout>
                       <SubComponents>
-                        <Component class="javax.swing.JLabel" name="autofocusZLabel_">
+                        <Component class="javax.swing.JLabel" name="autofocusModelLabel_">
                           <Properties>
                             <Property name="font" type="java.awt.Font" editor="org.netbeans.beaninfo.editors.FontEditor">
                               <Font name="Tahoma" size="14" style="0"/>
                             </Property>
-                            <Property name="text" type="java.lang.String" value="Drift compensation Z device: "/>
+                            <Property name="text" type="java.lang.String" value="Autofocus model: "/>
                           </Properties>
-                        </Component>
-                        <Component class="javax.swing.JComboBox" name="autofocusZDeviceComboBox_">
-                          <Properties>
-                            <Property name="font" type="java.awt.Font" editor="org.netbeans.beaninfo.editors.FontEditor">
-                              <Font name="Tahoma" size="14" style="0"/>
-                            </Property>
-                            <Property name="model" type="javax.swing.ComboBoxModel" editor="org.netbeans.modules.form.RADConnectionPropertyEditor">
-                              <Connection code="afzModel" type="code"/>
-                            </Property>
-                          </Properties>
-                          <Events>
-                            <EventHandler event="actionPerformed" listener="java.awt.event.ActionListener" parameters="java.awt.event.ActionEvent" handler="autofocusZDeviceComboBox_ActionPerformed"/>
-                          </Events>
-                          <AuxValues>
-                            <AuxValue name="JavaCodeGenerator_InitCodePre" type="java.lang.String" value="StrVector zVec = Magellan.getCore().getLoadedDevicesOfType(mmcorej.DeviceType.StageDevice);&#xd;&#xa;String[] zNames = new String[(int)zVec.size()];&#xd;&#xa;for (int i = 0; i &lt; zNames.length; i++) {&#xd;&#xa;   zNames[i] = zVec.get(i);&#xd;&#xa;}&#xd;&#xa;ComboBoxModel afzModel = new DefaultComboBoxModel(zNames);"/>
-                          </AuxValues>
                         </Component>
                         <Component class="javax.swing.JLabel" name="autofocusMaxDisplacementLabel_">
                           <Properties>
@@ -2364,375 +2303,21 @@
                             <AuxValue name="JavaCodeGenerator_InitCodePre" type="java.lang.String" value="AutofocusChannelComboModel afucModel = new AutofocusChannelComboModel((SimpleChannelTableModel) channelsTable_.getModel());"/>
                           </AuxValues>
                         </Component>
-                        <Component class="javax.swing.JSpinner" name="autofocusInitialPositionSpinner_">
+                        <Component class="javax.swing.JButton" name="loadModelAFButton_">
                           <Properties>
-                            <Property name="font" type="java.awt.Font" editor="org.netbeans.beaninfo.editors.FontEditor">
-                              <Font name="Tahoma" size="14" style="0"/>
-                            </Property>
-                            <Property name="model" type="javax.swing.SpinnerModel" editor="org.netbeans.modules.form.editors2.SpinnerModelEditor">
-                              <SpinnerModel initial="1.0" numberType="java.lang.Double" stepSize="1.0" type="number"/>
-                            </Property>
+                            <Property name="text" type="java.lang.String" value="Open model"/>
                           </Properties>
                           <Events>
-                            <EventHandler event="stateChanged" listener="javax.swing.event.ChangeListener" parameters="javax.swing.event.ChangeEvent" handler="autofocusInitialPositionSpinner_StateChanged"/>
+                            <EventHandler event="actionPerformed" listener="java.awt.event.ActionListener" parameters="java.awt.event.ActionEvent" handler="loadModelAFButton_ActionPerformed"/>
                           </Events>
                         </Component>
-                        <Component class="javax.swing.JCheckBox" name="autofocusInitialPositionCheckBox_">
+                        <Component class="javax.swing.JLabel" name="chosenModelAFLabel_">
                           <Properties>
-                            <Property name="font" type="java.awt.Font" editor="org.netbeans.beaninfo.editors.FontEditor">
-                              <Font name="Tahoma" size="14" style="0"/>
-                            </Property>
-                            <Property name="text" type="java.lang.String" value="Set initial position"/>
+                            <Property name="text" type="java.lang.String" value="None selected"/>
                           </Properties>
-                          <Events>
-                            <EventHandler event="actionPerformed" listener="java.awt.event.ActionListener" parameters="java.awt.event.ActionEvent" handler="autofocusInitialPositionCheckBox_ActionPerformed"/>
-                          </Events>
                         </Component>
                       </SubComponents>
                     </Container>
-                  </SubComponents>
-                </Container>
-                <Container class="javax.swing.JPanel" name="imageFilteringTab_">
-                  <Constraints>
-                    <Constraint layoutClass="org.netbeans.modules.form.compat2.layouts.support.JTabbedPaneSupportLayout" value="org.netbeans.modules.form.compat2.layouts.support.JTabbedPaneSupportLayout$JTabbedPaneConstraintsDescription">
-                      <JTabbedPaneConstraints tabName="2Photon settings">
-                        <Property name="tabTitle" type="java.lang.String" value="2Photon settings"/>
-                      </JTabbedPaneConstraints>
-                    </Constraint>
-                  </Constraints>
-
-                  <Layout>
-                    <DimensionLayout dim="0">
-                      <Group type="103" groupAlignment="0" attributes="0">
-                          <Group type="102" attributes="0">
-                              <EmptySpace max="-2" attributes="0"/>
-                              <Group type="103" groupAlignment="0" attributes="0">
-                                  <Group type="102" attributes="0">
-                                      <Group type="103" groupAlignment="0" attributes="0">
-                                          <Component id="frameAverageRadioButton_" alignment="0" min="-2" max="-2" attributes="0"/>
-                                          <Component id="frameSummationButton_" min="-2" max="-2" attributes="0"/>
-                                      </Group>
-                                      <EmptySpace min="0" pref="817" max="32767" attributes="0"/>
-                                  </Group>
-                                  <Group type="102" attributes="0">
-                                      <Group type="103" groupAlignment="0" attributes="0">
-                                          <Component id="jLabel10" alignment="0" min="-2" max="-2" attributes="0"/>
-                                          <Component id="rankFilterRadioButton_" alignment="0" min="-2" max="-2" attributes="0"/>
-                                          <Group type="102" alignment="0" attributes="0">
-                                              <EmptySpace min="-2" pref="17" max="-2" attributes="0"/>
-                                              <Component id="jLabel9" min="-2" max="-2" attributes="0"/>
-                                              <EmptySpace type="unrelated" max="-2" attributes="0"/>
-                                              <Component id="rankSpinner_" min="-2" pref="72" max="-2" attributes="0"/>
-                                          </Group>
-                                      </Group>
-                                      <Group type="103" groupAlignment="0" attributes="0">
-                                          <Group type="102" alignment="0" attributes="0">
-                                              <EmptySpace min="-2" pref="71" max="-2" attributes="0"/>
-                                              <Component id="offsetsLabel_" min="-2" max="-2" attributes="0"/>
-                                              <EmptySpace min="0" pref="683" max="32767" attributes="0"/>
-                                          </Group>
-                                          <Group type="102" alignment="0" attributes="0">
-                                              <EmptySpace min="-2" pref="55" max="-2" attributes="0"/>
-                                              <Group type="103" groupAlignment="0" max="-2" attributes="0">
-                                                  <Component id="ch0OffsetLabel_" alignment="0" min="-2" max="-2" attributes="0"/>
-                                                  <Component id="ch1OffsetLabel_" alignment="0" min="-2" max="-2" attributes="0"/>
-                                                  <Group type="103" alignment="0" groupAlignment="0" attributes="0">
-                                                      <Component id="ch5OffsetLabel_" alignment="0" min="-2" max="-2" attributes="0"/>
-                                                      <Component id="ch2OffsetLabel_" alignment="1" min="-2" max="-2" attributes="0"/>
-                                                  </Group>
-                                                  <Component id="ch4OffsetLabel_" alignment="0" min="-2" max="-2" attributes="0"/>
-                                                  <Component id="ch3OffsetLabel_" alignment="0" min="-2" max="-2" attributes="0"/>
-                                              </Group>
-                                              <EmptySpace type="unrelated" max="-2" attributes="0"/>
-                                              <Group type="103" groupAlignment="0" attributes="0">
-                                                  <Component id="ch1OffsetSpinner_" alignment="0" min="-2" pref="46" max="-2" attributes="0"/>
-                                                  <Component id="ch2OffsetSpinner_" alignment="0" min="-2" pref="46" max="-2" attributes="0"/>
-                                                  <Component id="ch3OffsetSpinner_" alignment="0" min="-2" pref="46" max="-2" attributes="0"/>
-                                                  <Component id="ch5OffsetSpinner_" alignment="0" min="-2" pref="46" max="-2" attributes="0"/>
-                                                  <Component id="ch4OffsetSpinner_" alignment="0" min="-2" pref="46" max="-2" attributes="0"/>
-                                                  <Component id="ch0OffsetSpinner_" alignment="0" min="-2" pref="46" max="-2" attributes="0"/>
-                                              </Group>
-                                              <EmptySpace min="187" pref="658" max="32767" attributes="0"/>
-                                          </Group>
-                                      </Group>
-                                  </Group>
-                              </Group>
-                          </Group>
-                      </Group>
-                    </DimensionLayout>
-                    <DimensionLayout dim="1">
-                      <Group type="103" groupAlignment="0" attributes="0">
-                          <Group type="102" attributes="0">
-                              <EmptySpace max="-2" attributes="0"/>
-                              <Group type="103" groupAlignment="3" attributes="0">
-                                  <Component id="jLabel10" alignment="3" min="-2" max="-2" attributes="0"/>
-                                  <Component id="offsetsLabel_" alignment="3" min="-2" max="-2" attributes="0"/>
-                              </Group>
-                              <EmptySpace type="unrelated" max="-2" attributes="0"/>
-                              <Group type="103" groupAlignment="3" attributes="0">
-                                  <Component id="frameAverageRadioButton_" alignment="3" min="-2" max="-2" attributes="0"/>
-                                  <Component id="ch0OffsetSpinner_" alignment="3" min="-2" max="-2" attributes="0"/>
-                                  <Component id="ch0OffsetLabel_" alignment="3" min="-2" max="-2" attributes="0"/>
-                              </Group>
-                              <EmptySpace max="-2" attributes="0"/>
-                              <Group type="103" groupAlignment="3" attributes="0">
-                                  <Component id="rankFilterRadioButton_" alignment="3" min="-2" max="-2" attributes="0"/>
-                                  <Component id="ch1OffsetSpinner_" alignment="3" min="-2" max="-2" attributes="0"/>
-                                  <Component id="ch1OffsetLabel_" alignment="3" min="-2" max="-2" attributes="0"/>
-                              </Group>
-                              <EmptySpace max="-2" attributes="0"/>
-                              <Group type="103" groupAlignment="3" attributes="0">
-                                  <Component id="rankSpinner_" alignment="3" min="-2" max="-2" attributes="0"/>
-                                  <Component id="jLabel9" alignment="3" min="-2" max="-2" attributes="0"/>
-                                  <Component id="ch2OffsetSpinner_" alignment="3" min="-2" max="-2" attributes="0"/>
-                                  <Component id="ch2OffsetLabel_" alignment="3" min="-2" max="-2" attributes="0"/>
-                              </Group>
-                              <EmptySpace max="-2" attributes="0"/>
-                              <Group type="103" groupAlignment="3" attributes="0">
-                                  <Component id="ch3OffsetSpinner_" alignment="3" min="-2" max="-2" attributes="0"/>
-                                  <Component id="ch3OffsetLabel_" alignment="3" min="-2" max="-2" attributes="0"/>
-                                  <Component id="frameSummationButton_" alignment="3" min="-2" max="-2" attributes="0"/>
-                              </Group>
-                              <EmptySpace max="-2" attributes="0"/>
-                              <Group type="103" groupAlignment="3" attributes="0">
-                                  <Component id="ch4OffsetSpinner_" alignment="3" min="-2" max="-2" attributes="0"/>
-                                  <Component id="ch4OffsetLabel_" alignment="3" min="-2" max="-2" attributes="0"/>
-                              </Group>
-                              <EmptySpace max="-2" attributes="0"/>
-                              <Group type="103" groupAlignment="3" attributes="0">
-                                  <Component id="ch5OffsetSpinner_" alignment="3" min="-2" max="-2" attributes="0"/>
-                                  <Component id="ch5OffsetLabel_" alignment="3" min="-2" max="-2" attributes="0"/>
-                              </Group>
-                              <EmptySpace pref="145" max="32767" attributes="0"/>
-                          </Group>
-                      </Group>
-                    </DimensionLayout>
-                  </Layout>
-                  <SubComponents>
-                    <Component class="javax.swing.JRadioButton" name="frameAverageRadioButton_">
-                      <Properties>
-                        <Property name="buttonGroup" type="javax.swing.ButtonGroup" editor="org.netbeans.modules.form.RADComponent$ButtonGroupPropertyEditor">
-                          <ComponentRef name="filterMethodButtonGroup_"/>
-                        </Property>
-                        <Property name="font" type="java.awt.Font" editor="org.netbeans.beaninfo.editors.FontEditor">
-                          <Font name="Tahoma" size="14" style="0"/>
-                        </Property>
-                        <Property name="selected" type="boolean" value="true"/>
-                        <Property name="text" type="java.lang.String" value="Frame average"/>
-                      </Properties>
-                      <Events>
-                        <EventHandler event="actionPerformed" listener="java.awt.event.ActionListener" parameters="java.awt.event.ActionEvent" handler="frameAverageRadioButton_ActionPerformed"/>
-                      </Events>
-                    </Component>
-                    <Component class="javax.swing.JRadioButton" name="rankFilterRadioButton_">
-                      <Properties>
-                        <Property name="buttonGroup" type="javax.swing.ButtonGroup" editor="org.netbeans.modules.form.RADComponent$ButtonGroupPropertyEditor">
-                          <ComponentRef name="filterMethodButtonGroup_"/>
-                        </Property>
-                        <Property name="font" type="java.awt.Font" editor="org.netbeans.beaninfo.editors.FontEditor">
-                          <Font name="Tahoma" size="14" style="0"/>
-                        </Property>
-                        <Property name="text" type="java.lang.String" value="Rank filter"/>
-                      </Properties>
-                      <Events>
-                        <EventHandler event="actionPerformed" listener="java.awt.event.ActionListener" parameters="java.awt.event.ActionEvent" handler="rankFilterRadioButton_ActionPerformed"/>
-                      </Events>
-                    </Component>
-                    <Component class="javax.swing.JSpinner" name="rankSpinner_">
-                      <Properties>
-                        <Property name="font" type="java.awt.Font" editor="org.netbeans.beaninfo.editors.FontEditor">
-                          <Font name="Tahoma" size="14" style="0"/>
-                        </Property>
-                        <Property name="model" type="javax.swing.SpinnerModel" editor="org.netbeans.modules.form.editors2.SpinnerModelEditor">
-                          <SpinnerModel initial="0.95" maximum="1.0" minimum="0.0" numberType="java.lang.Double" stepSize="0.01" type="number"/>
-                        </Property>
-                      </Properties>
-                      <Events>
-                        <EventHandler event="stateChanged" listener="javax.swing.event.ChangeListener" parameters="javax.swing.event.ChangeEvent" handler="rankSpinner_StateChanged"/>
-                      </Events>
-                    </Component>
-                    <Component class="javax.swing.JLabel" name="jLabel9">
-                      <Properties>
-                        <Property name="font" type="java.awt.Font" editor="org.netbeans.beaninfo.editors.FontEditor">
-                          <Font name="Tahoma" size="14" style="0"/>
-                        </Property>
-                        <Property name="text" type="java.lang.String" value="Rank:"/>
-                      </Properties>
-                    </Component>
-                    <Component class="javax.swing.JSpinner" name="ch0OffsetSpinner_">
-                      <Properties>
-                        <Property name="font" type="java.awt.Font" editor="org.netbeans.beaninfo.editors.FontEditor">
-                          <Font name="Tahoma" size="14" style="0"/>
-                        </Property>
-                        <Property name="model" type="javax.swing.SpinnerModel" editor="org.netbeans.modules.form.editors2.SpinnerModelEditor">
-                          <SpinnerModel initial="0" numberType="java.lang.Integer" stepSize="1" type="number"/>
-                        </Property>
-                      </Properties>
-                      <Events>
-                        <EventHandler event="stateChanged" listener="javax.swing.event.ChangeListener" parameters="javax.swing.event.ChangeEvent" handler="ch0OffsetSpinner_StateChanged"/>
-                      </Events>
-                      <AuxValues>
-                        <AuxValue name="JavaCodeGenerator_InitCodePost" type="java.lang.String" value="ch0OffsetSpinner_.setValue(GlobalSettings.getInstance().getChannelOffset(0));"/>
-                      </AuxValues>
-                    </Component>
-                    <Component class="javax.swing.JLabel" name="jLabel10">
-                      <Properties>
-                        <Property name="font" type="java.awt.Font" editor="org.netbeans.beaninfo.editors.FontEditor">
-                          <Font name="Tahoma" size="11" style="1"/>
-                        </Property>
-                        <Property name="text" type="java.lang.String" value="Image construction method"/>
-                      </Properties>
-                    </Component>
-                    <Component class="javax.swing.JLabel" name="offsetsLabel_">
-                      <Properties>
-                        <Property name="font" type="java.awt.Font" editor="org.netbeans.beaninfo.editors.FontEditor">
-                          <Font name="Tahoma" size="11" style="1"/>
-                        </Property>
-                        <Property name="text" type="java.lang.String" value="Offsets"/>
-                      </Properties>
-                    </Component>
-                    <Component class="javax.swing.JLabel" name="ch0OffsetLabel_">
-                      <Properties>
-                        <Property name="font" type="java.awt.Font" editor="org.netbeans.beaninfo.editors.FontEditor">
-                          <Font name="Tahoma" size="14" style="0"/>
-                        </Property>
-                        <Property name="text" type="java.lang.String" value="Ch0"/>
-                      </Properties>
-                    </Component>
-                    <Component class="javax.swing.JLabel" name="ch1OffsetLabel_">
-                      <Properties>
-                        <Property name="font" type="java.awt.Font" editor="org.netbeans.beaninfo.editors.FontEditor">
-                          <Font name="Tahoma" size="14" style="0"/>
-                        </Property>
-                        <Property name="text" type="java.lang.String" value="Ch1"/>
-                      </Properties>
-                    </Component>
-                    <Component class="javax.swing.JSpinner" name="ch1OffsetSpinner_">
-                      <Properties>
-                        <Property name="font" type="java.awt.Font" editor="org.netbeans.beaninfo.editors.FontEditor">
-                          <Font name="Tahoma" size="14" style="0"/>
-                        </Property>
-                        <Property name="model" type="javax.swing.SpinnerModel" editor="org.netbeans.modules.form.editors2.SpinnerModelEditor">
-                          <SpinnerModel initial="0" numberType="java.lang.Integer" stepSize="1" type="number"/>
-                        </Property>
-                      </Properties>
-                      <Events>
-                        <EventHandler event="stateChanged" listener="javax.swing.event.ChangeListener" parameters="javax.swing.event.ChangeEvent" handler="ch1OffsetSpinner_StateChanged"/>
-                      </Events>
-                      <AuxValues>
-                        <AuxValue name="JavaCodeGenerator_InitCodePost" type="java.lang.String" value="ch1OffsetSpinner_.setValue(GlobalSettings.getInstance().getChannelOffset(1));"/>
-                      </AuxValues>
-                    </Component>
-                    <Component class="javax.swing.JLabel" name="ch2OffsetLabel_">
-                      <Properties>
-                        <Property name="font" type="java.awt.Font" editor="org.netbeans.beaninfo.editors.FontEditor">
-                          <Font name="Tahoma" size="14" style="0"/>
-                        </Property>
-                        <Property name="text" type="java.lang.String" value="Ch2"/>
-                      </Properties>
-                    </Component>
-                    <Component class="javax.swing.JSpinner" name="ch2OffsetSpinner_">
-                      <Properties>
-                        <Property name="font" type="java.awt.Font" editor="org.netbeans.beaninfo.editors.FontEditor">
-                          <Font name="Tahoma" size="14" style="0"/>
-                        </Property>
-                        <Property name="model" type="javax.swing.SpinnerModel" editor="org.netbeans.modules.form.editors2.SpinnerModelEditor">
-                          <SpinnerModel initial="0" numberType="java.lang.Integer" stepSize="1" type="number"/>
-                        </Property>
-                      </Properties>
-                      <Events>
-                        <EventHandler event="stateChanged" listener="javax.swing.event.ChangeListener" parameters="javax.swing.event.ChangeEvent" handler="ch2OffsetSpinner_StateChanged"/>
-                      </Events>
-                      <AuxValues>
-                        <AuxValue name="JavaCodeGenerator_InitCodePost" type="java.lang.String" value="ch2OffsetSpinner_.setValue(GlobalSettings.getInstance().getChannelOffset(2));"/>
-                      </AuxValues>
-                    </Component>
-                    <Component class="javax.swing.JLabel" name="ch3OffsetLabel_">
-                      <Properties>
-                        <Property name="font" type="java.awt.Font" editor="org.netbeans.beaninfo.editors.FontEditor">
-                          <Font name="Tahoma" size="14" style="0"/>
-                        </Property>
-                        <Property name="text" type="java.lang.String" value="Ch3"/>
-                      </Properties>
-                    </Component>
-                    <Component class="javax.swing.JSpinner" name="ch3OffsetSpinner_">
-                      <Properties>
-                        <Property name="font" type="java.awt.Font" editor="org.netbeans.beaninfo.editors.FontEditor">
-                          <Font name="Tahoma" size="14" style="0"/>
-                        </Property>
-                        <Property name="model" type="javax.swing.SpinnerModel" editor="org.netbeans.modules.form.editors2.SpinnerModelEditor">
-                          <SpinnerModel initial="0" numberType="java.lang.Integer" stepSize="1" type="number"/>
-                        </Property>
-                      </Properties>
-                      <Events>
-                        <EventHandler event="stateChanged" listener="javax.swing.event.ChangeListener" parameters="javax.swing.event.ChangeEvent" handler="ch3OffsetSpinner_StateChanged"/>
-                      </Events>
-                      <AuxValues>
-                        <AuxValue name="JavaCodeGenerator_InitCodePost" type="java.lang.String" value="ch3OffsetSpinner_.setValue(GlobalSettings.getInstance().getChannelOffset(3));"/>
-                      </AuxValues>
-                    </Component>
-                    <Component class="javax.swing.JLabel" name="ch4OffsetLabel_">
-                      <Properties>
-                        <Property name="font" type="java.awt.Font" editor="org.netbeans.beaninfo.editors.FontEditor">
-                          <Font name="Tahoma" size="14" style="0"/>
-                        </Property>
-                        <Property name="text" type="java.lang.String" value="Ch4"/>
-                      </Properties>
-                    </Component>
-                    <Component class="javax.swing.JSpinner" name="ch4OffsetSpinner_">
-                      <Properties>
-                        <Property name="font" type="java.awt.Font" editor="org.netbeans.beaninfo.editors.FontEditor">
-                          <Font name="Tahoma" size="14" style="0"/>
-                        </Property>
-                        <Property name="model" type="javax.swing.SpinnerModel" editor="org.netbeans.modules.form.editors2.SpinnerModelEditor">
-                          <SpinnerModel initial="0" numberType="java.lang.Integer" stepSize="1" type="number"/>
-                        </Property>
-                      </Properties>
-                      <Events>
-                        <EventHandler event="stateChanged" listener="javax.swing.event.ChangeListener" parameters="javax.swing.event.ChangeEvent" handler="ch4OffsetSpinner_StateChanged"/>
-                      </Events>
-                      <AuxValues>
-                        <AuxValue name="JavaCodeGenerator_InitCodePost" type="java.lang.String" value="ch4OffsetSpinner_.setValue(GlobalSettings.getInstance().getChannelOffset(4));"/>
-                      </AuxValues>
-                    </Component>
-                    <Component class="javax.swing.JLabel" name="ch5OffsetLabel_">
-                      <Properties>
-                        <Property name="font" type="java.awt.Font" editor="org.netbeans.beaninfo.editors.FontEditor">
-                          <Font name="Tahoma" size="14" style="0"/>
-                        </Property>
-                        <Property name="text" type="java.lang.String" value="Ch5"/>
-                      </Properties>
-                    </Component>
-                    <Component class="javax.swing.JSpinner" name="ch5OffsetSpinner_">
-                      <Properties>
-                        <Property name="font" type="java.awt.Font" editor="org.netbeans.beaninfo.editors.FontEditor">
-                          <Font name="Tahoma" size="14" style="0"/>
-                        </Property>
-                        <Property name="model" type="javax.swing.SpinnerModel" editor="org.netbeans.modules.form.editors2.SpinnerModelEditor">
-                          <SpinnerModel initial="0" numberType="java.lang.Integer" stepSize="1" type="number"/>
-                        </Property>
-                      </Properties>
-                      <Events>
-                        <EventHandler event="stateChanged" listener="javax.swing.event.ChangeListener" parameters="javax.swing.event.ChangeEvent" handler="ch5OffsetSpinner_StateChanged"/>
-                      </Events>
-                      <AuxValues>
-                        <AuxValue name="JavaCodeGenerator_InitCodePost" type="java.lang.String" value="ch5OffsetSpinner_.setValue(GlobalSettings.getInstance().getChannelOffset(5));"/>
-                      </AuxValues>
-                    </Component>
-                    <Component class="javax.swing.JRadioButton" name="frameSummationButton_">
-                      <Properties>
-                        <Property name="buttonGroup" type="javax.swing.ButtonGroup" editor="org.netbeans.modules.form.RADComponent$ButtonGroupPropertyEditor">
-                          <ComponentRef name="filterMethodButtonGroup_"/>
-                        </Property>
-                        <Property name="font" type="java.awt.Font" editor="org.netbeans.beaninfo.editors.FontEditor">
-                          <Font name="Tahoma" size="14" style="0"/>
-                        </Property>
-                        <Property name="text" type="java.lang.String" value="Frame summation"/>
-                      </Properties>
-                      <Events>
-                        <EventHandler event="actionPerformed" listener="java.awt.event.ActionListener" parameters="java.awt.event.ActionEvent" handler="frameSummationButton_ActionPerformed"/>
-                      </Events>
-                    </Component>
                   </SubComponents>
                 </Container>
               </SubComponents>

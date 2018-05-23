@@ -145,50 +145,6 @@ public class GlobalSettings {
       return demoMode_;
    }
 
-   public int getChannelOffset(int i) {
-      return chOffsets_[i];
-   }
-
-    public void channelOffsetChanged() {
-        int minVal = 200;
-        String pixelSizeConfig = "";
-        try {
-            pixelSizeConfig = Magellan.getCore().getCurrentPixelSizeConfig();
-        } catch (Exception e) {
-            Log.log("couldnt get pixel size config",true);
-        }
-        for (int i = 0; i < 6; i++) {
-            Integer offset = gui_.getChannelOffset(i);
-            if (offset != null) {
-                prefs_.putInt(CHANNEL_OFFSET_PREFIX + pixelSizeConfig + i, offset);
-                chOffsets_[i] = offset;
-                minVal = Math.min(minVal, offset);
-//            System.out.println("Ch "+i+prefs_.getInt(CHANNEL_OFFSET_PREFIX + i, -50));
-            }
-        }
-        //synchrnize with offsets in device adapter
-        try {
-            if (minVal != 200) {
-                String channelOffsets = "";
-                for (int i = 0; i < 6; i++) {                    
-                    channelOffsets += chOffsets_[i] - minVal;
-                }
-                if (Magellan.getCore().hasProperty("BitFlowCameraX2", "CenterOffset")) {
-                    Magellan.getCore().setProperty("BitFlowCameraX2", "CenterOffset", minVal / 2);
-                } else if (Magellan.getCore().hasProperty("bitFlowCamera", "CenterOffset")) {
-                    Magellan.getCore().setProperty("BitFlowCamera", "CenterOffset", minVal / 2);
-                }
-                if (Magellan.getCore().hasProperty("BitFlowCameraX2", "ChannelOffsets")) {
-                    Magellan.getCore().setProperty("BitFlowCameraX2", "ChannelOffsets", channelOffsets);
-                } else if (Magellan.getCore().hasProperty("bitFlowCamera", "ChannelOffsets")) {
-                    Magellan.getCore().setProperty("BitFlowCamera", "ChannelOffsets", channelOffsets);
-                }
-            }
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
-    }
-
      /**
     * Serializes an object and stores it in Preferences
     */

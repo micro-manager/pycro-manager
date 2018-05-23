@@ -18,7 +18,6 @@
 package main.java.org.micromanager.plugins.magellan.surfacesandregions;
 
 import main.java.org.micromanager.plugins.magellan.acq.FixedAreaAcquisitionSettings;
-import main.java.org.micromanager.plugins.magellan.bidc.JavaLayerImageConstructor;
 import main.java.org.micromanager.plugins.magellan.coordinates.AffineUtils;
 import main.java.org.micromanager.plugins.magellan.coordinates.XYStagePosition;
 import java.awt.geom.AffineTransform;
@@ -351,10 +350,10 @@ public abstract class SurfaceInterpolator implements XYFootprint {
    public ArrayList<XYStagePosition> getXYPositonsAtSlice(double zPos, boolean above) throws InterruptedException {
       SingleResolutionInterpolation interp = waitForCurentInterpolation();
       double overlapPercent = FixedAreaAcquisitionSettings.getStoredTileOverlapPercentage() / 100;
-      int overlapX = (int) (JavaLayerImageConstructor.getInstance().getImageWidth() * overlapPercent);
-      int overlapY = (int) (JavaLayerImageConstructor.getInstance().getImageHeight() * overlapPercent);
-      int tileWidth = JavaLayerImageConstructor.getInstance().getImageWidth() - overlapX;
-      int tileHeight = JavaLayerImageConstructor.getInstance().getImageHeight() - overlapY;
+      int overlapX = (int) (Magellan.getCore().getImageWidth() * overlapPercent);
+      int overlapY = (int) (Magellan.getCore().getImageHeight() * overlapPercent);
+      int tileWidth = (int) (Magellan.getCore().getImageWidth() - overlapX);
+      int tileHeight = (int) (Magellan.getCore().getImageHeight() - overlapY);
       while (interp.getPixelsPerInterpPoint() >= Math.max(tileWidth,tileHeight) / NUM_XY_TEST_POINTS ) {
          synchronized (interpolationLock_) {
             interpolationLock_.wait();
@@ -468,10 +467,10 @@ public abstract class SurfaceInterpolator implements XYFootprint {
    public abstract float getExtrapolatedValue(double x, double y);
 
    private void fitXYPositionsToConvexHull(double overlap) throws InterruptedException {
-      int fullTileWidth = JavaLayerImageConstructor.getInstance().getImageWidth();
-      int fullTileHeight = JavaLayerImageConstructor.getInstance().getImageHeight();
-      int overlapX = (int) (JavaLayerImageConstructor.getInstance().getImageWidth() * overlap / 100);
-      int overlapY = (int) (JavaLayerImageConstructor.getInstance().getImageHeight() * overlap / 100);
+      int fullTileWidth = (int) Magellan.getCore().getImageWidth();
+      int fullTileHeight = (int) Magellan.getCore().getImageHeight();
+      int overlapX = (int) (Magellan.getCore().getImageWidth() * overlap / 100);
+      int overlapY = (int) (Magellan.getCore().getImageHeight() * overlap / 100);
       int tileWidthMinusOverlap = fullTileWidth - overlapX;
       int tileHeightMinusOverlap =  fullTileHeight - overlapY;
       int pixelPadding = (int) (xyPadding_um_ / Magellan.getCore().getPixelSizeUm());

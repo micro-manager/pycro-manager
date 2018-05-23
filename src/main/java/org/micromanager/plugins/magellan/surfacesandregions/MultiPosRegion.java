@@ -17,7 +17,6 @@
 package main.java.org.micromanager.plugins.magellan.surfacesandregions;
 
 import main.java.org.micromanager.plugins.magellan.acq.FixedAreaAcquisitionSettings;
-import main.java.org.micromanager.plugins.magellan.bidc.JavaLayerImageConstructor;
 import main.java.org.micromanager.plugins.magellan.coordinates.AffineUtils;
 import main.java.org.micromanager.plugins.magellan.coordinates.XYStagePosition;
 import java.awt.geom.AffineTransform;
@@ -80,7 +79,7 @@ public class MultiPosRegion implements XYFootprint {
 
    public double getWidth_um() {
       double pixelSize = Magellan.getCore().getPixelSizeUm();
-      int pixelWidth = (cols_ * (JavaLayerImageConstructor.getInstance().getImageWidth() - overlapX_) + overlapX_);
+      int pixelWidth = (int) (cols_ * (Magellan.getCore().getImageWidth() - overlapX_) + overlapX_);
       return pixelSize * pixelWidth;
    }
 
@@ -100,8 +99,8 @@ public class MultiPosRegion implements XYFootprint {
    }
 
    private void updateOverlap(double overlapPercent) {
-      overlapX_ = (int) (JavaLayerImageConstructor.getInstance().getImageWidth() * overlapPercent);
-      overlapY_ = (int) (JavaLayerImageConstructor.getInstance().getImageHeight() * overlapPercent);
+      overlapX_ = (int) (Magellan.getCore().getImageWidth() * overlapPercent);
+      overlapY_ = (int) (Magellan.getCore().getImageHeight() * overlapPercent);
    }
 
    @Override
@@ -109,8 +108,8 @@ public class MultiPosRegion implements XYFootprint {
       try {
          AffineTransform transform = AffineUtils.getAffineTransform(Magellan.getCore().getCurrentPixelSizeConfig(), center_.x, center_.y);
          ArrayList<XYStagePosition> positions = new ArrayList<XYStagePosition>();
-         int fullTileWidth = JavaLayerImageConstructor.getInstance().getImageWidth();
-         int fullTileHeight = JavaLayerImageConstructor.getInstance().getImageHeight();
+         int fullTileWidth = (int) Magellan.getCore().getImageWidth();
+         int fullTileHeight = (int) Magellan.getCore().getImageHeight();
          int tileWidthMinusOverlap = fullTileWidth - overlapX_;
          int tileHeightMinusOverlap = fullTileHeight - overlapY_;
          for (int col = 0; col < cols_; col++) {
@@ -137,8 +136,8 @@ public class MultiPosRegion implements XYFootprint {
       try {
          AffineTransform transform = AffineUtils.getAffineTransform(Magellan.getCore().getCurrentPixelSizeConfig(), center_.x, center_.y);
          ArrayList<XYStagePosition> positions = new ArrayList<XYStagePosition>();
-         int fullTileWidth = JavaLayerImageConstructor.getInstance().getImageWidth();
-         int fullTileHeight = JavaLayerImageConstructor.getInstance().getImageHeight();
+         int fullTileWidth = (int) Magellan.getCore().getImageWidth();
+         int fullTileHeight = (int) Magellan.getCore().getImageHeight();
          updateOverlap(tileOverlapPercent / 100);
          int tileWidthMinusOverlap = fullTileWidth - overlapX_;
          int tileHeightMinusOverlap = fullTileHeight - overlapY_;

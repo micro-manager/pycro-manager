@@ -44,7 +44,6 @@ public class ExploreAcquisition extends Acquisition {
     private volatile double zTop_, zBottom_;
     private volatile int minSliceIndex_ = 0, maxSliceIndex_ = 0;
     private ExecutorService eventAdderExecutor_ = Executors.newSingleThreadExecutor();
-    private int imageFilterType_;
     private ConcurrentHashMap<Integer, LinkedBlockingQueue<ExploreTileWaitingToAcquire>> queuedTileEvents_ = new ConcurrentHashMap<Integer, LinkedBlockingQueue<ExploreTileWaitingToAcquire>>();
     private double zOrigin_;
     private ChannelSpec channels_;
@@ -61,7 +60,6 @@ public class ExploreAcquisition extends Acquisition {
             Log.log("Couldn't get focus device position", true);
             throw new RuntimeException();
         }
-        imageFilterType_ = settings.filterType_;
         initialize(settings.dir_, settings.name_, settings.tileOverlap_);
     }
 
@@ -337,17 +335,6 @@ public class ExploreAcquisition extends Acquisition {
             Log.log("Couldn't create initial position list", true);
             return null;
         }
-    }
-
-    @Override
-    public double getRank() {
-        //get from gui so it can be changed dynamically within a single explore
-        return GUI.getExploreRankSetting();
-    }
-
-    @Override
-    public int getFilterType() {
-        return imageFilterType_;
     }
 
     @Override

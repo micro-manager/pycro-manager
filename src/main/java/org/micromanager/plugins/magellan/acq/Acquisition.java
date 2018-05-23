@@ -20,7 +20,6 @@ import ij.IJ;
 import main.java.org.micromanager.plugins.magellan.imagedisplay.DisplayPlus;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingQueue;
-import main.java.org.micromanager.plugins.magellan.bidc.JavaLayerImageConstructor;
 import main.java.org.micromanager.plugins.magellan.channels.ChannelSetting;
 import java.awt.Color;
 import java.util.ArrayList;
@@ -56,6 +55,7 @@ public abstract class Acquisition implements AcquisitionEventSource{
    private volatile boolean pause_ = false;
    private Object pauseLock_ = new Object();
    protected ChannelSpec channels_;
+   private volatile MagellanTaggedImage lastImage_;
 
    public Acquisition(double zStep, ChannelSpec channels) throws Exception {
       xyStage_ = Magellan.getCore().getXYStageDevice();
@@ -85,10 +85,6 @@ public abstract class Acquisition implements AcquisitionEventSource{
       lastEvent_ = event;
       return event;
    }
-
-   public abstract double getRank();
-   
-   public abstract int getFilterType(); 
    
    public abstract int getAcqEventQueueCap();
 
@@ -150,6 +146,7 @@ public abstract class Acquisition implements AcquisitionEventSource{
    public abstract void abort();
    
    public void markAsFinished() {
+      lastImage_ = null;
       finished_ = true;
    }
    public long getStartTime_ms() {
@@ -174,8 +171,8 @@ public abstract class Acquisition implements AcquisitionEventSource{
    
    protected void initialize(String dir, String name, double overlapPercent) {
       engineOutputQueue_ = new LinkedBlockingQueue<MagellanTaggedImage>(OUTPUT_QUEUE_SIZE);
-      overlapX_ = (int) (JavaLayerImageConstructor.getInstance().getImageWidth() * overlapPercent / 100);
-      overlapY_ = (int) (JavaLayerImageConstructor.getInstance().getImageHeight() * overlapPercent / 100);
+      overlapX_ = (int) (Magellan.getCore().getImageWidth() * overlapPercent / 100);
+      overlapY_ = (int) (Magellan.getCore().getImageHeight() * overlapPercent / 100);
       JSONObject summaryMetadata = MagellanEngine.makeSummaryMD(this, name);
       imageStorage_ = new MultiResMultipageTiffStorage(dir, summaryMetadata,
               (this instanceof FixedAreaAcquisition)); //estimatye background pixel values for fixed acqs but not explore
@@ -195,9 +192,14 @@ public abstract class Acquisition implements AcquisitionEventSource{
    public double getZStep() {
       return zStep_;
    }
+   
+   public MagellanTaggedImage getLastImage() {
+       return lastImage_;
+   }
 
    public void addImage(MagellanTaggedImage img) {
       try {
+         lastImage_ = img;
          engineOutputQueue_.put(img);
       } catch (InterruptedException ex) {
          IJ.log("Acquisition engine thread interrupted");

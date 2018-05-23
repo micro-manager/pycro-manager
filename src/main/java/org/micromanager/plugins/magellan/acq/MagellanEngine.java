@@ -32,13 +32,13 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.ThreadFactory;
 import javax.swing.JOptionPane;
 import java.awt.geom.AffineTransform;
-import main.java.org.micromanager.plugins.magellan.bidc.FrameIntegrationMethod;
-import main.java.org.micromanager.plugins.magellan.bidc.JavaLayerImageConstructor;
+import main.java.org.micromanager.plugins.magellan.autofocus.SingleShotAutofocus;
 import main.java.org.micromanager.plugins.magellan.channels.ChannelSetting;
 import main.java.org.micromanager.plugins.magellan.coordinates.AffineUtils;
 import main.java.org.micromanager.plugins.magellan.demo.DemoModeImageData;
 import main.java.org.micromanager.plugins.magellan.gui.GUI;
 import main.java.org.micromanager.plugins.magellan.json.JSONArray;
+import main.java.org.micromanager.plugins.magellan.json.JSONException;
 import main.java.org.micromanager.plugins.magellan.json.JSONObject;
 import main.java.org.micromanager.plugins.magellan.main.Magellan;
 import main.java.org.micromanager.plugins.magellan.misc.GlobalSettings;
@@ -46,6 +46,7 @@ import main.java.org.micromanager.plugins.magellan.misc.Log;
 import main.java.org.micromanager.plugins.magellan.misc.MD;
 import main.java.org.micromanager.plugins.magellan.propsandcovariants.CovariantPairing;
 import mmcorej.CMMCore;
+import mmcorej.TaggedImage;
 
 /**
  * Engine has a single thread executor, which sits idly waiting for new
@@ -250,24 +251,29 @@ public class MagellanEngine {
         });
     }
 
-    private void executeAcquisitionEvent(AcquisitionEvent event) throws InterruptedException {
+    private void executeAcquisitionEvent(final AcquisitionEvent event) throws InterruptedException {
         if (event.isReQueryEvent()) {
             //nothing to do, just a dummy event to get of blocking call when switching between parallel acquisitions
         } else if (event.isAcquisitionFinishedEvent()) {
             //signal to MagellanTaggedImageSink to finish saving thread and mark acquisition as finished
-            JavaLayerImageConstructor.getInstance().addSignalMagellanTaggedImage(event, new SignalTaggedImage(SignalTaggedImage.AcqSingal.AcqusitionFinsihed));
+            event.acquisition_.addImage(new SignalTaggedImage(SignalTaggedImage.AcqSingal.AcqusitionFinsihed));
         } else if (event.isTimepointFinishedEvent()) {
-            //signal to MagellanTaggedImageSink to let acqusition know that saving for the current time point has completed  
-            JavaLayerImageConstructor.getInstance().addSignalMagellanTaggedImage(event, new SignalTaggedImage(SignalTaggedImage.AcqSingal.TimepointFinished));
-        } else if (event.isAutofocusAdjustmentEvent()) {
-            setAutofocusPosition(event.autofocusZName_, event.autofocusPosition_);
+            //signal to MagellanTaggedImageSink to let acqusition know that saving for the current time point has completed    
+            event.acquisition_.addImage(new SignalTaggedImage(SignalTaggedImage.AcqSingal.TimepointFinished));
+        } else if (event.isAutofocusEvent()) {
+            updateHardware(event);
+            acquireImage(event);
+            MagellanTaggedImage afImage = event.acquisition_.getLastImage();
+            double afCorrection = SingleShotAutofocus.getInstance().predictDefocus((short[]) afImage.pix);
+            if (Math.abs(afCorrection) > ((FixedAreaAcquisition) event.acquisition_).getAFMaxDisplacement()) {
+                Log.log("Calculated af displacement of " + afCorrection + " exceeds tolerance. Leaving correction unchanged");
+            } else {
+                ((FixedAreaAcquisition) event.acquisition_).setAFCorrection(afCorrection);
+            }
         } else {
             updateHardware(event);
             double startTime = System.currentTimeMillis();
             acquireImage(event);
-            if (GlobalSettings.getInstance().getDemoMode()) {
-                Thread.sleep(DEMO_DELAY_IMAGE_CAPTURE);
-            }
             try {
                 acqDurationEstiamtor_.storeImageAcquisitionTime(core_.getExposure(), System.currentTimeMillis() - startTime);
             } catch (Exception ex) {
@@ -283,7 +289,7 @@ public class MagellanEngine {
         loopHardwareCommandRetries(new HardwareCommand() {
             @Override
             public void run() throws Exception {
-                JavaLayerImageConstructor.getInstance().snapImage();
+                Magellan.getCore().snapImage();
             }
         }, "snapping image");
 
@@ -298,23 +304,17 @@ public class MagellanEngine {
         loopHardwareCommandRetries(new HardwareCommand() {
             @Override
             public void run() throws Exception {
-                JavaLayerImageConstructor.getInstance().getMagellanTaggedImagesAndAddToAcq(
-                        event, currentTime, event.acquisition_.channels_.getActiveChannelSetting(event.channelIndex_).exposure_);
+                for (int c = 0; c < core_.getNumberOfCameraChannels(); c++) {
+                    MagellanTaggedImage img = convertTaggedImage(core_.getTaggedImage(c));
+                    MagellanEngine.addImageMetadata(img.tags, event, event.timeIndex_, c, currentTime - event.acquisition_.getStartTime_ms(),
+                            event.acquisition_.channels_.getActiveChannelSetting(event.channelIndex_).exposure_);
+                    event.acquisition_.addImage(img);
+                }
             }
         }, "getting tagged image");
 
         //now that Core Communicator has added images into construction pipeline,
         //free to snap again which will add more to circular buffer
-    }
-
-    private void setAutofocusPosition(final String zName, final double pos) throws InterruptedException {
-
-        loopHardwareCommandRetries(new HardwareCommand() {
-            @Override
-            public void run() throws Exception {
-                core_.setPosition(zName, pos);
-            }
-        }, "Setting autofocus position");
     }
 
     private void updateHardware(final AcquisitionEvent event) throws InterruptedException {
@@ -328,7 +328,7 @@ public class MagellanEngine {
 
         //move Z before XY 
         /////////////////////////////Z stage/////////////////////////////
-        if (lastEvent_ == null || event.zPosition_ != lastEvent_.zPosition_ || event.positionIndex_ != lastEvent_.positionIndex_ ) {
+        if (lastEvent_ == null || event.zPosition_ != lastEvent_.zPosition_ || event.positionIndex_ != lastEvent_.positionIndex_) {
             double startTime = System.currentTimeMillis();
             //wait for it to not be busy (is this even needed?)
             loopHardwareCommandRetries(new HardwareCommand() {
@@ -343,11 +343,12 @@ public class MagellanEngine {
             loopHardwareCommandRetries(new HardwareCommand() {
                 @Override
                 public void run() throws Exception {
-                    core_.setPosition(zStage, event.zPosition_);
-                    //delay in demo mode to simulate movement
-                    if (GlobalSettings.getInstance().getDemoMode()) {
-                        Thread.sleep(DEMO_DELAY_Z);
+                    double afCorrection = 0;
+                    if (event.acquisition_ instanceof FixedAreaAcquisition && ((FixedAreaAcquisition) event.acquisition_).getSettings().autofocusEnabled_
+                            && !event.isAutofocusEvent()) { //Dont apply previous autofocus correction on new af image
+                        afCorrection = ((FixedAreaAcquisition) event.acquisition_).getAFCorrection();
                     }
+                    core_.setPosition(zStage, event.zPosition_ + afCorrection);
                 }
             }, "move Z device");
             //wait for it to not be busy (is this even needed?)
@@ -365,7 +366,6 @@ public class MagellanEngine {
                 Log.log(ex);
             }
         }
-
 
         /////////////////////////////XY Stage/////////////////////////////
         if (lastEvent_ == null || event.positionIndex_ != lastEvent_.positionIndex_) {
@@ -516,14 +516,10 @@ public class MagellanEngine {
         MD.setNumFrames(summary, acq.getInitialNumFrames());
         MD.setNumSlices(summary, acq.getInitialNumSlicesEstimate());
         MD.setZCTOrder(summary, false);
-        MD.setPixelTypeFromByteDepth(summary, GlobalSettings.getInstance().isBIDCTwoPhoton()
-                ? (acq.getFilterType() == FrameIntegrationMethod.FRAME_SUMMATION ? 2 : 1)
-                : (int) core_.getBytesPerPixel());
-        MD.setBitDepth(summary, GlobalSettings.getInstance().isBIDCTwoPhoton()
-                ? (acq.getFilterType() == FrameIntegrationMethod.FRAME_SUMMATION ? 16 : 8)
-                : (int) core_.getImageBitDepth());
-        MD.setWidth(summary, JavaLayerImageConstructor.getInstance().getImageWidth());
-        MD.setHeight(summary, JavaLayerImageConstructor.getInstance().getImageHeight());
+        MD.setPixelTypeFromByteDepth(summary, (int) core_.getBytesPerPixel());
+        MD.setBitDepth(summary, (int) core_.getImageBitDepth());
+        MD.setWidth(summary, (int) Magellan.getCore().getImageWidth());
+        MD.setHeight(summary, (int) Magellan.getCore().getImageHeight());
         MD.setSavingPrefix(summary, prefix);
         JSONArray initialPosList = acq.createInitialPositionList();
         MD.setInitialPositionList(summary, initialPosList);
@@ -533,13 +529,6 @@ public class MagellanEngine {
         MD.setPixelOverlapX(summary, acq.getOverlapX());
         MD.setPixelOverlapY(summary, acq.getOverlapY());
         MD.setExploreAcq(summary, acq instanceof ExploreAcquisition);
-        if (GlobalSettings.getInstance().isBIDCTwoPhoton()) {
-            MD.setImageConstructionFilter(summary, acq.getFilterType() == FrameIntegrationMethod.RANK_FILTER ? "RankFilter" :
-                    (acq.getFilterType() == FrameIntegrationMethod.FRAME_AVERAGE ? "FrameAverage" : "FrameSummation" ));
-            if (acq.getFilterType() == FrameIntegrationMethod.RANK_FILTER ) {
-                MD.setRankFilterRank(summary, acq.getRank());
-            }
-        }
         //affine transform
         String pixelSizeConfig;
         try {
@@ -577,6 +566,15 @@ public class MagellanEngine {
     private interface HardwareCommand {
 
         void run() throws Exception;
+    }
+
+    private static MagellanTaggedImage convertTaggedImage(TaggedImage img) {
+        try {
+            return new MagellanTaggedImage(img.pix, new JSONObject(img.tags.toString()));
+        } catch (JSONException ex) {
+            Log.log("Couldn't convert JSON metadata");
+            throw new RuntimeException();
+        }
     }
 
     public void setMultiAcqManager(MultipleAcquisitionManager multiAcqManager) {
