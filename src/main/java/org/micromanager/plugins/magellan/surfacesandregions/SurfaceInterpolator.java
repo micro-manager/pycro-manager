@@ -497,17 +497,33 @@ public abstract class SurfaceInterpolator implements XYFootprint {
       //add all positions of rectangle around convex hull
       for (int col = 0; col < numCols_; col++) {
          double xPixelOffset = (col - (numCols_ - 1) / 2.0) * (tileWidthMinusOverlap);
-         for (int row = 0; row < numRows_; row++) {
-            if (Thread.interrupted()) {
-               throw new InterruptedException();
-            }
-            double yPixelOffset = (row - (numRows_ - 1) / 2.0) * (tileHeightMinusOverlap);
-            Point2D.Double pixelPos = new Point2D.Double(xPixelOffset, yPixelOffset);
-            Point2D.Double stagePos = new Point2D.Double();
-            transform.transform(pixelPos, stagePos);
-            AffineTransform posTransform = AffineUtils.getAffineTransform(getCurrentPixelSizeConfig(), stagePos.x, stagePos.y);
-            positions.add(new XYStagePosition(stagePos, tileWidthMinusOverlap, tileHeightMinusOverlap,
-                    fullTileWidth, fullTileHeight, row, col, posTransform));
+         //snaky pattern
+         if (col % 2 == 0) {
+             for (int row = 0; row < numRows_; row++) {
+                 if (Thread.interrupted()) {
+                     throw new InterruptedException();
+                 }
+                 double yPixelOffset = (row - (numRows_ - 1) / 2.0) * (tileHeightMinusOverlap);
+                 Point2D.Double pixelPos = new Point2D.Double(xPixelOffset, yPixelOffset);
+                 Point2D.Double stagePos = new Point2D.Double();
+                 transform.transform(pixelPos, stagePos);
+                 AffineTransform posTransform = AffineUtils.getAffineTransform(getCurrentPixelSizeConfig(), stagePos.x, stagePos.y);
+                 positions.add(new XYStagePosition(stagePos, tileWidthMinusOverlap, tileHeightMinusOverlap,
+                         fullTileWidth, fullTileHeight, row, col, posTransform));
+             }
+         } else {
+            for (int row = numRows_-1; row >= 0; row--) {
+                 if (Thread.interrupted()) {
+                     throw new InterruptedException();
+                 }
+                 double yPixelOffset = (row - (numRows_ - 1) / 2.0) * (tileHeightMinusOverlap);
+                 Point2D.Double pixelPos = new Point2D.Double(xPixelOffset, yPixelOffset);
+                 Point2D.Double stagePos = new Point2D.Double();
+                 transform.transform(pixelPos, stagePos);
+                 AffineTransform posTransform = AffineUtils.getAffineTransform(getCurrentPixelSizeConfig(), stagePos.x, stagePos.y);
+                 positions.add(new XYStagePosition(stagePos, tileWidthMinusOverlap, tileHeightMinusOverlap,
+                         fullTileWidth, fullTileHeight, row, col, posTransform));
+             }     
          }
       }
       //delete positions squares (+padding) that do not overlap convex hull

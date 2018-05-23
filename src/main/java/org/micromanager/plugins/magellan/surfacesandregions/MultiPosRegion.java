@@ -143,15 +143,28 @@ public class MultiPosRegion implements XYFootprint {
          int tileHeightMinusOverlap = fullTileHeight - overlapY_;
          for (int col = 0; col < cols_; col++) {
             double xPixelOffset = (col - (cols_ - 1) / 2.0) * tileWidthMinusOverlap;
-            for (int row = 0; row < rows_; row++) {
-               double yPixelOffset = (row - (rows_ - 1) / 2.0) * tileHeightMinusOverlap;
-               Point2D.Double pixelPos = new Point2D.Double(xPixelOffset, yPixelOffset);
-               Point2D.Double stagePos = new Point2D.Double();
-               transform.transform(pixelPos, stagePos);
-               AffineTransform posTransform = AffineUtils.getAffineTransform(pixelSizeConfig_, stagePos.x, stagePos.y);
-               positions.add(new XYStagePosition(stagePos, tileWidthMinusOverlap, tileHeightMinusOverlap,
-                       fullTileWidth, fullTileHeight, row, col, posTransform));
-            }
+            //add in snaky behavior
+                if (col % 2 == 0) {
+                    for (int row = 0; row < rows_; row++) {
+                        double yPixelOffset = (row - (rows_ - 1) / 2.0) * tileHeightMinusOverlap;
+                        Point2D.Double pixelPos = new Point2D.Double(xPixelOffset, yPixelOffset);
+                        Point2D.Double stagePos = new Point2D.Double();
+                        transform.transform(pixelPos, stagePos);
+                        AffineTransform posTransform = AffineUtils.getAffineTransform(pixelSizeConfig_, stagePos.x, stagePos.y);
+                        positions.add(new XYStagePosition(stagePos, tileWidthMinusOverlap, tileHeightMinusOverlap,
+                                fullTileWidth, fullTileHeight, row, col, posTransform));
+                    }
+                } else {
+                    for (int row = rows_ - 1; row > 0; row--) {
+                        double yPixelOffset = (row - (rows_ - 1) / 2.0) * tileHeightMinusOverlap;
+                        Point2D.Double pixelPos = new Point2D.Double(xPixelOffset, yPixelOffset);
+                        Point2D.Double stagePos = new Point2D.Double();
+                        transform.transform(pixelPos, stagePos);
+                        AffineTransform posTransform = AffineUtils.getAffineTransform(pixelSizeConfig_, stagePos.x, stagePos.y);
+                        positions.add(new XYStagePosition(stagePos, tileWidthMinusOverlap, tileHeightMinusOverlap,
+                                fullTileWidth, fullTileHeight, row, col, posTransform));
+                    }
+                }
          }
          return positions;
       } catch (Exception ex) {
