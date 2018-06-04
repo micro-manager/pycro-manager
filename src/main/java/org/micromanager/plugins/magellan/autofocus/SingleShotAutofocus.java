@@ -6,11 +6,11 @@
 package main.java.org.micromanager.plugins.magellan.autofocus;
 
 import java.io.File;
-import java.io.IOException;
-import java.nio.IntBuffer;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.util.Random;
+import java.nio.FloatBuffer;
+import main.java.org.micromanager.plugins.magellan.acq.MagellanTaggedImage;
+import main.java.org.micromanager.plugins.magellan.misc.GlobalSettings;
+import main.java.org.micromanager.plugins.magellan.misc.Log;
+import main.java.org.micromanager.plugins.magellan.misc.MD;
 import org.tensorflow.SavedModelBundle;
 import org.tensorflow.Session;
 import org.tensorflow.Tensor;
@@ -23,98 +23,118 @@ public class SingleShotAutofocus {
 
     private static SingleShotAutofocus singleton_;
 
+    SavedModelBundle smb_;
+    private Session sess_;
+    private String modelPath_;
+    private String modelName_; //TODO get the short name
+    
     public SingleShotAutofocus() {
         singleton_ = this;
+        //Try to load a model if one is remembered
+        modelPath_ = GlobalSettings.getInstance().getStringInPrefs("Autofocus model path", null);
+        if (modelPath_ != null) {
+           SavedModelBundle b = SavedModelBundle.load(modelPath_,"serve");
+            sess_ = b.session();
+            modelName_ = modelPath_.split("/")[modelPath_.split("/").length-1];
+
+        }
     }
 
-    public double predictDefocus(short[] image) {
-
-        return 0.0;
+    public double predictDefocus(MagellanTaggedImage img) {
+       Object[] quads = getImageQuadrants(img);
+       double sum = 0;
+       System.out.println("Individual networks:");
+       for (Object q : quads) {
+          double prediction = this.runModel((float[]) q);
+          sum += prediction;
+          System.out.println(prediction);
+       }
+       double predDefocus = sum/4; 
+       return predDefocus;
     }
 
+    private double runModel(float[] input) {
+       
+        long[] shape = new long[]{1,1024,1024};
+        Tensor inputTensor = Tensor.create(shape, FloatBuffer.wrap(input));
+         
+       long start = System.currentTimeMillis();
+       Tensor<Float> result = sess_.runner().feed("predict_input/input", inputTensor).fetch("predict_network/output").run().get(0).expect(Float.class);
+       System.out.print("Time to evaluate:" + (System.currentTimeMillis() - start) );
+       
+       float[] res=new float[1];
+       result.copyTo(res); 
+       double predictedDefocus = res[0];
+       System.out.println("results: " + predictedDefocus);
+       
+      // Generally, there may be multiple output tensors, all of them must be closed to prevent resource leaks.
+      //TODO: close all resources
+              
+       return predictedDefocus;
+    }
+    
     public static SingleShotAutofocus getInstance() {
         return singleton_;
     }
 
     public void loadModel(File f) {
-        //either load model or throw exception
-
-
-
-//            Graph g = new Graph();
-//            final String value = "Hello from " + TensorFlow.version();
-//
-//            // Construct the computation graph with a single operation, a constant
-//            // named "MyConst" with a value "value".
-//            Tensor t = Tensor.create(value.getBytes("UTF-8"));
-//            // The Java API doesn't yet include convenience functions for adding operations.
-//            g.opBuilder("Const", "MyConst").setAttr("dtype", t.dataType()).setAttr("value", t).build();
-//
-//            // Execute the "MyConst" operation in a Session.
-//            Session s = new Session(g);
-//            Tensor output = s.runner().fetch("MyConst").run().get(0);
-//            System.out.println(new String(output.bytesValue(), "UTF-8"));
-
-      
-
-        //store preferred model path so it can be reloaded on startup
+       modelPath_ = f.getAbsolutePath();
+       try{
+         if (sess_ != null) {
+            sess_.close();
+         }
+         if (smb_ != null) {
+            smb_.close();
+         }      
+         smb_ = SavedModelBundle.load(modelPath_,"serve");
+         sess_ = smb_.session();    
+         GlobalSettings.getInstance().storeStringInPrefs("Autofocus model path", modelPath_);
+         modelName_ = modelPath_.split("/")[modelPath_.split("/").length-1];
+       } catch (Exception e) {
+          Log.log(e);
+       }
     }
 
     public String getModelName() {
-        return "TODO";
+       if (modelPath_ == null ) {
+          return "No model loaded";
+       } else {
+          return modelName_;
+       }
     }
 
-    public static void main(String[] args) {
-
-      SavedModelBundle b = SavedModelBundle.load("/Users/henrypinkard/Google Drive/Code/GitRepos/Leukosight/analysis/autofocus/exported_model/","serve");
+    private Object[] getImageQuadrants(MagellanTaggedImage img) {
+      int width = MD.getWidth(img.tags);
+      short[] pixels = (short[]) img.pix;
+      //divide in to 4 1024x1024 images
        
-      Session s = b.session();
+       //TODO: check orientation
+       int quadDim = 1024;
+       float[] topLeft = new float[quadDim*quadDim];
+       float[] topRight = new float[quadDim*quadDim];
+       float[] botLeft = new float[quadDim*quadDim];
+       float[] botRight = new float[quadDim*quadDim];
        
-        int[] data = new int[1028*1028]; 
-        Random random = new Random();
-        
-        for (int i = 0; i < data.length; i++) {
-           data[i] = random.nextInt(4096);
-        }
-        
-        long[] shape = new long[]{1,1028,1028};
-        Tensor input = Tensor.create(shape, IntBuffer.wrap(data));
-         
-       s.runner().feed("predict_input/input", input).fetch("predict_network/output").run().get(0).expect(Float.class);
-
-       long start = System.currentTimeMillis();
-       Tensor<Float> result = s.runner().feed("predict_input/input", input).fetch("predict_network/output").run().get(0).expect(Float.class);
-       System.out.println("Time to evaluate:" + (System.currentTimeMillis() - start) );
+       for (int x=0; x < 2*quadDim; x++ ) {
+          for (int y=0; y < 2*quadDim; y++) {
+             int destIndex = (x % quadDim) + (y % quadDim) * quadDim;
+             int sourceIndex = x + y*width;
+             if (x < quadDim && y < quadDim) {
+                topLeft[destIndex] = pixels[sourceIndex]; 
+             } else if (x < quadDim && y >= quadDim) {
+                botLeft[destIndex] = pixels[sourceIndex]; 
+             } else if (x >= quadDim && y < quadDim) {
+                topRight[destIndex] = pixels[sourceIndex]; 
+             } else if (x >= quadDim && y >= quadDim) {
+                botRight[destIndex] = pixels[sourceIndex]; 
+             }
+          }
+       }
+       //visualize
+//       FloatProcessor fp = new FloatProcessor(quadDim, quadDim, botLeft);
+//       ImagePlus ip = new ImagePlus("test", fp);
+//       ip.show();
        
-       float[] res=new float[1];
-       result.copyTo(res); 
-       double predictedDefocus = res[0];
-      // Generally, there may be multiple output tensors, all of them must be closed to prevent resource leaks.
-       
-//       float[][] res = new float[1][1];
-//       res[0] = new float[1];
-//       result.copyTo(res);
-       System.out.println("results: " + predictedDefocus);
-//
-//
-//        // Generally, there may be multiple output tensors, all of them must be closed to prevent resource leaks.
-//        Tensor<Float> predictedDefocusTensor = s.runner().feed("input", input).fetch("output").run().get(0).expect(Float.class);
-//
-//        double predictedDefocus = predictedDefocusTensor.doubleValue();
-        
-
-        //TODO: close all resources
+       return new Object[]{topLeft, botLeft, topRight, botRight}; 
     }
-
-
-    private static byte[] readAllBytesOrExit(Path path) {
-        try {
-            return Files.readAllBytes(path);
-        } catch (IOException e) {
-            System.err.println("Failed to read [" + path + "]: " + e.getMessage());
-            System.exit(1);
-        }
-        return null;
-    }
-
 }

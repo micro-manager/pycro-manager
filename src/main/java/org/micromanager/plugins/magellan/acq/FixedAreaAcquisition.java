@@ -426,7 +426,16 @@ public class FixedAreaAcquisition extends Acquisition implements SurfaceChangedL
          //add events for all slices/channels at this position
          XYStagePosition position = positions_.get(positionIndex);
          boolean tiltedPlane2D = settings_.spaceMode_ == FixedAreaAcquisitionSettings.REGION_2D && settings_.collectionPlane_ != null;
-         
+             
+         //create autofocus event starting at the position we believe to be correct
+         double afZPos = settings_.collectionPlane_.getExtrapolatedValue(position.getCenter().x, position.getCenter().y);
+         if (settings_.autofocusEnabled_) {
+            //create event for determining autofocus offset                        
+            AcquisitionEvent event = AcquisitionEvent.createAutofocusEvent(FixedAreaAcquisition.this, timeIndex, getAutofocusChannelIndex(), 0,
+                    positionIndex, afZPos, position, settings_.covariantPairings_);
+            events_.put(event);
+         }
+       
          if (settings_.channelsAtEverySlice_ && !tiltedPlane2D) {
 
             int sliceIndex = (int) Math.round((getZTopCoordinate() - zOrigin_) / zStep_);
@@ -482,16 +491,6 @@ public class FixedAreaAcquisition extends Acquisition implements SurfaceChangedL
                sliceIndex++;
             } //slice loop finish
          } else {
-             //create autofocus event starting at the position we believe to be correct
-             double afZPos = settings_.collectionPlane_.getExtrapolatedValue(position.getCenter().x, position.getCenter().y);
-             if (settings_.autofocusEnabled_) {
-                 //create event for determining autofocus offset                        
-                 AcquisitionEvent event = AcquisitionEvent.createAutofocusEvent(FixedAreaAcquisition.this, timeIndex, getAutofocusChannelIndex(), 0,
-                         positionIndex, afZPos, position, settings_.covariantPairings_);
-                 events_.put(event);
-             }
-
-             
             //Z stacks at each channel
             for (int channelIndex = 0; channelIndex < settings_.channels_.getNumActiveChannels(); channelIndex++) {
                if (!settings_.channels_.getActiveChannelSetting(channelIndex).uniqueEvent_ ) {
