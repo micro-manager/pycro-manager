@@ -154,8 +154,8 @@ public class MultiPosRegion implements XYFootprint {
                         positions.add(new XYStagePosition(stagePos, tileWidthMinusOverlap, tileHeightMinusOverlap,
                                 fullTileWidth, fullTileHeight, row, col, posTransform));
                     }
-                } else {
-                    for (int row = rows_ - 1; row > 0; row--) {
+                } else {  
+                    for (int row = rows_ - 1; row >= 0; row--) {
                         double yPixelOffset = (row - (rows_ - 1) / 2.0) * tileHeightMinusOverlap;
                         Point2D.Double pixelPos = new Point2D.Double(xPixelOffset, yPixelOffset);
                         Point2D.Double stagePos = new Point2D.Double();
@@ -165,7 +165,7 @@ public class MultiPosRegion implements XYFootprint {
                                 fullTileWidth, fullTileHeight, row, col, posTransform));
                     }
                 }
-         }
+         }    
          return positions;
       } catch (Exception ex) {
          Log.log("Couldn't get affine transform");
