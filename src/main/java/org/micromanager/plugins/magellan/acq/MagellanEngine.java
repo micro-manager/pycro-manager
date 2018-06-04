@@ -264,7 +264,7 @@ public class MagellanEngine {
             updateHardware(event);
             acquireImage(event);
             MagellanTaggedImage afImage = event.acquisition_.getLastImage();
-            double afCorrection = SingleShotAutofocus.getInstance().predictDefocus((short[]) afImage.pix);
+            double afCorrection = SingleShotAutofocus.getInstance().predictDefocus(afImage);
             if (Math.abs(afCorrection) > ((FixedAreaAcquisition) event.acquisition_).getAFMaxDisplacement()) {
                 Log.log("Calculated af displacement of " + afCorrection + " exceeds tolerance. Leaving correction unchanged");
             } else {
