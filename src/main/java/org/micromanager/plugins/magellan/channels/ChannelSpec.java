@@ -83,6 +83,14 @@ public class ChannelSpec {
         return channelNames;
     }
     
+      public String[] getAllChannelNames() {
+        String[] channelNames = new String[channels_.size()];
+        for (int i = 0; i < channelNames.length; i++) {
+            channelNames[i] = channels_.get(i).name_;
+        }
+        return channelNames;
+    }
+    
       public Color[] getActiveChannelColors() {
         Color[] channelColors = new Color[getNumActiveChannels()];
         for (int i = 0; i < channelColors.length; i++) {

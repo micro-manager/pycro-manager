@@ -467,6 +467,10 @@ public class FixedAreaAcquisition extends Acquisition implements SurfaceChangedL
                   if (!settings_.channels_.getActiveChannelSetting(channelIndex).uniqueEvent_) {
                      continue;
                   }
+                  //dont acquire the af channel
+                  if (settings_.autofocusEnabled_ && this.getAutofocusChannelIndex() == channelIndex) {
+                      continue;
+                  }
                   
                   AcquisitionEvent event = new AcquisitionEvent(FixedAreaAcquisition.this, timeIndex, channelIndex, sliceIndex,
                           positionIndex, zPos + settings_.channels_.getActiveChannelSetting(channelIndex).offset_, position, settings_.covariantPairings_);
@@ -494,6 +498,10 @@ public class FixedAreaAcquisition extends Acquisition implements SurfaceChangedL
             //Z stacks at each channel
             for (int channelIndex = 0; channelIndex < settings_.channels_.getNumActiveChannels(); channelIndex++) {
                if (!settings_.channels_.getActiveChannelSetting(channelIndex).uniqueEvent_ ) {
+                  continue;
+               }                 
+               //dont acquire the af channel
+               if (settings_.autofocusEnabled_ && this.getAutofocusChannelIndex() == channelIndex) {
                   continue;
                }
                //Special case: 2D tilted plane

@@ -369,7 +369,9 @@ public class GUI extends javax.swing.JFrame {
            }
        });
        fitSplitPaneToWindowSize();
-        
+       //update autofocus model name
+       chosenModelAFLabel_.setText(SingleShotAutofocus.getInstance().getModelName());
+
     }
     
     public void selectNewCovariantPair() {
@@ -530,7 +532,9 @@ public class GUI extends javax.swing.JFrame {
         //autofocus
         settings.autofocusEnabled_ = useAutofocusCheckBox_.isSelected();
         if (settings.autofocusEnabled_) {
-            settings.autofocusChannelName_ = autofocusChannelCombo_.getSelectedItem().toString();
+            if (autofocusChannelCombo_.getSelectedItem() !=null) {
+                settings.autofocusChannelName_ = autofocusChannelCombo_.getSelectedItem().toString();                
+            }
             settings.autofocusMaxDisplacemnet_um_ = (Double) autofocusMaxDisplacementSpinner_.getValue();
         }
 
@@ -2104,20 +2108,22 @@ public class GUI extends javax.swing.JFrame {
                 .addContainerGap()
                 .addGroup(autofocusComponentsPanel_Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
                     .addGroup(autofocusComponentsPanel_Layout.createSequentialGroup()
-                        .addComponent(jLabel7)
-                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
-                        .addComponent(autofocusChannelCombo_, javax.swing.GroupLayout.PREFERRED_SIZE, 115, javax.swing.GroupLayout.PREFERRED_SIZE))
-                    .addGroup(autofocusComponentsPanel_Layout.createSequentialGroup()
-                        .addComponent(autofocusMaxDisplacementLabel_, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
-                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                        .addComponent(autofocusMaxDisplacementSpinner_, javax.swing.GroupLayout.PREFERRED_SIZE, 64, javax.swing.GroupLayout.PREFERRED_SIZE))
-                    .addGroup(autofocusComponentsPanel_Layout.createSequentialGroup()
                         .addComponent(autofocusModelLabel_)
                         .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                        .addComponent(loadModelAFButton_, javax.swing.GroupLayout.PREFERRED_SIZE, 100, javax.swing.GroupLayout.PREFERRED_SIZE)
-                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                        .addComponent(chosenModelAFLabel_)))
-                .addContainerGap(61, Short.MAX_VALUE))
+                        .addComponent(chosenModelAFLabel_, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
+                    .addGroup(autofocusComponentsPanel_Layout.createSequentialGroup()
+                        .addGroup(autofocusComponentsPanel_Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                            .addGroup(autofocusComponentsPanel_Layout.createSequentialGroup()
+                                .addComponent(jLabel7)
+                                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
+                                .addComponent(autofocusChannelCombo_, javax.swing.GroupLayout.PREFERRED_SIZE, 115, javax.swing.GroupLayout.PREFERRED_SIZE))
+                            .addGroup(autofocusComponentsPanel_Layout.createSequentialGroup()
+                                .addComponent(autofocusMaxDisplacementLabel_, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
+                                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                                .addComponent(autofocusMaxDisplacementSpinner_, javax.swing.GroupLayout.PREFERRED_SIZE, 64, javax.swing.GroupLayout.PREFERRED_SIZE))
+                            .addComponent(loadModelAFButton_, javax.swing.GroupLayout.PREFERRED_SIZE, 100, javax.swing.GroupLayout.PREFERRED_SIZE))
+                        .addGap(0, 505, Short.MAX_VALUE)))
+                .addContainerGap())
         );
         autofocusComponentsPanel_Layout.setVerticalGroup(
             autofocusComponentsPanel_Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
@@ -2130,16 +2136,13 @@ public class GUI extends javax.swing.JFrame {
                 .addGroup(autofocusComponentsPanel_Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
                     .addComponent(autofocusMaxDisplacementSpinner_, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
                     .addComponent(autofocusMaxDisplacementLabel_, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE))
-                .addGroup(autofocusComponentsPanel_Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING, false)
-                    .addGroup(autofocusComponentsPanel_Layout.createSequentialGroup()
-                        .addGap(12, 12, 12)
-                        .addComponent(autofocusModelLabel_))
-                    .addGroup(autofocusComponentsPanel_Layout.createSequentialGroup()
-                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                        .addGroup(autofocusComponentsPanel_Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
-                            .addComponent(loadModelAFButton_, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
-                            .addComponent(chosenModelAFLabel_))))
-                .addContainerGap(62, Short.MAX_VALUE))
+                .addGap(12, 12, 12)
+                .addGroup(autofocusComponentsPanel_Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
+                    .addComponent(autofocusModelLabel_)
+                    .addComponent(chosenModelAFLabel_))
+                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                .addComponent(loadModelAFButton_)
+                .addContainerGap(33, Short.MAX_VALUE))
         );
 
         javax.swing.GroupLayout autofocusTab_lLayout = new javax.swing.GroupLayout(autofocusTab_l);
@@ -2151,7 +2154,7 @@ public class GUI extends javax.swing.JFrame {
                 .addGroup(autofocusTab_lLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
                     .addComponent(useAutofocusCheckBox_)
                     .addComponent(autofocusComponentsPanel_, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE))
-                .addContainerGap(593, Short.MAX_VALUE))
+                .addContainerGap(166, Short.MAX_VALUE))
         );
         autofocusTab_lLayout.setVerticalGroup(
             autofocusTab_lLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
@@ -2570,6 +2573,7 @@ public class GUI extends javax.swing.JFrame {
     private void ChannelGroupCombo_ActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_ChannelGroupCombo_ActionPerformed
         ((SimpleChannelTableModel) channelsTable_.getModel()).setChannelGroup((String) ChannelGroupCombo_.getSelectedItem());
         ((SimpleChannelTableModel) channelsTable_.getModel()).fireTableDataChanged();
+        AutofocusChannelComboModel.update();
         acquisitionSettingsChanged();
     }//GEN-LAST:event_ChannelGroupCombo_ActionPerformed
 
