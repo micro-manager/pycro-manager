@@ -35,6 +35,10 @@ public class MagellanTaggedImage {
       this.tags = tags;
    }
    
+  public JSONObject getTags() {
+      return tags;
+  }
+   
   public byte[] get16BitPixelsAsByteArray() {
      short[] shortArray = (short[]) pix;
       ByteBuffer byteBuf = ByteBuffer.allocate(2 * shortArray.length );
