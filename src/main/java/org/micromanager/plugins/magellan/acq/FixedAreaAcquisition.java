@@ -428,8 +428,8 @@ public class FixedAreaAcquisition extends Acquisition implements SurfaceChangedL
          boolean tiltedPlane2D = settings_.spaceMode_ == FixedAreaAcquisitionSettings.REGION_2D && settings_.collectionPlane_ != null;
              
          //create autofocus event starting at the position we believe to be correct
-         double afZPos = settings_.collectionPlane_.getExtrapolatedValue(position.getCenter().x, position.getCenter().y);
          if (settings_.autofocusEnabled_) {
+            double afZPos = settings_.collectionPlane_.getExtrapolatedValue(position.getCenter().x, position.getCenter().y);
             //create event for determining autofocus offset                        
             AcquisitionEvent event = AcquisitionEvent.createAutofocusEvent(FixedAreaAcquisition.this, timeIndex, getAutofocusChannelIndex(), 0,
                     positionIndex, afZPos, position, settings_.covariantPairings_);
