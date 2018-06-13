@@ -109,7 +109,6 @@ public class GUI extends javax.swing.JFrame {
     private Preferences prefs_;
     private RegionManager regionManager_ = new RegionManager();
     private SurfaceManager surfaceManager_ = new SurfaceManager();
-    private SingleShotAutofocus autofocus_;
     private CovariantPairingsManager covariantPairManager_;
     private MultipleAcquisitionManager multiAcqManager_;
     private GlobalSettings settings_;
@@ -122,7 +121,6 @@ public class GUI extends javax.swing.JFrame {
       singleton_ = this;
       prefs_ = prefs;
       settings_ = new GlobalSettings(prefs_, this);
-      autofocus_ = new SingleShotAutofocus();
       this.setTitle("Micro-Magellan " + version);
       acqDurationEstimator_ = new AcqDurationEstimator();
       eng_ = new MagellanEngine(Magellan.getCore(), acqDurationEstimator_);

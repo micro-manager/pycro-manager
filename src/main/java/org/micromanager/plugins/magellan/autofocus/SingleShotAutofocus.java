@@ -21,7 +21,7 @@ import org.tensorflow.Tensor;
  */
 public class SingleShotAutofocus {
 
-    private static SingleShotAutofocus singleton_;
+    private static SingleShotAutofocus singleton_ =null;
 
     SavedModelBundle smb_;
     private Session sess_;
@@ -74,7 +74,10 @@ public class SingleShotAutofocus {
     }
     
     public static SingleShotAutofocus getInstance() {
-        return singleton_;
+       if (singleton_ == null) {
+          singleton_ = new SingleShotAutofocus();
+       }
+       return singleton_;
     }
 
     public void loadModel(File f) {
