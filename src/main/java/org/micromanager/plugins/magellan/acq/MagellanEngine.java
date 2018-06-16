@@ -267,6 +267,8 @@ public class MagellanEngine {
             double afCorrection = SingleShotAutofocus.getInstance().predictDefocus(afImage);
             if (Math.abs(afCorrection) > ((FixedAreaAcquisition) event.acquisition_).getAFMaxDisplacement()) {
                 Log.log("Calculated af displacement of " + afCorrection + " exceeds tolerance. Leaving correction unchanged");
+            } else if (Double.isNaN(afCorrection)) {
+                Log.log("Calculated af displacement is NaN. Leaving correction unchanged");
             } else {
                 ((FixedAreaAcquisition) event.acquisition_).setAFCorrection(afCorrection);
             }
@@ -328,7 +330,8 @@ public class MagellanEngine {
 
         //move Z before XY 
         /////////////////////////////Z stage/////////////////////////////
-        if (lastEvent_ == null || event.zPosition_ != lastEvent_.zPosition_ || event.positionIndex_ != lastEvent_.positionIndex_) {
+        if (lastEvent_ == null || event.zPosition_ != lastEvent_.zPosition_ || lastEvent_.isAutofocusEvent()
+                || event.positionIndex_ != lastEvent_.positionIndex_) {
             double startTime = System.currentTimeMillis();
             //wait for it to not be busy (is this even needed?)
             loopHardwareCommandRetries(new HardwareCommand() {

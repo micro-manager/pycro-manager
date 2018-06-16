@@ -29,9 +29,15 @@ public class AutofocusChannelComboModel extends DefaultComboBoxModel{
   
    private String selectedItem_;
    private SimpleChannelTableModel channelModel_;
+   private static AutofocusChannelComboModel singleton_;
    
    public AutofocusChannelComboModel(SimpleChannelTableModel channelModel) {
       channelModel_ = channelModel;
+      singleton_ = this;
+   }
+   
+   public static void update() {
+       singleton_.fireContentsChanged(singleton_, 0, singleton_.channelModel_.getActiveChannelNames().length);
    }
  
    @Override
@@ -43,7 +49,8 @@ public class AutofocusChannelComboModel extends DefaultComboBoxModel{
    public Object getSelectedItem() {
       return selectedItem_;
    }
-
+   
+   
    @Override
    public int getSize() {
       return channelModel_.getActiveChannelNames().length;

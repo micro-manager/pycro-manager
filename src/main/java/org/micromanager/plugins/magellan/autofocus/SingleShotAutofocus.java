@@ -7,6 +7,8 @@ package main.java.org.micromanager.plugins.magellan.autofocus;
 
 import java.io.File;
 import java.nio.FloatBuffer;
+import java.nio.file.FileSystem;
+import java.nio.file.FileSystems;
 import main.java.org.micromanager.plugins.magellan.acq.MagellanTaggedImage;
 import main.java.org.micromanager.plugins.magellan.misc.GlobalSettings;
 import main.java.org.micromanager.plugins.magellan.misc.Log;
@@ -35,8 +37,9 @@ public class SingleShotAutofocus {
         if (modelPath_ != null) {
            SavedModelBundle b = SavedModelBundle.load(modelPath_,"serve");
             sess_ = b.session();
-            modelName_ = modelPath_.split("/")[modelPath_.split("/").length-1];
-
+            //String sep = "\\\\";
+            //modelName_ = modelPath_.split(sep)[modelPath_.split(sep).length-1];
+            modelName_ = modelPath_;
         }
     }
 
@@ -44,12 +47,17 @@ public class SingleShotAutofocus {
        Object[] quads = getImageQuadrants(img);
        double sum = 0;
        System.out.println("Individual networks:");
+       //sometimes these output NaN. ignore this and report
+       int numMeasurements = 0;
        for (Object q : quads) {
           double prediction = this.runModel((float[]) q);
-          sum += prediction;
+          if (!Double.isNaN(prediction)) {
+              sum += prediction;
+              numMeasurements++;
+          }  
           System.out.println(prediction);
        }
-       double predDefocus = sum/4; 
+       double predDefocus = sum/numMeasurements; 
        return predDefocus;
     }
 
@@ -60,12 +68,12 @@ public class SingleShotAutofocus {
          
        long start = System.currentTimeMillis();
        Tensor<Float> result = sess_.runner().feed("predict_input/input", inputTensor).fetch("predict_network/output").run().get(0).expect(Float.class);
-       System.out.print("Time to evaluate:" + (System.currentTimeMillis() - start) );
+//       System.out.println("Time to evaluate:" + (System.currentTimeMillis() - start) );
        
        float[] res=new float[1];
        result.copyTo(res); 
        double predictedDefocus = res[0];
-       System.out.println("results: " + predictedDefocus);
+       System.out.println("Total prediction: " + predictedDefocus);
        
       // Generally, there may be multiple output tensors, all of them must be closed to prevent resource leaks.
       //TODO: close all resources
@@ -92,7 +100,9 @@ public class SingleShotAutofocus {
          smb_ = SavedModelBundle.load(modelPath_,"serve");
          sess_ = smb_.session();    
          GlobalSettings.getInstance().storeStringInPrefs("Autofocus model path", modelPath_);
-         modelName_ = modelPath_.split("/")[modelPath_.split("/").length-1];
+         //String sep = "\\\\";
+         //modelName_ = modelPath_.split(sep)[modelPath_.split(sep).length-1];
+         modelName_ = modelPath_;
        } catch (Exception e) {
           Log.log(e);
        }

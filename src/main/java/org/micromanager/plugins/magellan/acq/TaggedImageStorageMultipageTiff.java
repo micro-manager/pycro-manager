@@ -68,6 +68,7 @@ public final class TaggedImageStorageMultipageTiff   {
    private HashMap<Integer, FileSet> fileSets_;
    //Map of image labels to file 
    private HashMap<String, MultipageTiffReader> tiffReadersByLabel_;
+   private static boolean showProgressBars_ = true;
 
    /*
     * Constructor that doesn't make reference to MMStudio so it can be used independently of MM GUI
@@ -130,11 +131,20 @@ public final class TaggedImageStorageMultipageTiff   {
       //Need to throw error if file not found
       MultipageTiffReader reader = null;
       File dir = new File(directory_);
-
-      ProgressBar progressBar = new ProgressBar("Reading " + directory_, 0, dir.listFiles().length);
+      int numFiles = dir.listFiles().length;
+      
+      ProgressBar progressBar = null;
+      try {
+         progressBar = new ProgressBar("Reading " + directory_, 0, numFiles);
+      } catch (Exception e) {
+          //on a system that doesnt have support for graphics
+         showProgressBars_ = false;
+      }
       int numRead = 0;
-      progressBar.setProgress(numRead);
-      progressBar.setVisible(true);
+      if (showProgressBars_) {
+        progressBar.setProgress(numRead);
+        progressBar.setVisible(true);
+      }
       for (File f : dir.listFiles()) {
          if (f.getName().endsWith(".tif") || f.getName().endsWith(".TIF")) {
             try {
@@ -154,18 +164,23 @@ public final class TaggedImageStorageMultipageTiff   {
             }
          }
          numRead++;
-         progressBar.setProgress(numRead);
-      }
-      progressBar.setVisible(false);
-
+         if (showProgressBars_) {
+             progressBar.setProgress(numRead);
+         }    
+      }   
+      if (showProgressBars_) {
+        progressBar.setVisible(false);
+      }  
+        
       if (reader != null) {
          setSummaryMetadata(reader.getSummaryMetadata(), true);
          displayAndComments_ = reader.getDisplayAndComments();
+      } 
+      if (showProgressBars_) {
+        progressBar.setProgress(1);
+        progressBar.setVisible(false);
       }
-
-      progressBar.setProgress(1);
-      progressBar.setVisible(false);
-   }
+    }
 
    public int getMaxFrameIndexOpenedDataset() {
       return maxFrameIndex_;
@@ -369,7 +384,7 @@ public final class TaggedImageStorageMultipageTiff   {
           boolean timeFirst = summaryMetadata_.optBoolean("TimeFirst", false);
           HashMap<String, MultipageTiffReader> oldImageMap = tiffReadersByLabel_;
           tiffReadersByLabel_ = new HashMap<String, MultipageTiffReader>();
-          if (showProgress) {
+          if (showProgress && showProgressBars_) {
               ProgressBar progressBar = new ProgressBar("Building image location map", 0, oldImageMap.keySet().size());
               progressBar.setProgress(0);
               progressBar.setVisible(true);
