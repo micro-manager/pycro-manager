@@ -77,6 +77,15 @@ public class AffineCalibrator {
       datastore_ = null;
    }
    
+   /**
+    * Snap an image at the current XY stage position, then at a series of positions
+    * in a circle around the current position. Use cross correlation to determine 
+    * the optimal registrations of each of the subsequent positions relative to the first
+    * one in order to build up a set of corresponding coordinate pairs in pixel and 
+    * XY stage space. Then use these coordinate pairs to compute a least squares fit
+    * for the entries of the affine transformation matrix that relates pixels coordinates
+    * and XY stage coordinates
+    */
    public void computeAffine() throws Exception {
       CMMCore core = Magellan.getCore();
       String xyStage = core.getXYStageDevice();
@@ -84,7 +93,10 @@ public class AffineCalibrator {
       int numImages = 13;
       Point2D.Double currentPos = new Point2D.Double(core.getXPosition(xyStage), core.getYPosition(xyStage));
       Point2D.Double[] targetPositions = new Point2D.Double[numImages];
+      //first xy pos is where it currently is 
       targetPositions[0] = currentPos;  
+      //subsequent positions arranged in a circle with radius approximately equal to
+      //the size of the field of view
       for (int i = 1; i < numImages; i++) {
           double theta = (2*Math.PI / (double) (numImages-1)) * i;
           double radius = fovDiameter_um_ / 2;
@@ -123,6 +135,7 @@ public class AffineCalibrator {
          //mark as updated
          AffineUtils.transformUpdated(core.getCurrentPixelSizeConfig(), transform);
       }
+      //Ask if user wants to also use this to calibrate pixel size
       double pixelSize = (transform.getScaleX() + transform.getScaleY()) / 2.0;
       result = JOptionPane.showConfirmDialog(affineGui_, "Would you like to store a pixel size of "+ pixelSize +"?",
                "Store pixel size calibration?", JOptionPane.YES_NO_OPTION);
