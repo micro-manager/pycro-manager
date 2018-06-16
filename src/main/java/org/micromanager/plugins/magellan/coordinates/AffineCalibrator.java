@@ -23,7 +23,6 @@ import ij.WindowManager;
 import java.awt.geom.AffineTransform;
 import java.awt.geom.Point2D;
 import java.util.List;
-import java.util.concurrent.CountDownLatch;
 import javax.swing.JOptionPane;
 import main.java.org.micromanager.plugins.magellan.main.Magellan;
 import main.java.org.micromanager.plugins.magellan.misc.Log;
@@ -134,6 +133,10 @@ public class AffineCalibrator {
       }
    }
    
+   /**
+    * Always move from same direction can give more accurate results if there
+    * is some hysteresis in the XY stage
+    */
     private void moveFromSameDirection(double x, double y) throws Exception {
         //move to a postion up and the the left of the  one requested, then to the one requested
         CMMCore core = Magellan.getCore();
@@ -143,6 +146,10 @@ public class AffineCalibrator {
         core.waitForDevice(core.getXYStageDevice());
     }
    
+    /**
+    * Use fourier transforms to compute cross correlation, which gives best 
+    * translation to register two images
+    */
    private Point2D.Double computePixelShift(Image img1, Image img2) {
        String name1 = "ImageToFT1";
        String name2 = "ImageToFT2";
@@ -187,11 +194,6 @@ public class AffineCalibrator {
        return ip;
    }
 
-   /**
-    * 
-    * @return pixels
-    * @throws Exception 
-    */
     private Image snapAndAdd(int index) throws Exception {
         boolean liveOn = Magellan.getStudio().live().getIsLiveModeOn();
         if (liveOn) {
@@ -213,8 +215,12 @@ public class AffineCalibrator {
         }
         return images.get(0);
     }
-
-   private AffineTransform computeAffine(Point2D.Double[] stagePositions, Point2D.Double[] pixPositions) {
+    
+    /**
+      * Compute least squares fit of entries in the affine transform matrix based on sets of corresponding points
+      * in pixel coordinates and stage coordinates
+      */
+   private AffineTransform computeAffine(Point2D.Double[] stagePositions, Point2D.Double[] pixPositions) { 
       // s = Ma
       //aLS = (M^t * M)^-1 * s
       
@@ -251,6 +257,4 @@ public class AffineCalibrator {
       AffineTransform transform = new AffineTransform(new double[]{A.getEntry(0,0),A.getEntry(3,0),A.getEntry(1,0),A.getEntry(4,0)});
       return transform;  
    } 
-
-  
 }
