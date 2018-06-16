@@ -34,12 +34,17 @@ public class SingleShotAutofocus {
         singleton_ = this;
         //Try to load a model if one is remembered
         modelPath_ = GlobalSettings.getInstance().getStringInPrefs("Autofocus model path", null);
-        if (modelPath_ != null) {
-           SavedModelBundle b = SavedModelBundle.load(modelPath_,"serve");
-            sess_ = b.session();
-            //String sep = "\\\\";
-            //modelName_ = modelPath_.split(sep)[modelPath_.split(sep).length-1];
-            modelName_ = modelPath_;
+        try {
+           if (modelPath_ != null) {        
+              SavedModelBundle b = SavedModelBundle.load(modelPath_,"serve");
+              sess_ = b.session();
+              //String sep = "\\\\";
+              //modelName_ = modelPath_.split(sep)[modelPath_.split(sep).length-1];
+              modelName_ = modelPath_;
+           }
+        } catch (Exception e) {
+           //problem loading autofocus model
+           
         }
     }
 
