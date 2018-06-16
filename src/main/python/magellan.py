@@ -68,7 +68,7 @@ class MagellanJavaWrapper:
         if self.rgb:
             pixels = np.reshape(np.frombuffer(tagged_image_object.get8BitData(), np.dtype('>u1')), (self.tile_height, self.tile_width, 4))
             pixels = pixels[:, :, :3] #throw away alpha channel
-        elif self.bytedepth == 1:
+        elif self.byte_depth == 1:
             pixels = np.reshape(np.frombuffer(tagged_image_object.get8BitData(), np.dtype('>u1')), (self.tile_height, self.tile_width))
         else:
             pixels = np.reshape(np.frombuffer(tagged_image_object.get16BitPixelsAsByteArray(), np.dtype('>u2')), (self.tile_height, self.tile_width))
