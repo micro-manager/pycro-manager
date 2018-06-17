@@ -13,8 +13,12 @@ class MagellanJavaWrapper:
         self.summary_metadata = json.loads(str(self.storage.getSummaryMetadata().toString()))
         self.num_rows = self.storage.getNumRows()
         self.num_cols = self.storage.getNumCols()
-        self.tile_width = self.storage.getTileWidth() + self.storage.getXOverlap()
-        self.tile_height = self.storage.getTileHeight() + self.storage.getYOverlap()
+        self.overlap_x = self.storage.getXOverlap()
+        self.overlap_y = self.storage.getYOverlap()
+        self.pixel_size_xy_um = float(self.summary_metadata['PixelSize_um'])
+        self.pixel_size_z_um = float(self.summary_metadata['z-step_um'])
+        self.tile_width = self.storage.getTileWidth() + self.overlap_x
+        self.tile_height = self.storage.getTileHeight() + self.overlap_y
         self.rgb = self.storage.isRGB()
         self.byte_depth = self.storage.getByteDepth()
         #save image keys as tuple of ints (c, z, t, p)
