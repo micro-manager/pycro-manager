@@ -136,7 +136,7 @@ public class AffineCalibrator {
          AffineUtils.transformUpdated(core.getCurrentPixelSizeConfig(), transform);
       }
       //Ask if user wants to also use this to calibrate pixel size
-      double pixelSize = (transform.getScaleX() + transform.getScaleY()) / 2.0;
+      double pixelSize = (Math.abs(transform.getScaleX()) + Math.abs(transform.getScaleY())) / 2.0;
       result = JOptionPane.showConfirmDialog(affineGui_, "Would you like to store a pixel size of "+ pixelSize +"?",
                "Store pixel size calibration?", JOptionPane.YES_NO_OPTION);
       if (result == JOptionPane.YES_OPTION) {
