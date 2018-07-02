@@ -52,6 +52,7 @@ public class MD {
    private static final String CHANNEL_COLORS = "ChColors";
    private static final String ZC_ORDER = "SlicesFirst";
    private static final String TIME = "Time";
+   private static final String DATE_TIME = "Date and Time";
    private static final String SAVING_PREFIX = "Prefix";
    private static final String INITIAL_POS_LIST = "InitialPositionList";
    private static final String TIMELAPSE_INTERVAL = "Interval_ms";
@@ -129,6 +130,24 @@ public class MD {
       }
    }
 
+    public static String getAcqDate(JSONObject map) {
+        try {
+            return map.getString(DATE_TIME);
+        } catch (JSONException ex) {
+            Log.log("Missing Acq dat time tag");
+            throw new RuntimeException();
+        }
+    }
+
+    public static void setAcqDate(JSONObject map, String dateTime) {
+      try {
+         map.put(DATE_TIME, dateTime);
+      } catch (JSONException ex) {
+         Log.log("couldnt set core focus tag");
+         throw new RuntimeException();
+      }
+    }
+   
    public static int getPositionIndex(JSONObject map) {
       try {
          return map.getInt(POS_INDEX);
@@ -487,7 +506,7 @@ public class MD {
          throw new RuntimeException();
       }
    }
-
+   
    public static String getImageTime(JSONObject map)  {
       try {
          return map.getString(TIME);

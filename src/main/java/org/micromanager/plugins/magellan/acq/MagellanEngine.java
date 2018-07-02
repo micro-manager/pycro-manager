@@ -469,8 +469,8 @@ public class MagellanEngine {
         Log.log(commandName + "unsuccessful", true);
     }
 
-    private String getCurrentDateAndTime() {
-        DateFormat df = new SimpleDateFormat("dd/MM/yy HH:mm:ss");
+    private static String getCurrentDateAndTime() {
+        DateFormat df = new SimpleDateFormat("yyyy/MM/dd HH:mm:ss");
         Calendar calobj = Calendar.getInstance();
         return df.format(calobj.getTime());
     }
@@ -513,6 +513,7 @@ public class MagellanEngine {
 
         CMMCore core = Magellan.getCore();
         JSONObject summary = new JSONObject();
+        MD.setAcqDate(summary, getCurrentDateAndTime());
         //Actual number of channels is equal or less than this field
         MD.setNumChannels(summary, numChannels);
         //neither numchannels or numnumslices is guaranteeed to be accurate. Just initial estimates
