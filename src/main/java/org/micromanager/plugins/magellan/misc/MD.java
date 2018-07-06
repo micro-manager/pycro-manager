@@ -52,7 +52,7 @@ public class MD {
    private static final String CHANNEL_COLORS = "ChColors";
    private static final String ZC_ORDER = "SlicesFirst";
    private static final String TIME = "Time";
-   private static final String DATE_TIME = "Date and Time";
+   private static final String DATE_TIME = "DateAndTime";
    private static final String SAVING_PREFIX = "Prefix";
    private static final String INITIAL_POS_LIST = "InitialPositionList";
    private static final String TIMELAPSE_INTERVAL = "Interval_ms";
