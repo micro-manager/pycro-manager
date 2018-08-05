@@ -843,7 +843,7 @@ public class GUI extends javax.swing.JFrame {
         autofocusModelLabel_ = new javax.swing.JLabel();
         autofocusMaxDisplacementLabel_ = new javax.swing.JLabel();
         autofocusMaxDisplacementSpinner_ = new javax.swing.JSpinner();
-        jLabel7 = new javax.swing.JLabel();
+        autofocusChannelCheckbox_ = new javax.swing.JLabel();
         autofocusChannelCombo_ = new javax.swing.JComboBox();
         loadModelAFButton_ = new javax.swing.JButton();
         chosenModelAFLabel_ = new javax.swing.JLabel();
@@ -2077,8 +2077,8 @@ public class GUI extends javax.swing.JFrame {
             }
         });
 
-        jLabel7.setFont(new java.awt.Font("Tahoma", 0, 14)); // NOI18N
-        jLabel7.setText("Use channel:");
+        autofocusChannelCheckbox_.setFont(new java.awt.Font("Tahoma", 0, 14)); // NOI18N
+        autofocusChannelCheckbox_.setText("Use channel:");
 
         AutofocusChannelComboModel afucModel = new AutofocusChannelComboModel((SimpleChannelTableModel) channelsTable_.getModel());
         autofocusChannelCombo_.setFont(new java.awt.Font("Tahoma", 0, 14)); // NOI18N
@@ -2112,7 +2112,7 @@ public class GUI extends javax.swing.JFrame {
                     .addGroup(autofocusComponentsPanel_Layout.createSequentialGroup()
                         .addGroup(autofocusComponentsPanel_Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
                             .addGroup(autofocusComponentsPanel_Layout.createSequentialGroup()
-                                .addComponent(jLabel7)
+                                .addComponent(autofocusChannelCheckbox_)
                                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
                                 .addComponent(autofocusChannelCombo_, javax.swing.GroupLayout.PREFERRED_SIZE, 115, javax.swing.GroupLayout.PREFERRED_SIZE))
                             .addGroup(autofocusComponentsPanel_Layout.createSequentialGroup()
@@ -2128,7 +2128,7 @@ public class GUI extends javax.swing.JFrame {
             .addGroup(javax.swing.GroupLayout.Alignment.TRAILING, autofocusComponentsPanel_Layout.createSequentialGroup()
                 .addContainerGap()
                 .addGroup(autofocusComponentsPanel_Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
-                    .addComponent(jLabel7)
+                    .addComponent(autofocusChannelCheckbox_)
                     .addComponent(autofocusChannelCombo_, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE))
                 .addGap(18, 18, 18)
                 .addGroup(autofocusComponentsPanel_Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
@@ -2761,6 +2761,7 @@ public class GUI extends javax.swing.JFrame {
     private javax.swing.JLabel acqTileOverlapLabel_;
     private javax.swing.JButton addAcqButton_;
     private javax.swing.JButton addCovariedPairingValueButton_;
+    private javax.swing.JLabel autofocusChannelCheckbox_;
     private javax.swing.JComboBox autofocusChannelCombo_;
     private javax.swing.JPanel autofocusComponentsPanel_;
     private javax.swing.JLabel autofocusMaxDisplacementLabel_;
@@ -2829,7 +2830,6 @@ public class GUI extends javax.swing.JFrame {
     private javax.swing.JLabel jLabel3;
     private javax.swing.JLabel jLabel5;
     private javax.swing.JLabel jLabel6;
-    private javax.swing.JLabel jLabel7;
     private javax.swing.JLabel jLabel8;
     private javax.swing.JPanel jPanel1;
     private javax.swing.JScrollPane jScrollPane1;

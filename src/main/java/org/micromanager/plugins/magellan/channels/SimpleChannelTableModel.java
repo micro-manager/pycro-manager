@@ -161,7 +161,9 @@ public class SimpleChannelTableModel extends AbstractTableModel implements Table
                channels_.getChannelSetting(i).use_ = (Boolean) value;
             }
             fireTableDataChanged();
-         }       
+         }
+         //update possible choices of autofocus
+         AutofocusChannelComboModel.update();
       } else if (columnIndex == 1) {       
          //cant edit channel name
       } else if (columnIndex == 2) {
