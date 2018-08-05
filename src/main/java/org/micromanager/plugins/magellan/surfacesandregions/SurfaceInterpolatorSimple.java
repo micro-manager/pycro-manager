@@ -118,11 +118,11 @@ public class SurfaceInterpolatorSimple extends SurfaceInterpolator {
 
    @Override
    public float getExtrapolatedValue(double x, double y) {
+      //If there are only three points, assume that user wants to extrapolate to do a tilted plane acquistion
+      //otherwise, do a nearest neightbor interpolation to avoid the extrapolation of unintended crazy z values
+       
       //duplicate points for thread safety
      final LinkedList<Point3d> points = new LinkedList<Point3d>(points_);
-
-      //find 3 closest points and calculate value
-      //find closest convex hull vertex
       final LinkedList<Integer> closestIndices = new LinkedList<Integer>();
       final LinkedList<Double> closestDistances = new LinkedList<Double>();
       for  (int i = 0; i < points.size(); i++) {
@@ -147,16 +147,22 @@ public class SurfaceInterpolatorSimple extends SurfaceInterpolator {
          });
          Collections.sort(closestDistances);
       }
-      Point3d point1 = points.get(closestIndices.get(0));
-      Point3d point2 = points.get(closestIndices.get(1));
-      Point3d point3 = points.get(closestIndices.get(2));
-      Vector3D v1 = new Vector3D(point1.x, point1.y, point1.z);
-      Vector3D v2 = new Vector3D(point2.x, point2.y, point2.z);
-      Vector3D v3 = new Vector3D(point3.x, point3.y, point3.z);
-      Plane plane = new Plane(v1, v2, v3, TOLERANCE);
-      //intersetion of vertical line at these x+y values with plane gives point in plane
-      Vector3D pointInPlane = plane.intersection(new Line(new Vector3D(x, y, 0), new Vector3D(x, y, 1), TOLERANCE));
-      float zVal = (float) pointInPlane.getZ();
+      float zVal;
+      if (points.size() == 3) {
+           Point3d point1 = points.get(closestIndices.get(0));
+           Point3d point2 = points.get(closestIndices.get(1));
+           Point3d point3 = points.get(closestIndices.get(2));
+           Vector3D v1 = new Vector3D(point1.x, point1.y, point1.z);
+           Vector3D v2 = new Vector3D(point2.x, point2.y, point2.z);
+           Vector3D v3 = new Vector3D(point3.x, point3.y, point3.z);
+           Plane plane = new Plane(v1, v2, v3, TOLERANCE);
+           //intersetion of vertical line at these x+y values with plane gives point in plane
+           Vector3D pointInPlane = plane.intersection(new Line(new Vector3D(x, y, 0), new Vector3D(x, y, 1), TOLERANCE));
+           zVal = (float) pointInPlane.getZ(); 
+      } else {
+          zVal = (float)  points.get(closestIndices.get(0)).z;
+      }
+
       return zVal;
    }
 
