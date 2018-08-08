@@ -3,7 +3,7 @@ Control software for high-throughput optical microscopy
 
 [User Guide](https://micro-manager.org/wiki/MicroMagellan)
 
-[Whitepaper](http://krummellab.com/images/Publications/pinkard-pub-2016-02.pdf)
+[Journal article](http://krummellab.com/images/Publications/pinkard-pub-2016-02.pdf)
 
 ## Instalation and setup
 The current Micro-Magellan master branch is developed against the Micro-Manager 2.0 APIs. 
