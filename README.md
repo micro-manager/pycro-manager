@@ -5,7 +5,7 @@ Control software for high-throughput optical microscopy
 
 [Journal article](http://krummellab.com/images/Publications/pinkard-pub-2016-02.pdf)
 
-## Instalation and setup
+## Installation and setup
 The current Micro-Magellan master branch is developed against the Micro-Manager 2.0 APIs. 
 
 1. Download and install the current version of Micro-Manager 2.0 from [here](https://micro-manager.org/wiki/Version_2.0). At the time of this writing (2018/9/8) the current version is beta3.
