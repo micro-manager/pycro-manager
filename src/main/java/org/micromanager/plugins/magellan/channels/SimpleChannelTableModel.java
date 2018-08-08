@@ -23,7 +23,7 @@ import java.util.ArrayList;
 import javax.swing.event.TableModelEvent;
 import javax.swing.event.TableModelListener;
 import javax.swing.table.AbstractTableModel;
-import main.java.org.micromanager.plugins.magellan.autofocus.AutofocusChannelComboModel;
+//import main.java.org.micromanager.plugins.magellan.autofocus.AutofocusChannelComboModel;
 import main.java.org.micromanager.plugins.magellan.main.Magellan;
 import main.java.org.micromanager.plugins.magellan.misc.GlobalSettings;
 import mmcorej.CMMCore;
@@ -163,7 +163,7 @@ public class SimpleChannelTableModel extends AbstractTableModel implements Table
             fireTableDataChanged();
          }
          //update possible choices of autofocus
-         AutofocusChannelComboModel.update();
+//         AutofocusChannelComboModel.update();
       } else if (columnIndex == 1) {       
          //cant edit channel name
       } else if (columnIndex == 2) {

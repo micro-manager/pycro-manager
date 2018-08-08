@@ -32,7 +32,6 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.ThreadFactory;
 import javax.swing.JOptionPane;
 import java.awt.geom.AffineTransform;
-import main.java.org.micromanager.plugins.magellan.autofocus.SingleShotAutofocus;
 import main.java.org.micromanager.plugins.magellan.channels.ChannelSetting;
 import main.java.org.micromanager.plugins.magellan.coordinates.AffineUtils;
 import main.java.org.micromanager.plugins.magellan.demo.DemoModeImageData;
@@ -261,17 +260,17 @@ public class MagellanEngine {
             //signal to MagellanTaggedImageSink to let acqusition know that saving for the current time point has completed    
             event.acquisition_.addImage(new SignalTaggedImage(SignalTaggedImage.AcqSingal.TimepointFinished));
         } else if (event.isAutofocusEvent()) {
-            updateHardware(event);
-            acquireImage(event);
-            MagellanTaggedImage afImage = event.acquisition_.getLastImage();
-            double afCorrection = SingleShotAutofocus.getInstance().predictDefocus(afImage);
-            if (Math.abs(afCorrection) > ((FixedAreaAcquisition) event.acquisition_).getAFMaxDisplacement()) {
-                Log.log("Calculated af displacement of " + afCorrection + " exceeds tolerance. Leaving correction unchanged");
-            } else if (Double.isNaN(afCorrection)) {
-                Log.log("Calculated af displacement is NaN. Leaving correction unchanged");
-            } else {
-                ((FixedAreaAcquisition) event.acquisition_).setAFCorrection(afCorrection);
-            }
+//            updateHardware(event);
+//            acquireImage(event);
+//            MagellanTaggedImage afImage = event.acquisition_.getLastImage();
+//            double afCorrection = SingleShotAutofocus.getInstance().predictDefocus(afImage);
+//            if (Math.abs(afCorrection) > ((FixedAreaAcquisition) event.acquisition_).getAFMaxDisplacement()) {
+//                Log.log("Calculated af displacement of " + afCorrection + " exceeds tolerance. Leaving correction unchanged");
+//            } else if (Double.isNaN(afCorrection)) {
+//                Log.log("Calculated af displacement is NaN. Leaving correction unchanged");
+//            } else {
+//                ((FixedAreaAcquisition) event.acquisition_).setAFCorrection(afCorrection);
+//            }
         } else {
             updateHardware(event);
             double startTime = System.currentTimeMillis();
