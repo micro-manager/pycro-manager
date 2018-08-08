@@ -2,6 +2,7 @@
 Control software for high-throughput optical microscopy
 
 [User Guide](https://micro-manager.org/wiki/MicroMagellan)
+
 [Whitepaper](http://krummellab.com/images/Publications/pinkard-pub-2016-02.pdf)
 
 ## Instalation and setup
