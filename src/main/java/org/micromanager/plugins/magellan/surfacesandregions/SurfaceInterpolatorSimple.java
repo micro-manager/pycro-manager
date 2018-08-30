@@ -49,6 +49,9 @@ public class SurfaceInterpolatorSimple extends SurfaceInterpolator {
    protected void interpolateSurface(LinkedList<Point3d> points) throws InterruptedException {
 
       double pixSize = Magellan.getCore().getPixelSizeUm();
+      if (pixSize == 0) {
+          throw new RuntimeException("Pixel size is 0");
+      }
       //provide interpolator with current list of data points
       Point_dt triangulationPoints[] = new Point_dt[points.size()];
       for (int i = 0; i < points.size(); i++) {
