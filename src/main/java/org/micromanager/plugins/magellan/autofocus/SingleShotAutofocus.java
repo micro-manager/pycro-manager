@@ -9,6 +9,8 @@ import java.io.File;
 import java.nio.FloatBuffer;
 import java.nio.file.FileSystem;
 import java.nio.file.FileSystems;
+import java.util.ArrayList;
+import java.util.Arrays;
 import main.java.org.micromanager.plugins.magellan.acq.MagellanTaggedImage;
 import main.java.org.micromanager.plugins.magellan.misc.GlobalSettings;
 import main.java.org.micromanager.plugins.magellan.misc.Log;
@@ -50,20 +52,26 @@ public class SingleShotAutofocus {
 
     public double predictDefocus(MagellanTaggedImage img) {
        Object[] quads = getImageQuadrants(img);
-       double sum = 0;
-       System.out.println("Individual networks:");
-       //sometimes these output NaN. ignore this and report
-       int numMeasurements = 0;
+       ArrayList<Double> predictions = new ArrayList<Double>();
        for (Object q : quads) {
           double prediction = this.runModel((float[]) q);
           if (!Double.isNaN(prediction)) {
-              sum += prediction;
-              numMeasurements++;
+             predictions.add(prediction);
           }  
           System.out.println(prediction);
        }
-       double predDefocus = sum/numMeasurements; 
-       return predDefocus;
+       double[] preds = new double[predictions.size()];
+       for (int i =0; i < preds.length; i++) {
+           preds[i] = predictions.get(i);
+       }
+        Arrays.sort(preds);  
+        double median;
+        if (preds.length % 2 == 0) {
+            median = ((double) preds[preds.length / 2] + (double) preds[preds.length / 2 - 1]) / 2;
+        } else {
+            median = (double) preds[preds.length / 2];
+        }
+       return median;
     }
 
     private double runModel(float[] input) {
