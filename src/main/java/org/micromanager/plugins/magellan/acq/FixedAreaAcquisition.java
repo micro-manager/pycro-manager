@@ -429,12 +429,19 @@ public class FixedAreaAcquisition extends Acquisition implements SurfaceChangedL
              
          //create autofocus event starting at the position we believe to be correct
          if (settings_.autofocusEnabled_) {
-            double afZPos = settings_.collectionPlane_.getExtrapolatedValue(position.getCenter().x, position.getCenter().y);
+             double afZPos; 
+             if (settings_.collectionPlane_.waitForCurentInterpolation().isInterpDefined(
+                       position.getCenter().x, position.getCenter().y)) {
+                        afZPos = settings_.collectionPlane_.waitForCurentInterpolation().getInterpolatedValue(
+                           position.getCenter().x, position.getCenter().y);
+                   } else  {
+                        afZPos = settings_.collectionPlane_.getExtrapolatedValue(position.getCenter().x, position.getCenter().y);
+                    }
             //create event for determining autofocus offset                        
             AcquisitionEvent event = AcquisitionEvent.createAutofocusEvent(FixedAreaAcquisition.this, timeIndex, getAutofocusChannelIndex(), 0,
                     positionIndex, afZPos, position, settings_.covariantPairings_);
             events_.put(event);
-         }
+         }   
        
          if (settings_.channelsAtEverySlice_ && !tiltedPlane2D) {
 
@@ -508,7 +515,14 @@ public class FixedAreaAcquisition extends Acquisition implements SurfaceChangedL
                 if (tiltedPlane2D) {
                     //index all slcies as 0, even though they may nto be in the same plane
                     int sliceIndex = 0;
-                    double zPos = settings_.collectionPlane_.getExtrapolatedValue(position.getCenter().x, position.getCenter().y);
+                    double zPos; 
+                    if (settings_.collectionPlane_.waitForCurentInterpolation().isInterpDefined(
+                       position.getCenter().x, position.getCenter().y)) {
+                        zPos = settings_.collectionPlane_.waitForCurentInterpolation().getInterpolatedValue(
+                           position.getCenter().x, position.getCenter().y);
+                     } else  {
+                        zPos = settings_.collectionPlane_.getExtrapolatedValue(position.getCenter().x, position.getCenter().y);
+                    }
                     AcquisitionEvent event = new AcquisitionEvent(FixedAreaAcquisition.this, timeIndex, channelIndex, sliceIndex,
                             positionIndex, zPos + settings_.channels_.getActiveChannelSetting(channelIndex).offset_, position, settings_.covariantPairings_);
                     events_.put(event);
