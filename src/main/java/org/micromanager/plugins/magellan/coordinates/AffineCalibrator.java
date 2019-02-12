@@ -115,7 +115,7 @@ public class AffineCalibrator {
                return;
            }
       }
-       
+       datastore_.close();
        //compute pixel shifts relative to first image for all subsequent
        Point2D.Double[] pixPositions = new Point2D.Double[numImages];
        pixPositions[0] = new Point2D.Double(0, 0);
