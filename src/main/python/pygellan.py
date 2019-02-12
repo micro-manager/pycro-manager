@@ -33,9 +33,9 @@ class MagellanMultipageTiffReader:
     SUMMARY_MD_HEADER = 2355492
 
     def __init__(self, tiff_path):
-        self.file = open(tiff_path, 'r+b')
+        self.file = open(tiff_path, 'rb')
         # memory map the entire file
-        self.mmap_file = mmap.mmap(self.file.fileno(), 0)
+        self.mmap_file = mmap.mmap(self.file.fileno(), 0, prot=mmap.PROT_READ)
         self.summary_md, self.index_tree, self.first_ifd_offset = self._read_header()
         # get important metadata fields
         self.width = self.summary_md['Width']
@@ -81,7 +81,7 @@ class MagellanMultipageTiffReader:
             raise Exception('Index map header incorrect')
         # get index map as nested list of ints
         index_map = [[int(index) for index in entry] for entry in np.reshape(np.frombuffer(
-            self.mmap_file[48 + summary_md_length:48 + summary_md_length + index_map_length * 20], dtype=np.uint32),
+            self.mmap_file[48 + summary_md_length:48 + summary_md_length + index_map_length * 20], dtype=np.int32),
             [-1, 5])]
         string_key_index_map = {'_'.join([str(ind) for ind in entry[:4]]): entry[4] for entry in index_map}
         # unpack into a tree (i.e. nested dicts)
@@ -205,14 +205,16 @@ class MagellanResolutionLevel:
 
 class MagellanDataset:
     """
-    Class that opens a Micro-Magellan dataset
+    Class that opens a Micro-Magellan dataset. Only works for regular acquisitions (i.e. not explore acquisitions)
     """
 
-    def __init__(self, dataset_path):
+    def __init__(self, dataset_path, full_res_only=True):
         res_dirs = [dI for dI in os.listdir(dataset_path) if os.path.isdir(os.path.join(dataset_path, dI))]
         # map from downsample factor to datset
         self.res_levels = {}
         for res_dir in res_dirs:
+            if full_res_only and res_dir != 'Full resolution':
+                continue
             res_dir_path = os.path.join(dataset_path, res_dir)
             res_level = MagellanResolutionLevel(res_dir_path)
             if res_dir == 'Full resolution':
@@ -225,18 +227,18 @@ class MagellanDataset:
                 self.image_width = res_level.reader_list[0].width
                 self.image_height = res_level.reader_list[0].height
                 self.channel_names = self.summary_metadata['ChNames']
-                self.index_tree = res_level.reader_tree
+                self.c_z_t_p_tree = res_level.reader_tree
                 # index tree is in c - z - t - p hierarchy, get all used indices to calcualte other orderings
-                channels = set(self.index_tree.keys())
+                channels = set(self.c_z_t_p_tree.keys())
                 slices = set()
                 frames = set()
                 positions = set()
-                for c in self.index_tree.keys():
-                    for z in self.index_tree[c]:
+                for c in self.c_z_t_p_tree.keys():
+                    for z in self.c_z_t_p_tree[c]:
                         slices.add(z)
-                        for t in self.index_tree[c][z]:
+                        for t in self.c_z_t_p_tree[c][z]:
                             frames.add(t)
-                            for p in self.index_tree[c][z][t]:
+                            for p in self.c_z_t_p_tree[c][z][t]:
                                 positions.add(p)
                 # populate tree in a different ordering
                 self.p_t_z_c_tree = {}
@@ -244,15 +246,18 @@ class MagellanDataset:
                     for t in frames:
                         for z in slices:
                             for c in channels:
-                                if z in self.index_tree[c] and t in self.index_tree[c][z] and p in \
-                                        self.index_tree[c][z][t]:
+                                if z in self.c_z_t_p_tree[c] and t in self.c_z_t_p_tree[c][z] and p in \
+                                        self.c_z_t_p_tree[c][z][t]:
                                     if p not in self.p_t_z_c_tree:
                                         self.p_t_z_c_tree[p] = {}
                                     if t not in self.p_t_z_c_tree[p]:
                                         self.p_t_z_c_tree[p][t] = {}
                                     if z not in self.p_t_z_c_tree[p][t]:
                                         self.p_t_z_c_tree[p][t][z] = {}
-                                    self.p_t_z_c_tree[p][t][z][c] = self.index_tree[c][z][t][p]
+                                    self.p_t_z_c_tree[p][t][z][c] = self.c_z_t_p_tree[c][z][t][p]
+                #get row, col as a function of position index
+                self.row_col_tuples = [(pos['GridRowIndex'], pos['GridColumnIndex']) for pos in
+                                  self.summary_metadata['InitialPositionList']]
             else:
                 self.res_levels[int(res_dir.split('x')[1])] = res_level
 
@@ -274,9 +279,9 @@ class MagellanDataset:
         """
         if channel_name is not None:
             channel_index = self._channel_name_to_index(channel_name)
-        if channel_index in self.index_tree and z_index in self.index_tree[channel_index] and t_index in \
-                self.index_tree[
-                    channel_index][z_index] and pos_index in self.index_tree[channel_index][z_index][t_index]:
+        if channel_index in self.c_z_t_p_tree and z_index in self.c_z_t_p_tree[channel_index] and t_index in \
+                self.c_z_t_p_tree[
+                    channel_index][z_index] and pos_index in self.c_z_t_p_tree[channel_index][z_index][t_index]:
             return True
         return False
 
@@ -310,11 +315,46 @@ class MagellanDataset:
         """
         return list(self.p_t_z_c_tree[position_index][time_index].keys())
 
+    def get_min_max_z_index(self):
+        """
+        get min and max z indices over all positions
+        """
+        min_z = 1e100
+        max_z = -1e000
+        for p_index in self.p_t_z_c_tree.keys():
+            for t_index in self.p_t_z_c_tree[p_index].keys():
+                new_zs = list(self.p_t_z_c_tree[p_index][t_index].keys())
+                min_z = min(min_z, *new_zs)
+                max_z = max(max_z, *new_zs)
+        return min_z, max_z
+
     def get_num_xy_positions(self):
         """
         :return: total number of xy positons in data set
         """
         return len(list(self.p_t_z_c_tree.keys()))
+
+
+    def get_num_rows_and_cols(self):
+        """
+        Note doesn't  work with explore acquisitions because initial position list isn't populated here
+        :return: tuple with total number of rows, total number of cols in dataset
+        """
+        row_col_tuples = [(pos['GridRowIndex'], pos['GridColumnIndex']) for pos in
+                          self.summary_metadata['InitialPositionList']]
+        row_indices = list(set(row for row, col in row_col_tuples))
+        col_indices = list(set(col for row, col in row_col_tuples))
+        num_rows = max(row_indices) + 1
+        num_cols = max(col_indices) + 1
+        return num_rows, num_cols
+
+    def get_num_frames(self):
+        frames = set()
+        for t_tree in self.p_t_z_c_tree.values():
+            frames.update(t_tree.keys())
+        return max(frames) + 1
+
+
 
 
 # d = MagellanDataset(
