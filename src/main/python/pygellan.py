@@ -352,4 +352,4 @@ class MagellanDataset:
         frames = set()
         for t_tree in self.p_t_z_c_tree.values():
             frames.update(t_tree.keys())
-        return max(frames) +q 1
+        return max(frames) + 1
