@@ -80,9 +80,13 @@ class MagellanMultipageTiffReader:
         if index_map_header != self.INDEX_MAP_HEADER:
             raise Exception('Index map header incorrect')
         # get index map as nested list of ints
-        index_map = [[int(index) for index in entry] for entry in np.reshape(np.frombuffer(
-            self.mmap_file[48 + summary_md_length:48 + summary_md_length + index_map_length * 20], dtype=np.uint32),
-            [-1, 5])]
+        index_map_keys = np.array([[int(cztp) for i, cztp in enumerate(entry) if i < 4]
+                                   for entry in np.reshape(np.frombuffer(self.mmap_file[48 + summary_md_length:48 +
+                                    summary_md_length + index_map_length * 20], dtype=np.int32), [-1, 5])])
+        index_map_byte_offsets = np.array([[int(offset) for i, offset in enumerate(entry) if i == 4] for entry in
+            np.reshape(np.frombuffer(self.mmap_file[48 + summary_md_length:48 + summary_md_length + index_map_length *
+                            20], dtype=np.uint32), [-1, 5])])
+        index_map = np.concatenate((index_map_keys, index_map_byte_offsets), axis=1)
         string_key_index_map = {'_'.join([str(ind) for ind in entry[:4]]): entry[4] for entry in index_map}
         # unpack into a tree (i.e. nested dicts)
         index_tree = {}
