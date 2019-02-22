@@ -81,7 +81,7 @@ class MagellanMultipageTiffReader:
             raise Exception('Index map header incorrect')
         # get index map as nested list of ints
         index_map = [[int(index) for index in entry] for entry in np.reshape(np.frombuffer(
-            self.mmap_file[48 + summary_md_length:48 + summary_md_length + index_map_length * 20], dtype=np.int32),
+            self.mmap_file[48 + summary_md_length:48 + summary_md_length + index_map_length * 20], dtype=np.uint32),
             [-1, 5])]
         string_key_index_map = {'_'.join([str(ind) for ind in entry[:4]]): entry[4] for entry in index_map}
         # unpack into a tree (i.e. nested dicts)
@@ -352,11 +352,4 @@ class MagellanDataset:
         frames = set()
         for t_tree in self.p_t_z_c_tree.values():
             frames.update(t_tree.keys())
-        return max(frames) + 1
-
-
-
-
-# d = MagellanDataset(
-#     '/home/henry/data/2018-9-27 Cells and histology af data/unstained path section 12x12 30um range 1um step_1')
-# print(d.get_num_xy_positions())
+        return max(frames) +q 1
