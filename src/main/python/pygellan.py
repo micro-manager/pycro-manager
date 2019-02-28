@@ -6,6 +6,7 @@ import mmap
 import numpy as np
 import sys
 import json
+import platform
 
 
 class MagellanMultipageTiffReader:
@@ -35,7 +36,10 @@ class MagellanMultipageTiffReader:
     def __init__(self, tiff_path):
         self.file = open(tiff_path, 'rb')
         # memory map the entire file
-        self.mmap_file = mmap.mmap(self.file.fileno(), 0, prot=mmap.PROT_READ)
+        if platform.system() == 'Windows':
+            self.mmap_file = mmap.mmap(self.file.fileno(), 0, access=mmap.ACCESS_READ)
+        else:
+            self.mmap_file = mmap.mmap(self.file.fileno(), 0, prot=mmap.PROT_READ)
         self.summary_md, self.index_tree, self.first_ifd_offset = self._read_header()
         # get important metadata fields
         self.width = self.summary_md['Width']
