@@ -220,6 +220,8 @@ class MagellanDataset:
         res_dirs = [dI for dI in os.listdir(dataset_path) if os.path.isdir(os.path.join(dataset_path, dI))]
         # map from downsample factor to datset
         self.res_levels = {}
+        if 'Full resolution' not in res_dirs:
+            raise Exception('Couldn\'t find full resolution directory. Is this the correct path to a Magellan dataset?')
         for res_dir in res_dirs:
             if full_res_only and res_dir != 'Full resolution':
                 continue
