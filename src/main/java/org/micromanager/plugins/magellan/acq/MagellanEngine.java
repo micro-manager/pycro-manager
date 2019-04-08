@@ -32,7 +32,6 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.ThreadFactory;
 import javax.swing.JOptionPane;
 import java.awt.geom.AffineTransform;
-import main.java.org.micromanager.plugins.magellan.autofocus.SingleShotAutofocus;
 import main.java.org.micromanager.plugins.magellan.channels.ChannelSetting;
 import main.java.org.micromanager.plugins.magellan.coordinates.AffineUtils;
 import main.java.org.micromanager.plugins.magellan.demo.DemoModeImageData;
@@ -44,7 +43,6 @@ import main.java.org.micromanager.plugins.magellan.main.Magellan;
 import main.java.org.micromanager.plugins.magellan.misc.GlobalSettings;
 import main.java.org.micromanager.plugins.magellan.misc.Log;
 import main.java.org.micromanager.plugins.magellan.misc.MD;
-import main.java.org.micromanager.plugins.magellan.propsandcovariants.CovariantPairing;
 import mmcorej.CMMCore;
 import mmcorej.TaggedImage;
 
@@ -135,7 +133,6 @@ public class MagellanEngine {
 //           Log.log("Error: no channels selected for " + settings.name_);
 //           throw new Exception();
 //       }
-        //covariants
     }
 
     /**
@@ -260,18 +257,6 @@ public class MagellanEngine {
         } else if (event.isTimepointFinishedEvent()) {
             //signal to MagellanTaggedImageSink to let acqusition know that saving for the current time point has completed    
             event.acquisition_.addImage(new SignalTaggedImage(SignalTaggedImage.AcqSingal.TimepointFinished));
-        } else if (event.isAutofocusEvent()) {
-            updateHardware(event);
-            acquireImage(event);
-            MagellanTaggedImage afImage = event.acquisition_.getLastImage();
-            double afCorrection = SingleShotAutofocus.getInstance().predictDefocus(afImage);
-            if (Math.abs(afCorrection) > ((FixedAreaAcquisition) event.acquisition_).getAFMaxDisplacement()) {
-                Log.log("Calculated af displacement of " + afCorrection + " exceeds tolerance. Leaving correction unchanged");
-            } else if (Double.isNaN(afCorrection)) {
-                Log.log("Calculated af displacement is NaN. Leaving correction unchanged");
-            } else {
-                ((FixedAreaAcquisition) event.acquisition_).setAFCorrection(afCorrection);
-            }
         } else {
             updateHardware(event);
             double startTime = System.currentTimeMillis();
@@ -435,21 +420,6 @@ public class MagellanEngine {
                 acqDurationEstiamtor_.storeChannelSwitchTime(System.currentTimeMillis() - startTime);
             } catch (Exception ex) {
                 Log.log(ex);
-            }
-        }
-
-        /////////////////////////////Covariants/////////////////////////////
-        if (event.covariants_ != null) {
-            outerloop:
-            for (final CovariantPairing cp : event.covariants_) {
-                //get the value of dependent covariant based on state of independent, and
-                //change hardware settings as appropriate
-                loopHardwareCommandRetries(new HardwareCommand() {
-                    @Override
-                    public void run() throws Exception {
-                        cp.updateHardwareBasedOnPairing(event);
-                    }
-                }, "settng Covariant value pair " + cp.toString());
             }
         }
         lastEvent_ = event;

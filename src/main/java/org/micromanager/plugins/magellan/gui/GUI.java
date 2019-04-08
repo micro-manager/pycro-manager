@@ -18,21 +18,17 @@ package main.java.org.micromanager.plugins.magellan.gui;
 
 import java.awt.Color;
 import java.awt.Component;
-import java.awt.Dimension;
 import java.awt.Font;
 import java.awt.event.FocusAdapter;
 import java.awt.event.FocusEvent;
 import java.io.File;
 import java.util.prefs.Preferences;
-import javax.swing.ComboBoxModel;
 import javax.swing.DefaultComboBoxModel;
-import javax.swing.DefaultListSelectionModel;
 import javax.swing.JFileChooser;
 import javax.swing.JLabel;
 import javax.swing.JRadioButton;
 import javax.swing.JSpinner;
 import javax.swing.JTable;
-import javax.swing.event.ChangeEvent;
 import javax.swing.event.DocumentEvent;
 import javax.swing.event.DocumentListener;
 import javax.swing.event.ListSelectionEvent;
@@ -48,12 +44,8 @@ import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
 import java.beans.PropertyChangeEvent;
 import java.beans.PropertyChangeListener;
-import java.io.FileNotFoundException;
 import java.io.IOException;
-import java.util.ArrayList;
 import java.util.LinkedList;
-import java.util.logging.Level;
-import java.util.logging.Logger;
 import javax.swing.DefaultCellEditor;
 import javax.swing.JSplitPane;
 import javax.swing.JTextField;
@@ -65,9 +57,6 @@ import main.java.org.micromanager.plugins.magellan.acq.FixedAreaAcquisitionSetti
 import main.java.org.micromanager.plugins.magellan.acq.MagellanEngine;
 import main.java.org.micromanager.plugins.magellan.acq.MultipleAcquisitionManager;
 import main.java.org.micromanager.plugins.magellan.acq.MultipleAcquisitionTableModel;
-import main.java.org.micromanager.plugins.magellan.autofocus.AutofocusChannelComboModel;
-import main.java.org.micromanager.plugins.magellan.autofocus.SingleShotAutofocus;
-import main.java.org.micromanager.plugins.magellan.bidc.FrameIntegrationMethod;
 import main.java.org.micromanager.plugins.magellan.channels.ChannelComboBoxModel;
 import main.java.org.micromanager.plugins.magellan.channels.ColorEditor;
 import main.java.org.micromanager.plugins.magellan.channels.ColorRenderer;
@@ -79,20 +68,10 @@ import main.java.org.micromanager.plugins.magellan.misc.GlobalSettings;
 import main.java.org.micromanager.plugins.magellan.misc.JavaUtils;
 import main.java.org.micromanager.plugins.magellan.misc.LoadedAcquisitionData;
 import main.java.org.micromanager.plugins.magellan.misc.Log;
-import main.java.org.micromanager.plugins.magellan.mmcloneclasses.utils.PropertyValueCellEditor;
-import main.java.org.micromanager.plugins.magellan.mmcloneclasses.utils.PropertyValueCellRenderer;
-import main.java.org.micromanager.plugins.magellan.propsandcovariants.CovariantPairValuesTableModel;
-import main.java.org.micromanager.plugins.magellan.propsandcovariants.CovariantPairing;
-import main.java.org.micromanager.plugins.magellan.propsandcovariants.CovariantPairingsManager;
-import main.java.org.micromanager.plugins.magellan.propsandcovariants.CovariantPairingsTableModel;
-import main.java.org.micromanager.plugins.magellan.propsandcovariants.CovariantValueCellEditor;
-import main.java.org.micromanager.plugins.magellan.propsandcovariants.CovariantValueCellRenderer;
-import main.java.org.micromanager.plugins.magellan.propsandcovariants.DeviceControlTableModel;
 import main.java.org.micromanager.plugins.magellan.surfacesandregions.RegionManager;
 import main.java.org.micromanager.plugins.magellan.surfacesandregions.SurfaceManager;
 import main.java.org.micromanager.plugins.magellan.surfacesandregions.SurfaceRegionComboBoxModel;
 import main.java.org.micromanager.plugins.magellan.surfacesandregions.XYFootprint;
-import mmcorej.StrVector;
 
 /**
  *
@@ -109,7 +88,6 @@ public class GUI extends javax.swing.JFrame {
     private Preferences prefs_;
     private RegionManager regionManager_ = new RegionManager();
     private SurfaceManager surfaceManager_ = new SurfaceManager();
-    private CovariantPairingsManager covariantPairManager_;
     private MultipleAcquisitionManager multiAcqManager_;
     private GlobalSettings settings_;
     private boolean storeAcqSettings_ = true;
@@ -125,12 +103,9 @@ public class GUI extends javax.swing.JFrame {
       acqDurationEstimator_ = new AcqDurationEstimator();
       eng_ = new MagellanEngine(Magellan.getCore(), acqDurationEstimator_);
       multiAcqManager_ = new MultipleAcquisitionManager(this, eng_);
-      covariantPairManager_ = new CovariantPairingsManager(this, multiAcqManager_);
       initComponents();
       moreInitialization();
       this.setVisible(true);
-      updatePropertiesTable();
-      addTextFieldListeners();
       addGlobalSettingsListeners();
       storeCurrentAcqSettings();
       if (GlobalSettings.getInstance().firstMagellanOpening()) {
@@ -146,8 +121,6 @@ public class GUI extends javax.swing.JFrame {
       //disable or enabe the controls that cannot be changed during acquisition
       zStepSpinner_.setEnabled(!running);
       zStepLabel_.setEnabled(!running);
-      savingNameLabel_.setEnabled(!running);
-      savingNameTextField_.setEnabled(!running);
       acqTileOverlapLabel_.setEnabled(!running);
       acqOverlapPercentSpinner_.setEnabled(!running);
       tileOverlapPercentLabel_.setEnabled(!running);
@@ -161,10 +134,6 @@ public class GUI extends javax.swing.JFrame {
             singleton_.estDurationLabel_.setText(text);
          }
       });
-   }
-
-   private void fitSplitPaneToWindowSize() {
-      splitPane_.setDividerLocation(splitPane_.getMaximumDividerLocation());
    }
 
    public void acquisitionSettingsChanged() {
@@ -197,33 +166,6 @@ public class GUI extends javax.swing.JFrame {
       }
       return model;
    }
-
-    public void updatePropertiesTable() {
-        //needs to be off EDT to update width properly
-        new Thread(new Runnable() {
-            @Override
-            public void run() {
-                ((DeviceControlTableModel) (deviceControlTable_.getModel())).updateStoredProps();
-                ((AbstractTableModel) deviceControlTable_.getModel()).fireTableDataChanged();
-
-                //autofit columns
-                deviceControlTable_.setAutoResizeMode(JTable.AUTO_RESIZE_OFF);
-                TableColumn col1 = deviceControlTable_.getColumnModel().getColumn(0);
-                int preferredWidth = col1.getMinWidth();
-                for (int row = 0; row < deviceControlTable_.getRowCount(); row++) {
-                    TableCellRenderer cellRenderer = deviceControlTable_.getCellRenderer(row, 0);
-                    Component c = deviceControlTable_.prepareRenderer(cellRenderer, row, 0);
-                    int width = c.getPreferredSize().width + deviceControlTable_.getIntercellSpacing().width;
-                    preferredWidth = Math.max(preferredWidth, width);
-                }
-                col1.setPreferredWidth(preferredWidth);
-                TableColumn col2 = deviceControlTable_.getColumnModel().getColumn(1);
-                deviceControlTable_.getHeight();
-                col2.setPreferredWidth(deviceControlTable_.getParent().getParent().getWidth() - preferredWidth
-                        - (deviceControlScrollPane_.getVerticalScrollBar().isVisible() ? deviceControlScrollPane_.getVerticalScrollBar().getWidth() : 0));
-            }
-        }).start();
-    }
 
     private void moreInitialization() {
        //add link to user guide label
@@ -258,32 +200,6 @@ public class GUI extends javax.swing.JFrame {
             }).start();
          }
       });
-       
-       covariantPairingsTable_.setSelectionModel(new ExactlyOneRowSelectionModel());
-        covariantPairingsTable_.getSelectionModel().addListSelectionListener(new ListSelectionListener() {
-            @Override
-            public void valueChanged(ListSelectionEvent e) {
-                if (e.getValueIsAdjusting()) {
-                    return;
-                    //action occurs second time this method is called, after the table gains focus
-                }
-                //populate covariant values table
-                covariantPairValuesTable_.editingStopped(null);
-                int index = covariantPairingsTable_.getSelectedRow();
-                if (covariantPairingsTable_.getRowCount() == 0) {
-                    index = -1;
-                }
-                CovariantPairing activePair = (CovariantPairing) covariantPairingsTable_.getModel().getValueAt(index, 1);
-
-                ((CovariantPairValuesTableModel) covariantPairValuesTable_.getModel()).setPair(activePair);
-                //have to do it manually for this one owing to soemthing custom I've done with columns
-                ((CovariantPairValuesTableModel) covariantPairValuesTable_.getModel()).updateColumnNames(covariantPairValuesTable_.getColumnModel());
-                covariantPairValuesTable_.getTableHeader().repaint();
-            }
-        });
-        //initial update to prevent column headers from showiing up as "A" and "B"
-        ((CovariantPairValuesTableModel) covariantPairValuesTable_.getModel()).updateColumnNames(covariantPairValuesTable_.getColumnModel());
-        covariantPairValuesTable_.getTableHeader().repaint();
 
         //exactly one acquisition selected at all times
         multipleAcqTable_.setSelectionModel(new ExactlyOneRowSelectionModel());
@@ -304,7 +220,6 @@ public class GUI extends javax.swing.JFrame {
         });
         //Table column widths
         multipleAcqTable_.getColumnModel().getColumn(0).setMaxWidth(60); //order column
-        covariantPairingsTable_.getColumnModel().getColumn(0).setMaxWidth(60); //Acitve checkbox column
        channelsTable_.getColumnModel().getColumn(0).setMaxWidth(60); //Acitve checkbox column
 
        //set color renderer for channel table
@@ -344,74 +259,41 @@ public class GUI extends javax.swing.JFrame {
            this.setSize(width, height);
         } 
         
-        int splitPane = settings_.getIntInPrefs(PREF_SPLIT_PANE,Integer.MIN_VALUE);
-        if (splitPane != Integer.MIN_VALUE) {
-           splitPane_.setDividerLocation(splitPane);
-        }
-
         //save resizing
         this.addComponentListener(new ComponentAdapter() {
            @Override
            public void componentResized(ComponentEvent e) {
               settings_.storeIntInPrefs(PREF_SIZE_WIDTH, GUI.this.getWidth());
               settings_.storeIntInPrefs(PREF_SIZE_HEIGHT, GUI.this.getHeight());
-              fitSplitPaneToWindowSize();
           }
        });
-       //save splitpane position
-       splitPane_.addPropertyChangeListener(JSplitPane.DIVIDER_LOCATION_PROPERTY, new PropertyChangeListener() {
-
-           @Override
-           public void propertyChange(PropertyChangeEvent evt) {
-              settings_.storeIntInPrefs(PREF_SPLIT_PANE, splitPane_.getDividerLocation());
-           }
-       });
-       fitSplitPaneToWindowSize();
-       //update autofocus model name
-       chosenModelAFLabel_.setText(SingleShotAutofocus.getInstance().getModelName());
+      
 
     }
     
-    public void selectNewCovariantPair() {
-        //set bottom row selected because it was just added
-        covariantPairingsTable_.setRowSelectionInterval(covariantPairingsTable_.getRowCount() - 1, covariantPairingsTable_.getRowCount() - 1);
-    }
     
     public void refreshAcquisitionSettings() {
         //so that acquisition names can be changed form multi acquisitiion table
         populateAcqControls(multiAcqManager_.getAcquisitionSettings(multiAcqSelectedIndex_));
     }
-    
-    private void refreshAcqTabTitleText() {
-        JLabel l1 = new JLabel("Saving");
-        l1.setForeground(DARK_GREEN);
-        l1.setFont(acqTabbedPane_.getComponent(0).getFont().deriveFont(Font.BOLD));
-        acqTabbedPane_.setTabComponentAt(0, l1);
-        JLabel l2 = new JLabel("Time");
-        l2.setForeground(timePointsCheckBox_.isSelected() ? DARK_GREEN : Color.black);
-        l2.setFont(acqTabbedPane_.getComponent(1).getFont().deriveFont(timePointsCheckBox_.isSelected() ? Font.BOLD : Font.PLAIN));
-        acqTabbedPane_.setTabComponentAt(1, l2);
-        JLabel l3 = new JLabel("Space");
-       l3.setForeground(checkBox3D_.isSelected() || checkBox2D_.isSelected() ? DARK_GREEN : Color.black);
-       l3.setFont(acqTabbedPane_.getComponent(2).getFont().deriveFont(checkBox3D_.isSelected() || checkBox2D_.isSelected() ? Font.BOLD : Font.PLAIN));
-       acqTabbedPane_.setTabComponentAt(2, l3);
-       JLabel l4 = new JLabel("Channels");
-       l4.setForeground(((SimpleChannelTableModel) channelsTable_.getModel()).anyChannelsActive() ? DARK_GREEN : Color.black);
-       l4.setFont(acqTabbedPane_.getComponent(3).getFont().deriveFont(((SimpleChannelTableModel) channelsTable_.getModel()).anyChannelsActive()
-               ? Font.BOLD : Font.PLAIN));
-       acqTabbedPane_.setTabComponentAt(3, l4);
-       JLabel l5 = new JLabel("Covaried Settings");
-       l5.setForeground(((CovariantPairingsTableModel) covariantPairingsTable_.getModel()).isAnyPairingActive() ? DARK_GREEN : Color.black);
-       l5.setFont(acqTabbedPane_.getComponent(4).getFont().deriveFont(((CovariantPairingsTableModel) covariantPairingsTable_.getModel()).isAnyPairingActive() ? Font.BOLD : Font.PLAIN));
-        acqTabbedPane_.setTabComponentAt(4, l5);
-        JLabel l6 = new JLabel("Autofocus");
-        l6.setForeground(useAutofocusCheckBox_.isSelected() ? DARK_GREEN : Color.black);
-        l6.setFont(acqTabbedPane_.getComponent(5).getFont().deriveFont((useAutofocusCheckBox_.isSelected() ? Font.BOLD : Font.PLAIN)));
-        acqTabbedPane_.setTabComponentAt(5, l6);
 
-        acqTabbedPane_.invalidate();
-        acqTabbedPane_.validate();
-    }
+   private void refreshAcqTabTitleText() {
+      JLabel l2 = new JLabel("Time");
+      l2.setForeground(timePointsCheckBox_.isSelected() ? DARK_GREEN : Color.black);
+      l2.setFont(acqTabbedPane_.getComponent(0).getFont().deriveFont(timePointsCheckBox_.isSelected() ? Font.BOLD : Font.PLAIN));
+      acqTabbedPane_.setTabComponentAt(0, l2);
+      JLabel l3 = new JLabel("Space");
+      l3.setForeground(true ? DARK_GREEN : Color.black);
+      l3.setFont(acqTabbedPane_.getComponent(1).getFont().deriveFont(true ? Font.BOLD : Font.PLAIN));
+      acqTabbedPane_.setTabComponentAt(1, l3);
+      JLabel l4 = new JLabel("Channels");
+      l4.setForeground(((SimpleChannelTableModel) channelsTable_.getModel()).anyChannelsActive() ? DARK_GREEN : Color.black);
+      l4.setFont(acqTabbedPane_.getComponent(2).getFont().deriveFont(((SimpleChannelTableModel) channelsTable_.getModel()).anyChannelsActive()
+              ? Font.BOLD : Font.PLAIN));
+      acqTabbedPane_.setTabComponentAt(2, l4);
+      acqTabbedPane_.invalidate();
+      acqTabbedPane_.validate();
+   }
 
     private void enableAcquisitionComponentsAsNeeded() {
         //Set Tab titles
@@ -420,69 +302,16 @@ public class GUI extends javax.swing.JFrame {
         for (Component c : timePointsPanel_.getComponents()) {
             c.setEnabled(timePointsCheckBox_.isSelected());
         }
-        //disable all Z stuff then renable as apporpriate
-        zStepLabel_.setEnabled(false);
-        zStepSpinner_.setEnabled(false);
-        for (Component c : simpleZPanel_.getComponents()) {
-            c.setEnabled(false);
-        }
-        for (Component c : fixedDistanceZPanel_.getComponents()) {
-            c.setEnabled(false);
-        }
-        for (Component c : volumeBetweenZPanel_.getComponents()) {
-            c.setEnabled(false);
-        }
-        for (Component c : panel2D_.getComponents()) {
-            c.setEnabled(false);
-        }
-        if (checkBox2D_.isSelected()) {
-            for (Component c : panel2D_.getComponents()) {
-                c.setEnabled(true);
-            }
-            boolean collectionPlane = collectionPlaneCheckBox_.isSelected();
-            collectionPlaneLabel_.setEnabled(collectionPlane);
-            collectionPlaneCombo_.setEnabled(collectionPlane);
-        } else if (checkBox3D_.isSelected()) {
-            zStepLabel_.setEnabled(true);
-            zStepSpinner_.setEnabled(true);
-            simpleZStackRadioButton_.setEnabled(true);
-            fixedDistanceFromSurfaceRadioButton_.setEnabled(true);
-            volumeBetweenSurfacesRadioButton_.setEnabled(true);
-
-            boolean simpleZ = simpleZStackRadioButton_.isSelected();
-            for (Component c : simpleZPanel_.getComponents()) {
-                if (!(c instanceof JRadioButton)) {
-                    c.setEnabled(simpleZ);
-                }
-            }
-            boolean fixedDist = fixedDistanceFromSurfaceRadioButton_.isSelected();
-            for (Component c : fixedDistanceZPanel_.getComponents()) {
-                if (!(c instanceof JRadioButton)) {
-                    c.setEnabled(fixedDist);
-                }
-            }
-            boolean volumeBetween = volumeBetweenSurfacesRadioButton_.isSelected();
-            for (Component c : volumeBetweenZPanel_.getComponents()) {
-                if (!(c instanceof JRadioButton)) {
-                    c.setEnabled(volumeBetween);
-                }
-            }
-        }
-        //autofocus stuff
-        for (Component c : autofocusComponentsPanel_.getComponents()) {
-            c.setEnabled(useAutofocusCheckBox_.isSelected());
-        }
-        
     }
 
-    private void storeCurrentAcqSettings() {
+    public void storeCurrentAcqSettings() {
         if (!storeAcqSettings_) {
             return;
         }
         FixedAreaAcquisitionSettings settings = multiAcqManager_.getAcquisitionSettings(multiAcqSelectedIndex_);
         //saving
         settings.dir_ = globalSavingDirTextField_.getText();
-        settings.name_ = savingNameTextField_.getText();
+        settings.name_ = multiAcqManager_.getAcquisitionName(multiAcqSelectedIndex_);
         //time
         settings.timeEnabled_ = timePointsCheckBox_.isSelected();
         if (settings.timeEnabled_) {
@@ -492,23 +321,23 @@ public class GUI extends javax.swing.JFrame {
         }
         //space
         settings.tileOverlap_ = (Double) acqOverlapPercentSpinner_.getValue();
-        if (checkBox2D_.isSelected()) {
+        if (acq2D3DTabbedPane_.getSelectedIndex() == 0) { //2D pane
             settings.spaceMode_ = FixedAreaAcquisitionSettings.REGION_2D;
             settings.footprint_ = getFootprintObject(footprint2DComboBox_.getSelectedIndex());
-            if (collectionPlaneCheckBox_.isSelected()) {
+            if (useCollectionPlaneButton_.isSelected()) {
                settings.collectionPlane_ = surfaceManager_.getSurface(collectionPlaneCombo_.getSelectedIndex());
             } else {
                 settings.collectionPlane_ = null;
             }
-        } else if (checkBox3D_.isSelected()) {
+        } else if (acq2D3DTabbedPane_.getSelectedIndex() == 1) {
             settings.zStep_ = (Double) zStepSpinner_.getValue();
             settings.channelsAtEverySlice_ = acqOrderCombo_.getSelectedIndex() == 0;
-            if (simpleZStackRadioButton_.isSelected()) {
+            if (zStackTypeTabbedPane_.getSelectedIndex() == 0) {
                 settings.spaceMode_ = FixedAreaAcquisitionSettings.SIMPLE_Z_STACK;
                 settings.footprint_ = getFootprintObject(simpleZStackFootprintCombo_.getSelectedIndex());
                 settings.zStart_ = (Double) zStartSpinner_.getValue();
                 settings.zEnd_ = (Double) zEndSpinner_.getValue();
-            } else if (volumeBetweenSurfacesRadioButton_.isSelected()) {
+            } else if (zStackTypeTabbedPane_.getSelectedIndex() == 1) {
                 settings.spaceMode_ = FixedAreaAcquisitionSettings.VOLUME_BETWEEN_SURFACES_Z_STACK;
                 settings.topSurface_ = surfaceManager_.getSurface(topSurfaceCombo_.getSelectedIndex());
                 settings.bottomSurface_ = surfaceManager_.getSurface(bottomSurfaceCombo_.getSelectedIndex());
@@ -516,7 +345,7 @@ public class GUI extends javax.swing.JFrame {
                 settings.distanceBelowBottomSurface_ = (Double) umBelowBottomSurfaceSpinner_.getValue();
                 settings.useTopOrBottomFootprint_ = volumeBetweenFootprintCombo_.getSelectedItem().equals("Top surface")
                         ? FixedAreaAcquisitionSettings.FOOTPRINT_FROM_TOP : FixedAreaAcquisitionSettings.FOOTPRINT_FROM_BOTTOM;
-            } else if (fixedDistanceFromSurfaceRadioButton_.isSelected()) {
+            } else if (zStackTypeTabbedPane_.getSelectedIndex() == 2) {
                 settings.spaceMode_ = FixedAreaAcquisitionSettings.SURFACE_FIXED_DISTANCE_Z_STACK;
                 settings.distanceBelowFixedSurface_ = ((Number) distanceBelowFixedSurfaceSpinner_.getValue()).doubleValue();
                 settings.distanceAboveFixedSurface_ = ((Number) distanceAboveFixedSurfaceSpinner_.getValue()).doubleValue();
@@ -526,16 +355,6 @@ public class GUI extends javax.swing.JFrame {
         } else {
             settings.spaceMode_ = FixedAreaAcquisitionSettings.NO_SPACE;
         }
-              
-        //autofocus
-        settings.autofocusEnabled_ = useAutofocusCheckBox_.isSelected();
-        if (settings.autofocusEnabled_) {
-            if (autofocusChannelCombo_.getSelectedItem() !=null) {
-                settings.autofocusChannelName_ = autofocusChannelCombo_.getSelectedItem().toString();                
-            }
-            settings.autofocusMaxDisplacemnet_um_ = (Double) autofocusMaxDisplacementSpinner_.getValue();
-        }
-
 
         settings.storePreferedValues();
         multipleAcqTable_.repaint();
@@ -552,7 +371,7 @@ public class GUI extends javax.swing.JFrame {
     private void populateAcqControls(FixedAreaAcquisitionSettings settings) {
         //don't autostore outdated settings while controls are being populated
         storeAcqSettings_ = false;
-        savingNameTextField_.setText(settings.name_);
+        multiAcqManager_.setAcquisitionName(multiAcqSelectedIndex_, settings.name_);
         //time
         timePointsCheckBox_.setSelected(settings.timeEnabled_);
         numTimePointsSpinner_.setValue(settings.numTimePoints_);
@@ -560,13 +379,9 @@ public class GUI extends javax.swing.JFrame {
         timeIntevalUnitCombo_.setSelectedIndex(settings.timeIntervalUnit_);
         //space           
         acqOrderCombo_.setSelectedIndex(settings.channelsAtEverySlice_ ? 0 : 1);
-        checkBox2D_.setSelected(settings.spaceMode_ == FixedAreaAcquisitionSettings.REGION_2D);
-        checkBox3D_.setSelected(settings.spaceMode_ == FixedAreaAcquisitionSettings.SIMPLE_Z_STACK
-                || settings.spaceMode_ == FixedAreaAcquisitionSettings.VOLUME_BETWEEN_SURFACES_Z_STACK
-                || settings.spaceMode_ == FixedAreaAcquisitionSettings.SURFACE_FIXED_DISTANCE_Z_STACK);
-        simpleZStackRadioButton_.setSelected(settings.spaceMode_ == FixedAreaAcquisitionSettings.SIMPLE_Z_STACK);
-        volumeBetweenSurfacesRadioButton_.setSelected(settings.spaceMode_ == FixedAreaAcquisitionSettings.VOLUME_BETWEEN_SURFACES_Z_STACK);
-        fixedDistanceFromSurfaceRadioButton_.setSelected(settings.spaceMode_ == FixedAreaAcquisitionSettings.SURFACE_FIXED_DISTANCE_Z_STACK);
+        acq2D3DTabbedPane_.setSelectedIndex(settings.spaceMode_ == FixedAreaAcquisitionSettings.REGION_2D ? 0 : 1);
+        zStackTypeTabbedPane_.setSelectedIndex(settings.spaceMode_ == FixedAreaAcquisitionSettings.SIMPLE_Z_STACK ? 0: 
+                (settings.spaceMode_ == FixedAreaAcquisitionSettings.VOLUME_BETWEEN_SURFACES_Z_STACK ? 1 : 2));
         zStepSpinner_.setValue(settings.zStep_);
         zStartSpinner_.setValue(settings.zStart_);
         zEndSpinner_.setValue(settings.zEnd_);
@@ -590,11 +405,6 @@ public class GUI extends javax.swing.JFrame {
         ((SimpleChannelTableModel) channelsTable_.getModel()).setChannelGroup(settings.channelGroup_);
         ((SimpleChannelTableModel) channelsTable_.getModel()).setChannels(settings.channels_);
         
-        //autofocus
-        useAutofocusCheckBox_.setSelected(settings.autofocusEnabled_);
-        autofocusChannelCombo_.setSelectedItem(settings.autofocusChannelName_);
-        autofocusMaxDisplacementSpinner_.setValue(settings.autofocusMaxDisplacemnet_um_);
-
         enableAcquisitionComponentsAsNeeded();
 
         repaint();
@@ -620,27 +430,6 @@ public class GUI extends javax.swing.JFrame {
         });
     }
 
-    private void addTextFieldListeners() {
-        DocumentListener storeSettingsListener =
-                new DocumentListener() {
-            @Override
-            public void insertUpdate(DocumentEvent e) {
-                storeCurrentAcqSettings();
-            }
-
-            @Override
-            public void removeUpdate(DocumentEvent e) {
-                storeCurrentAcqSettings();
-            }
-
-            @Override
-            public void changedUpdate(DocumentEvent e) {
-                storeCurrentAcqSettings();
-            }
-        };
-        savingNameTextField_.getDocument().addDocumentListener(storeSettingsListener);
-    }
-
     //store values when user types text, becuase
     private void addTextEditListener(JSpinner spinner) {
         JSpinner.NumberEditor editor = (JSpinner.NumberEditor) spinner.getEditor();
@@ -657,9 +446,6 @@ public class GUI extends javax.swing.JFrame {
         removeAcqButton_.setEnabled(enable);
         moveAcqDownButton_.setEnabled(enable);
         moveAcqUpButton_.setEnabled(enable);
-        intereaveButton_.setEnabled(enable);
-        deinterleaveButton_.setEnabled(enable);
-        runMultipleAcquisitionsButton_.setText(enable ? "Run all acquisitions" : "Abort");
         repaint();
     }
     
@@ -694,8 +480,8 @@ public class GUI extends javax.swing.JFrame {
       exploreFilterMethodButtonGroup_ = new javax.swing.ButtonGroup();
       jLabel11 = new javax.swing.JLabel();
       z2DButtonGroup_ = new javax.swing.ButtonGroup();
-      jPanel5 = new javax.swing.JPanel();
-      jTabbedPane1 = new javax.swing.JTabbedPane();
+      root_panel_ = new javax.swing.JPanel();
+      exploreAcqTabbedPane_ = new javax.swing.JTabbedPane();
       explorePanel = new javax.swing.JPanel();
       exploreZStepLabel_ = new javax.swing.JLabel();
       exploreZStepSpinner_ = new javax.swing.JSpinner();
@@ -714,7 +500,7 @@ public class GUI extends javax.swing.JFrame {
       saveButton_ = new javax.swing.JButton();
       jScrollPane2 = new javax.swing.JScrollPane();
       gridTable_ = new javax.swing.JTable();
-      jLabel1 = new javax.swing.JLabel();
+      surfacesAndGrdisLabel_ = new javax.swing.JLabel();
       acqPanel = new javax.swing.JPanel();
       acqTabbedPane_ = new javax.swing.JTabbedPane();
       timePointsTab_ = new javax.swing.JPanel();
@@ -726,13 +512,21 @@ public class GUI extends javax.swing.JFrame {
       timeIntervalSpinner_ = new javax.swing.JSpinner();
       timePointsCheckBox_ = new javax.swing.JCheckBox();
       spaceTab_ = new javax.swing.JPanel();
-      jTabbedPane2 = new javax.swing.JTabbedPane();
-      jPanel7 = new javax.swing.JPanel();
+      acq2D3DTabbedPane_ = new javax.swing.JTabbedPane();
+      acq2DPanel_ = new javax.swing.JPanel();
+      panel2D_ = new javax.swing.JPanel();
+      footprin2DLabel_ = new javax.swing.JLabel();
+      footprint2DComboBox_ = new javax.swing.JComboBox();
+      collectionPlaneCombo_ = new javax.swing.JComboBox();
+      collectionPlaneLabel_ = new javax.swing.JLabel();
+      noCollectionPlaneButton_ = new javax.swing.JRadioButton();
+      useCollectionPlaneButton_ = new javax.swing.JRadioButton();
+      acq3DPanel_ = new javax.swing.JPanel();
       zStepLabel_ = new javax.swing.JLabel();
       zStepSpinner_ = new javax.swing.JSpinner();
       acqOrderLabel_ = new javax.swing.JLabel();
       acqOrderCombo_ = new javax.swing.JComboBox();
-      jTabbedPane3 = new javax.swing.JTabbedPane();
+      zStackTypeTabbedPane_ = new javax.swing.JTabbedPane();
       simpleZPanel_ = new javax.swing.JPanel();
       zStartLabel = new javax.swing.JLabel();
       zEndLabel = new javax.swing.JLabel();
@@ -764,40 +558,33 @@ public class GUI extends javax.swing.JFrame {
       fixedDistanceSurfaceComboBox_ = new javax.swing.JComboBox();
       jLabel12 = new javax.swing.JLabel();
       withinDistanceFromFootprintCombo_ = new javax.swing.JComboBox();
-      jPanel6 = new javax.swing.JPanel();
-      panel2D_ = new javax.swing.JPanel();
-      footprin2DLabel_ = new javax.swing.JLabel();
-      footprint2DComboBox_ = new javax.swing.JComboBox();
-      collectionPlaneCombo_ = new javax.swing.JComboBox();
-      collectionPlaneLabel_ = new javax.swing.JLabel();
-      jRadioButton1 = new javax.swing.JRadioButton();
-      jRadioButton2 = new javax.swing.JRadioButton();
       acqTileOverlapLabel_ = new javax.swing.JLabel();
       acqOverlapPercentSpinner_ = new javax.swing.JSpinner();
       tileOverlapPercentLabel_ = new javax.swing.JLabel();
-      runAcqButton_ = new javax.swing.JButton();
       ChannelsTab_ = new javax.swing.JPanel();
       jScrollPane1 = new javax.swing.JScrollPane();
       channelsTable_ = new javax.swing.JTable();
       jLabel3 = new javax.swing.JLabel();
       ChannelGroupCombo_ = new javax.swing.JComboBox();
       jPanel1 = new javax.swing.JPanel();
+      runAcqButton_ = new javax.swing.JButton();
+      estDurationLabel_ = new javax.swing.JLabel();
       multipleAcqScrollPane_ = new javax.swing.JScrollPane();
       multipleAcqTable_ = new javax.swing.JTable();
       moveAcqDownButton_ = new javax.swing.JButton();
       moveAcqUpButton_ = new javax.swing.JButton();
       removeAcqButton_ = new javax.swing.JButton();
       addAcqButton_ = new javax.swing.JButton();
+      bottomPanel_ = new javax.swing.JPanel();
+      userGuideLink_ = new javax.swing.JLabel();
+      citeLink_ = new javax.swing.JLabel();
+      helpButton_ = new javax.swing.JButton();
+      calinrateTilingButton_ = new javax.swing.JButton();
+      topPanel_ = new javax.swing.JPanel();
       exploreSavingDirLabel_ = new javax.swing.JLabel();
       globalSavingDirTextField_ = new javax.swing.JTextField();
       exploreBrowseButton_ = new javax.swing.JButton();
       openDatasetButton_ = new javax.swing.JButton();
-      jPanel2 = new javax.swing.JPanel();
-      createdByHenryLabel_ = new javax.swing.JLabel();
-      userGuideLink_ = new javax.swing.JLabel();
-      citeLink_ = new javax.swing.JLabel();
-      helpButton_ = new javax.swing.JButton();
-      jButton1 = new javax.swing.JButton();
 
       jLabel11.setText("jLabel11");
 
@@ -902,7 +689,7 @@ public class GUI extends javax.swing.JFrame {
          jPanel4Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
          .addGroup(jPanel4Layout.createSequentialGroup()
             .addGap(20, 20, 20)
-            .addComponent(jScrollPane2, javax.swing.GroupLayout.DEFAULT_SIZE, 194, Short.MAX_VALUE)
+            .addComponent(jScrollPane2, javax.swing.GroupLayout.DEFAULT_SIZE, 264, Short.MAX_VALUE)
             .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
             .addGroup(jPanel4Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
                .addComponent(deleteSelectedRegionButton_)
@@ -912,8 +699,8 @@ public class GUI extends javax.swing.JFrame {
             .addContainerGap())
       );
 
-      jLabel1.setFont(new java.awt.Font("Lucida Grande", 1, 18)); // NOI18N
-      jLabel1.setText("Surfaces and Grids");
+      surfacesAndGrdisLabel_.setFont(new java.awt.Font("Lucida Grande", 1, 18)); // NOI18N
+      surfacesAndGrdisLabel_.setText("Surfaces and Grids");
 
       javax.swing.GroupLayout explorePanelLayout = new javax.swing.GroupLayout(explorePanel);
       explorePanel.setLayout(explorePanelLayout);
@@ -944,7 +731,7 @@ public class GUI extends javax.swing.JFrame {
                         .addComponent(exploreSavingNameTextField_, javax.swing.GroupLayout.PREFERRED_SIZE, 663, javax.swing.GroupLayout.PREFERRED_SIZE))))
                .addGroup(explorePanelLayout.createSequentialGroup()
                   .addGap(14, 14, 14)
-                  .addComponent(jLabel1))
+                  .addComponent(surfacesAndGrdisLabel_))
                .addGroup(explorePanelLayout.createSequentialGroup()
                   .addContainerGap()
                   .addComponent(jPanel4, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE))
@@ -971,15 +758,14 @@ public class GUI extends javax.swing.JFrame {
             .addGap(18, 18, 18)
             .addComponent(newExploreWindowButton_)
             .addGap(9, 9, 9)
-            .addComponent(jLabel1)
+            .addComponent(surfacesAndGrdisLabel_)
             .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-            .addComponent(jPanel4, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
-            .addGap(0, 63, Short.MAX_VALUE))
+            .addComponent(jPanel4, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
       );
 
       addTextEditListener(zStepSpinner_);
 
-      jTabbedPane1.addTab("Explore", explorePanel);
+      exploreAcqTabbedPane_.addTab("Explore", explorePanel);
 
       acqTabbedPane_.setFont(new java.awt.Font("Tahoma", 0, 14)); // NOI18N
 
@@ -1084,6 +870,94 @@ public class GUI extends javax.swing.JFrame {
       }
 
       acqTabbedPane_.addTab("Time", timePointsTab_);
+
+      footprin2DLabel_.setFont(new java.awt.Font("Tahoma", 0, 14)); // NOI18N
+      footprin2DLabel_.setText("Surface/Grid XY Footprint:");
+
+      footprint2DComboBox_.setFont(new java.awt.Font("Tahoma", 0, 14)); // NOI18N
+      footprint2DComboBox_.setModel(createSurfaceAndRegionComboBoxModel(true,true));
+      footprint2DComboBox_.addActionListener(new java.awt.event.ActionListener() {
+         public void actionPerformed(java.awt.event.ActionEvent evt) {
+            footprint2DComboBox_ActionPerformed(evt);
+         }
+      });
+
+      collectionPlaneCombo_.setFont(new java.awt.Font("Tahoma", 0, 14)); // NOI18N
+      collectionPlaneCombo_.setModel(createSurfaceAndRegionComboBoxModel(true,false));
+      collectionPlaneCombo_.addActionListener(new java.awt.event.ActionListener() {
+         public void actionPerformed(java.awt.event.ActionEvent evt) {
+            collectionPlaneCombo_ActionPerformed(evt);
+         }
+      });
+
+      z2DButtonGroup_.add(noCollectionPlaneButton_);
+      noCollectionPlaneButton_.setText("Use current Z position");
+      noCollectionPlaneButton_.addActionListener(new java.awt.event.ActionListener() {
+         public void actionPerformed(java.awt.event.ActionEvent evt) {
+            noCollectionPlaneButton_ActionPerformed(evt);
+         }
+      });
+
+      z2DButtonGroup_.add(useCollectionPlaneButton_);
+      useCollectionPlaneButton_.setText("Get Z position from surface");
+
+      javax.swing.GroupLayout panel2D_Layout = new javax.swing.GroupLayout(panel2D_);
+      panel2D_.setLayout(panel2D_Layout);
+      panel2D_Layout.setHorizontalGroup(
+         panel2D_Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+         .addGroup(panel2D_Layout.createSequentialGroup()
+            .addGroup(panel2D_Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+               .addGroup(panel2D_Layout.createSequentialGroup()
+                  .addComponent(useCollectionPlaneButton_)
+                  .addGroup(panel2D_Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                     .addGroup(panel2D_Layout.createSequentialGroup()
+                        .addGap(36, 36, 36)
+                        .addComponent(collectionPlaneLabel_))
+                     .addGroup(panel2D_Layout.createSequentialGroup()
+                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                        .addComponent(collectionPlaneCombo_, javax.swing.GroupLayout.PREFERRED_SIZE, 238, javax.swing.GroupLayout.PREFERRED_SIZE))))
+               .addComponent(noCollectionPlaneButton_)
+               .addGroup(panel2D_Layout.createSequentialGroup()
+                  .addContainerGap()
+                  .addComponent(footprin2DLabel_)
+                  .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                  .addComponent(footprint2DComboBox_, javax.swing.GroupLayout.PREFERRED_SIZE, 241, javax.swing.GroupLayout.PREFERRED_SIZE)))
+            .addContainerGap(18, Short.MAX_VALUE))
+      );
+      panel2D_Layout.setVerticalGroup(
+         panel2D_Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+         .addGroup(panel2D_Layout.createSequentialGroup()
+            .addContainerGap()
+            .addGroup(panel2D_Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
+               .addComponent(footprin2DLabel_)
+               .addComponent(footprint2DComboBox_, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE))
+            .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+            .addComponent(noCollectionPlaneButton_)
+            .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+            .addGroup(panel2D_Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
+               .addComponent(useCollectionPlaneButton_)
+               .addComponent(collectionPlaneCombo_, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE))
+            .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+            .addComponent(collectionPlaneLabel_)
+            .addContainerGap(8, Short.MAX_VALUE))
+      );
+
+      javax.swing.GroupLayout acq2DPanel_Layout = new javax.swing.GroupLayout(acq2DPanel_);
+      acq2DPanel_.setLayout(acq2DPanel_Layout);
+      acq2DPanel_Layout.setHorizontalGroup(
+         acq2DPanel_Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+         .addGroup(acq2DPanel_Layout.createSequentialGroup()
+            .addComponent(panel2D_, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
+            .addGap(0, 276, Short.MAX_VALUE))
+      );
+      acq2DPanel_Layout.setVerticalGroup(
+         acq2DPanel_Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+         .addGroup(acq2DPanel_Layout.createSequentialGroup()
+            .addComponent(panel2D_, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
+            .addGap(0, 112, Short.MAX_VALUE))
+      );
+
+      acq2D3DTabbedPane_.addTab("2D", acq2DPanel_);
 
       zStepLabel_.setFont(new java.awt.Font("Tahoma", 0, 14)); // NOI18N
       zStepLabel_.setText("<html>Z-step (&mu;m):</html>");
@@ -1202,7 +1076,7 @@ public class GUI extends javax.swing.JFrame {
       addTextEditListener(zStartSpinner_);
       addTextEditListener(zEndSpinner_);
 
-      jTabbedPane3.addTab("Cuboid volume", simpleZPanel_);
+      zStackTypeTabbedPane_.addTab("Cuboid volume", simpleZPanel_);
       for (Component c : simpleZPanel_.getComponents()) {
          c.setEnabled(false);
       }
@@ -1310,7 +1184,7 @@ public class GUI extends javax.swing.JFrame {
             .addGap(0, 35, Short.MAX_VALUE))
       );
 
-      jTabbedPane3.addTab("Volume between surfaces", volumeBetweenZPanel_);
+      zStackTypeTabbedPane_.addTab("Volume between surfaces", volumeBetweenZPanel_);
       for (Component c : volumeBetweenZPanel_.getComponents()) {
          c.setEnabled(false);
       }
@@ -1426,13 +1300,13 @@ public class GUI extends javax.swing.JFrame {
       addTextEditListener(distanceBelowFixedSurfaceSpinner_);
       addTextEditListener(distanceAboveFixedSurfaceSpinner_);
 
-      jTabbedPane3.addTab("Within distance from surface", fixedDistanceZPanel_);
+      zStackTypeTabbedPane_.addTab("Within distance from surface", fixedDistanceZPanel_);
 
-      javax.swing.GroupLayout jPanel7Layout = new javax.swing.GroupLayout(jPanel7);
-      jPanel7.setLayout(jPanel7Layout);
-      jPanel7Layout.setHorizontalGroup(
-         jPanel7Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-         .addGroup(jPanel7Layout.createSequentialGroup()
+      javax.swing.GroupLayout acq3DPanel_Layout = new javax.swing.GroupLayout(acq3DPanel_);
+      acq3DPanel_.setLayout(acq3DPanel_Layout);
+      acq3DPanel_Layout.setHorizontalGroup(
+         acq3DPanel_Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+         .addGroup(acq3DPanel_Layout.createSequentialGroup()
             .addGap(14, 14, 14)
             .addComponent(zStepLabel_, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
             .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
@@ -1442,114 +1316,26 @@ public class GUI extends javax.swing.JFrame {
             .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
             .addComponent(acqOrderCombo_, javax.swing.GroupLayout.PREFERRED_SIZE, 207, javax.swing.GroupLayout.PREFERRED_SIZE)
             .addContainerGap(javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
-         .addGroup(jPanel7Layout.createSequentialGroup()
+         .addGroup(acq3DPanel_Layout.createSequentialGroup()
             .addContainerGap()
-            .addComponent(jTabbedPane3))
+            .addComponent(zStackTypeTabbedPane_))
       );
-      jPanel7Layout.setVerticalGroup(
-         jPanel7Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-         .addGroup(jPanel7Layout.createSequentialGroup()
-            .addGroup(jPanel7Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
+      acq3DPanel_Layout.setVerticalGroup(
+         acq3DPanel_Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+         .addGroup(acq3DPanel_Layout.createSequentialGroup()
+            .addGroup(acq3DPanel_Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
                .addComponent(zStepSpinner_, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
                .addComponent(zStepLabel_, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
                .addComponent(acqOrderCombo_, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
                .addComponent(acqOrderLabel_))
             .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-            .addComponent(jTabbedPane3, javax.swing.GroupLayout.PREFERRED_SIZE, 186, javax.swing.GroupLayout.PREFERRED_SIZE)
+            .addComponent(zStackTypeTabbedPane_, javax.swing.GroupLayout.PREFERRED_SIZE, 186, javax.swing.GroupLayout.PREFERRED_SIZE)
             .addGap(0, 0, 0))
       );
 
       addTextEditListener(zStepSpinner_);
 
-      jTabbedPane2.addTab("3D", jPanel7);
-
-      footprin2DLabel_.setFont(new java.awt.Font("Tahoma", 0, 14)); // NOI18N
-      footprin2DLabel_.setText("Surface/Grid XY Footprint:");
-
-      footprint2DComboBox_.setFont(new java.awt.Font("Tahoma", 0, 14)); // NOI18N
-      footprint2DComboBox_.setModel(createSurfaceAndRegionComboBoxModel(true,true));
-      footprint2DComboBox_.addActionListener(new java.awt.event.ActionListener() {
-         public void actionPerformed(java.awt.event.ActionEvent evt) {
-            footprint2DComboBox_ActionPerformed(evt);
-         }
-      });
-
-      collectionPlaneCombo_.setFont(new java.awt.Font("Tahoma", 0, 14)); // NOI18N
-      collectionPlaneCombo_.setModel(createSurfaceAndRegionComboBoxModel(true,false));
-      collectionPlaneCombo_.addActionListener(new java.awt.event.ActionListener() {
-         public void actionPerformed(java.awt.event.ActionEvent evt) {
-            collectionPlaneCombo_ActionPerformed(evt);
-         }
-      });
-
-      z2DButtonGroup_.add(jRadioButton1);
-      jRadioButton1.setText("Use current Z position");
-      jRadioButton1.addActionListener(new java.awt.event.ActionListener() {
-         public void actionPerformed(java.awt.event.ActionEvent evt) {
-            jRadioButton1ActionPerformed(evt);
-         }
-      });
-
-      z2DButtonGroup_.add(jRadioButton2);
-      jRadioButton2.setText("Get Z position from surface");
-
-      javax.swing.GroupLayout panel2D_Layout = new javax.swing.GroupLayout(panel2D_);
-      panel2D_.setLayout(panel2D_Layout);
-      panel2D_Layout.setHorizontalGroup(
-         panel2D_Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-         .addGroup(panel2D_Layout.createSequentialGroup()
-            .addGroup(panel2D_Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-               .addGroup(panel2D_Layout.createSequentialGroup()
-                  .addComponent(jRadioButton2)
-                  .addGroup(panel2D_Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-                     .addGroup(panel2D_Layout.createSequentialGroup()
-                        .addGap(36, 36, 36)
-                        .addComponent(collectionPlaneLabel_))
-                     .addGroup(panel2D_Layout.createSequentialGroup()
-                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                        .addComponent(collectionPlaneCombo_, javax.swing.GroupLayout.PREFERRED_SIZE, 238, javax.swing.GroupLayout.PREFERRED_SIZE))))
-               .addComponent(jRadioButton1)
-               .addGroup(panel2D_Layout.createSequentialGroup()
-                  .addContainerGap()
-                  .addComponent(footprin2DLabel_)
-                  .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                  .addComponent(footprint2DComboBox_, javax.swing.GroupLayout.PREFERRED_SIZE, 241, javax.swing.GroupLayout.PREFERRED_SIZE)))
-            .addContainerGap(18, Short.MAX_VALUE))
-      );
-      panel2D_Layout.setVerticalGroup(
-         panel2D_Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-         .addGroup(panel2D_Layout.createSequentialGroup()
-            .addContainerGap()
-            .addGroup(panel2D_Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
-               .addComponent(footprin2DLabel_)
-               .addComponent(footprint2DComboBox_, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE))
-            .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-            .addComponent(jRadioButton1)
-            .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-            .addGroup(panel2D_Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
-               .addComponent(jRadioButton2)
-               .addComponent(collectionPlaneCombo_, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE))
-            .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-            .addComponent(collectionPlaneLabel_)
-            .addContainerGap(8, Short.MAX_VALUE))
-      );
-
-      javax.swing.GroupLayout jPanel6Layout = new javax.swing.GroupLayout(jPanel6);
-      jPanel6.setLayout(jPanel6Layout);
-      jPanel6Layout.setHorizontalGroup(
-         jPanel6Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-         .addGroup(jPanel6Layout.createSequentialGroup()
-            .addComponent(panel2D_, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
-            .addGap(0, 276, Short.MAX_VALUE))
-      );
-      jPanel6Layout.setVerticalGroup(
-         jPanel6Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-         .addGroup(jPanel6Layout.createSequentialGroup()
-            .addComponent(panel2D_, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
-            .addGap(0, 112, Short.MAX_VALUE))
-      );
-
-      jTabbedPane2.addTab("2D", jPanel6);
+      acq2D3DTabbedPane_.addTab("3D", acq3DPanel_);
 
       acqTileOverlapLabel_.setFont(new java.awt.Font("Tahoma", 0, 14)); // NOI18N
       acqTileOverlapLabel_.setText("XY tile overlap:");
@@ -1565,14 +1351,6 @@ public class GUI extends javax.swing.JFrame {
       tileOverlapPercentLabel_.setFont(new java.awt.Font("Tahoma", 0, 14)); // NOI18N
       tileOverlapPercentLabel_.setText("%");
 
-      runAcqButton_.setFont(new java.awt.Font("Tahoma", 1, 14)); // NOI18N
-      runAcqButton_.setText("Run acquisition(s)");
-      runAcqButton_.addActionListener(new java.awt.event.ActionListener() {
-         public void actionPerformed(java.awt.event.ActionEvent evt) {
-            runAcqButton_ActionPerformed(evt);
-         }
-      });
-
       javax.swing.GroupLayout spaceTab_Layout = new javax.swing.GroupLayout(spaceTab_);
       spaceTab_.setLayout(spaceTab_Layout);
       spaceTab_Layout.setHorizontalGroup(
@@ -1586,19 +1364,16 @@ public class GUI extends javax.swing.JFrame {
                   .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
                   .addComponent(acqOverlapPercentSpinner_, javax.swing.GroupLayout.PREFERRED_SIZE, 58, javax.swing.GroupLayout.PREFERRED_SIZE)
                   .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                  .addComponent(tileOverlapPercentLabel_)
-                  .addGap(186, 186, 186)
-                  .addComponent(runAcqButton_))
-               .addComponent(jTabbedPane2, javax.swing.GroupLayout.PREFERRED_SIZE, 764, javax.swing.GroupLayout.PREFERRED_SIZE))
+                  .addComponent(tileOverlapPercentLabel_))
+               .addComponent(acq2D3DTabbedPane_, javax.swing.GroupLayout.PREFERRED_SIZE, 764, javax.swing.GroupLayout.PREFERRED_SIZE))
             .addContainerGap(30, Short.MAX_VALUE))
       );
       spaceTab_Layout.setVerticalGroup(
          spaceTab_Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
          .addGroup(spaceTab_Layout.createSequentialGroup()
-            .addComponent(jTabbedPane2, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
+            .addComponent(acq2D3DTabbedPane_, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
             .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
             .addGroup(spaceTab_Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
-               .addComponent(runAcqButton_)
                .addComponent(acqTileOverlapLabel_)
                .addComponent(acqOverlapPercentSpinner_, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
                .addComponent(tileOverlapPercentLabel_))
@@ -1660,15 +1435,41 @@ public class GUI extends javax.swing.JFrame {
 
       acqTabbedPane_.addTab("Channels", ChannelsTab_);
 
+      runAcqButton_.setFont(new java.awt.Font("Tahoma", 1, 14)); // NOI18N
+      runAcqButton_.setText("Run acquisition(s)");
+      runAcqButton_.addActionListener(new java.awt.event.ActionListener() {
+         public void actionPerformed(java.awt.event.ActionEvent evt) {
+            runAcqButton_ActionPerformed(evt);
+         }
+      });
+
+      estDurationLabel_.setText("Estimated duration: ");
+
       javax.swing.GroupLayout jPanel1Layout = new javax.swing.GroupLayout(jPanel1);
       jPanel1.setLayout(jPanel1Layout);
       jPanel1Layout.setHorizontalGroup(
          jPanel1Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-         .addGap(0, 0, Short.MAX_VALUE)
+         .addGroup(jPanel1Layout.createSequentialGroup()
+            .addContainerGap()
+            .addComponent(estDurationLabel_)
+            .addContainerGap(javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
+         .addGroup(jPanel1Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+            .addGroup(jPanel1Layout.createSequentialGroup()
+               .addGap(320, 320, 320)
+               .addComponent(runAcqButton_)
+               .addContainerGap(320, Short.MAX_VALUE)))
       );
       jPanel1Layout.setVerticalGroup(
          jPanel1Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-         .addGap(0, 0, Short.MAX_VALUE)
+         .addGroup(jPanel1Layout.createSequentialGroup()
+            .addContainerGap()
+            .addComponent(estDurationLabel_)
+            .addContainerGap(19, Short.MAX_VALUE))
+         .addGroup(jPanel1Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+            .addGroup(jPanel1Layout.createSequentialGroup()
+               .addContainerGap()
+               .addComponent(runAcqButton_)
+               .addContainerGap(javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)))
       );
 
       multipleAcqScrollPane_.setFont(new java.awt.Font("Tahoma", 0, 14)); // NOI18N
@@ -1738,7 +1539,7 @@ public class GUI extends javax.swing.JFrame {
          acqPanelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
          .addGroup(acqPanelLayout.createSequentialGroup()
             .addGroup(acqPanelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-               .addComponent(multipleAcqScrollPane_, javax.swing.GroupLayout.PREFERRED_SIZE, 0, Short.MAX_VALUE)
+               .addComponent(multipleAcqScrollPane_, javax.swing.GroupLayout.DEFAULT_SIZE, 68, Short.MAX_VALUE)
                .addGroup(acqPanelLayout.createSequentialGroup()
                   .addGroup(acqPanelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
                      .addComponent(addAcqButton_)
@@ -1754,7 +1555,56 @@ public class GUI extends javax.swing.JFrame {
             .addGap(0, 0, 0))
       );
 
-      jTabbedPane1.addTab("Acquisition(s)", acqPanel);
+      exploreAcqTabbedPane_.addTab("Acquisition(s)", acqPanel);
+
+      userGuideLink_.setFont(new java.awt.Font("Tahoma", 0, 14)); // NOI18N
+      userGuideLink_.setText("<html><a href=\\\"https://micro-manager.org/wiki/MicroMagellan\\\">Micro-Magellan User Guide</a></html>");
+
+      citeLink_.setFont(new java.awt.Font("Tahoma", 0, 14)); // NOI18N
+      citeLink_.setText("<html><a href=\\\"http://www.nature.com/nmeth/journal/v13/n10/full/nmeth.3991.html\\\">Cite Micro-Magellan</a></html>");
+
+      helpButton_.setBackground(new java.awt.Color(200, 255, 200));
+      helpButton_.setFont(new java.awt.Font("Tahoma", 0, 14)); // NOI18N
+      helpButton_.setText("Setup");
+      helpButton_.addActionListener(new java.awt.event.ActionListener() {
+         public void actionPerformed(java.awt.event.ActionEvent evt) {
+            helpButton_ActionPerformed(evt);
+         }
+      });
+
+      calinrateTilingButton_.setFont(new java.awt.Font("Tahoma", 0, 14)); // NOI18N
+      calinrateTilingButton_.setText("Calibrate tiling");
+      calinrateTilingButton_.addActionListener(new java.awt.event.ActionListener() {
+         public void actionPerformed(java.awt.event.ActionEvent evt) {
+            calinrateTilingButton_ActionPerformed(evt);
+         }
+      });
+
+      javax.swing.GroupLayout bottomPanel_Layout = new javax.swing.GroupLayout(bottomPanel_);
+      bottomPanel_.setLayout(bottomPanel_Layout);
+      bottomPanel_Layout.setHorizontalGroup(
+         bottomPanel_Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+         .addGroup(bottomPanel_Layout.createSequentialGroup()
+            .addContainerGap()
+            .addComponent(helpButton_)
+            .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+            .addComponent(calinrateTilingButton_)
+            .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+            .addComponent(userGuideLink_, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
+            .addGap(113, 113, 113)
+            .addComponent(citeLink_, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
+            .addGap(94, 94, 94))
+      );
+      bottomPanel_Layout.setVerticalGroup(
+         bottomPanel_Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+         .addGroup(bottomPanel_Layout.createSequentialGroup()
+            .addContainerGap(javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+            .addGroup(bottomPanel_Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
+               .addComponent(calinrateTilingButton_)
+               .addComponent(helpButton_)
+               .addComponent(citeLink_, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
+               .addComponent(userGuideLink_, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)))
+      );
 
       exploreSavingDirLabel_.setFont(new java.awt.Font("Tahoma", 0, 14)); // NOI18N
       exploreSavingDirLabel_.setText("Saving directory: ");
@@ -1778,104 +1628,68 @@ public class GUI extends javax.swing.JFrame {
          }
       });
 
-      createdByHenryLabel_.setFont(new java.awt.Font("Tahoma", 0, 14)); // NOI18N
-      createdByHenryLabel_.setText("Created by Henry Pinkard at UCSF and UC Berkeley 2014-2018");
-
-      userGuideLink_.setFont(new java.awt.Font("Tahoma", 0, 14)); // NOI18N
-      userGuideLink_.setText("<html><a href=\\\"https://micro-manager.org/wiki/MicroMagellan\\\">Micro-Magellan User Guide</a></html>");
-
-      citeLink_.setFont(new java.awt.Font("Tahoma", 0, 14)); // NOI18N
-      citeLink_.setText("<html><a href=\\\"http://www.nature.com/nmeth/journal/v13/n10/full/nmeth.3991.html\\\">Cite Micro-Magellan</a></html>");
-
-      helpButton_.setBackground(new java.awt.Color(200, 255, 200));
-      helpButton_.setFont(new java.awt.Font("Tahoma", 0, 14)); // NOI18N
-      helpButton_.setText("Setup");
-      helpButton_.addActionListener(new java.awt.event.ActionListener() {
-         public void actionPerformed(java.awt.event.ActionEvent evt) {
-            helpButton_ActionPerformed(evt);
-         }
-      });
-
-      jButton1.setFont(new java.awt.Font("Tahoma", 0, 14)); // NOI18N
-      jButton1.setText("Calibrate tiling");
-      jButton1.addActionListener(new java.awt.event.ActionListener() {
-         public void actionPerformed(java.awt.event.ActionEvent evt) {
-            jButton1ActionPerformed(evt);
-         }
-      });
-
-      javax.swing.GroupLayout jPanel2Layout = new javax.swing.GroupLayout(jPanel2);
-      jPanel2.setLayout(jPanel2Layout);
-      jPanel2Layout.setHorizontalGroup(
-         jPanel2Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-         .addGroup(jPanel2Layout.createSequentialGroup()
-            .addGap(195, 195, 195)
-            .addComponent(createdByHenryLabel_)
-            .addContainerGap(javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
-         .addGroup(jPanel2Layout.createSequentialGroup()
-            .addContainerGap()
-            .addComponent(helpButton_)
-            .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-            .addComponent(jButton1)
-            .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
-            .addComponent(userGuideLink_, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
-            .addGap(113, 113, 113)
-            .addComponent(citeLink_, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
-            .addGap(94, 94, 94))
-      );
-      jPanel2Layout.setVerticalGroup(
-         jPanel2Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-         .addGroup(jPanel2Layout.createSequentialGroup()
-            .addContainerGap()
-            .addGroup(jPanel2Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
-               .addComponent(jButton1)
-               .addComponent(helpButton_)
-               .addComponent(citeLink_, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
-               .addComponent(userGuideLink_, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE))
-            .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
-            .addComponent(createdByHenryLabel_))
-      );
-
-      javax.swing.GroupLayout jPanel5Layout = new javax.swing.GroupLayout(jPanel5);
-      jPanel5.setLayout(jPanel5Layout);
-      jPanel5Layout.setHorizontalGroup(
-         jPanel5Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-         .addGroup(javax.swing.GroupLayout.Alignment.TRAILING, jPanel5Layout.createSequentialGroup()
-            .addGap(0, 0, Short.MAX_VALUE)
-            .addComponent(jTabbedPane1, javax.swing.GroupLayout.PREFERRED_SIZE, 844, javax.swing.GroupLayout.PREFERRED_SIZE))
-         .addGroup(jPanel5Layout.createSequentialGroup()
-            .addGroup(jPanel5Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-               .addGroup(jPanel5Layout.createSequentialGroup()
-                  .addGap(30, 30, 30)
-                  .addComponent(exploreSavingDirLabel_)
-                  .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                  .addComponent(globalSavingDirTextField_)
-                  .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                  .addComponent(exploreBrowseButton_)
-                  .addGap(39, 39, 39)
-                  .addComponent(openDatasetButton_))
-               .addGroup(jPanel5Layout.createSequentialGroup()
-                  .addContainerGap()
-                  .addComponent(jPanel2, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)))
+      javax.swing.GroupLayout topPanel_Layout = new javax.swing.GroupLayout(topPanel_);
+      topPanel_.setLayout(topPanel_Layout);
+      topPanel_Layout.setHorizontalGroup(
+         topPanel_Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+         .addGroup(javax.swing.GroupLayout.Alignment.TRAILING, topPanel_Layout.createSequentialGroup()
+            .addContainerGap(javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+            .addComponent(exploreBrowseButton_)
+            .addGap(39, 39, 39)
+            .addComponent(openDatasetButton_)
             .addContainerGap())
-      );
-      jPanel5Layout.setVerticalGroup(
-         jPanel5Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-         .addGroup(javax.swing.GroupLayout.Alignment.TRAILING, jPanel5Layout.createSequentialGroup()
-            .addContainerGap()
-            .addGroup(jPanel5Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
+         .addGroup(topPanel_Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+            .addGroup(topPanel_Layout.createSequentialGroup()
+               .addContainerGap()
                .addComponent(exploreSavingDirLabel_)
-               .addComponent(globalSavingDirTextField_, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
+               .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+               .addComponent(globalSavingDirTextField_, javax.swing.GroupLayout.DEFAULT_SIZE, 453, Short.MAX_VALUE)
+               .addGap(265, 265, 265)))
+      );
+      topPanel_Layout.setVerticalGroup(
+         topPanel_Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+         .addGroup(topPanel_Layout.createSequentialGroup()
+            .addContainerGap()
+            .addGroup(topPanel_Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
                .addComponent(exploreBrowseButton_)
                .addComponent(openDatasetButton_))
+            .addContainerGap(14, Short.MAX_VALUE))
+         .addGroup(topPanel_Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+            .addGroup(topPanel_Layout.createSequentialGroup()
+               .addContainerGap()
+               .addGroup(topPanel_Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING, false)
+                  .addComponent(exploreSavingDirLabel_, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                  .addComponent(globalSavingDirTextField_))
+               .addContainerGap(16, Short.MAX_VALUE)))
+      );
+
+      javax.swing.GroupLayout root_panel_Layout = new javax.swing.GroupLayout(root_panel_);
+      root_panel_.setLayout(root_panel_Layout);
+      root_panel_Layout.setHorizontalGroup(
+         root_panel_Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+         .addGroup(javax.swing.GroupLayout.Alignment.TRAILING, root_panel_Layout.createSequentialGroup()
+            .addGap(0, 0, Short.MAX_VALUE)
+            .addComponent(exploreAcqTabbedPane_, javax.swing.GroupLayout.PREFERRED_SIZE, 844, javax.swing.GroupLayout.PREFERRED_SIZE))
+         .addGroup(root_panel_Layout.createSequentialGroup()
+            .addContainerGap()
+            .addGroup(root_panel_Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+               .addGroup(root_panel_Layout.createSequentialGroup()
+                  .addComponent(bottomPanel_, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                  .addContainerGap())
+               .addComponent(topPanel_, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)))
+      );
+      root_panel_Layout.setVerticalGroup(
+         root_panel_Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+         .addGroup(javax.swing.GroupLayout.Alignment.TRAILING, root_panel_Layout.createSequentialGroup()
+            .addComponent(topPanel_, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
             .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-            .addComponent(jTabbedPane1)
+            .addComponent(exploreAcqTabbedPane_)
             .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-            .addComponent(jPanel2, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
+            .addComponent(bottomPanel_, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
             .addContainerGap())
       );
 
-      getContentPane().add(jPanel5);
+      getContentPane().add(root_panel_);
 
       pack();
    }// </editor-fold>//GEN-END:initComponents
@@ -1921,9 +1735,9 @@ public class GUI extends javax.swing.JFrame {
    private void exploreSavingNameTextField_ActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_exploreSavingNameTextField_ActionPerformed
    }//GEN-LAST:event_exploreSavingNameTextField_ActionPerformed
 
-   private void jButton1ActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_jButton1ActionPerformed
+   private void calinrateTilingButton_ActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_calinrateTilingButton_ActionPerformed
        new AffineGUI();
-   }//GEN-LAST:event_jButton1ActionPerformed
+   }//GEN-LAST:event_calinrateTilingButton_ActionPerformed
 
    private void openDatasetButton_ActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_openDatasetButton_ActionPerformed
        File selectedFile = null;
@@ -1991,7 +1805,6 @@ public class GUI extends javax.swing.JFrame {
    private void ChannelGroupCombo_ActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_ChannelGroupCombo_ActionPerformed
       ((SimpleChannelTableModel) channelsTable_.getModel()).setChannelGroup((String) ChannelGroupCombo_.getSelectedItem());
       ((SimpleChannelTableModel) channelsTable_.getModel()).fireTableDataChanged();
-      AutofocusChannelComboModel.update();
       acquisitionSettingsChanged();
    }//GEN-LAST:event_ChannelGroupCombo_ActionPerformed
 
@@ -2116,13 +1929,16 @@ public class GUI extends javax.swing.JFrame {
       // TODO add your handling code here:
    }//GEN-LAST:event_jButton3ActionPerformed
 
-   private void jRadioButton1ActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_jRadioButton1ActionPerformed
+   private void noCollectionPlaneButton_ActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_noCollectionPlaneButton_ActionPerformed
       // TODO add your handling code here:
-   }//GEN-LAST:event_jRadioButton1ActionPerformed
+   }//GEN-LAST:event_noCollectionPlaneButton_ActionPerformed
 
    // Variables declaration - do not modify//GEN-BEGIN:variables
    private javax.swing.JComboBox ChannelGroupCombo_;
    private javax.swing.JPanel ChannelsTab_;
+   private javax.swing.JTabbedPane acq2D3DTabbedPane_;
+   private javax.swing.JPanel acq2DPanel_;
+   private javax.swing.JPanel acq3DPanel_;
    private javax.swing.JComboBox acqOrderCombo_;
    private javax.swing.JLabel acqOrderLabel_;
    private javax.swing.JSpinner acqOverlapPercentSpinner_;
@@ -2130,20 +1946,23 @@ public class GUI extends javax.swing.JFrame {
    private javax.swing.JTabbedPane acqTabbedPane_;
    private javax.swing.JLabel acqTileOverlapLabel_;
    private javax.swing.JButton addAcqButton_;
+   private javax.swing.JPanel bottomPanel_;
    private javax.swing.JComboBox bottomSurfaceCombo_;
    private javax.swing.JLabel bottomSurfaceLabel_;
+   private javax.swing.JButton calinrateTilingButton_;
    private javax.swing.JLabel channelGroupLabel_;
    private javax.swing.JTable channelsTable_;
    private javax.swing.JLabel citeLink_;
    private javax.swing.JComboBox collectionPlaneCombo_;
    private javax.swing.JLabel collectionPlaneLabel_;
-   private javax.swing.JLabel createdByHenryLabel_;
    private javax.swing.JButton deleteAllRegionsButton_;
    private javax.swing.JButton deleteSelectedRegionButton_;
    private javax.swing.JSpinner distanceAboveFixedSurfaceSpinner_;
    private javax.swing.JLabel distanceAboveSurfaceLabel_;
    private javax.swing.JSpinner distanceBelowFixedSurfaceSpinner_;
    private javax.swing.JLabel distanceBelowSurfaceLabel_;
+   private javax.swing.JLabel estDurationLabel_;
+   private javax.swing.JTabbedPane exploreAcqTabbedPane_;
    private javax.swing.JButton exploreBrowseButton_;
    private javax.swing.JComboBox exploreChannelGroupCombo_;
    private javax.swing.ButtonGroup exploreFilterMethodButtonGroup_;
@@ -2165,44 +1984,36 @@ public class GUI extends javax.swing.JFrame {
    private javax.swing.JTextField globalSavingDirTextField_;
    private javax.swing.JTable gridTable_;
    private javax.swing.JButton helpButton_;
-   private javax.swing.JButton jButton1;
    private javax.swing.JButton jButton2;
    private javax.swing.JButton jButton3;
-   private javax.swing.JLabel jLabel1;
    private javax.swing.JLabel jLabel11;
    private javax.swing.JLabel jLabel12;
    private javax.swing.JLabel jLabel2;
    private javax.swing.JLabel jLabel3;
    private javax.swing.JLabel jLabel5;
    private javax.swing.JPanel jPanel1;
-   private javax.swing.JPanel jPanel2;
    private javax.swing.JPanel jPanel4;
-   private javax.swing.JPanel jPanel5;
-   private javax.swing.JPanel jPanel6;
-   private javax.swing.JPanel jPanel7;
-   private javax.swing.JRadioButton jRadioButton1;
-   private javax.swing.JRadioButton jRadioButton2;
    private javax.swing.JScrollPane jScrollPane1;
    private javax.swing.JScrollPane jScrollPane2;
-   private javax.swing.JTabbedPane jTabbedPane1;
-   private javax.swing.JTabbedPane jTabbedPane2;
-   private javax.swing.JTabbedPane jTabbedPane3;
    private javax.swing.JButton loadButton_;
    private javax.swing.JButton moveAcqDownButton_;
    private javax.swing.JButton moveAcqUpButton_;
    private javax.swing.JScrollPane multipleAcqScrollPane_;
    private javax.swing.JTable multipleAcqTable_;
    private javax.swing.JButton newExploreWindowButton_;
+   private javax.swing.JRadioButton noCollectionPlaneButton_;
    private javax.swing.JLabel numTimePointsLabel_;
    private javax.swing.JSpinner numTimePointsSpinner_;
    private javax.swing.JButton openDatasetButton_;
    private javax.swing.JPanel panel2D_;
    private javax.swing.JButton removeAcqButton_;
+   private javax.swing.JPanel root_panel_;
    private javax.swing.JButton runAcqButton_;
    private javax.swing.JButton saveButton_;
    private javax.swing.JPanel simpleZPanel_;
    private javax.swing.JComboBox simpleZStackFootprintCombo_;
    private javax.swing.JPanel spaceTab_;
+   private javax.swing.JLabel surfacesAndGrdisLabel_;
    private javax.swing.JLabel tileOverlapPercentLabel_;
    private javax.swing.JLabel timeIntervalLabel_;
    private javax.swing.JSpinner timeIntervalSpinner_;
@@ -2210,6 +2021,7 @@ public class GUI extends javax.swing.JFrame {
    private javax.swing.JCheckBox timePointsCheckBox_;
    private javax.swing.JPanel timePointsPanel_;
    private javax.swing.JPanel timePointsTab_;
+   private javax.swing.JPanel topPanel_;
    private javax.swing.JComboBox topSurfaceCombo_;
    private javax.swing.JLabel topSurfaceLabel_;
    private javax.swing.JLabel umAboveLabel_;
@@ -2218,6 +2030,7 @@ public class GUI extends javax.swing.JFrame {
    private javax.swing.JSpinner umBelowBottomSurfaceSpinner_;
    private javax.swing.JLabel umBelowLabel_;
    private javax.swing.JLabel umBelowVolBetweenLabel_;
+   private javax.swing.JRadioButton useCollectionPlaneButton_;
    private javax.swing.JLabel userGuideLink_;
    private javax.swing.JComboBox volumeBetweenFootprintCombo_;
    private javax.swing.JPanel volumeBetweenZPanel_;
@@ -2226,6 +2039,7 @@ public class GUI extends javax.swing.JFrame {
    private javax.swing.JLabel zEndLabel;
    private javax.swing.JSpinner zEndSpinner_;
    private javax.swing.ButtonGroup zStackModeButtonGroup_;
+   private javax.swing.JTabbedPane zStackTypeTabbedPane_;
    private javax.swing.JLabel zStartLabel;
    private javax.swing.JSpinner zStartSpinner_;
    private javax.swing.JLabel zStepLabel_;

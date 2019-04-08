@@ -60,6 +60,11 @@ public class MultipleAcquisitionManager {
       return acqSettingsList_.get(index).name_;
    }
    
+   public String setAcquisitionName(int index, String newName) {
+      return acqSettingsList_.get(index).name_ = newName;
+   }
+   
+   
    /**
     * @return change in position of selected acq
     */

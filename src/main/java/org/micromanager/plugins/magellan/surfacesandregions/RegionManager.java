@@ -33,7 +33,6 @@ import main.java.org.micromanager.plugins.magellan.gui.GUI;
 import main.java.org.micromanager.plugins.magellan.misc.JavaUtils;
 import main.java.org.micromanager.plugins.magellan.misc.Log;
 import main.java.org.micromanager.plugins.magellan.misc.NumberUtils;
-import main.java.org.micromanager.plugins.magellan.propsandcovariants.CovariantPairingsManager;
 
 /**
  *
@@ -140,7 +139,7 @@ public class RegionManager {
          m.update();
       }
       tableModel_.fireTableDataChanged();
-      CovariantPairingsManager.getInstance().surfaceorRegionNameChanged();
+//      CovariantPairingsManager.getInstance().surfaceorRegionNameChanged();
    }
 
    public void saveRegions(GUI gui) {

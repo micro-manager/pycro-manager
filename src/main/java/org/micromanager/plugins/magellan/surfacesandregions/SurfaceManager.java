@@ -35,8 +35,6 @@ import main.java.org.micromanager.plugins.magellan.main.Magellan;
 import main.java.org.micromanager.plugins.magellan.misc.JavaUtils;
 import main.java.org.micromanager.plugins.magellan.misc.Log;
 import main.java.org.micromanager.plugins.magellan.misc.NumberUtils;
-import main.java.org.micromanager.plugins.magellan.propsandcovariants.CovariantPairingsManager;
-import main.java.org.micromanager.plugins.magellan.propsandcovariants.SurfaceData;
 
 /**
  *
@@ -166,21 +164,9 @@ public class SurfaceManager {
          m.update();
       }
       tableModel_.fireTableDataChanged();
-      CovariantPairingsManager.getInstance().surfaceorRegionNameChanged();
+//      CovariantPairingsManager.getInstance().surfaceorRegionNameChanged();
    }
 
-   /**
-    * Generate surface data for all available surfaces
-    * @return 
-    */
-   public ArrayList<SurfaceData> getSurfaceData() {
-      ArrayList<SurfaceData> stats = new ArrayList<SurfaceData>();
-      for (SurfaceInterpolator surface : surfaces_) {
-         stats.addAll(surface.getData());
-      }
-      return stats;
-   }
-   
    void renameSurface(int row, String newName) throws Exception {
       for (int i = 0; i < surfaces_.size(); i++) {
          if (i == row) {
@@ -193,7 +179,7 @@ public class SurfaceManager {
       surfaces_.get(row).rename(newName);
       updateSurfaceTableAndCombos();
       //update covariants that use this surface
-      CovariantPairingsManager.getInstance().updatePairingNames();
+//      CovariantPairingsManager.getInstance().updatePairingNames();
    }
   
    public void saveSurfaces(GUI gui) {

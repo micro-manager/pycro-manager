@@ -439,7 +439,7 @@ public class FixedAreaAcquisition extends Acquisition implements SurfaceChangedL
                     }
             //create event for determining autofocus offset                        
             AcquisitionEvent event = AcquisitionEvent.createAutofocusEvent(FixedAreaAcquisition.this, timeIndex, getAutofocusChannelIndex(), 0,
-                    positionIndex, afZPos, position, settings_.covariantPairings_);
+                    positionIndex, afZPos, position);
             events_.put(event);
          }   
        
@@ -480,7 +480,7 @@ public class FixedAreaAcquisition extends Acquisition implements SurfaceChangedL
                   }
                   
                   AcquisitionEvent event = new AcquisitionEvent(FixedAreaAcquisition.this, timeIndex, channelIndex, sliceIndex,
-                          positionIndex, zPos + settings_.channels_.getActiveChannelSetting(channelIndex).offset_, position, settings_.covariantPairings_);
+                          positionIndex, zPos + settings_.channels_.getActiveChannelSetting(channelIndex).offset_, position);
                   if (eventGenerator_.isShutdown()) {
                      throw new InterruptedException();
                   }
@@ -524,7 +524,7 @@ public class FixedAreaAcquisition extends Acquisition implements SurfaceChangedL
                         zPos = settings_.collectionPlane_.getExtrapolatedValue(position.getCenter().x, position.getCenter().y);
                     }
                     AcquisitionEvent event = new AcquisitionEvent(FixedAreaAcquisition.this, timeIndex, channelIndex, sliceIndex,
-                            positionIndex, zPos + settings_.channels_.getActiveChannelSetting(channelIndex).offset_, position, settings_.covariantPairings_);
+                            positionIndex, zPos + settings_.channels_.getActiveChannelSetting(channelIndex).offset_, position);
                     events_.put(event);
                     continue;
                 }
@@ -556,7 +556,7 @@ public class FixedAreaAcquisition extends Acquisition implements SurfaceChangedL
                   }
 
                   AcquisitionEvent event = new AcquisitionEvent(FixedAreaAcquisition.this, timeIndex, channelIndex, sliceIndex,
-                          positionIndex, zPos + settings_.channels_.getActiveChannelSetting(channelIndex).offset_, position, settings_.covariantPairings_);
+                          positionIndex, zPos + settings_.channels_.getActiveChannelSetting(channelIndex).offset_, position);
                   if (eventGenerator_.isShutdown()) {
                      throw new InterruptedException();
                   }

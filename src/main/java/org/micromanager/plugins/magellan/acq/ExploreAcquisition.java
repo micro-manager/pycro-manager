@@ -17,9 +17,6 @@
 
 package main.java.org.micromanager.plugins.magellan.acq;
 
-import main.java.org.micromanager.plugins.magellan.channels.ChannelSetting;
-import main.java.org.micromanager.plugins.magellan.gui.GUI;
-import java.util.ArrayList;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -156,7 +153,7 @@ public class ExploreAcquisition extends Acquisition {
                         controls.setZLimitSliderValues(sliceIndex);
                         events_.put(new AcquisitionEvent(ExploreAcquisition.this, 0, channelIndex, sliceIndex, posIndex, 
                                 getZCoordinate(sliceIndex) + channels_.getActiveChannelSetting(channelIndex).offset_,
-                                imageStorage_.getXYPosition(posIndex), null));
+                                imageStorage_.getXYPosition(posIndex)));
                     } catch (InterruptedException e) {
                         //aborted acquisition
                         Log.log("Interrupted while trying to add acquire evenet");
@@ -240,7 +237,7 @@ public class ExploreAcquisition extends Acquisition {
 
                                 events_.put(new AcquisitionEvent(ExploreAcquisition.this, 0, channelIndex, sliceIndex, posIndices[i], 
                                         getZCoordinate(sliceIndex) + channels_.getActiveChannelSetting(channelIndex).offset_,
-                                        imageStorage_.getXYPosition(posIndices[i]), null));
+                                        imageStorage_.getXYPosition(posIndices[i])));
                             } catch (InterruptedException ex) {
                                 //aborted acqusition
                                 return;

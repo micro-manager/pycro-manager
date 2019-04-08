@@ -42,8 +42,6 @@ import org.apache.commons.math3.geometry.euclidean.twod.hull.ConvexHull2D;
 import org.apache.commons.math3.geometry.euclidean.twod.hull.MonotoneChain;
 import org.apache.commons.math3.geometry.partitioning.Region;
 import org.apache.commons.math3.geometry.partitioning.RegionFactory;
-import main.java.org.micromanager.plugins.magellan.propsandcovariants.CovariantPairingsManager;
-import main.java.org.micromanager.plugins.magellan.propsandcovariants.SurfaceData;
 
 /**
  *
@@ -153,7 +151,7 @@ public abstract class SurfaceInterpolator implements XYFootprint {
    
    public void delete() {
       executor_.shutdownNow();
-      CovariantPairingsManager.getInstance().deletePairsReferencingSurface(this);
+//      CovariantPairingsManager.getInstance().deletePairsReferencingSurface(this);
    }
    
    @Override
@@ -706,22 +704,6 @@ public abstract class SurfaceInterpolator implements XYFootprint {
       return points_.toArray(new Point3d[0]);
    }
 
-   /**
-    * return list of surface Data.
-    * @return 
-    */
-   Collection<SurfaceData> getData() {
-      ArrayList<SurfaceData> list = new ArrayList<SurfaceData>();
-      for (String datumName : SurfaceData.enumerateDataTypes()) {
-         try {
-            list.add(new SurfaceData(this, datumName));
-         } catch (Exception e) {
-             e.printStackTrace();
-            //this will never happen
-         }
-      }
-      return list;
-   }
 
    
 }

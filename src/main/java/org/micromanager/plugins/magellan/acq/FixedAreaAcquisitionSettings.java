@@ -23,8 +23,6 @@ import main.java.org.micromanager.plugins.magellan.channels.ChannelSetting;
 import main.java.org.micromanager.plugins.magellan.channels.ChannelSpec;
 import main.java.org.micromanager.plugins.magellan.main.Magellan;
 import main.java.org.micromanager.plugins.magellan.misc.Log;
-import main.java.org.micromanager.plugins.magellan.propsandcovariants.CovariantPairing;
-import main.java.org.micromanager.plugins.magellan.propsandcovariants.CovariantPairingsManager;
 import main.java.org.micromanager.plugins.magellan.surfacesandregions.SurfaceInterpolator;
 import main.java.org.micromanager.plugins.magellan.surfacesandregions.XYFootprint;
 
@@ -67,10 +65,7 @@ public class FixedAreaAcquisitionSettings  {
    //channels
    public String channelGroup_;
    public ChannelSpec channels_ ;
-   
-   //Covarying props
-   public ArrayList<CovariantPairing> covariantPairings_ = new ArrayList<CovariantPairing>();
-   
+
    //autofocus
    public boolean autofocusEnabled_;
    public String autoFocusZDevice_;
@@ -78,11 +73,6 @@ public class FixedAreaAcquisitionSettings  {
    public double autofocusMaxDisplacemnet_um_;
    public boolean setInitialAutofocusPosition_;
    public double initialAutofocusPosition_;
-   
-   //2photon
-   public int imageFilterType_;
-   public double rank_;
-   
    
    public FixedAreaAcquisitionSettings() {
       Preferences prefs = Magellan.getPrefs();
@@ -110,56 +100,11 @@ public class FixedAreaAcquisitionSettings  {
       autofocusMaxDisplacemnet_um_ =  prefs.getDouble(PREF_PREFIX + "AFMAXDISP", 0.0);
       autofocusChannelName_ = prefs.get(PREF_PREFIX + "AFCHANNELNAME", null);
       autoFocusZDevice_ = prefs.get(PREF_PREFIX + "AFZNAME", null);      
-      //add all pairings currently present
-      CovariantPairingsManager pairManager = CovariantPairingsManager.getInstance();
-      //null on startup, but no pairings to add anyway  
-      if (pairManager != null) {
-         for (int i = 0; i < pairManager.getNumPairings(); i++) {
-            CovariantPairing potentialPair = pairManager.getPair(i);
-            if (!checkForRedundantPairing(potentialPair)) {
-               covariantPairings_.add(potentialPair);
-            }
-         }
-      }
-      //image filtering
-      //dont load so defaults to frame average for now
-//      imageFilterType_ = prefs.getInt(PREF_PREFIX + "IMAGE_FILTER", FrameIntegrationMethod.FRAME_AVERAGE);   
-      rank_ = prefs.getDouble(PREF_PREFIX + "RANK", 0.95);
-   }
    
-   public boolean hasPairing(CovariantPairing pair) {
-      return covariantPairings_.contains(pair);
-   }
-   
-   public void removePropPairing(CovariantPairing pair) {
-      covariantPairings_.remove(pair);
-   }
-   
-   public void addPropPairing(CovariantPairing pair) {
-      if (covariantPairings_.contains(pair)) {
-         Log.log("Tried to add property pair that was already present", true);
-         return;
-      }
-      if (checkForRedundantPairing(pair)) {
-         Log.log("Must delete existing pairing between same two properties first before a new"
-                 + "one can be added");
-         return;
-      }
-      covariantPairings_.add(pair);
-      
    }
    
    public static double getStoredTileOverlapPercentage() {
       return Magellan.getPrefs().getDouble(PREF_PREFIX + "TILEOVERLAP", 5);
-   }
-   
-   private boolean checkForRedundantPairing(CovariantPairing pair) {
-      for (CovariantPairing p : covariantPairings_) {
-         if (p.getIndependentName(false).equals(pair.getIndependentName(false)) && p.getDependentName(false).equals(pair.getDependentName(false))) {
-            return true;
-         }
-      }
-      return false;
    }
    
    public void storePreferedValues() {
@@ -184,18 +129,6 @@ public class FixedAreaAcquisitionSettings  {
       prefs.put(PREF_PREFIX + "CHANNELGROUP", channelGroup_);
       //Individual channel settings sotred in ChannelUtils
 
-      
-      //autofocus
-      prefs.putDouble(PREF_PREFIX + "AFMAXDISP", autofocusMaxDisplacemnet_um_);
-      if (autofocusChannelName_ != null) {
-         prefs.put(PREF_PREFIX + "AFCHANNELNAME", autofocusChannelName_);
-      }
-      if (autoFocusZDevice_ != null) {
-         prefs.put(PREF_PREFIX + "AFZNAME", autoFocusZDevice_);
-      }
-      //image filtering
-      prefs.putInt(PREF_PREFIX + "IMAGE_FILTER", imageFilterType_);
-      prefs.putDouble(PREF_PREFIX + "RANK", rank_);
    }
 
 }

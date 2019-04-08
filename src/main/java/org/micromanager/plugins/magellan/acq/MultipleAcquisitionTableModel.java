@@ -68,8 +68,8 @@ public class MultipleAcquisitionTableModel extends AbstractTableModel {
        if (col == 1) {
          manager_.getAcquisitionSettings(row).name_ = (String) value;
          gui_.refreshAcquisitionSettings(); // update name as shown in acq settings
-
       }
+      gui_.storeCurrentAcqSettings();
    }
    
    @Override

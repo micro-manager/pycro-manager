@@ -19,8 +19,6 @@ package main.java.org.micromanager.plugins.magellan.acq;
 
 import java.util.List;
 import main.java.org.micromanager.plugins.magellan.coordinates.XYStagePosition;
-import main.java.org.micromanager.plugins.magellan.propsandcovariants.CovariantPairing;
-import main.java.org.micromanager.plugins.magellan.propsandcovariants.SurfaceData;
 
 /**
  * Information about the acquisition of a single image
@@ -34,12 +32,11 @@ public class AcquisitionEvent  {
    final public double zPosition_;
    final public XYStagePosition xyPosition_;
    private SpecialFlag specialFlag_;
-   final public List<CovariantPairing> covariants_;
    public byte[] nnEOM1Settings_, nnEOM2Settings_;
    
    
    public AcquisitionEvent(Acquisition acq, int frameIndex, int channelIndex, int sliceIndex, int positionIndex, 
-            double zPos, XYStagePosition xyPos, List<CovariantPairing> covariants) throws InterruptedException {
+            double zPos, XYStagePosition xyPos) throws InterruptedException {
       timeIndex_ = frameIndex;
       sliceIndex_ = sliceIndex;
       channelIndex_ = channelIndex;
@@ -47,26 +44,13 @@ public class AcquisitionEvent  {
       zPosition_ = zPos;
       acquisition_ = acq;
       xyPosition_ = xyPos;
-      covariants_ = covariants;
-        //check if Neural net is one of the covariants and if so precompite value
-        if (covariants_ != null) {
-            for (CovariantPairing p : covariants_) {
-                if (p.getIndependentCovariant() instanceof SurfaceData
-                        && ((SurfaceData) p.getIndependentCovariant()).isNeuralNetControl()) {
-                    //precompute neural net values
-                    nnEOM1Settings_ = ((SurfaceData) p.getIndependentCovariant()).getNN(0).getExcitations(xyPosition_, zPosition_,
-                            ((SurfaceData) p.getIndependentCovariant()).getSurface());
-                    nnEOM2Settings_ = ((SurfaceData) p.getIndependentCovariant()).getNN(1).getExcitations(xyPosition_, zPosition_,
-                            ((SurfaceData) p.getIndependentCovariant()).getSurface());
-                }
-            }
-        }
+     
     }
    
    public static AcquisitionEvent createAutofocusEvent(Acquisition acq, int frameIndex, int channelIndex, int sliceIndex, int positionIndex, 
-            double zPos, XYStagePosition xyPos, List<CovariantPairing> covariants )  {   
+            double zPos, XYStagePosition xyPos)  {   
        try {
-           AcquisitionEvent evt = new AcquisitionEvent( acq,  frameIndex, channelIndex,  sliceIndex,  positionIndex,  zPos, xyPos, covariants);
+           AcquisitionEvent evt = new AcquisitionEvent( acq,  frameIndex, channelIndex,  sliceIndex,  positionIndex,  zPos, xyPos);
            evt.specialFlag_ = SpecialFlag.AutofocusAdjustment;
            return evt;
        } catch (InterruptedException ex) {
@@ -81,7 +65,7 @@ public class AcquisitionEvent  {
    
    public static AcquisitionEvent createEngineTaskFinishedEvent()  {
        try {
-           AcquisitionEvent evt = new AcquisitionEvent(null, 0, 0,  0, 0, 0, null, null);
+           AcquisitionEvent evt = new AcquisitionEvent(null, 0, 0,  0, 0, 0, null);
            evt.specialFlag_ = SpecialFlag.EngineTaskFinished;
            return evt;
        } catch (InterruptedException ex) {
@@ -96,7 +80,7 @@ public class AcquisitionEvent  {
    
    public static AcquisitionEvent createTimepointFinishedEvent(Acquisition acq)   {
        try {
-           AcquisitionEvent evt = new AcquisitionEvent(acq, 0, 0,  0, 0, 0, null, null);
+           AcquisitionEvent evt = new AcquisitionEvent(acq, 0, 0,  0, 0, 0, null);
            evt.specialFlag_ = SpecialFlag.TimepointFinished;
            return evt;
        } catch (InterruptedException ex) {
@@ -111,7 +95,7 @@ public class AcquisitionEvent  {
    
    public static AcquisitionEvent createReQuerieEventQueueEvent() {
        try {
-           AcquisitionEvent evt = new AcquisitionEvent(null, 0, 0, 0, 0, 0, null, null);
+           AcquisitionEvent evt = new AcquisitionEvent(null, 0, 0, 0, 0, 0, null);
            evt.specialFlag_ = SpecialFlag.SwappingQueues;
            return evt;
        } catch (InterruptedException ex) {
@@ -126,7 +110,7 @@ public class AcquisitionEvent  {
    
    public static AcquisitionEvent createAcquisitionFinishedEvent(Acquisition acq)  {
        try {
-           AcquisitionEvent evt = new AcquisitionEvent(acq, 0, 0, 0, 0, 0, null, null);
+           AcquisitionEvent evt = new AcquisitionEvent(acq, 0, 0, 0, 0, 0, null);
            evt.specialFlag_ = SpecialFlag.AcqusitionFinished;
            return evt;
        } catch (InterruptedException ex) {
