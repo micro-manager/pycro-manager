@@ -35,7 +35,10 @@ import org.micromanager.data.Datastore;
 import org.micromanager.data.Image;
 import ij.process.ByteProcessor;
 import ij.process.ShortProcessor;
+import java.io.IOException;
 import java.util.ArrayList;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 
 /**
@@ -72,7 +75,11 @@ public class AffineCalibrator {
       abort_ = true;
       //close window
       if (datastore_ != null) {
-         datastore_.close();
+         try {
+            datastore_.close();
+         } catch (IOException ex) {
+            throw new RuntimeException();
+         }
       }
       datastore_ = null;
    }
