@@ -56,6 +56,7 @@ public class FixedAreaAcquisitionSettings  {
    public double zStep_, zStart_, zEnd_, distanceBelowFixedSurface_, distanceAboveFixedSurface_,
            distanceAboveTopSurface_, distanceBelowBottomSurface_;
    public int spaceMode_;
+   public boolean useCollectionPlane_ = false;
    public SurfaceInterpolator topSurface_, bottomSurface_, fixedSurface_, collectionPlane_;
    public XYFootprint footprint_;
    public int useTopOrBottomFootprint_;
@@ -82,6 +83,7 @@ public class FixedAreaAcquisitionSettings  {
       numTimePoints_ = prefs.getInt(PREF_PREFIX + "NTP", 1);
       timeIntervalUnit_ = prefs.getInt(PREF_PREFIX + "TPIU", 0);
       //space
+      useCollectionPlane_ = prefs.getBoolean(PREF_PREFIX +"USECOLLECTIONPLANE", false);
       channelsAtEverySlice_ = prefs.getBoolean(PREF_PREFIX +"ACQORDER", true);
       zStep_ = prefs.getDouble(PREF_PREFIX + "ZSTEP", 1);
       zStart_ = prefs.getDouble(PREF_PREFIX + "ZSTART", 0);
@@ -96,11 +98,6 @@ public class FixedAreaAcquisitionSettings  {
       channelGroup_ = prefs.get(PREF_PREFIX + "CHANNELGROUP", "");
       //This creates a new Object of channelSpecs that is "Owned" by the accquisition
       channels_ = new ChannelSpec(channelGroup_); 
-      //autofocus
-      autofocusMaxDisplacemnet_um_ =  prefs.getDouble(PREF_PREFIX + "AFMAXDISP", 0.0);
-      autofocusChannelName_ = prefs.get(PREF_PREFIX + "AFCHANNELNAME", null);
-      autoFocusZDevice_ = prefs.get(PREF_PREFIX + "AFZNAME", null);      
-   
    }
    
    public static double getStoredTileOverlapPercentage() {
@@ -115,6 +112,7 @@ public class FixedAreaAcquisitionSettings  {
       prefs.putInt(PREF_PREFIX + "NTP", numTimePoints_);
       prefs.putInt(PREF_PREFIX + "TPIU", timeIntervalUnit_);
       //space
+      prefs.putBoolean(PREF_PREFIX +"USECOLLECTIONPLANE", useCollectionPlane_);
       prefs.putDouble(PREF_PREFIX + "ZSTEP", zStep_);
       prefs.putDouble(PREF_PREFIX + "ZSTART", zStart_);
       prefs.putDouble(PREF_PREFIX + "ZEND", zEnd_);

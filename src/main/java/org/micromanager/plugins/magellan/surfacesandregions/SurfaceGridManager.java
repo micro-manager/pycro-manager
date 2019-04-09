@@ -16,6 +16,8 @@
 //
 package main.java.org.micromanager.plugins.magellan.surfacesandregions;
 
+import main.java.org.micromanager.plugins.magellan.gui.SurfaceGridComboBoxModel;
+import main.java.org.micromanager.plugins.magellan.gui.SurfaceGridTableModel;
 import com.google.common.eventbus.EventBus;
 import main.java.org.micromanager.plugins.magellan.gui.GUI;
 import main.java.org.micromanager.plugins.magellan.imagedisplay.DisplayPlus;
@@ -51,6 +53,11 @@ public class SurfaceGridManager {
    
    public SurfaceGridManager() {
       singletonInstance_ = this;
+      tableModel_ = new SurfaceGridTableModel(this);
+   }
+   
+   public SurfaceGridTableModel getTableModel() {
+      return tableModel_;
    }
    
    public void registerSurfaceChangedListener(SurfaceChangedListener l ) {
@@ -141,6 +148,25 @@ public class SurfaceGridManager {
          }
       }
       updateSurfaceTableAndCombos();
+      drawAllOverlays();
+   }
+   
+   public static SurfaceGridComboBoxModel createSurfaceAndGridComboBoxModel() {
+      SurfaceGridComboBoxModel model = new SurfaceGridComboBoxModel(true, true);
+      getInstance().addToModelList(model);
+      return model;
+   }
+   
+   public static SurfaceGridComboBoxModel createSurfaceComboBoxModel() {
+      SurfaceGridComboBoxModel model = new SurfaceGridComboBoxModel(true, false);
+      getInstance().addToModelList(model);
+      return model;
+   }
+
+   public static SurfaceGridComboBoxModel createGridComboBoxModel() {
+      SurfaceGridComboBoxModel model = new SurfaceGridComboBoxModel(false, true);
+      getInstance().addToModelList(model);
+      return model;
    }
    
    public void addNewSurface() {
@@ -148,10 +174,8 @@ public class SurfaceGridManager {
       updateSurfaceTableAndCombos();
    }
    
-   ??TODO recover old addnew grid method
-   
-   public void addNewGrid() {
-      surfaces_.add(new MultiPosGrid(Magellan.getCore().getXYStageDevice(), Magellan.getCore().getFocusDevice()));
+   public void addNewGrid(MultiPosGrid grid) {
+      grids_.add(grid);
       updateSurfaceTableAndCombos();
    }
    
@@ -160,7 +184,7 @@ public class SurfaceGridManager {
    }
    
    public int getNumberOfGrids() {
-      return surfaces_.size();
+      return grids_.size();
    }
   
    public String getNewSurfaceName() {
@@ -170,7 +194,7 @@ public class SurfaceGridManager {
       while (true) {
          boolean uniqueName = true;
          for (SurfaceInterpolator surface : surfaces_) {
-            if (surface.getName().equals(potentialName)) {
+            if (surface.getName() != null && surface.getName().equals(potentialName)) {
                index++;
                potentialName = base + " " + index;
                uniqueName = false;
@@ -206,6 +230,15 @@ public class SurfaceGridManager {
    public void drawSurfaceOrGridOverlay(XYFootprint surfaceOrGrid) {
       DisplayPlus.redrawSurfaceOrGridOverlay(surfaceOrGrid); //redraw overlay for all displays showing this surface
    }
+   
+   public void drawAllOverlays() {
+      for (SurfaceInterpolator s : surfaces_) {
+         this.drawSurfaceOrGridOverlay(s);
+      }
+      for (MultiPosGrid g : grids_) {
+         this.drawSurfaceOrGridOverlay(g);
+      }
+   }
   
    public void surfaceUpdated(SurfaceInterpolator surface) {
       for (SurfaceChangedListener l : surfaceChangeListeners_) {
@@ -220,7 +253,7 @@ public class SurfaceGridManager {
       tableModel_.fireTableDataChanged();
    }
 
-   void rename(int row, String newName) throws Exception {
+   public void rename(int row, String newName) throws Exception {
       //Make sure name isnt taken
       for (int i = 0; i < surfaces_.size(); i++) {
          if (i == row) {

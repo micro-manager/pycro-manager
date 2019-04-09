@@ -16,6 +16,11 @@
     <Component class="javax.swing.ButtonGroup" name="z2DButtonGroup_">
     </Component>
   </NonVisualComponents>
+  <Properties>
+    <Property name="minimumSize" type="java.awt.Dimension" editor="org.netbeans.beaninfo.editors.DimensionEditor">
+      <Dimension value="[800, 654]"/>
+    </Property>
+  </Properties>
   <SyntheticProperties>
     <SyntheticProperty name="formSizePolicy" type="int" value="1"/>
     <SyntheticProperty name="generateCenter" type="boolean" value="false"/>
@@ -30,7 +35,7 @@
     <AuxValue name="FormSettings_listenerGenerationStyle" type="java.lang.Integer" value="0"/>
     <AuxValue name="FormSettings_variablesLocal" type="java.lang.Boolean" value="false"/>
     <AuxValue name="FormSettings_variablesModifier" type="java.lang.Integer" value="2"/>
-    <AuxValue name="designerSize" type="java.awt.Dimension" value="-84,-19,0,5,115,114,0,18,106,97,118,97,46,97,119,116,46,68,105,109,101,110,115,105,111,110,65,-114,-39,-41,-84,95,68,20,2,0,2,73,0,6,104,101,105,103,104,116,73,0,5,119,105,100,116,104,120,112,0,0,2,113,0,0,3,76"/>
+    <AuxValue name="designerSize" type="java.awt.Dimension" value="-84,-19,0,5,115,114,0,18,106,97,118,97,46,97,119,116,46,68,105,109,101,110,115,105,111,110,65,-114,-39,-41,-84,95,68,20,2,0,2,73,0,6,104,101,105,103,104,116,73,0,5,119,105,100,116,104,120,112,0,0,2,-114,0,0,3,32"/>
   </AuxValues>
 
   <Layout class="org.netbeans.modules.form.compat2.layouts.DesignBoxLayout"/>
@@ -40,18 +45,15 @@
       <Layout>
         <DimensionLayout dim="0">
           <Group type="103" groupAlignment="0" attributes="0">
-              <Group type="102" alignment="1" attributes="0">
-                  <EmptySpace min="0" pref="0" max="32767" attributes="0"/>
-                  <Component id="exploreAcqTabbedPane_" min="-2" pref="844" max="-2" attributes="0"/>
-              </Group>
-              <Group type="102" alignment="0" attributes="0">
-                  <EmptySpace max="-2" attributes="0"/>
+              <Group type="102" attributes="0">
+                  <EmptySpace min="-2" max="-2" attributes="0"/>
                   <Group type="103" groupAlignment="0" attributes="0">
                       <Group type="102" attributes="0">
                           <Component id="bottomPanel_" max="32767" attributes="0"/>
                           <EmptySpace max="-2" attributes="0"/>
                       </Group>
-                      <Component id="topPanel_" max="32767" attributes="0"/>
+                      <Component id="exploreAcqTabbedPane_" alignment="0" pref="0" max="32767" attributes="0"/>
+                      <Component id="topPanel_" alignment="0" min="-2" max="-2" attributes="0"/>
                   </Group>
               </Group>
           </Group>
@@ -60,9 +62,9 @@
           <Group type="103" groupAlignment="0" attributes="0">
               <Group type="102" alignment="1" attributes="0">
                   <Component id="topPanel_" min="-2" max="-2" attributes="0"/>
-                  <EmptySpace min="-2" max="-2" attributes="0"/>
+                  <EmptySpace max="-2" attributes="0"/>
                   <Component id="exploreAcqTabbedPane_" max="32767" attributes="0"/>
-                  <EmptySpace min="-2" max="-2" attributes="0"/>
+                  <EmptySpace type="unrelated" max="-2" attributes="0"/>
                   <Component id="bottomPanel_" min="-2" max="-2" attributes="0"/>
                   <EmptySpace min="-2" max="-2" attributes="0"/>
               </Group>
@@ -89,7 +91,7 @@
                       <Group type="102" attributes="0">
                           <Group type="103" groupAlignment="0" attributes="0">
                               <Group type="102" alignment="0" attributes="0">
-                                  <EmptySpace max="-2" attributes="0"/>
+                                  <EmptySpace min="-2" max="-2" attributes="0"/>
                                   <Group type="103" groupAlignment="0" attributes="0">
                                       <Group type="102" alignment="0" attributes="0">
                                           <Component id="exploreZStepLabel_" min="-2" max="-2" attributes="0"/>
@@ -108,25 +110,27 @@
                                       </Group>
                                       <Group type="102" alignment="0" attributes="0">
                                           <Component id="exploreSavingNameLabel_" min="-2" max="-2" attributes="0"/>
-                                          <EmptySpace max="-2" attributes="0"/>
-                                          <Component id="exploreSavingNameTextField_" min="-2" pref="663" max="-2" attributes="0"/>
+                                          <EmptySpace min="-2" max="-2" attributes="0"/>
+                                          <Component id="exploreSavingNameTextField_" max="32767" attributes="0"/>
                                       </Group>
                                   </Group>
+                                  <EmptySpace min="55" pref="55" max="-2" attributes="0"/>
                               </Group>
                               <Group type="102" alignment="0" attributes="0">
                                   <EmptySpace min="-2" pref="14" max="-2" attributes="0"/>
                                   <Component id="surfacesAndGrdisLabel_" min="-2" max="-2" attributes="0"/>
                               </Group>
                               <Group type="102" alignment="0" attributes="0">
-                                  <EmptySpace max="-2" attributes="0"/>
-                                  <Component id="jPanel4" min="-2" max="-2" attributes="0"/>
+                                  <EmptySpace min="-2" max="-2" attributes="0"/>
+                                  <Component id="jPanel4" max="32767" attributes="0"/>
+                                  <EmptySpace min="28" pref="28" max="-2" attributes="0"/>
                               </Group>
                               <Group type="102" alignment="0" attributes="0">
                                   <EmptySpace min="-2" pref="343" max="-2" attributes="0"/>
                                   <Component id="newExploreWindowButton_" min="-2" max="-2" attributes="0"/>
                               </Group>
                           </Group>
-                          <EmptySpace max="32767" attributes="0"/>
+                          <EmptySpace min="-2" max="-2" attributes="0"/>
                       </Group>
                   </Group>
                 </DimensionLayout>
@@ -261,17 +265,20 @@
                   <Layout>
                     <DimensionLayout dim="0">
                       <Group type="103" groupAlignment="0" attributes="0">
-                          <Component id="jScrollPane2" max="32767" attributes="0"/>
                           <Group type="102" alignment="0" attributes="0">
                               <EmptySpace max="-2" attributes="0"/>
                               <Component id="saveButton_" min="-2" max="-2" attributes="0"/>
                               <EmptySpace max="-2" attributes="0"/>
                               <Component id="loadButton_" min="-2" max="-2" attributes="0"/>
-                              <EmptySpace pref="63" max="32767" attributes="0"/>
+                              <EmptySpace max="32767" attributes="0"/>
                               <Component id="deleteSelectedRegionButton_" min="-2" max="-2" attributes="0"/>
                               <EmptySpace max="-2" attributes="0"/>
                               <Component id="deleteAllRegionsButton_" min="-2" max="-2" attributes="0"/>
                               <EmptySpace min="-2" pref="347" max="-2" attributes="0"/>
+                          </Group>
+                          <Group type="102" alignment="0" attributes="0">
+                              <Component id="jScrollPane2" max="32767" attributes="0"/>
+                              <EmptySpace max="-2" attributes="0"/>
                           </Group>
                       </Group>
                     </DimensionLayout>
@@ -279,7 +286,7 @@
                       <Group type="103" groupAlignment="0" attributes="0">
                           <Group type="102" alignment="0" attributes="0">
                               <EmptySpace min="-2" pref="20" max="-2" attributes="0"/>
-                              <Component id="jScrollPane2" pref="264" max="32767" attributes="0"/>
+                              <Component id="jScrollPane2" pref="287" max="32767" attributes="0"/>
                               <EmptySpace max="-2" attributes="0"/>
                               <Group type="103" groupAlignment="3" attributes="0">
                                   <Component id="deleteSelectedRegionButton_" alignment="3" min="-2" max="-2" attributes="0"/>
@@ -338,7 +345,7 @@
                         <Component class="javax.swing.JTable" name="surfacesAndGridsTable_">
                           <Properties>
                             <Property name="model" type="javax.swing.table.TableModel" editor="org.netbeans.modules.form.RADConnectionPropertyEditor">
-                              <Connection code="regionManager_.createGridTableModel()" type="code"/>
+                              <Connection code="manager_.getTableModel()" type="code"/>
                             </Property>
                             <Property name="selectionModel" type="javax.swing.ListSelectionModel" editor="org.netbeans.modules.form.editors2.JTableSelectionModelEditor">
                               <JTableSelectionModel selectionMode="0"/>
@@ -372,29 +379,27 @@
                 <DimensionLayout dim="0">
                   <Group type="103" groupAlignment="0" attributes="0">
                       <Group type="102" attributes="0">
-                          <EmptySpace max="-2" attributes="0"/>
+                          <EmptySpace min="-2" max="-2" attributes="0"/>
                           <Group type="103" groupAlignment="0" attributes="0">
+                              <Component id="runAcqPanel_" alignment="0" max="32767" attributes="0"/>
                               <Group type="102" alignment="0" attributes="0">
-                                  <Component id="acqTabbedPane_" max="32767" attributes="0"/>
-                                  <EmptySpace max="-2" attributes="0"/>
-                              </Group>
-                              <Group type="102" attributes="0">
-                                  <Component id="jPanel1" max="32767" attributes="0"/>
-                                  <EmptySpace min="-2" pref="16" max="-2" attributes="0"/>
-                              </Group>
-                              <Group type="102" attributes="0">
-                                  <Component id="multipleAcqScrollPane_" min="-2" pref="726" max="-2" attributes="0"/>
-                                  <EmptySpace max="-2" attributes="0"/>
-                                  <Group type="103" groupAlignment="1" max="-2" attributes="0">
-                                      <Component id="moveAcqUpButton_" alignment="0" pref="0" max="32767" attributes="0"/>
-                                      <Component id="addAcqButton_" min="-2" pref="43" max="-2" attributes="0"/>
+                                  <Group type="103" groupAlignment="1" attributes="0">
+                                      <Component id="acqTabbedPane_" alignment="0" max="32767" attributes="0"/>
+                                      <Group type="102" attributes="0">
+                                          <Component id="multipleAcqScrollPane_" max="32767" attributes="0"/>
+                                          <EmptySpace min="-2" max="-2" attributes="0"/>
+                                          <Group type="103" groupAlignment="1" max="-2" attributes="0">
+                                              <Component id="moveAcqUpButton_" alignment="0" pref="0" max="32767" attributes="0"/>
+                                              <Component id="addAcqButton_" min="-2" pref="43" max="-2" attributes="0"/>
+                                          </Group>
+                                          <EmptySpace min="-2" max="-2" attributes="0"/>
+                                          <Group type="103" groupAlignment="0" max="-2" attributes="0">
+                                              <Component id="removeAcqButton_" min="-2" pref="40" max="-2" attributes="0"/>
+                                              <Component id="moveAcqDownButton_" min="-2" pref="40" max="-2" attributes="0"/>
+                                          </Group>
+                                      </Group>
                                   </Group>
-                                  <EmptySpace max="-2" attributes="0"/>
-                                  <Group type="103" groupAlignment="0" max="-2" attributes="0">
-                                      <Component id="removeAcqButton_" min="-2" pref="40" max="-2" attributes="0"/>
-                                      <Component id="moveAcqDownButton_" min="-2" pref="40" max="-2" attributes="0"/>
-                                  </Group>
-                                  <EmptySpace max="32767" attributes="0"/>
+                                  <EmptySpace min="-2" max="-2" attributes="0"/>
                               </Group>
                           </Group>
                       </Group>
@@ -403,8 +408,9 @@
                 <DimensionLayout dim="1">
                   <Group type="103" groupAlignment="0" attributes="0">
                       <Group type="102" alignment="0" attributes="0">
+                          <EmptySpace min="-2" max="-2" attributes="0"/>
                           <Group type="103" groupAlignment="0" attributes="0">
-                              <Component id="multipleAcqScrollPane_" pref="68" max="32767" attributes="0"/>
+                              <Component id="multipleAcqScrollPane_" pref="0" max="32767" attributes="0"/>
                               <Group type="102" attributes="0">
                                   <Group type="103" groupAlignment="3" attributes="0">
                                       <Component id="addAcqButton_" alignment="3" min="-2" max="-2" attributes="0"/>
@@ -415,13 +421,14 @@
                                       <Component id="moveAcqUpButton_" alignment="3" min="-2" max="-2" attributes="0"/>
                                       <Component id="moveAcqDownButton_" alignment="3" min="-2" max="-2" attributes="0"/>
                                   </Group>
+                                  <EmptySpace min="0" pref="15" max="32767" attributes="0"/>
                               </Group>
                           </Group>
-                          <EmptySpace min="-2" max="-2" attributes="0"/>
-                          <Component id="jPanel1" min="-2" max="-2" attributes="0"/>
                           <EmptySpace max="-2" attributes="0"/>
                           <Component id="acqTabbedPane_" min="-2" pref="356" max="-2" attributes="0"/>
-                          <EmptySpace min="0" pref="0" max="-2" attributes="0"/>
+                          <EmptySpace min="-2" max="-2" attributes="0"/>
+                          <Component id="runAcqPanel_" min="-2" max="-2" attributes="0"/>
+                          <EmptySpace min="-2" max="-2" attributes="0"/>
                       </Group>
                   </Group>
                 </DimensionLayout>
@@ -457,7 +464,7 @@
                                       <Component id="timePointsPanel_" min="-2" max="-2" attributes="0"/>
                                       <Component id="timePointsCheckBox_" min="-2" max="-2" attributes="0"/>
                                   </Group>
-                                  <EmptySpace pref="556" max="32767" attributes="0"/>
+                                  <EmptySpace pref="496" max="32767" attributes="0"/>
                               </Group>
                           </Group>
                         </DimensionLayout>
@@ -611,19 +618,17 @@
                         <DimensionLayout dim="0">
                           <Group type="103" groupAlignment="0" attributes="0">
                               <Group type="102" alignment="0" attributes="0">
+                                  <EmptySpace min="-2" pref="12" max="-2" attributes="0"/>
+                                  <Component id="acqTileOverlapLabel_" min="-2" max="-2" attributes="0"/>
                                   <EmptySpace max="-2" attributes="0"/>
-                                  <Group type="103" groupAlignment="0" attributes="0">
-                                      <Group type="102" attributes="0">
-                                          <EmptySpace min="6" pref="6" max="-2" attributes="0"/>
-                                          <Component id="acqTileOverlapLabel_" min="-2" max="-2" attributes="0"/>
-                                          <EmptySpace max="-2" attributes="0"/>
-                                          <Component id="acqOverlapPercentSpinner_" min="-2" pref="58" max="-2" attributes="0"/>
-                                          <EmptySpace max="-2" attributes="0"/>
-                                          <Component id="tileOverlapPercentLabel_" min="-2" max="-2" attributes="0"/>
-                                      </Group>
-                                      <Component id="acq2D3DTabbedPane_" min="-2" pref="764" max="-2" attributes="0"/>
-                                  </Group>
-                                  <EmptySpace pref="30" max="32767" attributes="0"/>
+                                  <Component id="acqOverlapPercentSpinner_" min="-2" pref="58" max="-2" attributes="0"/>
+                                  <EmptySpace max="-2" attributes="0"/>
+                                  <Component id="tileOverlapPercentLabel_" min="-2" max="-2" attributes="0"/>
+                                  <EmptySpace max="32767" attributes="0"/>
+                              </Group>
+                              <Group type="102" alignment="0" attributes="0">
+                                  <Component id="acq2D3DTabbedPane_" max="32767" attributes="0"/>
+                                  <EmptySpace max="-2" attributes="0"/>
                               </Group>
                           </Group>
                         </DimensionLayout>
@@ -644,6 +649,9 @@
                       </Layout>
                       <SubComponents>
                         <Container class="javax.swing.JTabbedPane" name="acq2D3DTabbedPane_">
+                          <Events>
+                            <EventHandler event="stateChanged" listener="javax.swing.event.ChangeListener" parameters="javax.swing.event.ChangeEvent" handler="acq2D3DTabbedPane_StateChanged"/>
+                          </Events>
 
                           <Layout class="org.netbeans.modules.form.compat2.layouts.support.JTabbedPaneSupportLayout"/>
                           <SubComponents>
@@ -661,7 +669,7 @@
                                   <Group type="103" groupAlignment="0" attributes="0">
                                       <Group type="102" alignment="0" attributes="0">
                                           <Component id="panel2D_" min="-2" max="-2" attributes="0"/>
-                                          <EmptySpace min="0" pref="276" max="32767" attributes="0"/>
+                                          <EmptySpace min="0" pref="246" max="32767" attributes="0"/>
                                       </Group>
                                   </Group>
                                 </DimensionLayout>
@@ -744,7 +752,7 @@
                                           <Font name="Tahoma" size="14" style="0"/>
                                         </Property>
                                         <Property name="model" type="javax.swing.ComboBoxModel" editor="org.netbeans.modules.form.RADConnectionPropertyEditor">
-                                          <Connection code="createSurfaceAndRegionComboBoxModel(true,true)" type="code"/>
+                                          <Connection code="manager_.createSurfaceAndGridComboBoxModel()" type="code"/>
                                         </Property>
                                       </Properties>
                                       <Events>
@@ -757,7 +765,7 @@
                                           <Font name="Tahoma" size="14" style="0"/>
                                         </Property>
                                         <Property name="model" type="javax.swing.ComboBoxModel" editor="org.netbeans.modules.form.RADConnectionPropertyEditor">
-                                          <Connection code="createSurfaceAndRegionComboBoxModel(true,false)" type="code"/>
+                                          <Connection code="manager_.createSurfaceComboBoxModel()" type="code"/>
                                         </Property>
                                       </Properties>
                                       <Events>
@@ -784,6 +792,9 @@
                                         </Property>
                                         <Property name="text" type="java.lang.String" value="Get Z position from surface"/>
                                       </Properties>
+                                      <Events>
+                                        <EventHandler event="actionPerformed" listener="java.awt.event.ActionListener" parameters="java.awt.event.ActionEvent" handler="useCollectionPlaneButton_ActionPerformed"/>
+                                      </Events>
                                     </Component>
                                   </SubComponents>
                                 </Container>
@@ -815,6 +826,7 @@
                                       <Group type="102" alignment="0" attributes="0">
                                           <EmptySpace max="-2" attributes="0"/>
                                           <Component id="zStackTypeTabbedPane_" max="32767" attributes="0"/>
+                                          <EmptySpace max="-2" attributes="0"/>
                                       </Group>
                                   </Group>
                                 </DimensionLayout>
@@ -881,13 +893,13 @@
                                   </AuxValues>
                                 </Component>
                                 <Container class="javax.swing.JTabbedPane" name="zStackTypeTabbedPane_">
+                                  <Events>
+                                    <EventHandler event="stateChanged" listener="javax.swing.event.ChangeListener" parameters="javax.swing.event.ChangeEvent" handler="zStackTypeTabbedPane_StateChanged"/>
+                                  </Events>
 
                                   <Layout class="org.netbeans.modules.form.compat2.layouts.support.JTabbedPaneSupportLayout"/>
                                   <SubComponents>
                                     <Container class="javax.swing.JPanel" name="simpleZPanel_">
-                                      <AuxValues>
-                                        <AuxValue name="JavaCodeGenerator_AddingCodePost" type="java.lang.String" value="for (Component c : simpleZPanel_.getComponents()) {&#xa;c.setEnabled(false);&#xa;}"/>
-                                      </AuxValues>
                                       <Constraints>
                                         <Constraint layoutClass="org.netbeans.modules.form.compat2.layouts.support.JTabbedPaneSupportLayout" value="org.netbeans.modules.form.compat2.layouts.support.JTabbedPaneSupportLayout$JTabbedPaneConstraintsDescription">
                                           <JTabbedPaneConstraints tabName="Cuboid volume">
@@ -922,12 +934,12 @@
                                                           </Group>
                                                           <EmptySpace max="-2" attributes="0"/>
                                                           <Group type="103" groupAlignment="0" attributes="0">
-                                                              <Component id="jButton2" min="-2" max="-2" attributes="0"/>
-                                                              <Component id="jButton3" min="-2" max="-2" attributes="0"/>
+                                                              <Component id="setCurrentZStartButton_" min="-2" max="-2" attributes="0"/>
+                                                              <Component id="setCurrentZEndButton_" min="-2" max="-2" attributes="0"/>
                                                           </Group>
                                                       </Group>
                                                   </Group>
-                                                  <EmptySpace pref="373" max="32767" attributes="0"/>
+                                                  <EmptySpace pref="337" max="32767" attributes="0"/>
                                               </Group>
                                           </Group>
                                         </DimensionLayout>
@@ -938,13 +950,13 @@
                                                   <Group type="103" groupAlignment="3" attributes="0">
                                                       <Component id="zStartLabel" alignment="3" min="-2" max="-2" attributes="0"/>
                                                       <Component id="zStartSpinner_" alignment="3" min="-2" max="-2" attributes="0"/>
-                                                      <Component id="jButton2" alignment="3" min="-2" max="-2" attributes="0"/>
+                                                      <Component id="setCurrentZStartButton_" alignment="3" min="-2" max="-2" attributes="0"/>
                                                   </Group>
                                                   <EmptySpace max="-2" attributes="0"/>
                                                   <Group type="103" groupAlignment="3" attributes="0">
                                                       <Component id="zEndLabel" alignment="3" min="-2" max="-2" attributes="0"/>
                                                       <Component id="zEndSpinner_" alignment="3" min="-2" max="-2" attributes="0"/>
-                                                      <Component id="jButton3" alignment="3" min="-2" max="-2" attributes="0"/>
+                                                      <Component id="setCurrentZEndButton_" alignment="3" min="-2" max="-2" attributes="0"/>
                                                   </Group>
                                                   <EmptySpace type="unrelated" max="-2" attributes="0"/>
                                                   <Group type="103" groupAlignment="3" attributes="0">
@@ -987,7 +999,7 @@
                                               <Font name="Tahoma" size="14" style="0"/>
                                             </Property>
                                             <Property name="model" type="javax.swing.ComboBoxModel" editor="org.netbeans.modules.form.RADConnectionPropertyEditor">
-                                              <Connection code="createSurfaceAndRegionComboBoxModel(true,true)" type="code"/>
+                                              <Connection code="manager_.createSurfaceAndGridComboBoxModel()" type="code"/>
                                             </Property>
                                           </Properties>
                                           <Events>
@@ -1026,28 +1038,25 @@
                                             <AuxValue name="JavaCodeGenerator_allCodePost" type="java.lang.String" value="addTextEditListener(zEndSpinner_);"/>
                                           </AuxValues>
                                         </Component>
-                                        <Component class="javax.swing.JButton" name="jButton2">
+                                        <Component class="javax.swing.JButton" name="setCurrentZStartButton_">
                                           <Properties>
                                             <Property name="text" type="java.lang.String" value="Set current Z"/>
                                           </Properties>
                                           <Events>
-                                            <EventHandler event="actionPerformed" listener="java.awt.event.ActionListener" parameters="java.awt.event.ActionEvent" handler="jButton2ActionPerformed"/>
+                                            <EventHandler event="actionPerformed" listener="java.awt.event.ActionListener" parameters="java.awt.event.ActionEvent" handler="setCurrentZStartButton_ActionPerformed"/>
                                           </Events>
                                         </Component>
-                                        <Component class="javax.swing.JButton" name="jButton3">
+                                        <Component class="javax.swing.JButton" name="setCurrentZEndButton_">
                                           <Properties>
                                             <Property name="text" type="java.lang.String" value="Set current Z"/>
                                           </Properties>
                                           <Events>
-                                            <EventHandler event="actionPerformed" listener="java.awt.event.ActionListener" parameters="java.awt.event.ActionEvent" handler="jButton3ActionPerformed"/>
+                                            <EventHandler event="actionPerformed" listener="java.awt.event.ActionListener" parameters="java.awt.event.ActionEvent" handler="setCurrentZEndButton_ActionPerformed"/>
                                           </Events>
                                         </Component>
                                       </SubComponents>
                                     </Container>
                                     <Container class="javax.swing.JPanel" name="volumeBetweenZPanel_">
-                                      <AuxValues>
-                                        <AuxValue name="JavaCodeGenerator_AddingCodePost" type="java.lang.String" value="for (Component c : volumeBetweenZPanel_.getComponents()) {&#xa;   c.setEnabled(false);&#xa;}"/>
-                                      </AuxValues>
                                       <Constraints>
                                         <Constraint layoutClass="org.netbeans.modules.form.compat2.layouts.support.JTabbedPaneSupportLayout" value="org.netbeans.modules.form.compat2.layouts.support.JTabbedPaneSupportLayout$JTabbedPaneConstraintsDescription">
                                           <JTabbedPaneConstraints tabName="Volume between surfaces">
@@ -1089,7 +1098,7 @@
                                                           <Component id="volumeBetweenFootprintCombo_" min="-2" max="-2" attributes="0"/>
                                                       </Group>
                                                   </Group>
-                                                  <EmptySpace pref="353" max="32767" attributes="0"/>
+                                                  <EmptySpace pref="317" max="32767" attributes="0"/>
                                               </Group>
                                           </Group>
                                         </DimensionLayout>
@@ -1142,7 +1151,7 @@
                                               <Font name="Tahoma" size="14" style="0"/>
                                             </Property>
                                             <Property name="model" type="javax.swing.ComboBoxModel" editor="org.netbeans.modules.form.RADConnectionPropertyEditor">
-                                              <Connection code="createSurfaceAndRegionComboBoxModel(true,false)" type="code"/>
+                                              <Connection code="manager_.createSurfaceComboBoxModel()" type="code"/>
                                             </Property>
                                           </Properties>
                                           <Events>
@@ -1155,7 +1164,7 @@
                                               <Font name="Tahoma" size="14" style="0"/>
                                             </Property>
                                             <Property name="model" type="javax.swing.ComboBoxModel" editor="org.netbeans.modules.form.RADConnectionPropertyEditor">
-                                              <Connection code="createSurfaceAndRegionComboBoxModel(true,false)" type="code"/>
+                                              <Connection code="manager_.createSurfaceComboBoxModel()" type="code"/>
                                             </Property>
                                           </Properties>
                                           <Events>
@@ -1273,7 +1282,7 @@
                                                                   <Component id="fixedDistanceSurfaceComboBox_" max="32767" attributes="0"/>
                                                               </Group>
                                                           </Group>
-                                                          <EmptySpace min="0" pref="385" max="32767" attributes="0"/>
+                                                          <EmptySpace min="0" pref="349" max="32767" attributes="0"/>
                                                       </Group>
                                                   </Group>
                                               </Group>
@@ -1387,7 +1396,7 @@
                                               <Font name="Tahoma" size="14" style="0"/>
                                             </Property>
                                             <Property name="model" type="javax.swing.ComboBoxModel" editor="org.netbeans.modules.form.RADConnectionPropertyEditor">
-                                              <Connection code="createSurfaceAndRegionComboBoxModel(true,false)" type="code"/>
+                                              <Connection code="manager_.createSurfaceComboBoxModel()" type="code"/>
                                             </Property>
                                           </Properties>
                                           <Events>
@@ -1408,7 +1417,7 @@
                                               <Font name="Tahoma" size="14" style="0"/>
                                             </Property>
                                             <Property name="model" type="javax.swing.ComboBoxModel" editor="org.netbeans.modules.form.RADConnectionPropertyEditor">
-                                              <Connection code="createSurfaceAndRegionComboBoxModel(true,true)" type="code"/>
+                                              <Connection code="manager_.createSurfaceAndGridComboBoxModel()" type="code"/>
                                             </Property>
                                           </Properties>
                                           <Events>
@@ -1466,7 +1475,7 @@
                       <Layout>
                         <DimensionLayout dim="0">
                           <Group type="103" groupAlignment="0" attributes="0">
-                              <Component id="jScrollPane1" pref="800" max="32767" attributes="0"/>
+                              <Component id="jScrollPane1" pref="740" max="32767" attributes="0"/>
                               <Group type="102" attributes="0">
                                   <Component id="jLabel3" min="-2" max="-2" attributes="0"/>
                                   <EmptySpace max="-2" attributes="0"/>
@@ -1535,61 +1544,6 @@
                     </Container>
                   </SubComponents>
                 </Container>
-                <Container class="javax.swing.JPanel" name="jPanel1">
-
-                  <Layout>
-                    <DimensionLayout dim="0">
-                      <Group type="103" groupAlignment="0" attributes="0">
-                          <Group type="102" alignment="0" attributes="0">
-                              <EmptySpace max="-2" attributes="0"/>
-                              <Component id="estDurationLabel_" min="-2" max="-2" attributes="0"/>
-                              <EmptySpace max="32767" attributes="0"/>
-                          </Group>
-                          <Group type="103" rootIndex="1" groupAlignment="0" attributes="0">
-                              <Group type="102" alignment="0" attributes="0">
-                                  <EmptySpace min="-2" pref="320" max="-2" attributes="0"/>
-                                  <Component id="runAcqButton_" min="-2" max="-2" attributes="0"/>
-                                  <EmptySpace pref="320" max="32767" attributes="0"/>
-                              </Group>
-                          </Group>
-                      </Group>
-                    </DimensionLayout>
-                    <DimensionLayout dim="1">
-                      <Group type="103" groupAlignment="0" attributes="0">
-                          <Group type="102" alignment="0" attributes="0">
-                              <EmptySpace max="-2" attributes="0"/>
-                              <Component id="estDurationLabel_" min="-2" max="-2" attributes="0"/>
-                              <EmptySpace pref="19" max="32767" attributes="0"/>
-                          </Group>
-                          <Group type="103" rootIndex="1" groupAlignment="0" attributes="0">
-                              <Group type="102" alignment="0" attributes="0">
-                                  <EmptySpace max="-2" attributes="0"/>
-                                  <Component id="runAcqButton_" min="-2" max="-2" attributes="0"/>
-                                  <EmptySpace max="32767" attributes="0"/>
-                              </Group>
-                          </Group>
-                      </Group>
-                    </DimensionLayout>
-                  </Layout>
-                  <SubComponents>
-                    <Component class="javax.swing.JButton" name="runAcqButton_">
-                      <Properties>
-                        <Property name="font" type="java.awt.Font" editor="org.netbeans.beaninfo.editors.FontEditor">
-                          <Font name="Tahoma" size="14" style="1"/>
-                        </Property>
-                        <Property name="text" type="java.lang.String" value="Run acquisition(s)"/>
-                      </Properties>
-                      <Events>
-                        <EventHandler event="actionPerformed" listener="java.awt.event.ActionListener" parameters="java.awt.event.ActionEvent" handler="runAcqButton_ActionPerformed"/>
-                      </Events>
-                    </Component>
-                    <Component class="javax.swing.JLabel" name="estDurationLabel_">
-                      <Properties>
-                        <Property name="text" type="java.lang.String" value="Estimated duration: "/>
-                      </Properties>
-                    </Component>
-                  </SubComponents>
-                </Container>
                 <Container class="javax.swing.JScrollPane" name="multipleAcqScrollPane_">
                   <Properties>
                     <Property name="font" type="java.awt.Font" editor="org.netbeans.beaninfo.editors.FontEditor">
@@ -1655,6 +1609,60 @@
                     <EventHandler event="actionPerformed" listener="java.awt.event.ActionListener" parameters="java.awt.event.ActionEvent" handler="addAcqButton_ActionPerformed"/>
                   </Events>
                 </Component>
+                <Container class="javax.swing.JPanel" name="runAcqPanel_">
+
+                  <Layout>
+                    <DimensionLayout dim="0">
+                      <Group type="103" groupAlignment="0" attributes="0">
+                          <Group type="102" alignment="0" attributes="0">
+                              <EmptySpace max="-2" attributes="0"/>
+                              <Component id="estDurationLabel_" min="-2" max="-2" attributes="0"/>
+                              <EmptySpace min="-2" pref="159" max="-2" attributes="0"/>
+                              <Component id="jLabel1" min="-2" max="-2" attributes="0"/>
+                              <EmptySpace max="32767" attributes="0"/>
+                              <Component id="runAcqButton_" min="-2" max="-2" attributes="0"/>
+                              <EmptySpace min="-2" pref="54" max="-2" attributes="0"/>
+                          </Group>
+                      </Group>
+                    </DimensionLayout>
+                    <DimensionLayout dim="1">
+                      <Group type="103" groupAlignment="0" attributes="0">
+                          <Group type="102" alignment="0" attributes="0">
+                              <EmptySpace max="-2" attributes="0"/>
+                              <Group type="103" groupAlignment="3" attributes="0">
+                                  <Component id="estDurationLabel_" alignment="3" min="-2" max="-2" attributes="0"/>
+                                  <Component id="runAcqButton_" alignment="3" min="-2" max="-2" attributes="0"/>
+                                  <Component id="jLabel1" alignment="3" min="-2" max="-2" attributes="0"/>
+                              </Group>
+                              <EmptySpace max="32767" attributes="0"/>
+                          </Group>
+                      </Group>
+                    </DimensionLayout>
+                  </Layout>
+                  <SubComponents>
+                    <Component class="javax.swing.JButton" name="runAcqButton_">
+                      <Properties>
+                        <Property name="font" type="java.awt.Font" editor="org.netbeans.beaninfo.editors.FontEditor">
+                          <Font name="Tahoma" size="14" style="1"/>
+                        </Property>
+                        <Property name="text" type="java.lang.String" value="Run acquisition(s)"/>
+                      </Properties>
+                      <Events>
+                        <EventHandler event="actionPerformed" listener="java.awt.event.ActionListener" parameters="java.awt.event.ActionEvent" handler="runAcqButton_ActionPerformed"/>
+                      </Events>
+                    </Component>
+                    <Component class="javax.swing.JLabel" name="estDurationLabel_">
+                      <Properties>
+                        <Property name="text" type="java.lang.String" value="Estimated duration: "/>
+                      </Properties>
+                    </Component>
+                    <Component class="javax.swing.JLabel" name="jLabel1">
+                      <Properties>
+                        <Property name="text" type="java.lang.String" value="TODO: estimated dataset size"/>
+                      </Properties>
+                    </Component>
+                  </SubComponents>
+                </Container>
               </SubComponents>
             </Container>
           </SubComponents>
@@ -1664,12 +1672,12 @@
           <Layout>
             <DimensionLayout dim="0">
               <Group type="103" groupAlignment="0" attributes="0">
-                  <Group type="102" alignment="0" attributes="0">
+                  <Group type="102" attributes="0">
                       <EmptySpace max="-2" attributes="0"/>
                       <Component id="helpButton_" min="-2" max="-2" attributes="0"/>
                       <EmptySpace max="-2" attributes="0"/>
                       <Component id="calinrateTilingButton_" min="-2" max="-2" attributes="0"/>
-                      <EmptySpace max="32767" attributes="0"/>
+                      <EmptySpace pref="77" max="32767" attributes="0"/>
                       <Component id="userGuideLink_" min="-2" max="-2" attributes="0"/>
                       <EmptySpace min="-2" pref="113" max="-2" attributes="0"/>
                       <Component id="citeLink_" min="-2" max="-2" attributes="0"/>
@@ -1679,7 +1687,7 @@
             </DimensionLayout>
             <DimensionLayout dim="1">
               <Group type="103" groupAlignment="0" attributes="0">
-                  <Group type="102" alignment="0" attributes="0">
+                  <Group type="102" attributes="0">
                       <EmptySpace max="32767" attributes="0"/>
                       <Group type="103" groupAlignment="3" attributes="0">
                           <Component id="calinrateTilingButton_" alignment="3" min="-2" max="-2" attributes="0"/>
@@ -1741,19 +1749,18 @@
             <DimensionLayout dim="0">
               <Group type="103" groupAlignment="0" attributes="0">
                   <Group type="102" alignment="1" attributes="0">
-                      <EmptySpace max="32767" attributes="0"/>
+                      <EmptySpace pref="556" max="32767" attributes="0"/>
                       <Component id="exploreBrowseButton_" min="-2" max="-2" attributes="0"/>
-                      <EmptySpace min="-2" pref="39" max="-2" attributes="0"/>
-                      <Component id="openDatasetButton_" min="-2" max="-2" attributes="0"/>
                       <EmptySpace max="-2" attributes="0"/>
+                      <Component id="openDatasetButton_" min="-2" max="-2" attributes="0"/>
                   </Group>
                   <Group type="103" rootIndex="1" groupAlignment="0" attributes="0">
                       <Group type="102" attributes="0">
                           <EmptySpace max="-2" attributes="0"/>
                           <Component id="exploreSavingDirLabel_" min="-2" max="-2" attributes="0"/>
                           <EmptySpace max="-2" attributes="0"/>
-                          <Component id="globalSavingDirTextField_" pref="453" max="32767" attributes="0"/>
-                          <EmptySpace min="-2" pref="265" max="-2" attributes="0"/>
+                          <Component id="globalSavingDirTextField_" min="-2" pref="434" max="-2" attributes="0"/>
+                          <EmptySpace pref="222" max="32767" attributes="0"/>
                       </Group>
                   </Group>
               </Group>

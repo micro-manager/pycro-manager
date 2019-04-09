@@ -35,8 +35,8 @@ import main.java.org.micromanager.plugins.magellan.main.Magellan;
 import main.java.org.micromanager.plugins.magellan.misc.Log;
 import main.java.org.micromanager.plugins.magellan.surfacesandregions.Point3d;
 import main.java.org.micromanager.plugins.magellan.surfacesandregions.SurfaceChangedListener;
+import main.java.org.micromanager.plugins.magellan.surfacesandregions.SurfaceGridManager;
 import main.java.org.micromanager.plugins.magellan.surfacesandregions.SurfaceInterpolator;
-import main.java.org.micromanager.plugins.magellan.surfacesandregions.SurfaceManager;
 
 /**
  *
@@ -81,7 +81,7 @@ public class FixedAreaAcquisition extends Acquisition implements SurfaceChangedL
     */
    public FixedAreaAcquisition(FixedAreaAcquisitionSettings settings, ParallelAcquisitionGroup acqGroup) throws Exception {
       super(settings.zStep_, settings.channels_);
-      SurfaceManager.getInstance().registerSurfaceChangedListener(this);
+      SurfaceGridManager.getInstance().registerSurfaceChangedListener(this);
       acqGroup_ = acqGroup;
       settings_ = settings;
       try {
@@ -595,7 +595,7 @@ public class FixedAreaAcquisition extends Acquisition implements SurfaceChangedL
    private void eventGeneratorShutdown() {
       eventGenerator_.shutdown();
       waitForNextTPSerivice_.shutdown();
-      SurfaceManager.getInstance().removeSurfaceChangedListener(this);
+      SurfaceGridManager.getInstance().removeSurfaceChangedListener(this);
    }
 
    public static boolean isImagingVolumeUndefinedAtPosition(int spaceMode, FixedAreaAcquisitionSettings settings, XYStagePosition position) {

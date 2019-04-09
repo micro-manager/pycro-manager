@@ -53,9 +53,7 @@ public abstract class SurfaceInterpolator extends XYFootprint {
   
    private static final int ABOVE_SURFACE = 0;
    private static final int BELOW_SURFACE = 1; 
-   private static final int ON_SURFACE = 1;
    
-   private String name_;
    //surface coordinates are neccessarily associated with the coordinate space of particular xy and z devices
    private final String zDeviceName_;
    private final boolean towardsSampleIsPositive_;

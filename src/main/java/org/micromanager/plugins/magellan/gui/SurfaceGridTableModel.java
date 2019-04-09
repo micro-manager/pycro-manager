@@ -3,13 +3,19 @@
  * To change this template file, choose Tools | Templates
  * and open the template in the editor.
  */
-package main.java.org.micromanager.plugins.magellan.surfacesandregions;
+package main.java.org.micromanager.plugins.magellan.gui;
 
+import java.util.List;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import javax.swing.table.AbstractTableModel;
+import main.java.org.micromanager.plugins.magellan.coordinates.XYStagePosition;
 import main.java.org.micromanager.plugins.magellan.misc.Log;
 import main.java.org.micromanager.plugins.magellan.misc.NumberUtils;
+import main.java.org.micromanager.plugins.magellan.surfacesandregions.MultiPosGrid;
+import main.java.org.micromanager.plugins.magellan.surfacesandregions.SurfaceGridManager;
+import main.java.org.micromanager.plugins.magellan.surfacesandregions.SurfaceInterpolator;
+import main.java.org.micromanager.plugins.magellan.surfacesandregions.XYFootprint;
 
 /**
  *
@@ -85,7 +91,9 @@ public class SurfaceGridTableModel extends AbstractTableModel {
          return ((SurfaceInterpolator) manager_.getSurfaceOrGrid(rowIndex)).getZDevice();
       } else {
          try {
-            return  manager_.getSurfaceOrGrid(rowIndex).getXYPositionsNoUpdate().size();
+            XYFootprint object = manager_.getSurfaceOrGrid(rowIndex);
+            List<XYStagePosition> positions = object.getXYPositionsNoUpdate();
+            return  positions != null ? positions.size() : 0; 
          } catch (InterruptedException ex) {
             Log.log(ex);
             return null;

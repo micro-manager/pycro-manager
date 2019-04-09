@@ -217,7 +217,7 @@
             <Component class="javax.swing.JComboBox" name="currentGridCombo_">
               <Properties>
                 <Property name="model" type="javax.swing.ComboBoxModel" editor="org.netbeans.modules.form.RADConnectionPropertyEditor">
-                  <Connection code="GUI.createSurfaceAndRegionComboBoxModel(false, true)" type="code"/>
+                  <Connection code="manager_.createGridComboBoxModel()" type="code"/>
                 </Property>
               </Properties>
               <Events>
@@ -333,7 +333,7 @@
             <Component class="javax.swing.JComboBox" name="currentSufaceCombo_">
               <Properties>
                 <Property name="model" type="javax.swing.ComboBoxModel" editor="org.netbeans.modules.form.RADConnectionPropertyEditor">
-                  <Connection code="GUI.createSurfaceAndRegionComboBoxModel(true, false)" type="code"/>
+                  <Connection code="manager_.createSurfaceComboBoxModel()" type="code"/>
                 </Property>
               </Properties>
               <Events>

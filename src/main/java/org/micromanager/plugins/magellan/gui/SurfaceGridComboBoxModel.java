@@ -15,9 +15,10 @@
 //               INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES.
 //
 
-package main.java.org.micromanager.plugins.magellan.surfacesandregions;
+package main.java.org.micromanager.plugins.magellan.gui;
 
 import javax.swing.DefaultComboBoxModel;
+import main.java.org.micromanager.plugins.magellan.surfacesandregions.SurfaceGridManager;
 
 /**
  *
@@ -27,18 +28,18 @@ public class SurfaceGridComboBoxModel extends DefaultComboBoxModel {
    
    private SurfaceGridManager manager_;
    private Object selectedItem_ = null;
-   private final boolean surfacesOnly_;
+   private final boolean surfacesOnly_, gridsOnly_;
 
-   public SurfaceGridComboBoxModel(boolean surfacesOnly)  {
+   public SurfaceGridComboBoxModel(boolean surfacesOnly, boolean gridsOnly)  {
       manager_ = SurfaceGridManager.getInstance();
       surfacesOnly_ = surfacesOnly;
+      gridsOnly_ = gridsOnly;
    }
 
    @Override
    public Object getSelectedItem() {
       return selectedItem_;
    }
-
 
    @Override
    public void setSelectedItem(Object anItem) {
@@ -47,6 +48,12 @@ public class SurfaceGridComboBoxModel extends DefaultComboBoxModel {
 
    @Override
    public int getSize() {
+      if (surfacesOnly_) {
+         return manager_.getNumberOfSurfaces();
+      }
+      if (gridsOnly_) {
+         return manager_.getNumberOfGrids();
+      }
       return manager_.getNumberOfGrids() + manager_.getNumberOfSurfaces(); 
    }
 
@@ -56,7 +63,7 @@ public class SurfaceGridComboBoxModel extends DefaultComboBoxModel {
          return null;
       }     
       if (surfacesOnly_) {
-         return manager_.getSurfaceOrGrid(index - manager_.getNumberOfGrids());
+         return manager_.getSurface(index);
       } else {
          return manager_.getSurfaceOrGrid(index);
       }
