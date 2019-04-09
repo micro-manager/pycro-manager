@@ -70,7 +70,7 @@ import main.java.org.micromanager.plugins.magellan.misc.LoadedAcquisitionData;
 import main.java.org.micromanager.plugins.magellan.misc.Log;
 import main.java.org.micromanager.plugins.magellan.surfacesandregions.RegionManager;
 import main.java.org.micromanager.plugins.magellan.surfacesandregions.SurfaceManager;
-import main.java.org.micromanager.plugins.magellan.surfacesandregions.SurfaceRegionComboBoxModel;
+import main.java.org.micromanager.plugins.magellan.surfacesandregions.SurfaceGridComboBoxModel;
 import main.java.org.micromanager.plugins.magellan.surfacesandregions.XYFootprint;
 
 /**
@@ -155,8 +155,8 @@ public class GUI extends javax.swing.JFrame {
       }
    }
 
-   public static SurfaceRegionComboBoxModel createSurfaceAndRegionComboBoxModel(boolean surfaces, boolean regions) {
-      SurfaceRegionComboBoxModel model = new SurfaceRegionComboBoxModel(surfaces ? SurfaceManager.getInstance() : null,
+   public static SurfaceGridComboBoxModel createSurfaceAndRegionComboBoxModel(boolean surfaces, boolean regions) {
+      SurfaceGridComboBoxModel model = new SurfaceGridComboBoxModel(surfaces ? SurfaceManager.getInstance() : null,
               regions ? RegionManager.getInstance() : null);
       if (surfaces) {
          SurfaceManager.getInstance().addToModelList(model);
@@ -499,7 +499,7 @@ public class GUI extends javax.swing.JFrame {
       loadButton_ = new javax.swing.JButton();
       saveButton_ = new javax.swing.JButton();
       jScrollPane2 = new javax.swing.JScrollPane();
-      gridTable_ = new javax.swing.JTable();
+      surfacesAndGridsTable_ = new javax.swing.JTable();
       surfacesAndGrdisLabel_ = new javax.swing.JLabel();
       acqPanel = new javax.swing.JPanel();
       acqTabbedPane_ = new javax.swing.JTabbedPane();
@@ -665,9 +665,9 @@ public class GUI extends javax.swing.JFrame {
          }
       });
 
-      gridTable_.setModel(regionManager_.createGridTableModel());
-      gridTable_.setSelectionMode(javax.swing.ListSelectionModel.SINGLE_SELECTION);
-      jScrollPane2.setViewportView(gridTable_);
+      surfacesAndGridsTable_.setModel(regionManager_.createGridTableModel());
+      surfacesAndGridsTable_.setSelectionMode(javax.swing.ListSelectionModel.SINGLE_SELECTION);
+      jScrollPane2.setViewportView(surfacesAndGridsTable_);
 
       javax.swing.GroupLayout jPanel4Layout = new javax.swing.GroupLayout(jPanel4);
       jPanel4.setLayout(jPanel4Layout);
@@ -1916,8 +1916,8 @@ public class GUI extends javax.swing.JFrame {
    }//GEN-LAST:event_deleteAllRegionsButton_ActionPerformed
 
    private void deleteSelectedRegionButton_ActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_deleteSelectedRegionButton_ActionPerformed
-      if (gridTable_.getSelectedRow() != -1) {
-         regionManager_.delete(gridTable_.getSelectedRow());
+      if (surfacesAndGridsTable_.getSelectedRow() != -1) {
+         regionManager_.delete(surfacesAndGridsTable_.getSelectedRow());
       }
    }//GEN-LAST:event_deleteSelectedRegionButton_ActionPerformed
 
@@ -1982,7 +1982,6 @@ public class GUI extends javax.swing.JFrame {
    private javax.swing.JLabel footprin2DLabel_;
    private javax.swing.JComboBox footprint2DComboBox_;
    private javax.swing.JTextField globalSavingDirTextField_;
-   private javax.swing.JTable gridTable_;
    private javax.swing.JButton helpButton_;
    private javax.swing.JButton jButton2;
    private javax.swing.JButton jButton3;
@@ -2014,6 +2013,7 @@ public class GUI extends javax.swing.JFrame {
    private javax.swing.JComboBox simpleZStackFootprintCombo_;
    private javax.swing.JPanel spaceTab_;
    private javax.swing.JLabel surfacesAndGrdisLabel_;
+   private javax.swing.JTable surfacesAndGridsTable_;
    private javax.swing.JLabel tileOverlapPercentLabel_;
    private javax.swing.JLabel timeIntervalLabel_;
    private javax.swing.JSpinner timeIntervalSpinner_;

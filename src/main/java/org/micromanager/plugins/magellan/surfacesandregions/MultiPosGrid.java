@@ -27,8 +27,6 @@ import main.java.org.micromanager.plugins.magellan.misc.Log;
 import org.apache.commons.math3.geometry.euclidean.twod.Euclidean2D;
 import org.apache.commons.math3.geometry.euclidean.twod.PolygonsSet;
 import org.apache.commons.math3.geometry.euclidean.twod.Vector2D;
-import org.apache.commons.math3.geometry.euclidean.twod.hull.ConvexHull2D;
-import org.apache.commons.math3.geometry.euclidean.twod.hull.MonotoneChain;
 import org.apache.commons.math3.geometry.partitioning.Region;
 import org.apache.commons.math3.geometry.partitioning.RegionFactory;
 
@@ -36,45 +34,24 @@ import org.apache.commons.math3.geometry.partitioning.RegionFactory;
  *
  * @author Henry
  */
-public class MultiPosRegion implements XYFootprint {
+public class MultiPosGrid extends XYFootprint {
 
    private final RegionFactory<Euclidean2D> regionFacotry_ = new RegionFactory<Euclidean2D>();
    private volatile Point2D.Double center_; //stored in stage space
    private volatile int overlapX_, overlapY_, rows_, cols_;
-   private RegionManager manager_;
-   private String name_;
    private String pixelSizeConfig_;
-   private String XYDevice_;
 
-   public MultiPosRegion(RegionManager manager, String xyDevice, int r, int c, Point2D.Double center) {
-      manager_ = manager;
-      name_ = manager.getNewName();
+   public MultiPosGrid(SurfaceGridManager manager, String xyDevice, int r, int c, Point2D.Double center) {
+      super(xyDevice);
+      name_ = manager_.getNewGridName();
+
       center_ = center;
-      XYDevice_ = xyDevice;
       try {
          pixelSizeConfig_ = Magellan.getCore().getCurrentPixelSizeConfig();
       } catch (Exception ex) {
          Log.log("couldnt get pixel size config");
       }
       updateParams(r, c);
-   }
-
-   public String getXYDevice() {
-      return XYDevice_;
-   }
-
-   @Override
-   public String toString() {
-      return name_;
-   }
-
-   public String getName() {
-      return name_;
-   }
-
-   public void rename(String newName) {
-      name_ = newName;
-      manager_.updateRegionTableAndCombos();
    }
 
    public double getWidth_um() {
@@ -94,8 +71,8 @@ public class MultiPosRegion implements XYFootprint {
       updateOverlap(FixedAreaAcquisitionSettings.getStoredTileOverlapPercentage() / 100);
       rows_ = rows;
       cols_ = cols;
-      manager_.updateRegionTableAndCombos();
-      manager_.drawRegionOverlay(this);
+      manager_.updateSurfaceTableAndCombos();
+      manager_.drawSurfaceOrGridOverlay(this);
    }
 
    private void updateOverlap(double overlapPercent) {
@@ -196,12 +173,12 @@ public class MultiPosRegion implements XYFootprint {
    public void updateCenter(Point2D.Double newCenter) {
       center_.x = newCenter.x;
       center_.y = newCenter.y;
-      manager_.drawRegionOverlay(this);
+      manager_.drawSurfaceOrGridOverlay(this);
    }
 
    public void translate(double dx, double dy) {
       center_ = new Point2D.Double(center_.x + dx, center_.y + dy);
-      manager_.drawRegionOverlay(this);
+      manager_.drawSurfaceOrGridOverlay(this);
    }
 
    @Override

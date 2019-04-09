@@ -24,7 +24,6 @@ import java.awt.geom.AffineTransform;
 import java.awt.geom.NoninvertibleTransformException;
 import java.awt.geom.Point2D;
 import java.util.ArrayList;
-import java.util.Collection;
 import java.util.Comparator;
 import java.util.LinkedList;
 import java.util.List;
@@ -47,7 +46,7 @@ import org.apache.commons.math3.geometry.partitioning.RegionFactory;
  *
  * @author Henry
  */
-public abstract class SurfaceInterpolator implements XYFootprint {
+public abstract class SurfaceInterpolator extends XYFootprint {
    
    public static final int MIN_PIXELS_PER_INTERP_POINT = 32;
    public static final int NUM_XY_TEST_POINTS = 8;
@@ -58,7 +57,7 @@ public abstract class SurfaceInterpolator implements XYFootprint {
    
    private String name_;
    //surface coordinates are neccessarily associated with the coordinate space of particular xy and z devices
-   private final  String xyDeviceName_, zDeviceName_;
+   private final String zDeviceName_;
    private final boolean towardsSampleIsPositive_;
    protected volatile TreeSet<Point3d> points_;
    private MonotoneChain mChain_;
@@ -72,16 +71,14 @@ public abstract class SurfaceInterpolator implements XYFootprint {
    private volatile int boundXPixelMin_,boundXPixelMax_,boundYPixelMin_,boundYPixelMax_;
    private ExecutorService executor_; 
    protected volatile SingleResolutionInterpolation currentInterpolation_;
-   private SurfaceManager manager_;
    private Future currentInterpolationTask_;
    //Objects for wait/notify sync of calcualtions
    protected Object xyPositionLock_ = new Object(), interpolationLock_ = new Object(), convexHullLock_ = new Object();
  
    
    public SurfaceInterpolator(String xyDevice, String zDevice) {    
-      manager_ = SurfaceManager.getInstance();
-      name_ = manager_.getNewName();
-      xyDeviceName_ = xyDevice;
+      super(xyDevice);
+      name_ = manager_.getNewSurfaceName();
       zDeviceName_ = zDevice;
       //store points sorted by z coordinate to easily find the top, for generating slice index 0 position
       points_ = new TreeSet<Point3d>(new Comparator<Point3d>() {
@@ -131,11 +128,6 @@ public abstract class SurfaceInterpolator implements XYFootprint {
 
    }
    
-   @Override
-   public String getXYDevice() {
-      return xyDeviceName_;
-   }
-   
    public String getZDevice() {
       return zDeviceName_;
    }
@@ -152,19 +144,6 @@ public abstract class SurfaceInterpolator implements XYFootprint {
    public void delete() {
       executor_.shutdownNow();
 //      CovariantPairingsManager.getInstance().deletePairsReferencingSurface(this);
-   }
-   
-   @Override
-   public String toString() {
-      return name_;
-   }
-   
-   public String getName() {
-      return name_;
-   }
-   
-   public void rename(String newName) {
-      name_ = newName;
    }
    
    /**
@@ -568,7 +547,7 @@ public abstract class SurfaceInterpolator implements XYFootprint {
       }
 
       updateConvexHullAndInterpolate();
-      manager_.drawSurfaceOverlay(this);
+      manager_.drawSurfaceOrGridOverlay(this);
    }
 
    /**
@@ -593,13 +572,13 @@ public abstract class SurfaceInterpolator implements XYFootprint {
       }
 
       updateConvexHullAndInterpolate(); 
-      manager_.drawSurfaceOverlay(this);
+      manager_.drawSurfaceOrGridOverlay(this);
    }
    
    public synchronized void addPoint(double x, double y, double z) {
       points_.add(new Point3d(x,y,z)); //for interpolation
       updateConvexHullAndInterpolate(); 
-      manager_.drawSurfaceOverlay(this);
+      manager_.drawSurfaceOrGridOverlay(this);
      
    }
    
@@ -618,7 +597,7 @@ public abstract class SurfaceInterpolator implements XYFootprint {
                //this won't happen
                return;
             }
-            manager_.drawSurfaceOverlay(SurfaceInterpolator.this);
+            manager_.drawSurfaceOrGridOverlay(SurfaceInterpolator.this);
          }         
       });
    }

@@ -54,7 +54,7 @@ import main.java.org.micromanager.plugins.magellan.misc.Log;
 import main.java.org.micromanager.plugins.magellan.misc.LongPoint;
 import main.java.org.micromanager.plugins.magellan.misc.MD;
 import main.java.org.micromanager.plugins.magellan.misc.ProgressBar;
-import main.java.org.micromanager.plugins.magellan.surfacesandregions.MultiPosRegion;
+import main.java.org.micromanager.plugins.magellan.surfacesandregions.MultiPosGrid;
 import main.java.org.micromanager.plugins.magellan.surfacesandregions.SurfaceInterpolator;
 
 public class DisplayPlus extends VirtualAcquisitionDisplay implements ListDataListener {
@@ -74,7 +74,7 @@ public class DisplayPlus extends VirtualAcquisitionDisplay implements ListDataLi
    private boolean mouseDragging_ = false;
    private DisplayOverlayer overlayer_;
    private volatile SurfaceInterpolator currentSurface_;
-   private volatile MultiPosRegion currentRegion_;
+   private volatile MultiPosGrid currentRegion_;
    private ExecutorService redrawPixelsExecutor_;
    private Future previousPixelDrawTask_;
    private long fullResPixelWidth_ = -1, fullResPixelHeight_ = -1; //used for scaling in fixed area acqs
@@ -310,18 +310,13 @@ public class DisplayPlus extends VirtualAcquisitionDisplay implements ListDataLi
    public void setAnimateFPS(double fps) {
       subImageControls_.setAnimateFPS(fps);
    }
-   
-   public static void redrawRegionOverlay(MultiPosRegion region) {
+
+   public static void redrawSurfaceOrGridOverlay(Object surfaceOrGrid) {
       for (DisplayPlus display : activeDisplays_) {
-         if (display.getCurrentRegion() == region) {
+         if (display.getCurrentSurface() == surfaceOrGrid) {
             display.drawOverlay();
          }
-      }
-   }
-
-   public static void redrawSurfaceOverlay(SurfaceInterpolator surface) {
-      for (DisplayPlus display : activeDisplays_) {
-         if (display.getCurrentSurface() == surface) {
+          if (display.getCurrentGrid() == surfaceOrGrid) {
             display.drawOverlay();
          }
       }
@@ -334,7 +329,7 @@ public class DisplayPlus extends VirtualAcquisitionDisplay implements ListDataLi
       }
    }
 
-   public void setCurrentRegion(MultiPosRegion region) {
+   public void setCurrentRegion(MultiPosGrid region) {
       currentRegion_ = region;
       if (currentRegion_ != null) {
          drawOverlay();
@@ -345,7 +340,7 @@ public class DisplayPlus extends VirtualAcquisitionDisplay implements ListDataLi
       return currentSurface_;
    }
 
-   public MultiPosRegion getCurrentRegion() {
+   public MultiPosGrid getCurrentGrid() {
       return currentRegion_;
    }
 

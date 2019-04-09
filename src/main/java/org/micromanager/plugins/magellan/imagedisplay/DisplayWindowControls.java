@@ -28,10 +28,9 @@ import javax.swing.table.DefaultTableModel;
 import main.java.org.micromanager.plugins.magellan.json.JSONObject;
 import main.java.org.micromanager.plugins.magellan.main.Magellan;
 import main.java.org.micromanager.plugins.magellan.misc.MD;
-import main.java.org.micromanager.plugins.magellan.surfacesandregions.MultiPosRegion;
-import main.java.org.micromanager.plugins.magellan.surfacesandregions.RegionManager;
-import main.java.org.micromanager.plugins.magellan.surfacesandregions.SurfaceManager;
-import main.java.org.micromanager.plugins.magellan.surfacesandregions.SurfaceRegionComboBoxModel;
+import main.java.org.micromanager.plugins.magellan.surfacesandregions.MultiPosGrid;
+import main.java.org.micromanager.plugins.magellan.surfacesandregions.SurfaceGridComboBoxModel;
+import main.java.org.micromanager.plugins.magellan.surfacesandregions.SurfaceGridManager;
 
 /**
  *
@@ -43,8 +42,7 @@ public class DisplayWindowControls extends Panel {
    
    private EventBus bus_;
    private DisplayPlus display_;
-   private RegionManager regionManager_;
-   private SurfaceManager surfaceManager_;
+   private SurfaceGridManager manager_;
    private Acquisition acq_;
    private Popup instructionsPopup_;
    private boolean updateGridParams_ = true;
@@ -57,8 +55,7 @@ public class DisplayWindowControls extends Panel {
       display_ = disp;
       bus_.register(this);
       acq_ = acq;
-      surfaceManager_ = SurfaceManager.getInstance();
-      regionManager_ = RegionManager.getInstance();   
+      manager_ = SurfaceGridManager.getInstance();
       initComponents();
       //initially disable surface and grid
       tabbedPane_.setEnabledAt(1, false);
@@ -157,17 +154,17 @@ public class DisplayWindowControls extends Panel {
 
    public void prepareForClose() {
       bus_.unregister(this);
-      surfaceManager_.removeFromModelList((SurfaceRegionComboBoxModel) currentSufaceCombo_.getModel());
-      regionManager_.removeFromModelList((SurfaceRegionComboBoxModel) currentGridCombo_.getModel());
+      manager_.removeFromModelList((SurfaceGridComboBoxModel) currentSufaceCombo_.getModel());
+      manager_.removeFromModelList((SurfaceGridComboBoxModel) currentGridCombo_.getModel());
       if (acq_ instanceof ExploreAcquisition) {
          ((SimpleChannelTableModel)channelsTable_.getModel()).shutdown();
       }
    }
 
-   private MultiPosRegion createNewGrid() {
+   private MultiPosGrid createNewGrid() {
       int imageWidth = display_.getImagePlus().getWidth();
       int imageHeight = display_.getImagePlus().getHeight();
-      return new MultiPosRegion(regionManager_, Magellan.getCore().getXYStageDevice(),
+      return new MultiPosGrid(manager_, Magellan.getCore().getXYStageDevice(),
               (Integer) gridRowsSpinner_.getValue(), (Integer) gridColsSpinner_.getValue(),
               display_.stageCoordFromImageCoords(imageWidth / 2, imageHeight / 2));
    }
@@ -568,9 +565,9 @@ public class DisplayWindowControls extends Panel {
     }// </editor-fold>//GEN-END:initComponents
 
    private void newSurfaceButton_ActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_newSurfaceButton_ActionPerformed
-      surfaceManager_.addNewSurface();
+      manager_.addNewSurface();
       currentSufaceCombo_.setSelectedIndex(currentSufaceCombo_.getItemCount() - 1);
-      display_.setCurrentSurface(surfaceManager_.getSurface(currentSufaceCombo_.getSelectedIndex()));
+      display_.setCurrentSurface(manager_.getSurface(currentSufaceCombo_.getSelectedIndex()));
       currentSufaceCombo_.repaint();
    }//GEN-LAST:event_newSurfaceButton_ActionPerformed
 
@@ -599,16 +596,16 @@ public class DisplayWindowControls extends Panel {
          display_.setMode(DisplayPlus.NONE);
       }   else if (tabbedPane_.getSelectedIndex() == 1) { // grid
          //make a grid if none exists"
-         if (regionManager_.getNumberOfRegions() == 0) {
-            regionManager_.addNewRegion(createNewGrid());
+         if (manager_.getNumberOfGrids() == 0) {
+            manager_.addNewSurface(createNewGrid());
             currentGridCombo_.setSelectedIndex(0);
          }    
          display_.setMode(DisplayPlus.NEWGRID);
          showInstructionLabel(((JPanel)tabbedPane_.getComponentAt(1)).getToolTipText());
       } else if (tabbedPane_.getSelectedIndex() == 2) { //surface
          //make a surface if none exists
-         if (surfaceManager_.getNumberOfSurfaces() == 0) {
-            surfaceManager_.addNewSurface();
+         if (manager_.getNumberOfSurfaces() == 0) {
+            manager_.addNewSurface();
             currentSufaceCombo_.setSelectedIndex(0);
          }
          //show surface creation controls           
@@ -624,7 +621,7 @@ public class DisplayWindowControls extends Panel {
    private void gridRowsSpinner_StateChanged(javax.swing.event.ChangeEvent evt) {//GEN-FIRST:event_gridRowsSpinner_StateChanged
       int index = currentGridCombo_.getSelectedIndex();
       if (index != -1 && updateGridParams_) {
-         MultiPosRegion r = regionManager_.getRegion(index);
+         MultiPosGrid r = regionManager_.getRegion(index);
          r.updateParams((Integer) gridRowsSpinner_.getValue(), (Integer) gridColsSpinner_.getValue());
       }
    }//GEN-LAST:event_gridRowsSpinner_StateChanged
@@ -684,7 +681,7 @@ public class DisplayWindowControls extends Panel {
    private void gridColsSpinner_StateChanged(javax.swing.event.ChangeEvent evt) {//GEN-FIRST:event_gridColsSpinner_StateChanged
       int index = currentGridCombo_.getSelectedIndex();
       if (index != -1 && updateGridParams_) {
-         MultiPosRegion r = regionManager_.getRegion(index);
+         MultiPosGrid r = regionManager_.getRegion(index);
          r.updateParams((Integer) gridRowsSpinner_.getValue(), (Integer) gridColsSpinner_.getValue());
       }
    }//GEN-LAST:event_gridColsSpinner_StateChanged

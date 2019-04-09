@@ -22,24 +22,48 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- *
- * @author Henry
+ * Superclass for Surfaces and Grids
  */
-public interface XYFootprint {
+
+public abstract class XYFootprint {
+
+   protected String name_;
+   protected final String xyString_;
+   protected SurfaceGridManager manager_ = SurfaceGridManager.getInstance();
+   
+   public XYFootprint(String xyDevice) {
+      xyString_ = xyDevice;
+   }
+   
    
    /**
     * @param tileOverlapPercent
     * @return read only list of XY positions after updating them to reflect potential changes in overlap
     */
-    public List<XYStagePosition> getXYPositions(double tileOverlapPercent) throws InterruptedException;
+    public abstract List<XYStagePosition> getXYPositions(double tileOverlapPercent) throws InterruptedException;
 
-    public List<XYStagePosition> getXYPositionsNoUpdate() throws InterruptedException;
+    public abstract List<XYStagePosition> getXYPositionsNoUpdate() throws InterruptedException;
     
     /**
      * @return true if there is any intersection between footprint and position
      */
-    public boolean isDefinedAtPosition(XYStagePosition position); 
+    public abstract boolean isDefinedAtPosition(XYStagePosition position); 
     
-   public String getXYDevice();
+    public String getXYDevice() {
+       return xyString_;
+    }
     
+   public String toString() {
+      return name_;
+   }
+
+   public String getName() {
+      return name_;
+   }
+
+   public void rename(String newName) {
+      name_ = newName;
+      manager_.updateSurfaceTableAndCombos();
+   }
+
 }

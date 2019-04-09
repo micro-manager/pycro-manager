@@ -23,15 +23,15 @@ import javax.swing.DefaultComboBoxModel;
  *
  * @author Henry
  */
-public class SurfaceRegionComboBoxModel extends DefaultComboBoxModel {
+public class SurfaceGridComboBoxModel extends DefaultComboBoxModel {
    
-   private RegionManager rManager_;
-   private SurfaceManager sManager_;
+   private SurfaceGridManager manager_;
    private Object selectedItem_ = null;
+   private final boolean surfacesOnly_;
 
-   public SurfaceRegionComboBoxModel(SurfaceManager sManager, RegionManager rManager)  {
-      sManager_ = sManager;
-      rManager_ = rManager;
+   public SurfaceGridComboBoxModel(boolean surfacesOnly)  {
+      manager_ = SurfaceGridManager.getInstance();
+      surfacesOnly_ = surfacesOnly;
    }
 
    @Override
@@ -47,7 +47,7 @@ public class SurfaceRegionComboBoxModel extends DefaultComboBoxModel {
 
    @Override
    public int getSize() {
-      return (rManager_ != null ? rManager_.getNumberOfRegions() : 0) + (sManager_ != null ? sManager_.getNumberOfSurfaces() : 0); 
+      return manager_.getNumberOfGrids() + manager_.getNumberOfSurfaces(); 
    }
 
    @Override
@@ -55,22 +55,15 @@ public class SurfaceRegionComboBoxModel extends DefaultComboBoxModel {
       if (index == -1) {
          return null;
       }     
-      if (rManager_ != null && index < rManager_.getNumberOfRegions()) {
-         return rManager_.getRegion(index);         
-      } else if (rManager_ == null) {
-         return sManager_.getSurface(index);
+      if (surfacesOnly_) {
+         return manager_.getSurfaceOrGrid(index - manager_.getNumberOfGrids());
       } else {
-         return sManager_.getSurface(index - rManager_.getNumberOfRegions());
+         return manager_.getSurfaceOrGrid(index);
       }
    }
 
    public void update() {
-      if (sManager_ != null) {
-         super.fireContentsChanged(sManager_, -1, -1);
-      }
-      if (rManager_ != null) {
-         super.fireContentsChanged(rManager_, -1, -1);
-      }
+      super.fireContentsChanged(manager_, -1, -1);
    }
    
 }

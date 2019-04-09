@@ -44,7 +44,7 @@ import main.java.org.micromanager.plugins.magellan.misc.LongPoint;
 import main.java.org.micromanager.plugins.magellan.mmcloneclasses.graph.ContrastPanel;
 import org.apache.commons.math3.geometry.euclidean.twod.Vector2D;
 import main.java.org.micromanager.plugins.magellan.surfacesandregions.SingleResolutionInterpolation;
-import main.java.org.micromanager.plugins.magellan.surfacesandregions.MultiPosRegion;
+import main.java.org.micromanager.plugins.magellan.surfacesandregions.MultiPosGrid;
 import main.java.org.micromanager.plugins.magellan.surfacesandregions.Point3d;
 import main.java.org.micromanager.plugins.magellan.surfacesandregions.SurfaceInterpolator;
 
@@ -486,7 +486,7 @@ public class DisplayOverlayer {
       double dsTileWidth, dsTileHeight;
       dsTileWidth = tileWidth_ / (double) zoomableStack_.getDownsampleFactor();
       dsTileHeight = tileHeight_ / (double) zoomableStack_.getDownsampleFactor();
-      MultiPosRegion newGrid = display_.getCurrentRegion();
+      MultiPosGrid newGrid = display_.getCurrentGrid();
       if (newGrid == null) {
          return overlay;
       }
