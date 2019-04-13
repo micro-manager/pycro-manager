@@ -68,16 +68,12 @@ public class ChannelSetting {
       use_ = GlobalSettings.getInstance().getBooleanInPrefs(prefix + PREF_USE, true);
       uniqueEvent_ = uniqueEvent; // true for only first on multichannel camera
    }
-
-    public ChannelSetting copy() {
-        ChannelSetting s = new ChannelSetting(group_, config_, name_, uniqueEvent_);
-        s.exposure_ = exposure_;
-        s.color_ = new Color(color_.getRGB());
-        s.use_ = use_;
-        s.offset_ = offset_;
-        return s;
-    }
-
+   
+    public boolean getUse() {
+      System.out.println("Use" + this);
+      return use_;
+   }
+   
     public void storeChannelInfoInPrefs() {
         String prefix = FixedAreaAcquisitionSettings.PREF_PREFIX + "CHANNELGROUP" + group_ + "CHANNELNAME" + name_;
         GlobalSettings.getInstance().storeBooleanInPrefs(prefix + PREF_USE, use_);

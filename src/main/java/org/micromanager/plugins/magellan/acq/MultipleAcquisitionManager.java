@@ -329,5 +329,9 @@ public class MultipleAcquisitionManager {
          currentAcqs_.signalAcqSettingsChange();
       }
    }
+
+   public String getAcquisitionDescription(int index) {
+      return acqSettingsList_.get(index).toString();
+   }
    
 }

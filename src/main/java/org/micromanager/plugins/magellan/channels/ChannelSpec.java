@@ -20,12 +20,12 @@ public class ChannelSpec {
     }
     
     public void updateChannelGroup(String channelGroup) {
-        if (channels_ != null && channels_.size() != 0 && channels_.get(0).equals(channelGroup) ) {
+        if (channels_ != null && !channels_.isEmpty() && channels_.get(0).group_.equals(channelGroup) ) {
             //nothing to update
             return;
         } 
         //The channel group for this object has been 
-        int numCamChannels = (int) (GlobalSettings.getInstance().getDemoMode() ? DemoModeImageData.getNumChannels() : Magellan.getCore().getNumberOfCameraChannels());
+        int numCamChannels = (int) Magellan.getCore().getNumberOfCameraChannels();
         channels_ = new ArrayList<ChannelSetting>();
         if (numCamChannels <= 1) {
             for (String config : getChannelConfigs(channelGroup)) {
@@ -47,7 +47,7 @@ public class ChannelSpec {
     
     public void setUseOnAll(boolean use) {
         for (ChannelSetting c : channels_) {
-         c.use_ = use;
+           c.use_ = use;
         }
     }
 
@@ -60,7 +60,7 @@ public class ChannelSpec {
     
     public boolean anyActive() {
         for (ChannelSetting c : channels_) {
-         if (c.use_) {
+         if (c.getUse()) {
             return true;
          }
       }
@@ -70,7 +70,7 @@ public class ChannelSpec {
     public int getNumActiveChannels() {
          int count = 0;
         for (ChannelSetting c : channels_) {
-            count += c.use_ ? 1 : 0;
+            count += c.getUse() ? 1 : 0;
         }
         return count; 
     }
@@ -105,10 +105,10 @@ public class ChannelSpec {
     
     public ChannelSetting getActiveChannelSetting(int i) {
         for (ChannelSetting c : channels_) {
-            if (i == 0 && c.use_) {
+            if (i == 0 && c.getUse()) {
                 return c;
             }
-            if (c.use_) {
+            if (c.getUse()) {
                 i--;
             }
         }

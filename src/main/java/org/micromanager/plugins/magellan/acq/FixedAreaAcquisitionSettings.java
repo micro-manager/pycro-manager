@@ -126,7 +126,11 @@ public class FixedAreaAcquisitionSettings  {
       //channels
       prefs.put(PREF_PREFIX + "CHANNELGROUP", channelGroup_);
       //Individual channel settings sotred in ChannelUtils
-
+   }
+   
+   public String toString() {
+      //TODO
+      return "Dont worry about it";
    }
 
 }

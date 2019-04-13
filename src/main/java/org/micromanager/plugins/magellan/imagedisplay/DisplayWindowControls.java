@@ -7,10 +7,9 @@ package main.java.org.micromanager.plugins.magellan.imagedisplay;
 
 import main.java.org.micromanager.plugins.magellan.acq.Acquisition;
 import main.java.org.micromanager.plugins.magellan.acq.ExploreAcquisition;
-import main.java.org.micromanager.plugins.magellan.channels.SimpleChannelTableModel;
+import main.java.org.micromanager.plugins.magellan.gui.SimpleChannelTableModel;
 import com.google.common.eventbus.EventBus;
 import com.google.common.eventbus.Subscribe;
-import main.java.org.micromanager.plugins.magellan.gui.GUI;
 import java.awt.Color;
 import java.awt.Panel;
 import java.awt.event.MouseEvent;

@@ -15,7 +15,7 @@
 //               INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES.
 //
 
-package main.java.org.micromanager.plugins.magellan.channels;
+package main.java.org.micromanager.plugins.magellan.gui;
 
 import com.google.common.eventbus.Subscribe;
 import java.awt.Color;
@@ -23,6 +23,7 @@ import java.util.ArrayList;
 import javax.swing.event.TableModelEvent;
 import javax.swing.event.TableModelListener;
 import javax.swing.table.AbstractTableModel;
+import main.java.org.micromanager.plugins.magellan.channels.ChannelSpec;
 import main.java.org.micromanager.plugins.magellan.main.Magellan;
 import main.java.org.micromanager.plugins.magellan.misc.GlobalSettings;
 import mmcorej.CMMCore;
@@ -46,8 +47,7 @@ public class SimpleChannelTableModel extends AbstractTableModel implements Table
          "Configuration",
          "Exposure",
          "Z-offset (um)",
-         "Color",
-         
+         "Color",         
    };
       
       
@@ -120,7 +120,7 @@ public class SimpleChannelTableModel extends AbstractTableModel implements Table
    public Object getValueAt(int rowIndex, int columnIndex) {
             //use name exposure, color
       if (columnIndex == 0) {
-         return channels_.getChannelSetting(rowIndex).use_;
+         return channels_.getChannelSetting(rowIndex).getUse();
       } else if (columnIndex == 1) {
          return channels_.getChannelSetting(rowIndex).name_;
       } else if (columnIndex == 2) {
@@ -150,32 +150,32 @@ public class SimpleChannelTableModel extends AbstractTableModel implements Table
    @Override
    public void setValueAt(Object value, int row, int columnIndex) {
       //use name exposure, color  
-      int numCamChannels = (int) (GlobalSettings.getInstance().getDemoMode() ? DemoModeImageData.getNumChannels() : core_.getNumberOfCameraChannels());
+      int numCamChannels = (int) core_.getNumberOfCameraChannels();
       
       if (columnIndex == 0) {                   
-         channels_.getChannelSetting(row).use_ = (Boolean) value;
+         channels_.getChannelSetting(row).use_ = ((Boolean) value);
          //same for all other channels of the same camera_
          if (numCamChannels > 1) {
             for (int i = (row - row % numCamChannels); i < (row /numCamChannels + 1) * numCamChannels;i++ ) {
-               channels_.getChannelSetting(i).use_ = (Boolean) value;
+               channels_.getChannelSetting(i).use_ = ((Boolean) value);
             }
             fireTableDataChanged();
          }
       } else if (columnIndex == 1) {       
          //cant edit channel name
       } else if (columnIndex == 2) {
-         channels_.getChannelSetting(row).exposure_ = NumberUtils.parseDouble((String) value);
+         channels_.getChannelSetting(row).exposure_ = ((Double) value);
          //same for all other channels of the same camera_
          if (numCamChannels > 1) {
             for (int i = (row - row % numCamChannels); i < (row / numCamChannels + 1) * numCamChannels; i++) {
-               channels_.getChannelSetting(i).exposure_ = NumberUtils.parseDouble((String) value);
+               channels_.getChannelSetting(i).exposure_ = ((Double) value);
             }
             fireTableDataChanged();
          }
       } else if (columnIndex == 3) {
-          channels_.getChannelSetting(row).offset_ =  (Double) value;
+          channels_.getChannelSetting(row).offset_ = ((Double) value);
       } else {
-         channels_.getChannelSetting(row).color_ = (Color) value;
+         channels_.getChannelSetting(row).color_ = ((Color) value);
       }
       //Store the newly selected value in preferences
       channels_.storeCurrentSettingsInPrefs();
@@ -193,7 +193,7 @@ public class SimpleChannelTableModel extends AbstractTableModel implements Table
     @Subscribe
     public void onExposureChanged(ExposureChangedEvent event) {
         for (int i = 0; i < channels_.getNumChannels(); i++) {
-            channels_.getChannelSetting(i).exposure_ = event.getNewExposureTime();
+            channels_.getChannelSetting(i).exposure_ = ( event.getNewExposureTime());
         }
         fireTableDataChanged();
     }

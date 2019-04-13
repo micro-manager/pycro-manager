@@ -400,7 +400,7 @@ public class MagellanEngine {
             double startTime = System.currentTimeMillis();
             try {
                 final ChannelSetting setting = event.acquisition_.channels_.getActiveChannelSetting(event.channelIndex_);
-                if (setting.use_ && setting.config_ != null) {
+                if (setting.getUse() && setting.config_ != null) {
                     loopHardwareCommandRetries(new HardwareCommand() {
                         @Override
                         public void run() throws Exception {
@@ -479,7 +479,7 @@ public class MagellanEngine {
 
     public static JSONObject makeSummaryMD(Acquisition acq, String prefix) {
         //num channels is camera channels * acquisitionChannels
-        int numChannels = GlobalSettings.getInstance().getDemoMode() ? DemoModeImageData.getNumChannels() : acq.getNumChannels();
+        int numChannels =  acq.getNumChannels();
 
         CMMCore core = Magellan.getCore();
         JSONObject summary = new JSONObject();
