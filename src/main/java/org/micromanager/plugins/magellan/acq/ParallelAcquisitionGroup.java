@@ -44,7 +44,7 @@ public class ParallelAcquisitionGroup implements AcquisitionEventSource {
     /**
      * constructor for a single acquisition (nothing actually in parallel)
      */
-    public ParallelAcquisitionGroup(final List<FixedAreaAcquisitionSettings> settingsList,
+    public ParallelAcquisitionGroup(final List<AcquisitionSettings> settingsList,
             MultipleAcquisitionManager acqManager, EventBus bus) {
         multiAcqManager_ = acqManager;
         acqs_ = new ArrayList<FixedAreaAcquisition>();

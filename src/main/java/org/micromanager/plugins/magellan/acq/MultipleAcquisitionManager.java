@@ -30,7 +30,7 @@ import main.java.org.micromanager.plugins.magellan.misc.Log;
  */
 public class MultipleAcquisitionManager {
    
-   private ArrayList<FixedAreaAcquisitionSettings> acqSettingsList_ = new ArrayList<FixedAreaAcquisitionSettings>();
+   private ArrayList<AcquisitionSettings> acqSettingsList_ = new ArrayList<AcquisitionSettings>();
    private ArrayList<Integer> numberInGroup_ = new ArrayList<Integer>();
    private String[] acqStatus_;
    private GUI gui_;
@@ -42,13 +42,13 @@ public class MultipleAcquisitionManager {
    
    public MultipleAcquisitionManager(GUI gui, MagellanEngine eng ) {
       gui_ = gui;
-      acqSettingsList_.add(new FixedAreaAcquisitionSettings());
+      acqSettingsList_.add(new AcquisitionSettings());
       eng_ = eng;
       eng_.setMultiAcqManager(this);
       numberInGroup_.add(1);
    }
       
-   public FixedAreaAcquisitionSettings getAcquisitionSettings(int index) {
+   public AcquisitionSettings getAcquisitionSettings(int index) {
       return acqSettingsList_.get(index);
    }
    
@@ -118,7 +118,7 @@ public class MultipleAcquisitionManager {
    }
    
    public void addNew() {
-      acqSettingsList_.add(new FixedAreaAcquisitionSettings());
+      acqSettingsList_.add(new AcquisitionSettings());
             numberInGroup_.add(1);
    }
    
@@ -300,7 +300,7 @@ public class MultipleAcquisitionManager {
       gui_.enableMultiAcquisitionControls(true);
    }
    
-   public void markAsAborted(FixedAreaAcquisitionSettings settings) {
+   public void markAsAborted(AcquisitionSettings settings) {
       if (acqStatus_ != null) {
          acqStatus_[acqSettingsList_.indexOf(settings)] = "Aborted";
          gui_.repaint();

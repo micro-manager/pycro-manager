@@ -17,7 +17,7 @@
 
 package main.java.org.micromanager.plugins.magellan.surfacesandregions;
 
-import main.java.org.micromanager.plugins.magellan.acq.FixedAreaAcquisitionSettings;
+import main.java.org.micromanager.plugins.magellan.acq.AcquisitionSettings;
 import main.java.org.micromanager.plugins.magellan.coordinates.AffineUtils;
 import main.java.org.micromanager.plugins.magellan.coordinates.XYStagePosition;
 import java.awt.geom.AffineTransform;
@@ -164,7 +164,7 @@ public abstract class SurfaceInterpolator extends XYFootprint {
       synchronized (xyPositionLock_) {
          xyPositions_ = null;
       }
-      updateXYPositionsOnly(FixedAreaAcquisitionSettings.getStoredTileOverlapPercentage());
+      updateXYPositionsOnly(AcquisitionSettings.getStoredTileOverlapPercentage());
    }
 
    /**
@@ -324,7 +324,7 @@ public abstract class SurfaceInterpolator extends XYFootprint {
     */
    public ArrayList<XYStagePosition> getXYPositonsAtSlice(double zPos, boolean above) throws InterruptedException {
       SingleResolutionInterpolation interp = waitForCurentInterpolation();
-      double overlapPercent = FixedAreaAcquisitionSettings.getStoredTileOverlapPercentage() / 100;
+      double overlapPercent = AcquisitionSettings.getStoredTileOverlapPercentage() / 100;
       int overlapX = (int) (Magellan.getCore().getImageWidth() * overlapPercent);
       int overlapY = (int) (Magellan.getCore().getImageHeight() * overlapPercent);
       int tileWidth = (int) (Magellan.getCore().getImageWidth() - overlapX);
@@ -622,7 +622,7 @@ public abstract class SurfaceInterpolator extends XYFootprint {
       numCols_ = 0;
 
 
-      currentInterpolationTask_ = executor_.submit( new Runnable() {
+      currentInterpolationTask_ = executor_.submit(new Runnable() {
          @Override
          public void run() {
             if (points.size() > 2) {
@@ -654,7 +654,7 @@ public abstract class SurfaceInterpolator extends XYFootprint {
                   }
                   //use the most recently set overlap value for display purposes. When it comes time to calc the real thing, 
                   //get it from the acquisition settings
-                  fitXYPositionsToConvexHull(FixedAreaAcquisitionSettings.getStoredTileOverlapPercentage());
+                  fitXYPositionsToConvexHull(AcquisitionSettings.getStoredTileOverlapPercentage());
                   //Interpolate surface as specified by the subclass method
                   interpolateSurface(points);
                   //let manager handle event firing to acquisitions using surface

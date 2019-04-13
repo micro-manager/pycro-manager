@@ -16,7 +16,7 @@
 //
 package main.java.org.micromanager.plugins.magellan.surfacesandregions;
 
-import main.java.org.micromanager.plugins.magellan.acq.FixedAreaAcquisitionSettings;
+import main.java.org.micromanager.plugins.magellan.acq.AcquisitionSettings;
 import main.java.org.micromanager.plugins.magellan.coordinates.AffineUtils;
 import main.java.org.micromanager.plugins.magellan.coordinates.XYStagePosition;
 import java.awt.geom.AffineTransform;
@@ -68,7 +68,7 @@ public class MultiPosGrid extends XYFootprint {
    }
 
    public void updateParams(int rows, int cols) {
-      updateOverlap(FixedAreaAcquisitionSettings.getStoredTileOverlapPercentage() / 100);
+      updateOverlap(AcquisitionSettings.getStoredTileOverlapPercentage() / 100);
       rows_ = rows;
       cols_ = cols;
       manager_.updateSurfaceTableAndCombos();

@@ -30,7 +30,7 @@ import main.java.org.micromanager.plugins.magellan.surfacesandregions.XYFootprin
  *
  * @author Henry
  */
-public class FixedAreaAcquisitionSettings  {
+public class AcquisitionSettings  {
    
    public static final String PREF_PREFIX = "Fixed area acquisition ";
 
@@ -67,15 +67,7 @@ public class FixedAreaAcquisitionSettings  {
    public String channelGroup_;
    public ChannelSpec channels_ ;
 
-   //autofocus
-   public boolean autofocusEnabled_;
-   public String autoFocusZDevice_;
-   public String autofocusChannelName_;
-   public double autofocusMaxDisplacemnet_um_;
-   public boolean setInitialAutofocusPosition_;
-   public double initialAutofocusPosition_;
-   
-   public FixedAreaAcquisitionSettings() {
+   public AcquisitionSettings() {
       Preferences prefs = Magellan.getPrefs();
       name_ = prefs.get(PREF_PREFIX + "NAME", "Untitled");
       timeEnabled_ = prefs.getBoolean(PREF_PREFIX + "TE", false);
@@ -129,7 +121,8 @@ public class FixedAreaAcquisitionSettings  {
    }
    
    public String toString() {
-      //TODO
+      String s = "";
+      if (spaceMode_.equals F)
       return "Dont worry about it";
    }
 

@@ -39,10 +39,8 @@ public class ExploreAcquisition extends Acquisition {
     private static final int EXPLORE_EVENT_QUEUE_CAP = 2000; //big so you can see a lot of tiles waiting to be acquired
 
     private volatile double zTop_, zBottom_;
-    private volatile int minSliceIndex_ = 0, maxSliceIndex_ = 0;
     private ExecutorService eventAdderExecutor_ = Executors.newSingleThreadExecutor();
     private ConcurrentHashMap<Integer, LinkedBlockingQueue<ExploreTileWaitingToAcquire>> queuedTileEvents_ = new ConcurrentHashMap<Integer, LinkedBlockingQueue<ExploreTileWaitingToAcquire>>();
-    private double zOrigin_;
     private ChannelSpec channels_;
 
     public ExploreAcquisition(ExploreAcqSettings settings) throws Exception {
@@ -249,31 +247,6 @@ public class ExploreAcquisition extends Acquisition {
         });
     }
 
-    @Override
-    public double getZCoordinateOfDisplaySlice(int displaySliceIndex) {
-        //No frames in explorer acquisition
-        displaySliceIndex += minSliceIndex_;
-        return zOrigin_ + zStep_ * displaySliceIndex;
-    }
-
-    @Override
-    public int getDisplaySliceIndexFromZCoordinate(double z) {
-        return (int) Math.round((z - zOrigin_) / zStep_) - minSliceIndex_;
-    }
-
-    /**
-     * return the slice index of the lowest slice seen in this acquisition
-     *
-     * @return
-     */
-    public int getMinSliceIndex() {
-        return minSliceIndex_;
-    }
-
-    public int getMaxSliceIndex() {
-        return maxSliceIndex_;
-    }
-
     public void updateLowestAndHighestSlices() {
         //keep track of this for the purposes of the viewer
         minSliceIndex_ = Math.min(minSliceIndex_, getZLimitMinSliceIndex());
@@ -291,8 +264,6 @@ public class ExploreAcquisition extends Acquisition {
 
     /**
      * get max slice index for current settings in explore acquisition
-     *
-     * @return
      */
     private int getZLimitMaxSliceIndex() {
         return (int) Math.round((zBottom_ - zOrigin_) / zStep_);
@@ -300,10 +271,8 @@ public class ExploreAcquisition extends Acquisition {
 
     /**
      * get z coordinate for slice position
-     *
-     * @return
      */
-    public double getZCoordinate(int sliceIndex) {
+    private double getZCoordinate(int sliceIndex) {
         return zOrigin_ + zStep_ * sliceIndex;
     }
 

@@ -136,7 +136,7 @@ public class AcqDurationEstimator {
       }
    }
 
-   public synchronized void calcAcqDuration(FixedAreaAcquisitionSettings settings) {
+   public synchronized void calcAcqDuration(AcquisitionSettings settings) {
       if (currentTask_ != null && !currentTask_.isDone()) {
          currentTask_.cancel(true);
       }
@@ -149,7 +149,7 @@ public class AcqDurationEstimator {
       }
    }
    
-   private Runnable estimateDuration(final FixedAreaAcquisitionSettings settings) {
+   private Runnable estimateDuration(final AcquisitionSettings settings) {
       return new Runnable() {
          @Override
          public void run() {
@@ -187,7 +187,7 @@ public class AcqDurationEstimator {
                   while (true) {
                      checkForInterrupt();
                      double zPos = zOrigin + sliceIndex * settings.zStep_;
-                     if ((settings.spaceMode_ == FixedAreaAcquisitionSettings.REGION_2D || settings.spaceMode_ == FixedAreaAcquisitionSettings.NO_SPACE)
+                     if ((settings.spaceMode_ == AcquisitionSettings.REGION_2D || settings.spaceMode_ == AcquisitionSettings.NO_SPACE)
                              && sliceIndex > 0) {
                         numImages++;
                         xyMoves++;
@@ -259,16 +259,16 @@ public class AcqDurationEstimator {
    
    
 
-   private List<XYStagePosition> getXYPositions(FixedAreaAcquisitionSettings settings) throws Exception, InterruptedException {
+   private List<XYStagePosition> getXYPositions(AcquisitionSettings settings) throws Exception, InterruptedException {
       List<XYStagePosition> list;
-      if (settings.spaceMode_ == FixedAreaAcquisitionSettings.SURFACE_FIXED_DISTANCE_Z_STACK) {
+      if (settings.spaceMode_ == AcquisitionSettings.SURFACE_FIXED_DISTANCE_Z_STACK) {
          list = settings.footprint_.getXYPositionsNoUpdate();
-      } else if (settings.spaceMode_ == FixedAreaAcquisitionSettings.VOLUME_BETWEEN_SURFACES_Z_STACK) {
-         list = settings.useTopOrBottomFootprint_ == FixedAreaAcquisitionSettings.FOOTPRINT_FROM_TOP
+      } else if (settings.spaceMode_ == AcquisitionSettings.VOLUME_BETWEEN_SURFACES_Z_STACK) {
+         list = settings.useTopOrBottomFootprint_ == AcquisitionSettings.FOOTPRINT_FROM_TOP
                  ? settings.topSurface_.getXYPositionsNoUpdate() : settings.bottomSurface_.getXYPositionsNoUpdate();
-      } else if (settings.spaceMode_ == FixedAreaAcquisitionSettings.SIMPLE_Z_STACK) {
+      } else if (settings.spaceMode_ == AcquisitionSettings.SIMPLE_Z_STACK) {
          list = settings.footprint_.getXYPositionsNoUpdate();
-      } else if (settings.spaceMode_ == FixedAreaAcquisitionSettings.REGION_2D) {
+      } else if (settings.spaceMode_ == AcquisitionSettings.REGION_2D) {
          list = settings.footprint_.getXYPositionsNoUpdate();
       } else {
          list = new ArrayList<XYStagePosition>();

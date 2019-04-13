@@ -40,6 +40,8 @@ public abstract class Acquisition implements AcquisitionEventSource{
    private static final int OUTPUT_QUEUE_SIZE = 40;
    
    protected final double zStep_;
+   protected double zOrigin_;
+   protected volatile int minSliceIndex_ = 0, maxSliceIndex_ = 0;
    private BlockingQueue<MagellanTaggedImage> engineOutputQueue_;
    protected String xyStage_, zStage_;
    protected boolean zStageHasLimits_ = false;
@@ -75,6 +77,20 @@ public abstract class Acquisition implements AcquisitionEventSource{
       events_ = new LinkedBlockingDeque<AcquisitionEvent>(getAcqEventQueueCap());
    }
    
+   public abstract int getAcqEventQueueCap();
+
+    /**
+    * Get initial number of frames (but this can change during acq)
+    * @return 
+    */
+   public abstract int getInitialNumFrames();
+   
+   public abstract int getInitialNumSlicesEstimate();
+   
+   protected abstract JSONArray createInitialPositionList();
+   
+   public abstract void abort();
+
    public AcquisitionEvent getNextEvent() throws InterruptedException {
       synchronized (pauseLock_) {
          while (pause_) {
@@ -86,8 +102,6 @@ public abstract class Acquisition implements AcquisitionEventSource{
       return event;
    }
    
-   public abstract int getAcqEventQueueCap();
-
    public MultiResMultipageTiffStorage getStorage() {
       return imageStorage_;
    }
@@ -107,10 +121,14 @@ public abstract class Acquisition implements AcquisitionEventSource{
     * @param frameIndex -
     * @return
     */
-   public abstract double getZCoordinateOfDisplaySlice(int displaySliceIndex);
-
-   public abstract int getDisplaySliceIndexFromZCoordinate(double z);
-
+   public double getZCoordinateOfDisplaySlice(int displaySliceIndex) {
+      displaySliceIndex += minSliceIndex_;
+      return zOrigin_ + zStep_ * displaySliceIndex;
+   }
+   
+    public int getDisplaySliceIndexFromZCoordinate(double z) {
+        return (int) Math.round((z - zOrigin_) / zStep_) - minSliceIndex_;
+    }
    /**
     * Return the maximum number of possible channels for the acquisition, not all of which are neccessarily active
     * @return 
@@ -123,28 +141,22 @@ public abstract class Acquisition implements AcquisitionEventSource{
       return channels_;
    }
    
-   /**
-    * Get initial number of frames (but this can change during acq)
-    * @return 
-    */
-   public abstract int getInitialNumFrames();
-   
-   public abstract int getInitialNumSlicesEstimate();
-   
    public int getNumSlices() {
-      return getMaxSliceIndex() - getMinSliceIndex() + 1;
+      return maxSliceIndex_ - minSliceIndex_ + 1;
    }
 
-   public abstract int getMinSliceIndex();
+   public int getMinSliceIndex() {
+      return minSliceIndex_;
+   }
 
-   public abstract int getMaxSliceIndex();
+   public int getMaxSliceIndex() {
+      return maxSliceIndex_;
+   }
    
    public boolean isFinished() {
       return finished_;
    }
-   
-   public abstract void abort();
-   
+      
    public void markAsFinished() {
       lastImage_ = null;
       finished_ = true;
@@ -206,8 +218,6 @@ public abstract class Acquisition implements AcquisitionEventSource{
       }
    }
 
-   protected abstract JSONArray createInitialPositionList();
-
    public boolean isPaused() {
       return pause_; 
    }
@@ -218,7 +228,6 @@ public abstract class Acquisition implements AcquisitionEventSource{
          pauseLock_.notifyAll();
       }
    }
-
    
    public String[] getChannelNames() {
       return channels_.getActiveChannelNames();

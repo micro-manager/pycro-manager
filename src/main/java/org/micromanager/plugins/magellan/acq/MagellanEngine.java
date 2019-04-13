@@ -77,51 +77,51 @@ public class MagellanEngine {
         });
     }
 
-    private void validateSettings(FixedAreaAcquisitionSettings settings) throws Exception {
+    private void validateSettings(AcquisitionSettings settings) throws Exception {
         //space
         //non null surface
-        if ((settings.spaceMode_ == FixedAreaAcquisitionSettings.REGION_2D || settings.spaceMode_ == FixedAreaAcquisitionSettings.SIMPLE_Z_STACK)
+        if ((settings.spaceMode_ == AcquisitionSettings.REGION_2D || settings.spaceMode_ == AcquisitionSettings.SIMPLE_Z_STACK)
                 && settings.footprint_ == null) {
             Log.log("Error: No surface or region selected for " + settings.name_, true);
             throw new Exception();
         }
-        if (settings.spaceMode_ == FixedAreaAcquisitionSettings.SURFACE_FIXED_DISTANCE_Z_STACK && settings.fixedSurface_ == null) {
+        if (settings.spaceMode_ == AcquisitionSettings.SURFACE_FIXED_DISTANCE_Z_STACK && settings.fixedSurface_ == null) {
             Log.log("Error: No surface selected for " + settings.name_, true);
             throw new Exception();
         }
-        if (settings.spaceMode_ == FixedAreaAcquisitionSettings.SURFACE_FIXED_DISTANCE_Z_STACK && settings.footprint_ == null) {
+        if (settings.spaceMode_ == AcquisitionSettings.SURFACE_FIXED_DISTANCE_Z_STACK && settings.footprint_ == null) {
             Log.log("Error: No xy footprint selected for " + settings.name_, true);
             throw new Exception();
         }
-        if (settings.spaceMode_ == FixedAreaAcquisitionSettings.VOLUME_BETWEEN_SURFACES_Z_STACK
+        if (settings.spaceMode_ == AcquisitionSettings.VOLUME_BETWEEN_SURFACES_Z_STACK
                 && (settings.topSurface_ == null || settings.bottomSurface_ == null)) {
             Log.log("Error: No surface selected for " + settings.name_, true);
             throw new Exception();
         }
         //correct coordinate devices--XY
-        if ((settings.spaceMode_ == FixedAreaAcquisitionSettings.REGION_2D || settings.spaceMode_ == FixedAreaAcquisitionSettings.SIMPLE_Z_STACK)
+        if ((settings.spaceMode_ == AcquisitionSettings.REGION_2D || settings.spaceMode_ == AcquisitionSettings.SIMPLE_Z_STACK)
                 && !settings.footprint_.getXYDevice().equals(core_.getXYStageDevice())) {
             Log.log("Error: XY device for surface/grid does match XY device in MM core in " + settings.name_, true);
             throw new Exception();
         }
-        if (settings.spaceMode_ == FixedAreaAcquisitionSettings.SURFACE_FIXED_DISTANCE_Z_STACK
+        if (settings.spaceMode_ == AcquisitionSettings.SURFACE_FIXED_DISTANCE_Z_STACK
                 && !settings.fixedSurface_.getXYDevice().equals(core_.getXYStageDevice())) {
             Log.log("Error: XY device for surface does match XY device in MM core in " + settings.name_, true);
             throw new Exception();
         }
-        if (settings.spaceMode_ == FixedAreaAcquisitionSettings.VOLUME_BETWEEN_SURFACES_Z_STACK
+        if (settings.spaceMode_ == AcquisitionSettings.VOLUME_BETWEEN_SURFACES_Z_STACK
                 && (!settings.topSurface_.getXYDevice().equals(core_.getXYStageDevice())
                 || !settings.bottomSurface_.getXYDevice().equals(core_.getXYStageDevice()))) {
             Log.log("Error: XY device for surface does match XY device in MM core in " + settings.name_, true);
             throw new Exception();
         }
         //correct coordinate device--Z
-        if (settings.spaceMode_ == FixedAreaAcquisitionSettings.SURFACE_FIXED_DISTANCE_Z_STACK
+        if (settings.spaceMode_ == AcquisitionSettings.SURFACE_FIXED_DISTANCE_Z_STACK
                 && !settings.fixedSurface_.getZDevice().equals(core_.getFocusDevice())) {
             Log.log("Error: Z device for surface does match Z device in MM core in " + settings.name_, true);
             throw new Exception();
         }
-        if (settings.spaceMode_ == FixedAreaAcquisitionSettings.VOLUME_BETWEEN_SURFACES_Z_STACK
+        if (settings.spaceMode_ == AcquisitionSettings.VOLUME_BETWEEN_SURFACES_Z_STACK
                 && (!settings.topSurface_.getZDevice().equals(core_.getFocusDevice())
                 || !settings.bottomSurface_.getZDevice().equals(core_.getFocusDevice()))) {
             Log.log("Error: Z device for surface does match Z device in MM core in " + settings.name_, true);
@@ -138,9 +138,9 @@ public class MagellanEngine {
     /**
      * Called by run acquisition button
      */
-    public void runFixedAreaAcquisition(final FixedAreaAcquisitionSettings settings) {
+    public void runFixedAreaAcquisition(final AcquisitionSettings settings) {
         try {
-            runInterleavedAcquisitions(Arrays.asList(new FixedAreaAcquisitionSettings[]{settings}), false);
+            runInterleavedAcquisitions(Arrays.asList(new AcquisitionSettings[]{settings}), false);
         } catch (Exception ex) {
             Log.log(ex);
         }
@@ -149,9 +149,9 @@ public class MagellanEngine {
     /**
      * Called by run all button
      */
-    public synchronized ParallelAcquisitionGroup runInterleavedAcquisitions(List<FixedAreaAcquisitionSettings> acqs, boolean multiAcq) throws Exception {
+    public synchronized ParallelAcquisitionGroup runInterleavedAcquisitions(List<AcquisitionSettings> acqs, boolean multiAcq) throws Exception {
         //validate proposed settings
-        for (FixedAreaAcquisitionSettings settings : acqs) {
+        for (AcquisitionSettings settings : acqs) {
             validateSettings(settings);
         }
 
@@ -331,11 +331,8 @@ public class MagellanEngine {
             loopHardwareCommandRetries(new HardwareCommand() {
                 @Override
                 public void run() throws Exception {
-                    double afCorrection = 0;
-                    if (event.acquisition_ instanceof FixedAreaAcquisition && ((FixedAreaAcquisition) event.acquisition_).getSettings().autofocusEnabled_
-                            && !event.isAutofocusEvent()) { //Dont apply previous autofocus correction on new af image
-                        afCorrection = ((FixedAreaAcquisition) event.acquisition_).getAFCorrection();
-                    }
+                   //Could implement autofocus correction here 
+                   double afCorrection = 0;
                     core_.setPosition(zStage, event.zPosition_ + afCorrection);
                 }
             }, "move Z device");
@@ -467,9 +464,9 @@ public class MagellanEngine {
             //add data about surface
             //right now this only works for fixed distance from the surface
             if ((event.acquisition_ instanceof FixedAreaAcquisition)
-                    && ((FixedAreaAcquisition) event.acquisition_).getSpaceMode() == FixedAreaAcquisitionSettings.SURFACE_FIXED_DISTANCE_Z_STACK) {
+                    && ((FixedAreaAcquisition) event.acquisition_).getSpaceMode() == AcquisitionSettings.SURFACE_FIXED_DISTANCE_Z_STACK) {
                 //add metadata about surface
-                MD.setSurfacePoints(tags, ((FixedAreaAcquisition) event.acquisition_).getSurfacePoints());
+                MD.setSurfacePoints(tags, ((FixedAreaAcquisition) event.acquisition_).getFixedSurfacePoints());
             }
         } catch (Exception e) {
             Log.log("Problem adding image metadata");
