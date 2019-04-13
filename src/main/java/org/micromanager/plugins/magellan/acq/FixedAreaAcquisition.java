@@ -114,7 +114,7 @@ public class FixedAreaAcquisition extends Acquisition implements SurfaceChangedL
       } else if (settings_.spaceMode_ == AcquisitionSettings.VOLUME_BETWEEN_SURFACES_Z_STACK
               && (settings_.topSurface_ == surface || settings_.bottomSurface_ == surface)) {
          updateNeeded = true;
-      } else if (settings_.spaceMode_ == AcquisitionSettings.SIMPLE_Z_STACK) {
+      } else if (settings_.spaceMode_ == AcquisitionSettings.CUBOID_Z_STACK) {
 
       } else if (settings_.spaceMode_ == AcquisitionSettings.REGION_2D) {
 
@@ -142,7 +142,7 @@ public class FixedAreaAcquisition extends Acquisition implements SurfaceChangedL
          } else if (settings_.spaceMode_ == AcquisitionSettings.VOLUME_BETWEEN_SURFACES_Z_STACK) {
             positions_ = settings_.useTopOrBottomFootprint_ == AcquisitionSettings.FOOTPRINT_FROM_TOP
                     ? settings_.topSurface_.getXYPositions(settings_.tileOverlap_) : settings_.bottomSurface_.getXYPositions(settings_.tileOverlap_);
-         } else if (settings_.spaceMode_ == AcquisitionSettings.SIMPLE_Z_STACK) {
+         } else if (settings_.spaceMode_ == AcquisitionSettings.CUBOID_Z_STACK) {
             positions_ = settings_.footprint_.getXYPositions(settings_.tileOverlap_);
          } else if (settings_.spaceMode_ == AcquisitionSettings.REGION_2D) {
             positions_ = settings_.footprint_.getXYPositions(settings_.tileOverlap_);
@@ -567,7 +567,7 @@ public class FixedAreaAcquisition extends Acquisition implements SurfaceChangedL
          return settings.fixedSurface_.isPositionCompletelyAboveSurface(position, settings.fixedSurface_, zPos + settings.distanceAboveFixedSurface_, extrapolate);
       } else if (spaceMode == AcquisitionSettings.VOLUME_BETWEEN_SURFACES_Z_STACK) {
          return settings.topSurface_.isPositionCompletelyAboveSurface(position, settings.topSurface_, zPos + settings.distanceAboveTopSurface_, false);
-      } else if (spaceMode == AcquisitionSettings.SIMPLE_Z_STACK) {
+      } else if (spaceMode == AcquisitionSettings.CUBOID_Z_STACK) {
          return zPos < settings.zStart_;
       } else {
          //no zStack
@@ -582,7 +582,7 @@ public class FixedAreaAcquisition extends Acquisition implements SurfaceChangedL
          return settings.fixedSurface_.isPositionCompletelyBelowSurface(position, settings.fixedSurface_, zPos - settings.distanceBelowFixedSurface_, extrapolate);
       } else if (spaceMode == AcquisitionSettings.VOLUME_BETWEEN_SURFACES_Z_STACK) {
          return settings.bottomSurface_.isPositionCompletelyBelowSurface(position, settings.bottomSurface_, zPos - settings.distanceBelowBottomSurface_, false);
-      } else if (spaceMode == AcquisitionSettings.SIMPLE_Z_STACK) {
+      } else if (spaceMode == AcquisitionSettings.CUBOID_Z_STACK) {
          return zPos > settings.zEnd_;
       } else {
          //no zStack
@@ -615,7 +615,7 @@ public class FixedAreaAcquisition extends Acquisition implements SurfaceChangedL
             double top = interpPoints[interpPoints.length - 1].z + settings.distanceAboveTopSurface_;
             return zStageHasLimits ? Math.max(zStageLowerLimit, top) : top;
          }
-      } else if (spaceMode == AcquisitionSettings.SIMPLE_Z_STACK) {
+      } else if (spaceMode == AcquisitionSettings.CUBOID_Z_STACK) {
          return settings.zStart_;
       } else {
          try {
@@ -673,7 +673,7 @@ public class FixedAreaAcquisition extends Acquisition implements SurfaceChangedL
          double top = interpPoints[0].z;
          double bottom = interpPoints[interpPoints.length - 1].z;
          return (int) Math.ceil((Math.abs(top - bottom) + settings_.distanceAboveTopSurface_ + settings_.distanceBelowBottomSurface_) / zStep_);
-      } else if (settings_.spaceMode_ == AcquisitionSettings.SIMPLE_Z_STACK) {
+      } else if (settings_.spaceMode_ == AcquisitionSettings.CUBOID_Z_STACK) {
          return (int) Math.ceil(Math.abs(settings_.zStart_ - settings_.zEnd_) / zStep_);
       } else {
          //region2D or no region

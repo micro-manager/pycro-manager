@@ -339,7 +339,7 @@ public class GUI extends javax.swing.JFrame {
          settings.zStep_ = (Double) zStepSpinner_.getValue();
          settings.channelsAtEverySlice_ = acqOrderCombo_.getSelectedIndex() == 0;
          if (cuboidVolumeButton_.isSelected()) {
-            settings.spaceMode_ = AcquisitionSettings.SIMPLE_Z_STACK;
+            settings.spaceMode_ = AcquisitionSettings.CUBOID_Z_STACK;
             settings.footprint_ = manager_.getSurfaceOrGrid(simpleZStackFootprintCombo_.getSelectedIndex());
             settings.zStart_ = (Double) zStartSpinner_.getValue();
             settings.zEnd_ = (Double) zEndSpinner_.getValue();
@@ -398,7 +398,7 @@ public class GUI extends javax.swing.JFrame {
          button3D_.setSelected(true);
          button3D_ActionPerformed(null);
       }
-      if (settings.spaceMode_ == AcquisitionSettings.SIMPLE_Z_STACK) {
+      if (settings.spaceMode_ == AcquisitionSettings.CUBOID_Z_STACK) {
          cuboidVolumeButton_.setSelected(true);
          cuboidVolumeButton_ActionPerformed(null);
       } else if (settings.spaceMode_ == AcquisitionSettings.VOLUME_BETWEEN_SURFACES_Z_STACK) {

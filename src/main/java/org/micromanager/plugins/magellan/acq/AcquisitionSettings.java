@@ -35,7 +35,7 @@ public class AcquisitionSettings  {
    public static final String PREF_PREFIX = "Fixed area acquisition ";
 
    public static final int NO_SPACE = 0;
-   public static final int SIMPLE_Z_STACK = 1;
+   public static final int CUBOID_Z_STACK = 1;
    public static final int SURFACE_FIXED_DISTANCE_Z_STACK = 2;
    public static final int VOLUME_BETWEEN_SURFACES_Z_STACK = 3;
    public static final int REGION_2D = 4;
@@ -122,8 +122,25 @@ public class AcquisitionSettings  {
    
    public String toString() {
       String s = "";
-      if (spaceMode_.equals F)
-      return "Dont worry about it";
+      if (spaceMode_ == CUBOID_Z_STACK) {
+         s += "Cuboid volume";
+      } else if (spaceMode_ == SURFACE_FIXED_DISTANCE_Z_STACK) {
+         s += "Volume within distance from surface";
+      } else if (spaceMode_ == VOLUME_BETWEEN_SURFACES_Z_STACK) {
+         s += "Volume bounded by surfaces";
+      } else if (spaceMode_ == REGION_2D && collectionPlane_ == null) {
+         s += "2D plane";
+      } else {
+         s += "2D along surface";
+      }
+      int numC = channels_.getNumActiveChannels();
+      if (numC > 1) {
+         s += " " + numC + " channels";
+      }
+      if (timeEnabled_) {
+         s += " " + numTimePoints_ + " time points";
+      }
+      return s;
    }
 
 }

@@ -266,7 +266,7 @@ public class AcqDurationEstimator {
       } else if (settings.spaceMode_ == AcquisitionSettings.VOLUME_BETWEEN_SURFACES_Z_STACK) {
          list = settings.useTopOrBottomFootprint_ == AcquisitionSettings.FOOTPRINT_FROM_TOP
                  ? settings.topSurface_.getXYPositionsNoUpdate() : settings.bottomSurface_.getXYPositionsNoUpdate();
-      } else if (settings.spaceMode_ == AcquisitionSettings.SIMPLE_Z_STACK) {
+      } else if (settings.spaceMode_ == AcquisitionSettings.CUBOID_Z_STACK) {
          list = settings.footprint_.getXYPositionsNoUpdate();
       } else if (settings.spaceMode_ == AcquisitionSettings.REGION_2D) {
          list = settings.footprint_.getXYPositionsNoUpdate();

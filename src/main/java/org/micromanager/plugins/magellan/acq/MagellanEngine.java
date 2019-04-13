@@ -80,7 +80,7 @@ public class MagellanEngine {
     private void validateSettings(AcquisitionSettings settings) throws Exception {
         //space
         //non null surface
-        if ((settings.spaceMode_ == AcquisitionSettings.REGION_2D || settings.spaceMode_ == AcquisitionSettings.SIMPLE_Z_STACK)
+        if ((settings.spaceMode_ == AcquisitionSettings.REGION_2D || settings.spaceMode_ == AcquisitionSettings.CUBOID_Z_STACK)
                 && settings.footprint_ == null) {
             Log.log("Error: No surface or region selected for " + settings.name_, true);
             throw new Exception();
@@ -99,7 +99,7 @@ public class MagellanEngine {
             throw new Exception();
         }
         //correct coordinate devices--XY
-        if ((settings.spaceMode_ == AcquisitionSettings.REGION_2D || settings.spaceMode_ == AcquisitionSettings.SIMPLE_Z_STACK)
+        if ((settings.spaceMode_ == AcquisitionSettings.REGION_2D || settings.spaceMode_ == AcquisitionSettings.CUBOID_Z_STACK)
                 && !settings.footprint_.getXYDevice().equals(core_.getXYStageDevice())) {
             Log.log("Error: XY device for surface/grid does match XY device in MM core in " + settings.name_, true);
             throw new Exception();
