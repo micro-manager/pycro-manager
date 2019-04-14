@@ -62,7 +62,7 @@ public class MagellanEngine {
     private ExploreAcquisition currentExploreAcq_;
     private ParallelAcquisitionGroup currentFixedAcqs_;
     private MultipleAcquisitionManager multiAcqManager_;
-    private ExecutorService acqExecutor_;
+    private final ExecutorService acqExecutor_;
     private EventBus bus_;
     private AcqDurationEstimator acqDurationEstiamtor_;
 
@@ -397,7 +397,7 @@ public class MagellanEngine {
             double startTime = System.currentTimeMillis();
             try {
                 final ChannelSetting setting = event.acquisition_.channels_.getActiveChannelSetting(event.channelIndex_);
-                if (setting.getUse() && setting.config_ != null) {
+                if (setting.use_ && setting.config_ != null) {
                     loopHardwareCommandRetries(new HardwareCommand() {
                         @Override
                         public void run() throws Exception {

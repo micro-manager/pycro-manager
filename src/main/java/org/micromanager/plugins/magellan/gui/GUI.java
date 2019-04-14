@@ -128,6 +128,15 @@ public class GUI extends javax.swing.JFrame {
       this.repaint();
    }
 
+   public static void updateEstiamtedSizeLabel(final String text) {
+      SwingUtilities.invokeLater(new Runnable() {
+         @Override
+         public void run() {
+            singleton_.estSizeLabel_.setText(text);
+         }
+      });
+   }
+   
    public static void updateEstiamtedDurationLabel(final String text) {
       SwingUtilities.invokeLater(new Runnable() {
          @Override
@@ -200,6 +209,8 @@ public class GUI extends javax.swing.JFrame {
       });
       //Table column widths
       multipleAcqTable_.getColumnModel().getColumn(0).setMaxWidth(40); //order column
+      multipleAcqTable_.getColumnModel().getColumn(3).setMaxWidth(100); //status column
+
       channelsTable_.getColumnModel().getColumn(0).setMaxWidth(30); //Acitve checkbox column
 
       //set color renderer for channel table
@@ -604,7 +615,7 @@ public class GUI extends javax.swing.JFrame {
       runAcqPanel_ = new javax.swing.JPanel();
       runAcqButton_ = new javax.swing.JButton();
       estDurationLabel_ = new javax.swing.JLabel();
-      jLabel1 = new javax.swing.JLabel();
+      estSizeLabel_ = new javax.swing.JLabel();
       bottomPanel_ = new javax.swing.JPanel();
       userGuideLink_ = new javax.swing.JLabel();
       citeLink_ = new javax.swing.JLabel();
@@ -1586,7 +1597,7 @@ public class GUI extends javax.swing.JFrame {
 
       estDurationLabel_.setText("Estimated duration: ");
 
-      jLabel1.setText("TODO: estimated dataset size");
+      estSizeLabel_.setText("Estimated size: ");
 
       javax.swing.GroupLayout runAcqPanel_Layout = new javax.swing.GroupLayout(runAcqPanel_);
       runAcqPanel_.setLayout(runAcqPanel_Layout);
@@ -1596,7 +1607,7 @@ public class GUI extends javax.swing.JFrame {
             .addContainerGap()
             .addComponent(estDurationLabel_)
             .addGap(159, 159, 159)
-            .addComponent(jLabel1)
+            .addComponent(estSizeLabel_)
             .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
             .addComponent(runAcqButton_)
             .addGap(54, 54, 54))
@@ -1608,7 +1619,7 @@ public class GUI extends javax.swing.JFrame {
             .addGroup(runAcqPanel_Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
                .addComponent(estDurationLabel_)
                .addComponent(runAcqButton_)
-               .addComponent(jLabel1))
+               .addComponent(estSizeLabel_))
             .addContainerGap(javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
       );
 
@@ -2114,6 +2125,7 @@ public class GUI extends javax.swing.JFrame {
    private javax.swing.JSpinner distanceBelowFixedSurfaceSpinner_;
    private javax.swing.JLabel distanceBelowSurfaceLabel_;
    private javax.swing.JLabel estDurationLabel_;
+   private javax.swing.JLabel estSizeLabel_;
    private javax.swing.JTabbedPane exploreAcqTabbedPane_;
    private javax.swing.JButton exploreBrowseButton_;
    private javax.swing.JComboBox exploreChannelGroupCombo_;
@@ -2133,7 +2145,6 @@ public class GUI extends javax.swing.JFrame {
    private javax.swing.JComboBox footprint2DComboBox_;
    private javax.swing.JTextField globalSavingDirTextField_;
    private javax.swing.JButton helpButton_;
-   private javax.swing.JLabel jLabel1;
    private javax.swing.JLabel jLabel12;
    private javax.swing.JLabel jLabel2;
    private javax.swing.JLabel jLabel3;

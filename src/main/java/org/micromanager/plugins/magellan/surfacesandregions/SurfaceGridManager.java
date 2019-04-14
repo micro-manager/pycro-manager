@@ -18,7 +18,6 @@ package main.java.org.micromanager.plugins.magellan.surfacesandregions;
 
 import main.java.org.micromanager.plugins.magellan.gui.SurfaceGridComboBoxModel;
 import main.java.org.micromanager.plugins.magellan.gui.SurfaceGridTableModel;
-import com.google.common.eventbus.EventBus;
 import main.java.org.micromanager.plugins.magellan.gui.GUI;
 import main.java.org.micromanager.plugins.magellan.imagedisplay.DisplayPlus;
 import java.awt.FileDialog;
@@ -29,7 +28,6 @@ import java.io.FileWriter;
 import java.io.FilenameFilter;
 import java.io.IOException;
 import java.util.ArrayList;
-import java.util.HashMap;
 import javax.swing.JFileChooser;
 import javax.swing.JOptionPane;
 import javax.swing.filechooser.FileNameExtensionFilter;
@@ -152,7 +150,7 @@ public class SurfaceGridManager {
    }
    
    public static SurfaceGridComboBoxModel createSurfaceAndGridComboBoxModel() {
-      SurfaceGridComboBoxModel model = new SurfaceGridComboBoxModel(true, true);
+      SurfaceGridComboBoxModel model = new SurfaceGridComboBoxModel(false, false);
       getInstance().addToModelList(model);
       return model;
    }

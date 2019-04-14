@@ -1676,7 +1676,7 @@
                               <EmptySpace max="-2" attributes="0"/>
                               <Component id="estDurationLabel_" min="-2" max="-2" attributes="0"/>
                               <EmptySpace min="-2" pref="159" max="-2" attributes="0"/>
-                              <Component id="jLabel1" min="-2" max="-2" attributes="0"/>
+                              <Component id="estSizeLabel_" min="-2" max="-2" attributes="0"/>
                               <EmptySpace max="32767" attributes="0"/>
                               <Component id="runAcqButton_" min="-2" max="-2" attributes="0"/>
                               <EmptySpace min="-2" pref="54" max="-2" attributes="0"/>
@@ -1690,7 +1690,7 @@
                               <Group type="103" groupAlignment="3" attributes="0">
                                   <Component id="estDurationLabel_" alignment="3" min="-2" max="-2" attributes="0"/>
                                   <Component id="runAcqButton_" alignment="3" min="-2" max="-2" attributes="0"/>
-                                  <Component id="jLabel1" alignment="3" min="-2" max="-2" attributes="0"/>
+                                  <Component id="estSizeLabel_" alignment="3" min="-2" max="-2" attributes="0"/>
                               </Group>
                               <EmptySpace max="32767" attributes="0"/>
                           </Group>
@@ -1714,9 +1714,9 @@
                         <Property name="text" type="java.lang.String" value="Estimated duration: "/>
                       </Properties>
                     </Component>
-                    <Component class="javax.swing.JLabel" name="jLabel1">
+                    <Component class="javax.swing.JLabel" name="estSizeLabel_">
                       <Properties>
-                        <Property name="text" type="java.lang.String" value="TODO: estimated dataset size"/>
+                        <Property name="text" type="java.lang.String" value="Estimated size: "/>
                       </Properties>
                     </Component>
                   </SubComponents>

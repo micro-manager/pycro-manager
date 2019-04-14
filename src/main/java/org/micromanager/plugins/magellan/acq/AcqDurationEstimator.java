@@ -122,9 +122,9 @@ public class AcqDurationEstimator {
    }
 
    private double interpolateOrExtrapolate(double[] x, double[] y, double xVal) {
-     if (x.length == 1) {
-        return y[0];
-     } 
+      if (x.length == 1) {
+         return y[0];
+      }
       LinearInterpolator interpolator = new LinearInterpolator();
       PolynomialSplineFunction interpolant = interpolator.interpolate(x, y);
       if (xVal < interpolant.getKnots()[0]) {
@@ -148,7 +148,7 @@ public class AcqDurationEstimator {
          throw new InterruptedException();
       }
    }
-   
+
    private Runnable estimateDuration(final AcquisitionSettings settings) {
       return new Runnable() {
          @Override
@@ -176,7 +176,7 @@ public class AcqDurationEstimator {
                checkForInterrupt();
 
                List<XYStagePosition> positions = getXYPositions(settings);
-               int numImages = 0, xyMoves = 0, zMoves = 0, channelSwitches = 0;
+               long numImagesAcquired = 0, xyMoves = 0, zMoves = 0, channelSwitches = 0, numImages = 0;
                double zOrigin = FixedAreaAcquisition.getZTopCoordinate(settings.spaceMode_,
                        settings, towardsSampleIsPositive, false, 0, 0, Magellan.getCore().getFocusDevice());
                for (XYStagePosition pos : positions) {
@@ -189,6 +189,7 @@ public class AcqDurationEstimator {
                      double zPos = zOrigin + sliceIndex * settings.zStep_;
                      if ((settings.spaceMode_ == AcquisitionSettings.REGION_2D || settings.spaceMode_ == AcquisitionSettings.NO_SPACE)
                              && sliceIndex > 0) {
+                        numImagesAcquired++;
                         numImages++;
                         xyMoves++;
                         break; //2D regions only have 1 slice
@@ -208,14 +209,17 @@ public class AcqDurationEstimator {
                         continue; //position is above imaging volume or range of focus device
                      }
 
-                     numImages++;
-                     for (int channelIndex = 0; channelIndex < settings.channels_.getNumActiveChannels(); channelIndex++) {
-                        if (!settings.channels_.getActiveChannelSetting(channelIndex).uniqueEvent_ ) {
-                           continue;
-                        }
-                        channelSwitches++;
-                        if (channelIndex > 0) {
-                           numImages++;
+                     numImages += settings.channels_.getNumActiveChannels();
+                     numImagesAcquired++;
+                     if (settings.channels_.getNumActiveChannels() > 1) {
+                        for (int channelIndex = 0; channelIndex < settings.channels_.getNumActiveChannels(); channelIndex++) {
+                           if (!settings.channels_.getActiveChannelSetting(channelIndex).uniqueEvent_) {
+                              continue;
+                           }
+                           channelSwitches++;
+                           if (channelIndex > 0) {
+                              numImagesAcquired++;
+                           }
                         }
                      }
                      sliceIndex++;
@@ -224,23 +228,31 @@ public class AcqDurationEstimator {
 
                }
 
-               double estimatedTime = numImages * imageTime + xyMoveTime * xyMoves + zMoveTime * zMoves + channelMoveTime * channelSwitches;
+               double estimatedTime = numImagesAcquired * imageTime + xyMoveTime * xyMoves + zMoveTime * zMoves + channelMoveTime * channelSwitches;
                if (settings.timeEnabled_) {
                   estimatedTime = settings.numTimePoints_ * Math.max(estimatedTime,
                           settings.timePointInterval_ * (settings.timeIntervalUnit_ == 1 ? 1000 : (settings.timeIntervalUnit_ == 2 ? 60000 : 1)));
                }
-               long  hours = (long) (estimatedTime / 60 / 60 / 1000),
+               long hours = (long) (estimatedTime / 60 / 60 / 1000),
                        minutes = (long) (estimatedTime / 60 / 1000), seconds = (long) (estimatedTime / 1000);
+
+               minutes = minutes % 60;
+               seconds = seconds % 60;
+               String h = ("0" + hours).substring(("0" + hours).length() - 2);
+               String m = ("0" + (minutes)).substring(("0" + minutes).length() - 2);
+               String s = ("0" + (seconds)).substring(("0" + seconds).length() - 2);
+
+               //estiamte amount of data
+               numImages *= (settings.timeEnabled_ ? settings.numTimePoints_ : 1);
+               numImages *= Magellan.getCore().getBytesPerPixel() * Magellan.getCore().getImageWidth() * Magellan.getCore().getImageHeight();
+               long kb = numImages / 1024;
+               long mb = kb / 1024;
+               double gb = mb / 1024.0;
+               String sizeLabel = "Estimated size: " + (gb > 1 ? String.format("%.2f GB", gb) : mb + " MB");
                
-               minutes = minutes%60;
-               seconds = seconds%60;
-               String h = ("0" + hours).substring(("0"+hours).length() - 2);
-               String m = ("0" + (minutes )).substring(("0"+minutes).length() - 2);
-               String s = ("0" + (seconds)).substring(("0"+seconds).length() - 2);
-               
-              GUI.updateEstiamtedDurationLabel("Estimated duration: " + h + ":" + m + ":" + s + " (H:M:S)");
- 
-              
+               GUI.updateEstiamtedDurationLabel("Estimated duration: " + h + ":" + m + ":" + s + " (H:M:S)");
+               GUI.updateEstiamtedSizeLabel(sizeLabel);
+
                //store
                GlobalSettings.putObjectInPrefs(GlobalSettings.getInstance().getGlobalPrefernces(), EXPOSURE_KEY, exposureMap_);
                GlobalSettings.putObjectInPrefs(GlobalSettings.getInstance().getGlobalPrefernces(), XY_KEY, xyMoveTimeList_);
@@ -256,8 +268,6 @@ public class AcqDurationEstimator {
          }
       };
    }
-   
-   
 
    private List<XYStagePosition> getXYPositions(AcquisitionSettings settings) throws Exception, InterruptedException {
       List<XYStagePosition> list;

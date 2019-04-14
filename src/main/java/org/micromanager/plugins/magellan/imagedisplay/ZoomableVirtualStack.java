@@ -42,17 +42,17 @@ import main.java.org.micromanager.plugins.magellan.misc.LongPoint;
  */
 public class ZoomableVirtualStack extends AcquisitionVirtualStack {
 
-   private int nSlices_;
-   private MMImageCache imageCache_;
+   final private int nSlices_;
+   final private MMImageCache imageCache_;
    private volatile int resolutionIndex_ = 0;
    private volatile int displayImageWidth_, displayImageHeight_;
    private volatile long xView_ = 0, yView_ = 0;  //top left pixel of view in current res
-   private MultiResMultipageTiffStorage multiResStorage_;
+   final private MultiResMultipageTiffStorage multiResStorage_;
    private final int tileWidth_, tileHeight_;
-   private Acquisition acquisition_;
+   final private Acquisition acquisition_;
    private final boolean boundedImage_;
    private final long xMax_, yMax_, xMin_, yMin_;
-   private DisplayPlus disp_;
+   final private DisplayPlus disp_;
 
    public ZoomableVirtualStack(int type, int width, int height, MMImageCache imageCache,
            int nSlices, VirtualAcquisitionDisplay vad, MultiResMultipageTiffStorage multiResStorage,

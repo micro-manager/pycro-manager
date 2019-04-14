@@ -60,7 +60,7 @@ public class ChannelSpec {
     
     public boolean anyActive() {
         for (ChannelSetting c : channels_) {
-         if (c.getUse()) {
+         if (c.use_) {
             return true;
          }
       }
@@ -70,7 +70,7 @@ public class ChannelSpec {
     public int getNumActiveChannels() {
          int count = 0;
         for (ChannelSetting c : channels_) {
-            count += c.getUse() ? 1 : 0;
+            count += c.use_ ? 1 : 0;
         }
         return count; 
     }
@@ -105,10 +105,10 @@ public class ChannelSpec {
     
     public ChannelSetting getActiveChannelSetting(int i) {
         for (ChannelSetting c : channels_) {
-            if (i == 0 && c.getUse()) {
+            if (i == 0 && c.use_) {
                 return c;
             }
-            if (c.getUse()) {
+            if (c.use_) {
                 i--;
             }
         }

@@ -69,11 +69,6 @@ public class ChannelSetting {
       uniqueEvent_ = uniqueEvent; // true for only first on multichannel camera
    }
    
-    public boolean getUse() {
-      System.out.println("Use" + this);
-      return use_;
-   }
-   
     public void storeChannelInfoInPrefs() {
         String prefix = AcquisitionSettings.PREF_PREFIX + "CHANNELGROUP" + group_ + "CHANNELNAME" + name_;
         GlobalSettings.getInstance().storeBooleanInPrefs(prefix + PREF_USE, use_);

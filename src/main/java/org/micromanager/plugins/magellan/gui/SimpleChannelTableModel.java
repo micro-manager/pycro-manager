@@ -19,17 +19,13 @@ package main.java.org.micromanager.plugins.magellan.gui;
 
 import com.google.common.eventbus.Subscribe;
 import java.awt.Color;
-import java.util.ArrayList;
 import javax.swing.event.TableModelEvent;
 import javax.swing.event.TableModelListener;
 import javax.swing.table.AbstractTableModel;
 import main.java.org.micromanager.plugins.magellan.channels.ChannelSpec;
 import main.java.org.micromanager.plugins.magellan.main.Magellan;
-import main.java.org.micromanager.plugins.magellan.misc.GlobalSettings;
 import mmcorej.CMMCore;
 import org.micromanager.events.ExposureChangedEvent;
-import main.java.org.micromanager.plugins.magellan.demo.DemoModeImageData;
-import main.java.org.micromanager.plugins.magellan.misc.NumberUtils;
 
 /**
  *
@@ -120,7 +116,7 @@ public class SimpleChannelTableModel extends AbstractTableModel implements Table
    public Object getValueAt(int rowIndex, int columnIndex) {
             //use name exposure, color
       if (columnIndex == 0) {
-         return channels_.getChannelSetting(rowIndex).getUse();
+         return channels_.getChannelSetting(rowIndex).use_;
       } else if (columnIndex == 1) {
          return channels_.getChannelSetting(rowIndex).name_;
       } else if (columnIndex == 2) {
