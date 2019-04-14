@@ -39,10 +39,12 @@ public class StartupHelpWindow extends javax.swing.JFrame {
    
    int stepIndex_ = 0;
    
-   /**
-    * Creates new form StartupHelpWindow
-    */
    public StartupHelpWindow() {
+      this(0);
+   }
+   
+   public StartupHelpWindow(int stepIndex) {
+      stepIndex_ = stepIndex;
       initComponents();
       this.setLocationRelativeTo(null);
       this.setVisible(true);
@@ -111,14 +113,8 @@ public class StartupHelpWindow extends javax.swing.JFrame {
          }
          statusLabel_.setText("<html><b>Affine transform " + (known ? "detected" : "not detected") + " for current pixel size calibration</b></html>");
          statusLabel_.setForeground(known ? DARK_GREEN : Color.red);
-      } else if (stepIndex_ == 3) {
-         textArea_.setText("<html>Magellan provides a device control panel it the top of its main window as a convenience for quickly changing"
-                 + " device properties or property groups. The <b>Configure device control</b> button at the "
-                 + "bottom of the main Magellan window allows you to pick which properties/groups appear in this area</html>");
-                  statusLabel_.setText("");
-         linkLabel_.setText("");
       }
-      pageLabel_.setText((stepIndex_ + 1) + "/" + 4);
+      pageLabel_.setText((stepIndex_ + 1) + "/" + 3);
       pageLabel_.setForeground(Color.black);
    }
    
