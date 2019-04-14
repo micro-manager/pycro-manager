@@ -71,8 +71,7 @@ public class MultiPosGrid extends XYFootprint {
       updateOverlap(AcquisitionSettings.getStoredTileOverlapPercentage() / 100);
       rows_ = rows;
       cols_ = cols;
-      manager_.updateSurfaceTableAndCombos();
-      manager_.drawSurfaceOrGridOverlay(this);
+      manager_.surfaceOrGridUpdated(this);
    }
 
    private void updateOverlap(double overlapPercent) {
@@ -173,12 +172,12 @@ public class MultiPosGrid extends XYFootprint {
    public void updateCenter(Point2D.Double newCenter) {
       center_.x = newCenter.x;
       center_.y = newCenter.y;
-      manager_.drawSurfaceOrGridOverlay(this);
+      manager_.surfaceOrGridUpdated(this);
    }
 
    public void translate(double dx, double dy) {
       center_ = new Point2D.Double(center_.x + dx, center_.y + dy);
-      manager_.drawSurfaceOrGridOverlay(this);
+      manager_.surfaceOrGridUpdated(this);
    }
 
    @Override

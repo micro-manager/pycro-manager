@@ -21,6 +21,7 @@ import main.java.org.micromanager.plugins.magellan.gui.SurfaceGridTableModel;
 import main.java.org.micromanager.plugins.magellan.gui.GUI;
 import main.java.org.micromanager.plugins.magellan.imagedisplay.DisplayPlus;
 import java.awt.FileDialog;
+import java.awt.geom.Point2D;
 import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileReader;
@@ -31,6 +32,7 @@ import java.util.ArrayList;
 import javax.swing.JFileChooser;
 import javax.swing.JOptionPane;
 import javax.swing.filechooser.FileNameExtensionFilter;
+import main.java.org.micromanager.plugins.magellan.imagedisplay.DisplayWindowSurfaceGridTableModel;
 import main.java.org.micromanager.plugins.magellan.main.Magellan;
 import main.java.org.micromanager.plugins.magellan.misc.JavaUtils;
 import main.java.org.micromanager.plugins.magellan.misc.Log;
@@ -44,26 +46,19 @@ public class SurfaceGridManager {
   
    private ArrayList<SurfaceInterpolator> surfaces_ = new ArrayList<SurfaceInterpolator>();
    private ArrayList<MultiPosGrid> grids_ = new ArrayList<MultiPosGrid>();
-   private ArrayList<SurfaceGridComboBoxModel> comboBoxModels_ = new ArrayList<SurfaceGridComboBoxModel>();
-   private ArrayList<SurfaceChangedListener> surfaceChangeListeners_ = new ArrayList<SurfaceChangedListener>();
-   private SurfaceGridTableModel tableModel_;
+   private ArrayList<SurfaceGridListener> listeners_ = new ArrayList<SurfaceGridListener>();
    private static SurfaceGridManager singletonInstance_;
    
    public SurfaceGridManager() {
       singletonInstance_ = this;
-      tableModel_ = new SurfaceGridTableModel(this);
    }
    
-   public SurfaceGridTableModel getTableModel() {
-      return tableModel_;
+   public void registerSurfaceGridListener(SurfaceGridListener l ) {
+      listeners_.add(l);
    }
    
-   public void registerSurfaceChangedListener(SurfaceChangedListener l ) {
-      surfaceChangeListeners_.add(l);
-   }
-   
-   public void removeSurfaceChangedListener(SurfaceChangedListener l ) {
-      surfaceChangeListeners_.remove(l);
+   public void removeSurfaceGridListener(SurfaceGridListener l ) {
+      listeners_.remove(l);
    }
    
    public static SurfaceGridManager getInstance() {
@@ -111,70 +106,54 @@ public class SurfaceGridManager {
       return surfaces_.get(index - grids_.size());
    }
    
-   public void addToModelList(SurfaceGridComboBoxModel model) {
-      comboBoxModels_.add(model);
-   }
-
-   public void removeFromModelList(SurfaceGridComboBoxModel model) {
-      comboBoxModels_.remove(model);
-   }
-
    public void deleteAll() {
       for (SurfaceInterpolator s: surfaces_) {
          s.delete();
+         for (SurfaceGridListener l : listeners_) {
+            l.SurfaceOrGridDeleted(s);
+         }
+      }
+      for (MultiPosGrid g : grids_) {
+         for (SurfaceGridListener l : listeners_) {
+            l.SurfaceOrGridDeleted(g);
+         }
       }
       surfaces_.clear();
       grids_.clear();
-      for (SurfaceGridComboBoxModel combo : comboBoxModels_) {
-         combo.setSelectedItem(null);
-      }
-      updateSurfaceTableAndCombos();
    }
    
    public void delete(int index) {
       XYFootprint removed;
       if (index < grids_.size()) {
          removed = grids_.remove(index);
+         for (SurfaceGridListener l : listeners_) {
+            l.SurfaceOrGridDeleted(removed);
+         }
       } else {
          removed = surfaces_.remove(index - grids_.size());
+         for (SurfaceGridListener l : listeners_) {
+            l.SurfaceOrGridDeleted(removed);
+         }
          ((SurfaceInterpolator) removed).delete();
       }
-      for (SurfaceGridComboBoxModel combo : comboBoxModels_) {
-         if (combo.getSelectedItem() == removed) {
-            combo.setSelectedItem(null);
-            combo.update();
-         }
+   }
+   
+   public SurfaceInterpolator addNewSurface() {
+      SurfaceInterpolator s = new SurfaceInterpolatorSimple(Magellan.getCore().getXYStageDevice(), Magellan.getCore().getFocusDevice());
+      surfaces_.add(s);
+      for (SurfaceGridListener l : listeners_) {
+            l.SurfaceOrGridCreated(s);
       }
-      updateSurfaceTableAndCombos();
-      drawAllOverlays();
+      return s;
    }
    
-   public static SurfaceGridComboBoxModel createSurfaceAndGridComboBoxModel() {
-      SurfaceGridComboBoxModel model = new SurfaceGridComboBoxModel(false, false);
-      getInstance().addToModelList(model);
-      return model;
-   }
-   
-   public static SurfaceGridComboBoxModel createSurfaceComboBoxModel() {
-      SurfaceGridComboBoxModel model = new SurfaceGridComboBoxModel(true, false);
-      getInstance().addToModelList(model);
-      return model;
-   }
-
-   public static SurfaceGridComboBoxModel createGridComboBoxModel() {
-      SurfaceGridComboBoxModel model = new SurfaceGridComboBoxModel(false, true);
-      getInstance().addToModelList(model);
-      return model;
-   }
-   
-   public void addNewSurface() {
-      surfaces_.add(new SurfaceInterpolatorSimple(Magellan.getCore().getXYStageDevice(), Magellan.getCore().getFocusDevice()));
-      updateSurfaceTableAndCombos();
-   }
-   
-   public void addNewGrid(MultiPosGrid grid) {
+   public MultiPosGrid addNewGrid(int rows, int cols, Point2D.Double center) {
+      MultiPosGrid grid = new MultiPosGrid(this, Magellan.getCore().getXYStageDevice(), rows, cols, center);
       grids_.add(grid);
-      updateSurfaceTableAndCombos();
+      for (SurfaceGridListener l : listeners_) {
+            l.SurfaceOrGridCreated(grid);
+      }  
+      return grid;
    }
    
    public int getNumberOfSurfaces() {
@@ -225,32 +204,24 @@ public class SurfaceGridManager {
       return potentialName;
    }
 
-   public void drawSurfaceOrGridOverlay(XYFootprint surfaceOrGrid) {
-      DisplayPlus.redrawSurfaceOrGridOverlay(surfaceOrGrid); //redraw overlay for all displays showing this surface
-   }
-   
-   public void drawAllOverlays() {
-      for (SurfaceInterpolator s : surfaces_) {
-         this.drawSurfaceOrGridOverlay(s);
-      }
-      for (MultiPosGrid g : grids_) {
-         this.drawSurfaceOrGridOverlay(g);
-      }
-   }
-  
-   public void surfaceUpdated(SurfaceInterpolator surface) {
-      for (SurfaceChangedListener l : surfaceChangeListeners_) {
-         l.SurfaceChanged(surface);
+   public void surfaceOrGridUpdated(XYFootprint s) {
+      for (SurfaceGridListener l : listeners_) {
+         l.SurfaceOrGridChanged(s);
       }
    }
    
-   public void updateSurfaceTableAndCombos() {
-      for (SurfaceGridComboBoxModel m : comboBoxModels_) {
-         m.update();
+   //This is called by tile overlap changing but this should propogate throught o displays to update them
+   public void updateAll() {
+      for (SurfaceGridListener l : listeners_) {
+         for (SurfaceInterpolator s : surfaces_) {
+            l.SurfaceOrGridChanged(s);
+         }
+         for (MultiPosGrid g : grids_) {
+            l.SurfaceOrGridChanged(g);
+         }
       }
-      tableModel_.fireTableDataChanged();
    }
-
+   
    public void rename(int row, String newName) throws Exception {
       //Make sure name isnt taken
       for (int i = 0; i < surfaces_.size(); i++) {
@@ -271,10 +242,15 @@ public class SurfaceGridManager {
       }
       if (row < grids_.size()) {
          grids_.get(row).rename(newName);
+         for (SurfaceGridListener l : listeners_) {
+            l.SurfaceOrGridRenamed(grids_.get(row));
+         }
       } else {
          surfaces_.get(row).rename(newName);
+         for (SurfaceGridListener l : listeners_) {
+            l.SurfaceOrGridRenamed(surfaces_.get(row));
+         }
       }
-      updateSurfaceTableAndCombos();
    }
   
    public void save(GUI gui) {
@@ -409,21 +385,15 @@ public class SurfaceGridManager {
             String[] xyz = lines[i].split("\t");
             surface.addPoint(NumberUtils.parseDouble(xyz[0]), NumberUtils.parseDouble(xyz[1]), NumberUtils.parseDouble(xyz[2]));
          }
+         for (SurfaceGridListener l : listeners_) {
+            l.SurfaceOrGridCreated(surface);
+         }
       }
-      updateSurfaceTableAndCombos();
    }
 
-   //Let acquisitions know surfaces have changed so they can update accordingly
-   public static class SurfaceChangedEvent {
-
-      public SurfaceInterpolator surface_;
-      
-      public SurfaceChangedEvent(SurfaceInterpolator surface) {
-         surface_ = surface;
+   void surfaceOrGridRenamed(XYFootprint gs) {
+      for (SurfaceGridListener l : listeners_) {
+         l.SurfaceOrGridRenamed(gs);
       }
-
    }
-
-
-   
 }

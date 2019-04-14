@@ -615,10 +615,6 @@ public class DisplayWindow extends StackWindow {
       return cmcPanel_.getContrastPanel();
    }
 
-   @Subscribe
-   public void onLayoutChange(ScrollerPanel.LayoutChangedEvent event) {
-   }
-
    // Force this window to go away.
    public void forceClosed() {
       try {

@@ -63,7 +63,7 @@ public abstract class XYFootprint {
 
    public void rename(String newName) {
       name_ = newName;
-      manager_.updateSurfaceTableAndCombos();
+      manager_.surfaceOrGridRenamed(this);
    }
 
 }

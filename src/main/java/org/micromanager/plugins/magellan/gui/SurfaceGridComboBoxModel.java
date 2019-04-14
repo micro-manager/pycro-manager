@@ -17,14 +17,17 @@
 
 package main.java.org.micromanager.plugins.magellan.gui;
 
+import com.jogamp.nativewindow.SurfaceUpdatedListener;
 import javax.swing.DefaultComboBoxModel;
+import main.java.org.micromanager.plugins.magellan.surfacesandregions.SurfaceGridListener;
 import main.java.org.micromanager.plugins.magellan.surfacesandregions.SurfaceGridManager;
+import main.java.org.micromanager.plugins.magellan.surfacesandregions.XYFootprint;
 
 /**
  *
  * @author Henry
  */
-public class SurfaceGridComboBoxModel extends DefaultComboBoxModel {
+public class SurfaceGridComboBoxModel extends DefaultComboBoxModel implements SurfaceGridListener {
    
    private SurfaceGridManager manager_;
    private Object selectedItem_ = null;
@@ -32,6 +35,7 @@ public class SurfaceGridComboBoxModel extends DefaultComboBoxModel {
 
    public SurfaceGridComboBoxModel(boolean surfacesOnly, boolean gridsOnly)  {
       manager_ = SurfaceGridManager.getInstance();
+      manager_.registerSurfaceGridListener(this);
       surfacesOnly_ = surfacesOnly;
       gridsOnly_ = gridsOnly;
    }
@@ -71,6 +75,26 @@ public class SurfaceGridComboBoxModel extends DefaultComboBoxModel {
 
    public void update() {
       super.fireContentsChanged(manager_, -1, -1);
+   }
+
+   @Override
+   public void SurfaceOrGridChanged(XYFootprint f) {
+      //not reflected here
+   }
+
+   @Override
+   public void SurfaceOrGridDeleted(XYFootprint f) {
+      this.update();
+   }
+
+   @Override
+   public void SurfaceOrGridCreated(XYFootprint f) {
+      this.update();
+   }
+
+   @Override
+   public void SurfaceOrGridRenamed(XYFootprint f) {
+      this.update();
    }
    
 }

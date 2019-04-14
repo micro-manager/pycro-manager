@@ -34,15 +34,16 @@ import main.java.org.micromanager.plugins.magellan.json.JSONArray;
 import main.java.org.micromanager.plugins.magellan.main.Magellan;
 import main.java.org.micromanager.plugins.magellan.misc.Log;
 import main.java.org.micromanager.plugins.magellan.surfacesandregions.Point3d;
-import main.java.org.micromanager.plugins.magellan.surfacesandregions.SurfaceChangedListener;
 import main.java.org.micromanager.plugins.magellan.surfacesandregions.SurfaceGridManager;
 import main.java.org.micromanager.plugins.magellan.surfacesandregions.SurfaceInterpolator;
+import main.java.org.micromanager.plugins.magellan.surfacesandregions.SurfaceGridListener;
+import main.java.org.micromanager.plugins.magellan.surfacesandregions.XYFootprint;
 
 /**
  *
  * @author Henry
  */
-public class FixedAreaAcquisition extends Acquisition implements SurfaceChangedListener {
+public class FixedAreaAcquisition extends Acquisition implements SurfaceGridListener {
 
    private static final int EVENT_QUEUE_CAP = 25;
 
@@ -79,7 +80,7 @@ public class FixedAreaAcquisition extends Acquisition implements SurfaceChangedL
     */
    public FixedAreaAcquisition(AcquisitionSettings settings, ParallelAcquisitionGroup acqGroup) throws Exception {
       super(settings.zStep_, settings.channels_);
-      SurfaceGridManager.getInstance().registerSurfaceChangedListener(this);
+      SurfaceGridManager.getInstance().registerSurfaceGridListener(this);
       acqGroup_ = acqGroup;
       settings_ = settings;
       try {
@@ -104,27 +105,6 @@ public class FixedAreaAcquisition extends Acquisition implements SurfaceChangedL
       setupXYPositions();
       initialize(settings.dir_, settings.name_, settings.tileOverlap_);
       createEventGenerator();
-   }
-
-   @Override
-   public void SurfaceChanged(SurfaceInterpolator surface) {
-      boolean updateNeeded = false;
-      if (settings_.spaceMode_ == AcquisitionSettings.SURFACE_FIXED_DISTANCE_Z_STACK && settings_.fixedSurface_ == surface) {
-         updateNeeded = true;
-      } else if (settings_.spaceMode_ == AcquisitionSettings.VOLUME_BETWEEN_SURFACES_Z_STACK
-              && (settings_.topSurface_ == surface || settings_.bottomSurface_ == surface)) {
-         updateNeeded = true;
-      } else if (settings_.spaceMode_ == AcquisitionSettings.CUBOID_Z_STACK) {
-
-      } else if (settings_.spaceMode_ == AcquisitionSettings.REGION_2D) {
-
-      } else {
-         //no space mode
-      }
-
-      if (updateNeeded) {
-         acqSettingsUpdated();
-      }
    }
 
    public synchronized void acqSettingsUpdated() {
@@ -539,7 +519,7 @@ public class FixedAreaAcquisition extends Acquisition implements SurfaceChangedL
    private void eventGeneratorShutdown() {
       eventGenerator_.shutdown();
       waitForNextTPSerivice_.shutdown();
-      SurfaceGridManager.getInstance().removeSurfaceChangedListener(this);
+      SurfaceGridManager.getInstance().removeSurfaceGridListener(this);
    }
 
    public static boolean isImagingVolumeUndefinedAtPosition(int spaceMode, AcquisitionSettings settings, XYStagePosition position) {
@@ -679,6 +659,42 @@ public class FixedAreaAcquisition extends Acquisition implements SurfaceChangedL
          //region2D or no region
          return 1;
       }
+   }
+
+   @Override
+   public void SurfaceOrGridChanged(XYFootprint f) {
+      boolean updateNeeded = false;
+      if (settings_.spaceMode_ == AcquisitionSettings.SURFACE_FIXED_DISTANCE_Z_STACK && settings_.fixedSurface_ == f) {
+         updateNeeded = true;
+      } else if (settings_.spaceMode_ == AcquisitionSettings.VOLUME_BETWEEN_SURFACES_Z_STACK
+              && (settings_.topSurface_ == f || settings_.bottomSurface_ == f)) {
+         updateNeeded = true;
+      } else if (settings_.spaceMode_ == AcquisitionSettings.CUBOID_Z_STACK) {
+
+      } else if (settings_.spaceMode_ == AcquisitionSettings.REGION_2D) {
+
+      } else {
+         //no space mode
+      }
+
+      if (updateNeeded) {
+         acqSettingsUpdated();
+      }
+   }
+
+   @Override
+   public void SurfaceOrGridDeleted(XYFootprint f) {
+      throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
+   }
+
+   @Override
+   public void SurfaceOrGridCreated(XYFootprint f) {
+      throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
+   }
+
+   @Override
+   public void SurfaceOrGridRenamed(XYFootprint f) {
+      throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
    }
 
 }

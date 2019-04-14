@@ -31,6 +31,7 @@ import java.awt.Dimension;
 import java.awt.Point;
 import java.awt.geom.Point2D;
 import java.util.ArrayList;
+import java.util.List;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
@@ -69,7 +70,7 @@ public class DisplayOverlayer {
    private static final Color TRANSPARENT_MAGENTA = new Color(255, 0, 255, 100);
    private final DisplayPlus display_;
    private Acquisition acq_;
-   private volatile boolean showSurface_ = true, showConvexHull_ = true, showStagePositionsBelow_ = true, showStagePositionsAbove_ = false;
+   private volatile boolean showSurface_ = true, showConvexHull_ = true, showXYFootprint_ = true;
    private ZoomableVirtualStack zoomableStack_;
    private ImageCanvas canvas_;
    private final int tileWidth_, tileHeight_;
@@ -103,10 +104,8 @@ public class DisplayOverlayer {
       });
    }
 
-   public void setSurfaceDisplayParams(boolean convexHull, boolean stagePosAbove, boolean stagePosBelow, boolean surf) {
-      showConvexHull_ = convexHull;
-      showStagePositionsAbove_ = stagePosAbove;
-      showStagePositionsBelow_ = stagePosBelow;
+   public void setSurfaceDisplayParams(boolean surf, boolean footprint) {
+      showXYFootprint_ = footprint;
       showSurface_ = surf;
    }
 
@@ -158,12 +157,14 @@ public class DisplayOverlayer {
                canvas_.setOverlay(baseOverlay);
             }
          });
-         if (display_.getMode() == DisplayPlus.SURFACE) {
+         if (display_.getMode() == DisplayPlus.SURFACE_AND_GRID 
+                 && display_.getCurrentSurfaceOrGrid() != null
+                 && display_.getCurrentSurfaceOrGrid() instanceof SurfaceInterpolator) {
             //now finished base overlay, move on to more detailed surface renderings 
             //first draw convex hull
             if (showConvexHull_) {
                final Overlay overlay = createBackgroundOverlay();
-               addInterpPoints(display_.getCurrentSurface(), overlay);
+               addInterpPoints((SurfaceInterpolator) display_.getCurrentSurfaceOrGrid(), overlay);
                addConvexHull(overlay);
                SwingUtilities.invokeLater(new Runnable() {
 
@@ -175,13 +176,13 @@ public class DisplayOverlayer {
             }
             
             //then draw convex hull + stage positions
-            if (showStagePositionsAbove_ || showStagePositionsBelow_) {
+            if (showXYFootprint_) {
                final Overlay overlay = createBackgroundOverlay();
-               addInterpPoints(display_.getCurrentSurface(), overlay);
+               addInterpPoints((SurfaceInterpolator) display_.getCurrentSurfaceOrGrid(), overlay);
                if (showConvexHull_) {
                   addConvexHull(overlay);
                }
-               addStagePositions(overlay, showStagePositionsAbove_);
+               addStagePositions(overlay);
                SwingUtilities.invokeLater(new Runnable() {
 
                   @Override
@@ -193,7 +194,7 @@ public class DisplayOverlayer {
 
             //finally, draw surface at increasing high resolutions, blocking if interpolation hasn't progressed far enough to
             //supply the desired resolution yet
-            if (showSurface_ && display_.getCurrentSurface() != null) {
+            if (showSurface_ && display_.getCurrentSurfaceOrGrid() != null) {
                renderSurfaceOverlay();
             }
          }
@@ -261,16 +262,20 @@ public class DisplayOverlayer {
                   }
 
                   return overlay;
-               } else if (mode == DisplayPlus.NEWGRID) {
-                  return newGridOverlay();
                } else if (mode == DisplayPlus.NONE) {
                   return createBackgroundOverlay();
-               } else if (mode == DisplayPlus.SURFACE) {
-                  //Do only fast version of surface overlay rendering, which don't require 
-                  //any progress in the interpolation
-                  Overlay overlay = createBackgroundOverlay();
-                  addInterpPoints(display_.getCurrentSurface(), overlay);
-                  return overlay;
+               } else if (mode == DisplayPlus.SURFACE_AND_GRID) {
+                  if (display_.getCurrentSurfaceOrGrid() == null) {
+                     return createBackgroundOverlay();
+                  } else if (display_.getCurrentSurfaceOrGrid() instanceof MultiPosGrid) {
+                     return newGridOverlay();
+                  } else {
+                     //Do only fast version of surface overlay rendering, which don't require 
+                     //any progress in the interpolation
+                     Overlay overlay = createBackgroundOverlay();
+                     addInterpPoints((SurfaceInterpolator) display_.getCurrentSurfaceOrGrid(), overlay);
+                     return overlay;
+                  }
                } else {
                   Log.log("Unkonwn display mode", true);
                   throw new RuntimeException();
@@ -328,7 +333,7 @@ public class DisplayOverlayer {
 
    private void addConvexHull(Overlay overlay) throws InterruptedException {
       //draw convex hull
-      Vector2D[] hullPoints = display_.getCurrentSurface().getConvexHullPoints();
+      Vector2D[] hullPoints = ((SurfaceInterpolator) display_.getCurrentSurfaceOrGrid()).getConvexHullPoints();
 
       LongPoint lastPoint = null, firstPoint = null;
       for (Vector2D v : hullPoints) {
@@ -352,10 +357,10 @@ public class DisplayOverlayer {
       overlay.add(l);
    }
 
-   private void addStagePositions(Overlay overlay, boolean above) throws InterruptedException {
+   private void addStagePositions(Overlay overlay) throws InterruptedException {
       double zPosition  = zoomableStack_.getZCoordinateOfDisplayedSlice(display_.getVisibleSliceIndex());
       
-      ArrayList<XYStagePosition> positionsAtSlice = display_.getCurrentSurface().getXYPositonsAtSlice(zPosition, above);
+      List<XYStagePosition> positionsAtSlice = ((SurfaceInterpolator)display_.getCurrentSurfaceOrGrid()).getXYPositionsNoUpdate();
       for (XYStagePosition pos : positionsAtSlice) {
          if (Thread.interrupted()) {
             throw new InterruptedException();
@@ -386,7 +391,7 @@ public class DisplayOverlayer {
       int displayPixPerInterpPoint = Math.max(display_.getImagePlus().getWidth(), display_.getImagePlus().getHeight()) / INITIAL_NUM_INTERPOLATION_DIVISIONS;
       //keep redrawing until surface full interpolated  
       final Overlay startingOverlay = createBackgroundOverlay();
-      addInterpPoints(display_.getCurrentSurface(), startingOverlay);
+      addInterpPoints((SurfaceInterpolator) display_.getCurrentSurfaceOrGrid(), startingOverlay);
       if (showConvexHull_) {
          addConvexHull(startingOverlay);
       }
@@ -400,18 +405,18 @@ public class DisplayOverlayer {
             }
             surfOverlay.add(startingOverlay.get(i));
          }
-         SingleResolutionInterpolation interp = display_.getCurrentSurface().waitForCurentInterpolation();
+         SingleResolutionInterpolation interp = ((SurfaceInterpolator)display_.getCurrentSurfaceOrGrid()).waitForCurentInterpolation();
          //wait until surface is interpolated at sufficent resolution to draw
          while (displayPixPerInterpPoint * zoomableStack_.getDownsampleFactor() < interp.getPixelsPerInterpPoint()) {
             if (Thread.interrupted()) {
                throw new InterruptedException();
             }
-            display_.getCurrentSurface().waitForHigherResolutionInterpolation();
-            interp = display_.getCurrentSurface().waitForCurentInterpolation();
+            ((SurfaceInterpolator)display_.getCurrentSurfaceOrGrid()).waitForHigherResolutionInterpolation();
+            interp = ((SurfaceInterpolator)display_.getCurrentSurfaceOrGrid()).waitForCurentInterpolation();
          }
-         if (showStagePositionsAbove_ || showStagePositionsBelow_) {
+         if (showXYFootprint_) {
             //these could concieveably change as function of interpolation detail
-            addStagePositions(surfOverlay, showStagePositionsAbove_);
+            addStagePositions(surfOverlay);
          }
          //add surface interpolation
          addSurfaceInterpolation(surfOverlay, interp, displayPixPerInterpPoint);
@@ -427,7 +432,7 @@ public class DisplayOverlayer {
          });
 
          if (displayPixPerInterpPoint == 1 || 
-                 displayPixPerInterpPoint * zoomableStack_.getDownsampleFactor() <= display_.getCurrentSurface().getMinPixelsPerInterpPoint()) {
+                 displayPixPerInterpPoint * zoomableStack_.getDownsampleFactor() <= ((SurfaceInterpolator)display_.getCurrentSurfaceOrGrid()).getMinPixelsPerInterpPoint()) {
             //finished  
             return;
          }
@@ -486,7 +491,7 @@ public class DisplayOverlayer {
       double dsTileWidth, dsTileHeight;
       dsTileWidth = tileWidth_ / (double) zoomableStack_.getDownsampleFactor();
       dsTileHeight = tileHeight_ / (double) zoomableStack_.getDownsampleFactor();
-      MultiPosGrid newGrid = display_.getCurrentGrid();
+      MultiPosGrid newGrid = (MultiPosGrid) display_.getCurrentSurfaceOrGrid();
       if (newGrid == null) {
          return overlay;
       }

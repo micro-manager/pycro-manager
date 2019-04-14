@@ -320,6 +320,10 @@ public class ZoomableVirtualStack extends AcquisitionVirtualStack {
       long fullResY =  (long) ((y + yView_) * Math.pow(2, resolutionIndex_));
       return new LongPoint(fullResX, fullResY);
    }
+   
+   public LongPoint getFullResPixelCoordsOfDisplayedCenter() {
+      return getAbsoluteFullResPixelCoordinate(xView_ + displayImageWidth_ / 2, yView_ + displayImageHeight_ / 2);
+   }
 
    /**
     * Return tile indices from pixel displayed in viewer

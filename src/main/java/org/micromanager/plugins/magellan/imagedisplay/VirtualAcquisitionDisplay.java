@@ -611,7 +611,6 @@ public abstract class VirtualAcquisitionDisplay{
       // multiple exit points depending on what it was doing when we
       // interrupted it.
       CanvasPaintPending.removeAllPaintPending(hyperImage_.getCanvas());
-      bus_.unregister(this);
       imageCache_.finished();
       
       // Shut down our controls.

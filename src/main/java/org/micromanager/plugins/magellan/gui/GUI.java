@@ -736,7 +736,7 @@ public class GUI extends javax.swing.JFrame {
          }
       });
 
-      surfacesAndGridsTable_.setModel(manager_.getTableModel());
+      surfacesAndGridsTable_.setModel(new SurfaceGridTableModel());
       surfacesAndGridsTable_.setSelectionMode(javax.swing.ListSelectionModel.SINGLE_SELECTION);
       jScrollPane2.setViewportView(surfacesAndGridsTable_);
 
@@ -871,7 +871,7 @@ public class GUI extends javax.swing.JFrame {
       footprin2DLabel_.setText("Surface/Grid XY Footprint:");
 
       footprint2DComboBox_.setFont(new java.awt.Font("Tahoma", 0, 14)); // NOI18N
-      footprint2DComboBox_.setModel(manager_.createSurfaceAndGridComboBoxModel());
+      footprint2DComboBox_.setModel(new SurfaceGridComboBoxModel(false, false));
       footprint2DComboBox_.addActionListener(new java.awt.event.ActionListener() {
          public void actionPerformed(java.awt.event.ActionEvent evt) {
             footprint2DComboBox_ActionPerformed(evt);
@@ -879,7 +879,7 @@ public class GUI extends javax.swing.JFrame {
       });
 
       collectionPlaneCombo_.setFont(new java.awt.Font("Tahoma", 0, 14)); // NOI18N
-      collectionPlaneCombo_.setModel(manager_.createSurfaceComboBoxModel());
+      collectionPlaneCombo_.setModel(new SurfaceGridComboBoxModel(true, false));
       collectionPlaneCombo_.addActionListener(new java.awt.event.ActionListener() {
          public void actionPerformed(java.awt.event.ActionEvent evt) {
             collectionPlaneCombo_ActionPerformed(evt);
@@ -997,7 +997,7 @@ public class GUI extends javax.swing.JFrame {
       jLabel2.setText("Surface/Grid XY footprint:");
 
       simpleZStackFootprintCombo_.setFont(new java.awt.Font("Tahoma", 0, 14)); // NOI18N
-      simpleZStackFootprintCombo_.setModel(manager_.createSurfaceAndGridComboBoxModel());
+      simpleZStackFootprintCombo_.setModel(new SurfaceGridComboBoxModel(false, false));
       simpleZStackFootprintCombo_.addActionListener(new java.awt.event.ActionListener() {
          public void actionPerformed(java.awt.event.ActionEvent evt) {
             simpleZStackFootprintCombo_ActionPerformed(evt);
@@ -1093,7 +1093,7 @@ public class GUI extends javax.swing.JFrame {
       bottomSurfaceLabel_.setText("Z-end");
 
       topSurfaceCombo_.setFont(new java.awt.Font("Tahoma", 0, 14)); // NOI18N
-      topSurfaceCombo_.setModel(manager_.createSurfaceComboBoxModel());
+      topSurfaceCombo_.setModel(new SurfaceGridComboBoxModel(true, false));
       topSurfaceCombo_.addActionListener(new java.awt.event.ActionListener() {
          public void actionPerformed(java.awt.event.ActionEvent evt) {
             topSurfaceCombo_ActionPerformed(evt);
@@ -1101,7 +1101,7 @@ public class GUI extends javax.swing.JFrame {
       });
 
       bottomSurfaceCombo_.setFont(new java.awt.Font("Tahoma", 0, 14)); // NOI18N
-      bottomSurfaceCombo_.setModel(manager_.createSurfaceComboBoxModel());
+      bottomSurfaceCombo_.setModel(new SurfaceGridComboBoxModel(true, false));
       bottomSurfaceCombo_.addActionListener(new java.awt.event.ActionListener() {
          public void actionPerformed(java.awt.event.ActionEvent evt) {
             bottomSurfaceCombo_ActionPerformed(evt);
@@ -1223,7 +1223,7 @@ public class GUI extends javax.swing.JFrame {
       fixedSurfaceLabel_.setText("Surface: ");
 
       fixedDistanceSurfaceComboBox_.setFont(new java.awt.Font("Tahoma", 0, 14)); // NOI18N
-      fixedDistanceSurfaceComboBox_.setModel(manager_.createSurfaceComboBoxModel());
+      fixedDistanceSurfaceComboBox_.setModel(new SurfaceGridComboBoxModel(true, false));
       fixedDistanceSurfaceComboBox_.addActionListener(new java.awt.event.ActionListener() {
          public void actionPerformed(java.awt.event.ActionEvent evt) {
             fixedDistanceSurfaceComboBox_ActionPerformed(evt);
@@ -1234,7 +1234,8 @@ public class GUI extends javax.swing.JFrame {
       jLabel12.setText("Surface/Grid XY footprint:");
 
       withinDistanceFromFootprintCombo_.setFont(new java.awt.Font("Tahoma", 0, 14)); // NOI18N
-      withinDistanceFromFootprintCombo_.setModel(manager_.createSurfaceAndGridComboBoxModel());
+      withinDistanceFromFootprintCombo_.setModel(new SurfaceGridComboBoxModel(false, false)
+      );
       withinDistanceFromFootprintCombo_.addActionListener(new java.awt.event.ActionListener() {
          public void actionPerformed(java.awt.event.ActionEvent evt) {
             withinDistanceFromFootprintCombo_ActionPerformed(evt);
@@ -1824,7 +1825,7 @@ public class GUI extends javax.swing.JFrame {
          .addGroup(javax.swing.GroupLayout.Alignment.TRAILING, root_panel_Layout.createSequentialGroup()
             .addComponent(topPanel_, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
             .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-            .addComponent(exploreAcqTabbedPane_, javax.swing.GroupLayout.DEFAULT_SIZE, 515, Short.MAX_VALUE)
+            .addComponent(exploreAcqTabbedPane_)
             .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
             .addComponent(bottomPanel_, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
             .addContainerGap())
@@ -1961,7 +1962,7 @@ public class GUI extends javax.swing.JFrame {
    private void acqOverlapPercentSpinner_StateChanged(javax.swing.event.ChangeEvent evt) {//GEN-FIRST:event_acqOverlapPercentSpinner_StateChanged
       acquisitionSettingsChanged();
       //update any grids/surface shown
-      manager_.drawAllOverlays();
+      manager_.updateAll();
    }//GEN-LAST:event_acqOverlapPercentSpinner_StateChanged
 
    private void zStepSpinner_StateChanged(javax.swing.event.ChangeEvent evt) {//GEN-FIRST:event_zStepSpinner_StateChanged

@@ -320,38 +320,6 @@ public abstract class SurfaceInterpolator extends XYFootprint {
       return true;
    }
 
-
-   
-   /**
-    * figure out which of the positions need to be collected at a given slice
-    * Assumes positions_ contains list of all possible positions for fitting  
-    * block until interpolation is detailed enough to calculate stage positions
-    * @param zPos 
-    */
-   public ArrayList<XYStagePosition> getXYPositonsAtSlice(double zPos, boolean above) throws InterruptedException {
-      SingleResolutionInterpolation interp = waitForCurentInterpolation();
-      double overlapPercent = AcquisitionSettings.getStoredTileOverlapPercentage() / 100;
-      int overlapX = (int) (Magellan.getCore().getImageWidth() * overlapPercent);
-      int overlapY = (int) (Magellan.getCore().getImageHeight() * overlapPercent);
-      int tileWidth = (int) (Magellan.getCore().getImageWidth() - overlapX);
-      int tileHeight = (int) (Magellan.getCore().getImageHeight() - overlapY);
-      interp = waitForCurentInterpolation();
-      ArrayList<XYStagePosition> positionsAtSlice = new ArrayList<XYStagePosition>();
-      for (XYStagePosition pos : xyPositions_) {
-         if (!above) {
-            if (!isPositionCompletelyAboveSurface(pos, this, zPos, false)) { //not completely above = below
-               positionsAtSlice.add(pos);
-            }
-         } else {
-            if (!isPositionCompletelyBelowSurface(pos, this, zPos, false)) { // not completely below = above
-               positionsAtSlice.add(pos);
-            }
-         }
-      }
-
-      return positionsAtSlice;
-   }
-
    private static Point2D.Double[] getPositionCornersWithPadding(XYStagePosition pos, double xyPadding) {
       if (xyPadding == 0) {
          return pos.getDisplayedTileCorners();
@@ -526,7 +494,7 @@ public abstract class SurfaceInterpolator extends XYFootprint {
       }
          
       //let manger know new parmas caluclated
-      manager_.updateSurfaceTableAndCombos();
+      manager_.surfaceOrGridUpdated(this);
    }
 
       
@@ -546,7 +514,7 @@ public abstract class SurfaceInterpolator extends XYFootprint {
       }
 
       updateConvexHullAndInterpolate();
-      manager_.drawSurfaceOrGridOverlay(this);
+      manager_.surfaceOrGridUpdated(this);
    }
 
    /**
@@ -571,16 +539,14 @@ public abstract class SurfaceInterpolator extends XYFootprint {
       }
 
       updateConvexHullAndInterpolate(); 
-      manager_.drawSurfaceOrGridOverlay(this);
+      manager_.surfaceOrGridUpdated(this);
    }
    
    public synchronized void addPoint(double x, double y, double z) {
       points_.add(new Point3d(x,y,z)); //for interpolation
       updateConvexHullAndInterpolate(); 
-      manager_.drawSurfaceOrGridOverlay(this);
-     
+      manager_.surfaceOrGridUpdated(this);
    }
-   
    
    //redo XY position fitting, but dont need to reinterpolate
    private void updateXYPositionsOnly(final double overlap) {
@@ -596,7 +562,7 @@ public abstract class SurfaceInterpolator extends XYFootprint {
                //this won't happen
                return;
             }
-            manager_.drawSurfaceOrGridOverlay(SurfaceInterpolator.this);
+            manager_.surfaceOrGridUpdated(SurfaceInterpolator.this);
          }         
       });
    }
@@ -659,7 +625,7 @@ public abstract class SurfaceInterpolator extends XYFootprint {
                   //Interpolate surface as specified by the subclass method
                   interpolateSurface(points);
                   //let manager handle event firing to acquisitions using surface
-                  manager_.surfaceUpdated(SurfaceInterpolator.this);
+                  manager_.surfaceOrGridUpdated(SurfaceInterpolator.this);
                } catch (InterruptedException e) {
                   return;
                }
