@@ -34,7 +34,6 @@ import javax.swing.JOptionPane;
 import java.awt.geom.AffineTransform;
 import main.java.org.micromanager.plugins.magellan.channels.ChannelSetting;
 import main.java.org.micromanager.plugins.magellan.coordinates.AffineUtils;
-import main.java.org.micromanager.plugins.magellan.demo.DemoModeImageData;
 import main.java.org.micromanager.plugins.magellan.gui.GUI;
 import main.java.org.micromanager.plugins.magellan.json.JSONArray;
 import main.java.org.micromanager.plugins.magellan.json.JSONException;

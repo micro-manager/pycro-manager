@@ -69,7 +69,14 @@ public class SurfaceInterpolatorSimple extends SurfaceInterpolator {
          throw new InterruptedException();
       }
 
-      while (pixelsPerInterpPoint >= MIN_PIXELS_PER_INTERP_POINT) {
+      double pixelWidth = boundXMax_ - boundXPixelMin_;
+      double pixelHeight = boundYMax_ - boundYPixelMin_;
+      double pixelRes = pixelWidth * pixelHeight;
+      double maxPixels = 0.2 * 1024 * 1024 * 1024 / 4.0; //200 MB worth of floats
+      minPixelsPerInterpPoint_ = Math.max(2, (int)(pixelRes / maxPixels));
+      System.out.println("min pixels per interpo point: " + minPixelsPerInterpPoint_);
+      
+      while (pixelsPerInterpPoint >= minPixelsPerInterpPoint_) {
          int numInterpPointsX = (int) (((boundXMax_ - boundXMin_) / pixSize) / pixelsPerInterpPoint);
          int numInterpPointsY = (int) (((boundYMax_ - boundYMin_) / pixSize) / pixelsPerInterpPoint);
          double dx = (boundXMax_ - boundXMin_) / (numInterpPointsX - 1);

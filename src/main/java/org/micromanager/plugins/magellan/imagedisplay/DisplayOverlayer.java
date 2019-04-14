@@ -173,6 +173,7 @@ public class DisplayOverlayer {
                   }
                });
             }
+            
             //then draw convex hull + stage positions
             if (showStagePositionsAbove_ || showStagePositionsBelow_) {
                final Overlay overlay = createBackgroundOverlay();
@@ -354,7 +355,6 @@ public class DisplayOverlayer {
    private void addStagePositions(Overlay overlay, boolean above) throws InterruptedException {
       double zPosition  = zoomableStack_.getZCoordinateOfDisplayedSlice(display_.getVisibleSliceIndex());
       
-      //this will block until interpolation detailed enough to show stage positions
       ArrayList<XYStagePosition> positionsAtSlice = display_.getCurrentSurface().getXYPositonsAtSlice(zPosition, above);
       for (XYStagePosition pos : positionsAtSlice) {
          if (Thread.interrupted()) {
@@ -427,7 +427,7 @@ public class DisplayOverlayer {
          });
 
          if (displayPixPerInterpPoint == 1 || 
-                 displayPixPerInterpPoint * zoomableStack_.getDownsampleFactor() <= SurfaceInterpolator.MIN_PIXELS_PER_INTERP_POINT) {
+                 displayPixPerInterpPoint * zoomableStack_.getDownsampleFactor() <= display_.getCurrentSurface().getMinPixelsPerInterpPoint()) {
             //finished  
             return;
          }

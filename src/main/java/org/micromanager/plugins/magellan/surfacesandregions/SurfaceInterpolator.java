@@ -32,6 +32,8 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.ThreadFactory;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 import main.java.org.micromanager.plugins.magellan.main.Magellan;
 import main.java.org.micromanager.plugins.magellan.misc.Log;
 import org.apache.commons.math3.geometry.euclidean.twod.Euclidean2D;
@@ -48,7 +50,6 @@ import org.apache.commons.math3.geometry.partitioning.RegionFactory;
  */
 public abstract class SurfaceInterpolator extends XYFootprint {
    
-   public static final int MIN_PIXELS_PER_INTERP_POINT = 32;
    public static final int NUM_XY_TEST_POINTS = 8;
   
    private static final int ABOVE_SURFACE = 0;
@@ -66,10 +67,11 @@ public abstract class SurfaceInterpolator extends XYFootprint {
    private volatile List<XYStagePosition> xyPositions_;
    private volatile double xyPadding_um_ = 0;
    protected volatile double boundXMin_, boundXMax_, boundYMin_, boundYMax_;
-   private volatile int boundXPixelMin_,boundXPixelMax_,boundYPixelMin_,boundYPixelMax_;
+   protected volatile int boundXPixelMin_,boundXPixelMax_,boundYPixelMin_,boundYPixelMax_;
+   protected volatile int minPixelsPerInterpPoint_ = 1;
    private ExecutorService executor_; 
    protected volatile SingleResolutionInterpolation currentInterpolation_;
-   private Future currentInterpolationTask_;
+   private volatile Future currentInterpolationTask_;
    //Objects for wait/notify sync of calcualtions
    protected Object xyPositionLock_ = new Object(), interpolationLock_ = new Object(), convexHullLock_ = new Object();
  
@@ -124,6 +126,10 @@ public abstract class SurfaceInterpolator extends XYFootprint {
          throw new RuntimeException();
       }
 
+   }
+   
+   public int getMinPixelsPerInterpPoint() {
+      return minPixelsPerInterpPoint_;
    }
    
    public String getZDevice() {
@@ -329,12 +335,7 @@ public abstract class SurfaceInterpolator extends XYFootprint {
       int overlapY = (int) (Magellan.getCore().getImageHeight() * overlapPercent);
       int tileWidth = (int) (Magellan.getCore().getImageWidth() - overlapX);
       int tileHeight = (int) (Magellan.getCore().getImageHeight() - overlapY);
-      while (interp.getPixelsPerInterpPoint() >= Math.max(tileWidth,tileHeight) / NUM_XY_TEST_POINTS ) {
-         synchronized (interpolationLock_) {
-            interpolationLock_.wait();
-         }
-         interp = waitForCurentInterpolation();
-      }
+      interp = waitForCurentInterpolation();
       ArrayList<XYStagePosition> positionsAtSlice = new ArrayList<XYStagePosition>();
       for (XYStagePosition pos : xyPositions_) {
          if (!above) {
