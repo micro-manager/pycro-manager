@@ -21,7 +21,7 @@ import main.java.org.micromanager.plugins.magellan.surfacesandregions.XYFootprin
  */
 public class DisplayWindowSurfaceGridTableModel extends AbstractTableModel implements SurfaceGridListener {
 
-   private final String[] COLUMNS = {"Show", "Type", "Name", "XY padding (um)"};
+   private final String[] COLUMNS = {"Show", "Type", "Name"};
    //maybe, "Z Device"
    
 
@@ -66,9 +66,7 @@ public class DisplayWindowSurfaceGridTableModel extends AbstractTableModel imple
          } catch (Exception ex) {
             Log.log("Name already taken by existing Surface/Grid", true);
          }
-      } else if (col == 3 && manager_.getSurfaceOrGrid(row) instanceof SurfaceInterpolator) {
-         ((SurfaceInterpolator)manager_.getSurfaceOrGrid(row)).setXYPadding(NumberUtils.parseDouble((String) value));
-      }
+      } 
    }
 
    @Override
@@ -79,13 +77,8 @@ public class DisplayWindowSurfaceGridTableModel extends AbstractTableModel imple
          return true;
       } else if (columnIndex == 1) {
          return manager_.getSurfaceOrGrid(rowIndex) instanceof SurfaceInterpolator ? "Surface"  : "Grid";
-      } else if (columnIndex == 2) {         
+      } else  {         
          return manager_.getSurfaceOrGrid(rowIndex).getName();
-      } else {
-         if (manager_.getSurfaceOrGrid(rowIndex) instanceof MultiPosGrid) {
-            return 0;
-         }
-         return ((SurfaceInterpolator) manager_.getSurfaceOrGrid(rowIndex)).getXYPadding();
       } 
    }
    
@@ -95,11 +88,9 @@ public class DisplayWindowSurfaceGridTableModel extends AbstractTableModel imple
          return Boolean.class;
       } else if (columnIndex == 1) {
          return String.class;
-      } else if (columnIndex == 2) {
-         return String.class;
       } else  {
-         return Double.class;
-      }
+         return String.class;
+      } 
    }
 
    @Override

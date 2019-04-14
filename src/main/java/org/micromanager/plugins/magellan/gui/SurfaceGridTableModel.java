@@ -6,8 +6,6 @@
 package main.java.org.micromanager.plugins.magellan.gui;
 
 import java.util.List;
-import java.util.logging.Level;
-import java.util.logging.Logger;
 import javax.swing.table.AbstractTableModel;
 import main.java.org.micromanager.plugins.magellan.coordinates.XYStagePosition;
 import main.java.org.micromanager.plugins.magellan.misc.Log;
@@ -24,7 +22,7 @@ import main.java.org.micromanager.plugins.magellan.surfacesandregions.XYFootprin
  */
 public class SurfaceGridTableModel extends AbstractTableModel implements SurfaceGridListener {
 
-   private final String[] COLUMNS = {"Type", "Name", "XY padding (um)", "Z Device", "# Positions"};
+   private final String[] COLUMNS = {"Type", "Name", "Z Device", "# Positions"};
 
    private SurfaceGridManager manager_;
 
@@ -67,9 +65,7 @@ public class SurfaceGridTableModel extends AbstractTableModel implements Surface
          } catch (Exception ex) {
             Log.log("Name already taken by existing Surface/Grid", true);
          }
-      } else if (col == 2 && manager_.getSurfaceOrGrid(row) instanceof SurfaceInterpolator) {
-         ((SurfaceInterpolator)manager_.getSurfaceOrGrid(row)).setXYPadding(NumberUtils.parseDouble((String) value));
-      }
+      } 
    }
 
    @Override
@@ -82,12 +78,7 @@ public class SurfaceGridTableModel extends AbstractTableModel implements Surface
          return manager_.getSurfaceOrGrid(rowIndex) instanceof SurfaceInterpolator ? "Surface"  : "Grid";
       } else if (columnIndex == 1) {         
          return manager_.getSurfaceOrGrid(rowIndex).getName();
-      } else if (columnIndex == 2) {
-         if (manager_.getSurfaceOrGrid(rowIndex) instanceof MultiPosGrid) {
-            return 0;
-         }
-         return ((SurfaceInterpolator) manager_.getSurfaceOrGrid(rowIndex)).getXYPadding();
-      } else if (columnIndex == 3) {
+      }  else if (columnIndex == 2) {
          if (manager_.getSurfaceOrGrid(rowIndex) instanceof MultiPosGrid) {
             return "N/A";
          }
