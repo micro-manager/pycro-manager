@@ -237,6 +237,8 @@ public class GUI extends javax.swing.JFrame {
       multipleAcqTable_.getColumnModel().getColumn(3).setMaxWidth(100); //status column
 
       channelsTable_.getColumnModel().getColumn(0).setMaxWidth(30); //Acitve checkbox column
+      
+        surfacesAndGridsTable_.getColumnModel().getColumn(0).setMaxWidth(120); //type column
 
       //set color renderer for channel table
       for (int col = 1; col < channelsTable_.getColumnModel().getColumnCount(); col++) {

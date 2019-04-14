@@ -322,7 +322,9 @@ public class ZoomableVirtualStack extends AcquisitionVirtualStack {
    }
    
    public LongPoint getFullResPixelCoordsOfDisplayedCenter() {
-      return getAbsoluteFullResPixelCoordinate(xView_ + displayImageWidth_ / 2, yView_ + displayImageHeight_ / 2);
+      long x = (long) ((xView_ + displayImageWidth_ / 2) * Math.pow(2, resolutionIndex_));
+      long y = (long)( (yView_ + displayImageHeight_ / 2) * Math.pow(2, resolutionIndex_)); 
+      return new LongPoint(x, y);
    }
 
    /**

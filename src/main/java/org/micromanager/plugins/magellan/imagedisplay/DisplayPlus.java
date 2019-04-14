@@ -160,7 +160,7 @@ public class DisplayPlus extends VirtualAcquisitionDisplay implements SurfaceGri
    public Point2D.Double getCurrentDisplayedCoordinate() {
       long xFullPixel = zoomableStack_.getFullResPixelCoordsOfDisplayedCenter().x_;
       long yFullPixel = zoomableStack_.getFullResPixelCoordsOfDisplayedCenter().y_;
-      return stageCoordFromImageCoords(xFullPixel, yFullPixel);
+      return multiResStorage_.getStageCoordsFromPixelCoords(xFullPixel, yFullPixel);
    }
 
    //Thread safe calls for getting displayed indices

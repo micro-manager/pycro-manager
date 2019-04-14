@@ -103,6 +103,7 @@ public class DisplayWindowControls extends Panel {
       });
       //Table column widths
       surfaceGridTable_.getColumnModel().getColumn(0).setMaxWidth(40); //show column
+      surfaceGridTable_.getColumnModel().getColumn(1).setMaxWidth(120); //type column
    }
 
    XYFootprint getCurrentSurfaceOrGrid() {
@@ -565,6 +566,7 @@ public class DisplayWindowControls extends Panel {
    private void newSurfaceButton_ActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_newSurfaceButton_ActionPerformed
       SurfaceInterpolator s = ((DisplayWindowSurfaceGridTableModel) surfaceGridTable_.getModel()).addNewSurface();
       selectedSurfaceGridIndex_ = SurfaceGridManager.getInstance().getIndex(s);
+      surfaceGridTable_.getSelectionModel().setSelectionInterval(selectedSurfaceGridIndex_, selectedSurfaceGridIndex_);
    }//GEN-LAST:event_newSurfaceButton_ActionPerformed
 
    private void showInterpCheckBox_ActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_showInterpCheckBox_ActionPerformed
@@ -606,6 +608,7 @@ public class DisplayWindowControls extends Panel {
       MultiPosGrid r = ((DisplayWindowSurfaceGridTableModel) surfaceGridTable_.getModel()).newGrid(
               (Integer) gridRowsSpinner_.getValue(), (Integer) gridColsSpinner_.getValue(), display_.getCurrentDisplayedCoordinate());
       selectedSurfaceGridIndex_ = SurfaceGridManager.getInstance().getIndex(r);
+      surfaceGridTable_.getSelectionModel().setSelectionInterval(selectedSurfaceGridIndex_, selectedSurfaceGridIndex_);
    }//GEN-LAST:event_newGridButton_ActionPerformed
 
    private void showInFolderButton_ActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_showInFolderButton_ActionPerformed
