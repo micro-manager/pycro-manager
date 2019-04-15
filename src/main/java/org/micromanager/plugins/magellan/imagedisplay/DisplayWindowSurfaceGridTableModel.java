@@ -25,7 +25,7 @@ public class DisplayWindowSurfaceGridTableModel extends AbstractTableModel imple
 
    private final String[] COLUMNS = {"Show", "Type", "Name"};
    //maybe, "Z Device"
-   private HashMap<XYFootprint, Boolean> showSurfaceOrGridMap = new HashMap<XYFootprint, Boolean>();
+   private volatile HashMap<XYFootprint, Boolean> showSurfaceOrGridMap = new HashMap<XYFootprint, Boolean>();
 
    private SurfaceGridManager manager_ = SurfaceGridManager.getInstance();
    private DisplayPlus display_;
@@ -38,6 +38,10 @@ public class DisplayWindowSurfaceGridTableModel extends AbstractTableModel imple
       }
    }
 
+   public boolean isSurfaceOrGridVisible(int index) {
+      return showSurfaceOrGridMap.get(manager_.getSurfaceOrGrid(index));
+   }
+   
    @Override
    public int getRowCount() {
       return manager_.getNumberOfSurfaces() + manager_.getNumberOfGrids();

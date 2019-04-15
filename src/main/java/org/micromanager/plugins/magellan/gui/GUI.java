@@ -174,6 +174,11 @@ public class GUI extends javax.swing.JFrame {
    public void acquisitionSettingsChanged() {
       //refresh GUI and store its state in current acq settings
       refreshBoldedText();
+      ((MultipleAcquisitionTableModel) multipleAcqTable_.getModel()).fireTableDataChanged();
+      multipleAcqTable_.repaint();
+      //Tell the channels table something has changed
+      ((SimpleChannelTableModel) channelsTable_.getModel()).fireTableDataChanged();
+      channelsTable_.repaint();
       storeCurrentAcqSettings();
    }
 
@@ -1936,15 +1941,11 @@ public class GUI extends javax.swing.JFrame {
 
    private void removeAcqButton_ActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_removeAcqButton_ActionPerformed
       multiAcqManager_.remove(multipleAcqTable_.getSelectedRow());
-      ((MultipleAcquisitionTableModel) multipleAcqTable_.getModel()).fireTableDataChanged();
-      multipleAcqTable_.repaint();
       acquisitionSettingsChanged();
    }//GEN-LAST:event_removeAcqButton_ActionPerformed
 
    private void addAcqButton_ActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_addAcqButton_ActionPerformed
       multiAcqManager_.addNew();
-      ((MultipleAcquisitionTableModel) multipleAcqTable_.getModel()).fireTableDataChanged();
-      multipleAcqTable_.repaint();
       acquisitionSettingsChanged();
    }//GEN-LAST:event_addAcqButton_ActionPerformed
 
@@ -1952,8 +1953,6 @@ public class GUI extends javax.swing.JFrame {
       //update the current channels object displayed in the GUI
       multiAcqManager_.getAcquisitionSettings(multiAcqSelectedIndex_).channelGroup_ = (String) ChannelGroupCombo_.getSelectedItem();
       multiAcqManager_.getAcquisitionSettings(multiAcqSelectedIndex_).channels_.updateChannelGroup((String) ChannelGroupCombo_.getSelectedItem());
-      //Tell the channels table something has changed
-      ((SimpleChannelTableModel) channelsTable_.getModel()).fireTableDataChanged();
       acquisitionSettingsChanged();
    }//GEN-LAST:event_ChannelGroupCombo_ActionPerformed
 

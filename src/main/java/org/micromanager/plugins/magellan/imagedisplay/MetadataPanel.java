@@ -32,7 +32,7 @@ public class MetadataPanel extends javax.swing.JPanel {
    private final MetadataTableModel summaryMetadataModel_;
    private boolean showUnchangingKeys_;
    private VirtualAcquisitionDisplay currentDisplay_;
-   private Timer updateTimer_;
+   private volatile Timer updateTimer_;
    
    /**
     * Creates new form MetadataPanelNew

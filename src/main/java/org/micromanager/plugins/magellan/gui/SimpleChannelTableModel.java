@@ -157,6 +157,7 @@ public class SimpleChannelTableModel extends AbstractTableModel implements Table
             }
             fireTableDataChanged();
          }
+         GUI.getInstance().acquisitionSettingsChanged();
       } else if (columnIndex == 1) {       
          //cant edit channel name
       } else if (columnIndex == 2) {

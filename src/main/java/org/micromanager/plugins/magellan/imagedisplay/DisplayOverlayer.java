@@ -521,6 +521,10 @@ public class DisplayOverlayer {
       rect.setFillColor(color);
       base.add(rect);
    }
+   
+   private void drawSurfaceInterpScaleBar(Overlay overlay) {
+      
+   }
 
    private void drawZoomIndicator(Overlay overlay) {
       LongPoint zoomPos = zoomableStack_.getZoomLocation();

@@ -252,7 +252,19 @@ public class DisplayWindow extends StackWindow {
          remove(zSelector);
       }
    }
-
+   
+   /**
+    * Override the imageJ method that is doing god knows what, in order to fix annoying bug where image dimensions go craxy on maximize
+    * @return 
+    */
+   @Override
+   public Rectangle getMaximumBounds() {
+      Dimension screenSize = Toolkit.getDefaultToolkit().getScreenSize();
+      int width = (int) screenSize.getWidth();
+      int height = (int) screenSize.getHeight();
+      return new Rectangle(0, 0, width, height);
+   }
+   
    /**
     * Expand canvas to window size for explore acquisitions shrink window to
     * correct aspect ratio for fixed area acqs this is called before dynamic
@@ -286,7 +298,7 @@ public class DisplayWindow extends StackWindow {
          ((ZoomableVirtualStack) disp_.getHyperImage().getStack()).setInitialResolutionIndex(disp_.getStorage().getNumResLevels());
          onWindowResize();
       }
-   }
+   } 
 
    /**
     * When shrinking with arrow: -remove controls and shrink window by the size

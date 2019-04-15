@@ -119,8 +119,12 @@ public class DisplayWindowControls extends Panel implements SurfaceGridListener 
    public ArrayList<XYFootprint> getSurfacesAndGridsForDisplay() {
       ArrayList<XYFootprint> list = new ArrayList<XYFootprint>();
       for (int i = 0; i < SurfaceGridManager.getInstance().getNumberOfGrids() + SurfaceGridManager.getInstance().getNumberOfSurfaces(); i++) {
-         if (surfaceGridTable_ != null && (Boolean) surfaceGridTable_.getValueAt(i, 0)) {
-            list.add(SurfaceGridManager.getInstance().getSurfaceOrGrid(i));
+         try {
+            if (((DisplayWindowSurfaceGridTableModel) surfaceGridTable_.getModel()).isSurfaceOrGridVisible(i)) {
+               list.add(SurfaceGridManager.getInstance().getSurfaceOrGrid(i));
+            }
+         } catch (NullPointerException e) {
+            //this comes up when making a bunch of surfaces then making a grid, unclear why vut it seems to be debnign
          }
       }
       return list;
@@ -468,9 +472,7 @@ public class DisplayWindowControls extends Panel implements SurfaceGridListener 
       );
       contrastPanelPanel_Layout.setVerticalGroup(
          contrastPanelPanel_Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-         .addGroup(contrastPanelPanel_Layout.createSequentialGroup()
-            .addComponent(cpMagellan_, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
-            .addGap(0, 0, Short.MAX_VALUE))
+         .addComponent(cpMagellan_, javax.swing.GroupLayout.DEFAULT_SIZE, 374, Short.MAX_VALUE)
       );
 
       tabbedPane_.addTab("Contrast", contrastPanelPanel_);
@@ -580,7 +582,7 @@ public class DisplayWindowControls extends Panel implements SurfaceGridListener 
                .addComponent(zPosLabel_)
                .addComponent(elapsedTimeLabel_, javax.swing.GroupLayout.PREFERRED_SIZE, 27, javax.swing.GroupLayout.PREFERRED_SIZE))
             .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-            .addComponent(tabbedPane_, javax.swing.GroupLayout.PREFERRED_SIZE, 420, Short.MAX_VALUE)
+            .addComponent(tabbedPane_)
             .addContainerGap())
       );
 
