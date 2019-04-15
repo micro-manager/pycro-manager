@@ -236,8 +236,6 @@ public class DisplayWindow extends StackWindow {
                   onWindowResize();
                }
             });
-            dwControls_.showStartupHints();
-            setupPopupHintsHiding();
          }
       });
 
@@ -253,33 +251,6 @@ public class DisplayWindow extends StackWindow {
       if (zSelector != null) {
          remove(zSelector);
       }
-   }
-
-   private void setupPopupHintsHiding() {
-      this.addComponentListener(new ComponentAdapter() {
-
-         @Override
-         public void componentResized(ComponentEvent e) {
-            dwControls_.hideInstructionsPopup();
-         }
-
-         @Override
-         public void componentMoved(ComponentEvent e) {
-            dwControls_.hideInstructionsPopup();
-         }
-      });
-
-      this.addWindowFocusListener(new WindowFocusListener() {
-
-         @Override
-         public void windowGainedFocus(WindowEvent e) {
-         }
-
-         @Override
-         public void windowLostFocus(WindowEvent e) {
-            dwControls_.hideInstructionsPopup();
-         }
-      });
    }
 
    /**

@@ -225,7 +225,7 @@ public class SurfaceGridManager {
    public void rename(int row, String newName) throws Exception {
       //Make sure name isnt taken
       for (int i = 0; i < surfaces_.size(); i++) {
-         if (i == row) {
+         if (i == row - grids_.size()) {
             continue;
          }
          if (surfaces_.get(i).getName().equals(newName)) {
@@ -236,10 +236,10 @@ public class SurfaceGridManager {
          if (i == row) {
             continue;
          }
-         if (grids_.get(i).getName().equals(newName)) {
+         if (grids_.get(i).getName().equals(newName) ) {
             throw new Exception();
          }
-      }
+      } 
       if (row < grids_.size()) {
          grids_.get(row).rename(newName);
          for (SurfaceGridListener l : listeners_) {
@@ -394,6 +394,12 @@ public class SurfaceGridManager {
    void surfaceOrGridRenamed(XYFootprint gs) {
       for (SurfaceGridListener l : listeners_) {
          l.SurfaceOrGridRenamed(gs);
+      }
+   }
+   
+   public void SurfaceInterpolationUpdated(SurfaceInterpolator s) {
+      for (SurfaceGridListener l : listeners_) {
+           l.SurfaceInterpolationUpdated(s);
       }
    }
 }

@@ -30,4 +30,6 @@ public interface SurfaceGridListener {
 
    public void SurfaceOrGridRenamed(XYFootprint f);
    
+   public void SurfaceInterpolationUpdated(SurfaceInterpolator s);
+   
 }

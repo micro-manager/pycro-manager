@@ -220,7 +220,7 @@ public class GUI extends javax.swing.JFrame {
       multipleAcqTable_.getSelectionModel().addListSelectionListener(new ListSelectionListener() {
          @Override
          public void valueChanged(ListSelectionEvent e) {
-            if (e.getValueIsAdjusting()) {
+            if (e.getValueIsAdjusting()) {  
                return;
                //action occurs second time this method is called, after the table gains focus
             }

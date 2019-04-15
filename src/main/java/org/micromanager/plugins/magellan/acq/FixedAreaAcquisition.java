@@ -684,17 +684,22 @@ public class FixedAreaAcquisition extends Acquisition implements SurfaceGridList
 
    @Override
    public void SurfaceOrGridDeleted(XYFootprint f) {
-      throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
+      //
    }
 
    @Override
    public void SurfaceOrGridCreated(XYFootprint f) {
-      throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
+      //
    }
 
    @Override
    public void SurfaceOrGridRenamed(XYFootprint f) {
-      throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
+      //
+   }
+
+   @Override
+   public void SurfaceInterpolationUpdated(SurfaceInterpolator s) {
+      //
    }
 
 }

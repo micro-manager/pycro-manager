@@ -116,4 +116,9 @@ public class SurfaceGridTableModel extends AbstractTableModel implements Surface
       fireTableDataChanged();
    }
 
+   @Override
+   public void SurfaceInterpolationUpdated(SurfaceInterpolator s) {
+      //nothin
+   }
+
 }

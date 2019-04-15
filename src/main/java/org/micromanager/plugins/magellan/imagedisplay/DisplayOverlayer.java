@@ -57,9 +57,10 @@ public class DisplayOverlayer {
 
    private final static int INTERP_POINT_DIAMETER = 12;
    private final static int INITIAL_NUM_INTERPOLATION_DIVISIONS = 10;
-   private final static Color INTERP_POINT_COLOR = Color.GREEN;
-   private final static Color CONVEX_HULL_COLOR = Color.GREEN;
-   private static final Color NEW_GRID_COLOR = Color.red;
+   
+   private final static Color ACTIVE_OBJECT_COLOR = Color.cyan;
+   private final static Color BACKGROUND_OBJECT_COLOR = Color.orange;
+
    private static final int[] ICE_RED = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2, 4, 7, 9, 11, 14, 16, 19, 20, 21, 22, 24, 25, 26, 27, 29, 31, 34, 36, 39, 42, 44, 47, 50, 49, 49, 49, 49, 48, 48, 48, 48, 51, 55, 59, 63, 67, 71, 75, 79, 83, 87, 91, 95, 99, 103, 107, 112, 114, 117, 120, 123, 125, 128, 131, 134, 137, 140, 143, 146, 149, 152, 155, 158, 161, 165, 168, 172, 175, 179, 182, 186, 187, 189, 191, 193, 195, 197, 199, 201, 203, 205, 207, 209, 211, 213, 215, 217, 218, 220, 221, 223, 224, 226, 227, 229, 230, 232, 233, 235, 237, 238, 240, 242, 243, 244, 245, 246, 247, 248, 249, 250, 250, 250, 250, 250, 250, 250, 250, 250, 250, 250, 250, 250, 250, 250, 250, 250, 250, 250, 250, 250, 250, 250, 250, 250, 250, 250, 250, 250, 250, 250, 250, 251, 250, 250, 250, 250, 250, 250, 250, 250, 250, 250, 250, 250, 250, 250, 250, 250, 250, 250, 250, 250, 250, 250, 250, 250, 250, 250, 250, 250, 250, 250, 250, 250, 250, 250, 250, 250, 250, 250, 250, 251, 251, 251, 251, 251, 251, 251, 251, 251, 250, 249, 248, 247, 246, 245, 244, 243, 241, 239, 238, 236, 234, 233, 231, 230, 230, 230, 230, 230, 230, 230, 230};
    private static final int[] ICE_GREEN = {156, 157, 158, 159, 160, 161, 162, 163, 165, 166, 167, 169, 170, 171, 173, 174, 176, 177, 178, 179, 180, 181, 182, 183, 184, 184, 185, 186, 187, 187, 188, 189, 190, 190, 191, 192, 193, 193, 194, 195, 196, 195, 195, 194, 194, 194, 193, 193, 193, 191, 190, 189, 188, 187, 186, 185, 184, 182, 180, 179, 177, 175, 174, 172, 171, 169, 168, 167, 166, 165, 164, 163, 162, 160, 158, 156, 154, 152, 150, 148, 146, 143, 140, 138, 135, 132, 130, 127, 125, 122, 120, 118, 116, 113, 111, 109, 107, 105, 103, 101, 100, 98, 96, 94, 93, 91, 90, 88, 87, 85, 84, 82, 81, 81, 82, 83, 84, 84, 85, 86, 87, 87, 88, 88, 89, 90, 90, 91, 92, 92, 93, 93, 94, 95, 95, 96, 97, 96, 96, 96, 96, 95, 95, 95, 95, 94, 94, 94, 94, 93, 93, 93, 93, 93, 93, 93, 93, 93, 93, 93, 93, 92, 92, 91, 91, 91, 90, 90, 90, 89, 88, 88, 87, 86, 86, 85, 85, 83, 81, 79, 77, 75, 73, 71, 69, 68, 67, 67, 66, 65, 65, 64, 64, 62, 61, 60, 59, 57, 56, 55, 54, 53, 52, 51, 50, 49, 48, 47, 47, 45, 44, 42, 41, 39, 38, 36, 35, 33, 31, 29, 27, 25, 23, 21, 19, 16, 14, 11, 9, 7, 4, 2, 0, 0, 1, 1, 2, 2, 3, 3, 4, 3, 3, 2, 2, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0};
    private static final int[] ICE_BLUE = {140, 140, 141, 142, 143, 144, 145, 146, 147, 148, 149, 151, 152, 153, 155, 156, 158, 159, 160, 161, 162, 163, 164, 165, 166, 166, 167, 167, 168, 168, 169, 169, 170, 170, 171, 172, 173, 173, 174, 175, 176, 180, 184, 188, 192, 196, 200, 204, 209, 210, 211, 213, 214, 215, 217, 218, 220, 221, 223, 225, 227, 228, 230, 232, 234, 232, 231, 230, 229, 228, 227, 226, 225, 226, 227, 229, 230, 231, 233, 234, 236, 237, 238, 239, 241, 242, 243, 244, 246, 246, 247, 247, 248, 248, 249, 249, 250, 250, 250, 250, 250, 250, 250, 250, 251, 250, 250, 250, 250, 250, 250, 250, 250, 250, 250, 250, 250, 250, 250, 250, 250, 249, 248, 248, 247, 246, 246, 245, 245, 243, 241, 239, 237, 235, 233, 231, 230, 230, 230, 230, 230, 230, 230, 230, 230, 229, 228, 227, 226, 225, 224, 223, 222, 219, 217, 214, 212, 209, 207, 204, 202, 199, 196, 193, 191, 188, 185, 182, 180, 177, 175, 173, 171, 169, 167, 165, 163, 160, 157, 155, 152, 149, 147, 144, 142, 139, 137, 134, 132, 130, 127, 125, 123, 121, 120, 119, 118, 117, 116, 115, 114, 113, 112, 111, 110, 109, 108, 107, 106, 104, 103, 101, 100, 98, 97, 95, 94, 92, 91, 90, 89, 87, 86, 85, 84, 81, 79, 76, 74, 71, 69, 66, 64, 59, 54, 49, 45, 40, 35, 30, 26, 26, 26, 26, 26, 26, 26, 26, 27, 27, 27, 27, 27, 27, 27, 27};
@@ -232,7 +233,7 @@ public class DisplayOverlayer {
             return createBackgroundOverlay();
          } else if (mode == DisplayPlus.SURFACE_AND_GRID) {
             //Add in the easier to render parts of all surfaces and grids
-            ArrayList<XYFootprint> sAndg = display_.getSurfacesAndGridsForDisplay();
+            ArrayList<XYFootprint> sAndg = getSurfacesAndGridsInDrawOrder();
             Overlay overlay = createBackgroundOverlay();
             for (XYFootprint xy : sAndg) {
                if (xy instanceof MultiPosGrid) {
@@ -241,11 +242,13 @@ public class DisplayOverlayer {
                   //Do only fast version of surface overlay rendering, which don't require 
                   //any progress in the interpolation
                   addInterpPoints((SurfaceInterpolator) xy, overlay);
-                  if (showConvexHull_) {
-                     addConvexHull((SurfaceInterpolator) xy, overlay);
-                  }
-                  if (showXYFootprint_) {
-                     addStagePositions((SurfaceInterpolator) xy, overlay);
+                  if (((SurfaceInterpolator) xy).getPoints().length >= 3) {
+                     if (showConvexHull_) {
+                        addConvexHull((SurfaceInterpolator) xy, overlay);
+                     }
+                     if (showXYFootprint_) {
+                        addStagePositions((SurfaceInterpolator) xy, overlay);
+                     }
                   }
 
                }
@@ -298,10 +301,17 @@ public class DisplayOverlayer {
          }
 
          Roi circle = new OvalRoi(displayLocation.x_ - INTERP_POINT_DIAMETER / 2, displayLocation.y_ - INTERP_POINT_DIAMETER / 2, INTERP_POINT_DIAMETER, INTERP_POINT_DIAMETER);
-         circle.setFillColor(INTERP_POINT_COLOR);
-         circle.setStrokeColor(INTERP_POINT_COLOR);
+         circle.setFillColor(getSurfaceGridLineColor(newSurface));
+         circle.setStrokeColor(getSurfaceGridLineColor(newSurface));
          overlay.add(circle);
       }
+   }
+   
+   private Color getSurfaceGridLineColor(XYFootprint xy) {
+      if (xy == display_.getCurrentEditableSurfaceOrGrid()) {
+         return ACTIVE_OBJECT_COLOR;
+      }
+      return BACKGROUND_OBJECT_COLOR;
    }
 
    private void addConvexHull(SurfaceInterpolator surface, Overlay overlay) throws InterruptedException {
@@ -317,7 +327,8 @@ public class DisplayOverlayer {
          LongPoint p = display_.imageCoordsFromStageCoords(v.getX(), v.getY());
          if (lastPoint != null) {
             Line l = new Line(p.x_, p.y_, lastPoint.x_, lastPoint.y_);
-            l.setStrokeColor(CONVEX_HULL_COLOR);
+            l.setStrokeColor(getSurfaceGridLineColor(surface));
+            l.setStrokeWidth(5f);
             overlay.add(l);
          } else {
             firstPoint = p;
@@ -326,7 +337,8 @@ public class DisplayOverlayer {
       }
       //draw last connection         
       Line l = new Line(firstPoint.x_, firstPoint.y_, lastPoint.x_, lastPoint.y_);
-      l.setStrokeColor(CONVEX_HULL_COLOR);
+      l.setStrokeColor(getSurfaceGridLineColor(surface));
+      l.setStrokeWidth(5f);
       overlay.add(l);
    }
 
@@ -351,10 +363,10 @@ public class DisplayOverlayer {
          Line l2 = new Line(corner2.x_, corner2.y_, corner3.x_, corner3.y_);
          Line l3 = new Line(corner3.x_, corner3.y_, corner4.x_, corner4.y_);
          Line l4 = new Line(corner4.x_, corner4.y_, corner1.x_, corner1.y_);
-         l1.setStrokeColor(Color.red);
-         l2.setStrokeColor(Color.red);
-         l3.setStrokeColor(Color.red);
-         l4.setStrokeColor(Color.red);
+         l1.setStrokeColor(getSurfaceGridLineColor(surface));
+         l2.setStrokeColor(getSurfaceGridLineColor(surface));
+         l3.setStrokeColor(getSurfaceGridLineColor(surface));
+         l4.setStrokeColor(getSurfaceGridLineColor(surface));
          overlay.add(l1);
          overlay.add(l2);
          overlay.add(l3);
@@ -382,10 +394,10 @@ public class DisplayOverlayer {
             surfOverlay.add(startingOverlay.get(i));
          }
 
-         for (XYFootprint xy : display_.getSurfacesAndGridsForDisplay()) {
-            if (xy instanceof MultiPosGrid) {
+         for (XYFootprint xy : getSurfacesAndGridsInDrawOrder()) {
+            if (xy instanceof MultiPosGrid || ((SurfaceInterpolator) xy).getPoints().length < 3) {
                continue;
-            }
+            } 
             SurfaceInterpolator surface = ((SurfaceInterpolator) xy);
 
             SingleResolutionInterpolation interp = surface.waitForCurentInterpolation();
@@ -478,20 +490,20 @@ public class DisplayOverlayer {
       LongPoint displayCenter = display_.imageCoordsFromStageCoords(grid.center().x, grid.center().y);
       Roi rectangle = new Roi(displayCenter.x_ - roiWidth / 2, displayCenter.y_ - roiHeight / 2, roiWidth, roiHeight);
       rectangle.setStrokeWidth(5f);
-      rectangle.setStrokeColor(NEW_GRID_COLOR);
+      rectangle.setStrokeColor(getSurfaceGridLineColor(grid));
 
       Point displayTopLeft = new Point((int) (displayCenter.x_ - roiWidth / 2), (int) (displayCenter.y_ - roiHeight / 2));
       //draw boundries of tiles
       for (int row = 1; row < grid.numRows(); row++) {
          int yPos = (int) (displayTopLeft.y + row * dsTileHeight);
          Line l = new Line(displayTopLeft.x, yPos, displayTopLeft.x + roiWidth, yPos);
-         l.setStrokeColor(NEW_GRID_COLOR);
+         l.setStrokeColor(getSurfaceGridLineColor(grid));
          overlay.add(l);
       }
       for (int col = 1; col < grid.numCols(); col++) {
          int xPos = (int) (displayTopLeft.x + col * dsTileWidth);
          Line l = new Line(xPos, displayTopLeft.y, xPos, displayTopLeft.y + roiHeight);
-         l.setStrokeColor(NEW_GRID_COLOR);
+         l.setStrokeColor(getSurfaceGridLineColor(grid));
          overlay.add(l);
       }
 
@@ -534,4 +546,15 @@ public class DisplayOverlayer {
       }
       canvas_.setOverlay(overlay);
    }
+   
+   //put the active one last in the list so that it gets drawn on top
+   private ArrayList<XYFootprint> getSurfacesAndGridsInDrawOrder() {
+      ArrayList<XYFootprint> list =  display_.getSurfacesAndGridsForDisplay();
+      if (list.contains(display_.getCurrentEditableSurfaceOrGrid())) {
+         list.remove(display_.getCurrentEditableSurfaceOrGrid());
+         list.add(display_.getCurrentEditableSurfaceOrGrid());
+      }
+      return list;
+   }
+   
 }

@@ -28,8 +28,10 @@ public class DisplayWindowSurfaceGridTableModel extends AbstractTableModel imple
    private HashMap<XYFootprint, Boolean> showSurfaceOrGridMap = new HashMap<XYFootprint, Boolean>();
 
    private SurfaceGridManager manager_ = SurfaceGridManager.getInstance();
-
-   public DisplayWindowSurfaceGridTableModel() {
+   private DisplayPlus display_;
+   
+   public DisplayWindowSurfaceGridTableModel(DisplayPlus disp) {
+      display_ = disp;
       manager_.registerSurfaceGridListener(this);
       for (int i = 0; i < manager_.getNumberOfGrids() + manager_.getNumberOfSurfaces(); i++) {
          showSurfaceOrGridMap.put(manager_.getSurfaceOrGrid(i), Boolean.TRUE);
@@ -65,37 +67,39 @@ public class DisplayWindowSurfaceGridTableModel extends AbstractTableModel imple
    public void setValueAt(Object value, int row, int col) {
       if (col == 0) {
          showSurfaceOrGridMap.put(manager_.getSurfaceOrGrid(row), !showSurfaceOrGridMap.get(manager_.getSurfaceOrGrid(row)));
-      } else if (col == 2) { 
+         //redraw to refelect change in visibility
+         display_.drawOverlay();
+      } else if (col == 2) {
          try {
             manager_.rename(row, (String) value);
          } catch (Exception ex) {
             Log.log("Name already taken by existing Surface/Grid", true);
          }
-      } 
+      }
    }
 
    @Override
    public Object getValueAt(int rowIndex, int columnIndex) {
-         
+
       XYFootprint surfaceOrGird = manager_.getSurfaceOrGrid(rowIndex);
       if (columnIndex == 0) {
          return showSurfaceOrGridMap.get(surfaceOrGird);
       } else if (columnIndex == 1) {
-         return manager_.getSurfaceOrGrid(rowIndex) instanceof SurfaceInterpolator ? "Surface"  : "Grid";
-      } else  {         
+         return manager_.getSurfaceOrGrid(rowIndex) instanceof SurfaceInterpolator ? "Surface" : "Grid";
+      } else {
          return manager_.getSurfaceOrGrid(rowIndex).getName();
-      } 
+      }
    }
-   
-      @Override
+
+   @Override
    public Class getColumnClass(int columnIndex) {
       if (columnIndex == 0) {
          return Boolean.class;
       } else if (columnIndex == 1) {
          return String.class;
-      } else  {
+      } else {
          return String.class;
-      } 
+      }
    }
 
    @Override
@@ -118,6 +122,11 @@ public class DisplayWindowSurfaceGridTableModel extends AbstractTableModel imple
    @Override
    public void SurfaceOrGridRenamed(XYFootprint f) {
       this.fireTableDataChanged();
+   }
+
+   @Override
+   public void SurfaceInterpolationUpdated(SurfaceInterpolator s) {
+      //nothing to do
    }
 
    public void shutdown() {

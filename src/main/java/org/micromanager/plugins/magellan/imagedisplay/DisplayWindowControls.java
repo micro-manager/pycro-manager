@@ -13,16 +13,10 @@ import com.google.common.eventbus.Subscribe;
 import java.awt.CardLayout;
 import java.awt.Color;
 import java.awt.Panel;
-import java.awt.event.MouseEvent;
-import java.awt.event.MouseMotionAdapter;
 import java.util.ArrayList;
-import javax.swing.BorderFactory;
 import javax.swing.DefaultCellEditor;
-import javax.swing.JLabel;
-import javax.swing.JPanel;
 import javax.swing.JTextField;
 import javax.swing.Popup;
-import javax.swing.PopupFactory;
 import javax.swing.SwingConstants;
 import javax.swing.event.ListSelectionEvent;
 import javax.swing.event.ListSelectionListener;
@@ -33,6 +27,7 @@ import main.java.org.micromanager.plugins.magellan.main.Magellan;
 import main.java.org.micromanager.plugins.magellan.misc.ExactlyOneRowSelectionModel;
 import main.java.org.micromanager.plugins.magellan.misc.MD;
 import main.java.org.micromanager.plugins.magellan.surfacesandregions.MultiPosGrid;
+import main.java.org.micromanager.plugins.magellan.surfacesandregions.SurfaceGridListener;
 import main.java.org.micromanager.plugins.magellan.surfacesandregions.SurfaceGridManager;
 import main.java.org.micromanager.plugins.magellan.surfacesandregions.SurfaceInterpolator;
 import main.java.org.micromanager.plugins.magellan.surfacesandregions.XYFootprint;
@@ -41,7 +36,7 @@ import main.java.org.micromanager.plugins.magellan.surfacesandregions.XYFootprin
  *
  * @author henrypinkard
  */
-public class DisplayWindowControls extends Panel {
+public class DisplayWindowControls extends Panel implements SurfaceGridListener {
 
    private static final Color LIGHT_BLUE = new Color(200, 200, 255);
 
@@ -49,7 +44,6 @@ public class DisplayWindowControls extends Panel {
    private DisplayPlus display_;
    private SurfaceGridManager manager_ = SurfaceGridManager.getInstance();
    private Acquisition acq_;
-   private Popup instructionsPopup_;
    private volatile int selectedSurfaceGridIndex_ = -1;
 
    /**
@@ -75,10 +69,11 @@ public class DisplayWindowControls extends Panel {
          renderer.setHorizontalAlignment(SwingConstants.LEFT); // left justify
          channelsTable_.getColumnModel().getColumn(2).setCellRenderer(renderer);
          //start in explore
-         tabbedPane_.setSelectedIndex(1);
+         tabbedPane_.setSelectedIndex(0);
       } else {
-         tabbedPane_.remove(1); //remove explore tab
+         tabbedPane_.remove(0); //remove explore tab
          acquireAtCurrentButton_.setVisible(false);
+         tabbedPane_.setSelectedIndex(1); //statr on contrst
       }
 
       //exactly one surface or grid selected at all times
@@ -90,38 +85,51 @@ public class DisplayWindowControls extends Panel {
                return;
                //action occurs second time this method is called, after the table gains focus
             }
-            selectedSurfaceGridIndex_ = surfaceGridTable_.getSelectedRow();
-            //if last acq in list is removed, update the selected index
-            if (selectedSurfaceGridIndex_ == surfaceGridTable_.getModel().getRowCount()) {
-               surfaceGridTable_.getSelectionModel().setSelectionInterval(selectedSurfaceGridIndex_ - 1, selectedSurfaceGridIndex_ - 1);
-            }
-            XYFootprint current = getCurrentSurfaceOrGrid();
-            if (current != null) {
-               CardLayout card1 = (CardLayout) surfaceGridSpecificControlsPanel_.getLayout();
-               card1.show(surfaceGridSpecificControlsPanel_, current instanceof SurfaceInterpolator ? "surface" : "grid");
-            }
-            display_.drawOverlay();
+            updateSurfaceGridSelection();
          }
       });
       //Table column widths
       surfaceGridTable_.getColumnModel().getColumn(0).setMaxWidth(40); //show column
       surfaceGridTable_.getColumnModel().getColumn(1).setMaxWidth(120); //type column
    }
-   
+
+   private void updateSurfaceGridSelection() {
+      selectedSurfaceGridIndex_ = surfaceGridTable_.getSelectedRow();
+      //if last acq in list is removed, update the selected index
+      if (selectedSurfaceGridIndex_ == surfaceGridTable_.getModel().getRowCount()) {
+         surfaceGridTable_.getSelectionModel().setSelectionInterval(selectedSurfaceGridIndex_ - 1, selectedSurfaceGridIndex_ - 1);
+      }
+      XYFootprint current = getCurrentSurfaceOrGrid();
+      if (current != null) {
+
+         CardLayout card1 = (CardLayout) surfaceGridSpecificControlsPanel_.getLayout();
+         if (current instanceof SurfaceInterpolator) {
+            card1.show(surfaceGridSpecificControlsPanel_, "surface");
+         } else {
+            card1.show(surfaceGridSpecificControlsPanel_, "grid");
+            int numRows = ((MultiPosGrid) current).numRows();
+            int numCols = ((MultiPosGrid) current).numCols();
+            gridRowsSpinner_.setValue(numRows);
+            gridColsSpinner_.setValue(numCols);
+         }
+      }
+      display_.drawOverlay();
+   }
+
    public ArrayList<XYFootprint> getSurfacesAndGridsForDisplay() {
       ArrayList<XYFootprint> list = new ArrayList<XYFootprint>();
-      for (int i = 0; i < SurfaceGridManager.getInstance().getNumberOfGrids() +SurfaceGridManager.getInstance().getNumberOfSurfaces(); i++){
-         if ( (Boolean)surfaceGridTable_.getValueAt(i, 0)) {
+      for (int i = 0; i < SurfaceGridManager.getInstance().getNumberOfGrids() + SurfaceGridManager.getInstance().getNumberOfSurfaces(); i++) {
+         if (surfaceGridTable_ != null && (Boolean) surfaceGridTable_.getValueAt(i, 0)) {
             list.add(SurfaceGridManager.getInstance().getSurfaceOrGrid(i));
          }
       }
       return list;
    }
-   
+
    public ContrastPanelMagellanAdapter getContrastPanelMagellan() {
       return cpMagellan_;
    }
-   
+
    public MetadataPanel getMetadataPanelMagellan() {
       return metadataPanelMagellan_;
    }
@@ -133,39 +141,10 @@ public class DisplayWindowControls extends Panel {
       return SurfaceGridManager.getInstance().getSurfaceOrGrid(selectedSurfaceGridIndex_);
    }
 
-   public void hideInstructionsPopup() {
-      if (instructionsPopup_ != null) {
-         instructionsPopup_.hide();
-         instructionsPopup_ = null;
-         DisplayWindowControls.this.repaint();
-      }
-   }
-
-   private void setupPopupHints() {
-      //make custom instruction popups disappear
-      tabbedPane_.addMouseMotionListener(new MouseMotionAdapter() {
-         @Override
-         public void mouseMoved(MouseEvent e) {
-            hideInstructionsPopup();
-         }
-      });
-
-   }
-
-   public void showStartupHints() {
-      if (acq_ instanceof ExploreAcquisition) {
-         showInstructionLabel("<html>Left click or click and drag to select tiles <br>"
-                 + "Left click again to confirm <br>Right click and drag to pan<br>+/- keys or mouse wheel to zoom in/out</html>");
-      } else {
-         showInstructionLabel("<html>Right click and drag to pan<br>+/- keys or mouse wheel to zoom in/out</html>");
-      }
-      setupPopupHints();
-   }
-
    @Subscribe
    public void onNewImageEvent(NewImageEvent e) {
       //once there's an image, surfaces and grids are game
-      tabbedPane_.setEnabledAt(0, true);
+      tabbedPane_.setEnabledAt(acq_ instanceof ExploreAcquisition ? 1 : 0, true);
    }
 
    @Subscribe
@@ -202,8 +181,8 @@ public class DisplayWindowControls extends Panel {
       String s = ("0" + (seconds)).substring(("0" + seconds).length() - 2);
       String label = days + ":" + h + ":" + m + ":" + s + " (D:H:M:S)";
 
-      elapsedTimeLabel_.setText(label);
-      zPosLabel_.setText("Display Z position " + MD.getZPositionUm(tags) + "um");
+      elapsedTimeLabel_.setText("Elapsed time: " + label);
+      zPosLabel_.setText("Display Z position: " + MD.getZPositionUm(tags) + "um");
    }
 
    public void prepareForClose() {
@@ -221,29 +200,37 @@ public class DisplayWindowControls extends Panel {
               (Integer) gridRowsSpinner_.getValue(), (Integer) gridColsSpinner_.getValue(),
               display_.stageCoordFromImageCoords(imageWidth / 2, imageHeight / 2));
    }
-
-   private void showInstructionLabel(String text) {
-      if (!tabbedPane_.getSelectedComponent().isShowing()) {
-         return;
+   
+   public boolean isCurrentlyEditableSurfaceGridVisible() {
+      if (selectedSurfaceGridIndex_ == -1) {
+         return false;
       }
+      return (Boolean) surfaceGridTable_.getValueAt(selectedSurfaceGridIndex_, 0);
+   }
 
-      if (instructionsPopup_ != null) {
-         instructionsPopup_.hide();
-      }
-      PopupFactory popupFactory = PopupFactory.getSharedInstance();
-      int x = tabbedPane_.getSelectedComponent().getLocationOnScreen().x;
-      int y = tabbedPane_.getSelectedComponent().getLocationOnScreen().y;
+   @Override
+   public void SurfaceOrGridChanged(XYFootprint f) {
 
-      JPanel background = new JPanel();
-      background.setBorder(BorderFactory.createLineBorder(Color.black));
-      background.setBackground(LIGHT_BLUE); //light green
-      JLabel message = new JLabel(text);
-      message.setForeground(Color.black);
-      background.add(message);
-      x += tabbedPane_.getSelectedComponent().getWidth() / 2 - background.getPreferredSize().width / 2;
-      y += tabbedPane_.getSelectedComponent().getHeight() / 2 - background.getPreferredSize().height / 2;
-      instructionsPopup_ = popupFactory.getPopup(tabbedPane_.getSelectedComponent(), background, x, y);
-      instructionsPopup_.show();
+   }
+
+   @Override
+   public void SurfaceOrGridDeleted(XYFootprint f) {
+      updateSurfaceGridSelection();
+   }
+
+   @Override
+   public void SurfaceOrGridCreated(XYFootprint f) {
+      updateSurfaceGridSelection();
+   }
+
+   @Override
+   public void SurfaceOrGridRenamed(XYFootprint f) {
+
+   }
+
+   @Override
+   public void SurfaceInterpolationUpdated(SurfaceInterpolator s) {
+
    }
 
    /**
@@ -256,6 +243,10 @@ public class DisplayWindowControls extends Panel {
    private void initComponents() {
 
       tabbedPane_ = new javax.swing.JTabbedPane();
+      explorePanel_ = new javax.swing.JPanel();
+      jScrollPane1 = new javax.swing.JScrollPane();
+      channelsTable_ = new javax.swing.JTable();
+      acquireAtCurrentButton_ = new javax.swing.JButton();
       surfaceGridPanel_ = new javax.swing.JPanel();
       jScrollPane2 = new javax.swing.JScrollPane();
       surfaceGridTable_ = new javax.swing.JTable();
@@ -272,10 +263,6 @@ public class DisplayWindowControls extends Panel {
       jLabel2 = new javax.swing.JLabel();
       newGridButton_ = new javax.swing.JButton();
       newSurfaceButton_ = new javax.swing.JButton();
-      explorePanel_ = new javax.swing.JPanel();
-      jScrollPane1 = new javax.swing.JScrollPane();
-      channelsTable_ = new javax.swing.JTable();
-      acquireAtCurrentButton_ = new javax.swing.JButton();
       contrastPanelPanel_ = new javax.swing.JPanel();
       cpMagellan_ = new main.java.org.micromanager.plugins.magellan.imagedisplay.ContrastPanelMagellanAdapter();
       metadataPanel_ = new javax.swing.JPanel();
@@ -296,7 +283,39 @@ public class DisplayWindowControls extends Panel {
          }
       });
 
-      surfaceGridTable_.setModel(new DisplayWindowSurfaceGridTableModel()
+      explorePanel_.setToolTipText("<html>Left click or click and drag to select tiles <br>Left click again to confirm <br>Right click and drag to pan<br>+/- keys or mouse wheel to zoom in/out</html>");
+
+      channelsTable_.setModel(acq_ != null ? new SimpleChannelTableModel(acq_.getChannels(),false) : new DefaultTableModel());
+      jScrollPane1.setViewportView(channelsTable_);
+
+      acquireAtCurrentButton_.setText("Acquire image at current hardware position");
+      acquireAtCurrentButton_.addActionListener(new java.awt.event.ActionListener() {
+         public void actionPerformed(java.awt.event.ActionEvent evt) {
+            acquireAtCurrentButton_ActionPerformed(evt);
+         }
+      });
+
+      javax.swing.GroupLayout explorePanel_Layout = new javax.swing.GroupLayout(explorePanel_);
+      explorePanel_.setLayout(explorePanel_Layout);
+      explorePanel_Layout.setHorizontalGroup(
+         explorePanel_Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+         .addComponent(jScrollPane1)
+         .addGroup(explorePanel_Layout.createSequentialGroup()
+            .addGap(159, 159, 159)
+            .addComponent(acquireAtCurrentButton_)
+            .addContainerGap(javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
+      );
+      explorePanel_Layout.setVerticalGroup(
+         explorePanel_Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+         .addGroup(javax.swing.GroupLayout.Alignment.TRAILING, explorePanel_Layout.createSequentialGroup()
+            .addComponent(acquireAtCurrentButton_)
+            .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+            .addComponent(jScrollPane1, javax.swing.GroupLayout.DEFAULT_SIZE, 339, Short.MAX_VALUE))
+      );
+
+      tabbedPane_.addTab("Explore", explorePanel_);
+
+      surfaceGridTable_.setModel(new DisplayWindowSurfaceGridTableModel(display_)
       );
       surfaceGridTable_.setSelectionMode(javax.swing.ListSelectionModel.SINGLE_SELECTION);
       jScrollPane2.setViewportView(surfaceGridTable_);
@@ -440,38 +459,6 @@ public class DisplayWindowControls extends Panel {
       );
 
       tabbedPane_.addTab("Surfaces and Grids", surfaceGridPanel_);
-
-      explorePanel_.setToolTipText("<html>Left click or click and drag to select tiles <br>Left click again to confirm <br>Right click and drag to pan<br>+/- keys or mouse wheel to zoom in/out</html>");
-
-      channelsTable_.setModel(acq_ != null ? new SimpleChannelTableModel(acq_.getChannels(),false) : new DefaultTableModel());
-      jScrollPane1.setViewportView(channelsTable_);
-
-      acquireAtCurrentButton_.setText("Acquire image at current hardware position");
-      acquireAtCurrentButton_.addActionListener(new java.awt.event.ActionListener() {
-         public void actionPerformed(java.awt.event.ActionEvent evt) {
-            acquireAtCurrentButton_ActionPerformed(evt);
-         }
-      });
-
-      javax.swing.GroupLayout explorePanel_Layout = new javax.swing.GroupLayout(explorePanel_);
-      explorePanel_.setLayout(explorePanel_Layout);
-      explorePanel_Layout.setHorizontalGroup(
-         explorePanel_Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-         .addComponent(jScrollPane1)
-         .addGroup(explorePanel_Layout.createSequentialGroup()
-            .addGap(159, 159, 159)
-            .addComponent(acquireAtCurrentButton_)
-            .addContainerGap(javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
-      );
-      explorePanel_Layout.setVerticalGroup(
-         explorePanel_Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-         .addGroup(javax.swing.GroupLayout.Alignment.TRAILING, explorePanel_Layout.createSequentialGroup()
-            .addComponent(acquireAtCurrentButton_)
-            .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-            .addComponent(jScrollPane1, javax.swing.GroupLayout.DEFAULT_SIZE, 339, Short.MAX_VALUE))
-      );
-
-      tabbedPane_.addTab("Explore", explorePanel_);
 
       javax.swing.GroupLayout contrastPanelPanel_Layout = new javax.swing.GroupLayout(contrastPanelPanel_);
       contrastPanelPanel_.setLayout(contrastPanelPanel_Layout);
@@ -625,14 +612,25 @@ public class DisplayWindowControls extends Panel {
    }//GEN-LAST:event_showNewImagesCheckBox_ActionPerformed
 
    private void tabbedPane_StateChanged(javax.swing.event.ChangeEvent evt) {//GEN-FIRST:event_tabbedPane_StateChanged
-      if (tabbedPane_.getSelectedIndex() == 0) { // grid           
-         display_.setMode(DisplayPlus.SURFACE_AND_GRID);
-         //show tooltip
-         showInstructionLabel(((JPanel) tabbedPane_.getComponentAt(0)).getToolTipText());
-      } else if (tabbedPane_.getSelectedIndex() == 1) { //explore
-         display_.setMode(DisplayPlus.EXPLORE);
-         showInstructionLabel(((JPanel) tabbedPane_.getComponentAt(1)).getToolTipText());
-      } 
+      if (acq_ instanceof ExploreAcquisition) {
+         if (tabbedPane_.getSelectedIndex() == 0) {
+            display_.setMode(DisplayPlus.EXPLORE);
+         } else if (tabbedPane_.getSelectedIndex() == 1) {
+            display_.setMode(DisplayPlus.SURFACE_AND_GRID);
+         } else if (tabbedPane_.getSelectedIndex() == 2) {
+            display_.setMode(DisplayPlus.NONE);
+         } else {
+            display_.setMode(DisplayPlus.NONE);
+         }
+      } else {
+         if (tabbedPane_.getSelectedIndex() == 0) {
+            display_.setMode(DisplayPlus.SURFACE_AND_GRID);
+         } else if (tabbedPane_.getSelectedIndex() == 1) {
+            display_.setMode(DisplayPlus.NONE);
+         } else {
+            display_.setMode(DisplayPlus.NONE);
+         }
+      }
    }//GEN-LAST:event_tabbedPane_StateChanged
 
    private void gridRowsSpinner_StateChanged(javax.swing.event.ChangeEvent evt) {//GEN-FIRST:event_gridRowsSpinner_StateChanged
@@ -712,4 +710,5 @@ public class DisplayWindowControls extends Panel {
    private javax.swing.JTabbedPane tabbedPane_;
    private javax.swing.JLabel zPosLabel_;
    // End of variables declaration//GEN-END:variables
+
 }

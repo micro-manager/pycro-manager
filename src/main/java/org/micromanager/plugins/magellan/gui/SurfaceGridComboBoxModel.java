@@ -21,6 +21,7 @@ import com.jogamp.nativewindow.SurfaceUpdatedListener;
 import javax.swing.DefaultComboBoxModel;
 import main.java.org.micromanager.plugins.magellan.surfacesandregions.SurfaceGridListener;
 import main.java.org.micromanager.plugins.magellan.surfacesandregions.SurfaceGridManager;
+import main.java.org.micromanager.plugins.magellan.surfacesandregions.SurfaceInterpolator;
 import main.java.org.micromanager.plugins.magellan.surfacesandregions.XYFootprint;
 
 /**
@@ -95,6 +96,11 @@ public class SurfaceGridComboBoxModel extends DefaultComboBoxModel implements Su
    @Override
    public void SurfaceOrGridRenamed(XYFootprint f) {
       this.update();
+   }
+
+   @Override
+   public void SurfaceInterpolationUpdated(SurfaceInterpolator s) {
+      //nothin
    }
    
 }

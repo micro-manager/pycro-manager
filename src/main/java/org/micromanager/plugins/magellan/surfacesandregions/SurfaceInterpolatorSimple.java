@@ -119,6 +119,7 @@ public class SurfaceInterpolatorSimple extends SurfaceInterpolator {
                     boundXMin_, boundXMax_, boundYMin_, boundYMax_,
                     convexHullRegion_, convexHullVertices_, getPoints());
             interpolationLock_.notifyAll();
+            manager_.SurfaceInterpolationUpdated(this);
          }
 //         System.gc();
          pixelsPerInterpPoint /= 2;

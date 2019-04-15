@@ -347,7 +347,8 @@ public class DisplayPlus extends VirtualAcquisitionDisplay implements SurfaceGri
          }
          overlayer_.redrawOverlay();
       } else if (mode_ == SURFACE_AND_GRID && this.getCurrentEditableSurfaceOrGrid() != null && 
-              this.getCurrentEditableSurfaceOrGrid() instanceof SurfaceInterpolator) {
+              this.getCurrentEditableSurfaceOrGrid() instanceof SurfaceInterpolator && 
+              dwc_.isCurrentlyEditableSurfaceGridVisible()) {
          SurfaceInterpolator currentSurface = (SurfaceInterpolator) this.getCurrentEditableSurfaceOrGrid();
          if (SwingUtilities.isRightMouseButton(e) && !mouseDragging_) {
             double z = zoomableStack_.getZCoordinateOfDisplayedSlice(DisplayPlus.this.getVisibleSliceIndex());
@@ -395,7 +396,8 @@ public class DisplayPlus extends VirtualAcquisitionDisplay implements SurfaceGri
       } else if (SwingUtilities.isLeftMouseButton(e)) {
          //only move grid
          if (mode_ == SURFACE_AND_GRID && this.getCurrentEditableSurfaceOrGrid() != null && 
-              this.getCurrentEditableSurfaceOrGrid() instanceof MultiPosGrid) {
+              this.getCurrentEditableSurfaceOrGrid() instanceof MultiPosGrid && 
+                 dwc_.isCurrentlyEditableSurfaceGridVisible()) {
             MultiPosGrid currentGrid = (MultiPosGrid) this.getCurrentEditableSurfaceOrGrid();
             int dx = (currentPoint.x - mouseDragStartPointLeft_.x);
             int dy = (currentPoint.y - mouseDragStartPointLeft_.y);
@@ -625,6 +627,13 @@ public class DisplayPlus extends VirtualAcquisitionDisplay implements SurfaceGri
    @Override
    public void SurfaceOrGridRenamed(XYFootprint f) {
       //nothing to do
+   }
+   
+   @Override
+   public void SurfaceInterpolationUpdated(SurfaceInterpolator s) {
+      if(dwc_.getSurfacesAndGridsForDisplay().contains(s)) {
+         drawOverlay();
+      }
    }
 
    void registerControls(DisplayWindowControls dwc) {

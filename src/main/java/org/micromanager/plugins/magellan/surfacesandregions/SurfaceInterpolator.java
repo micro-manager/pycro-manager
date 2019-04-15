@@ -146,7 +146,9 @@ public abstract class SurfaceInterpolator extends XYFootprint {
    
    public void delete() {
       executor_.shutdownNow();
-//      CovariantPairingsManager.getInstance().deletePairsReferencingSurface(this);
+      convexHullLock_.notifyAll();
+      interpolationLock_.notifyAll();
+      xyPositionLock_.notifyAll();
    }
    
    /**
