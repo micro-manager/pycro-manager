@@ -90,7 +90,8 @@ public abstract class VirtualAcquisitionDisplay{
    private ImagePlus hyperImage_;
    protected SubImageControls subImageControls_;
    public AcquisitionVirtualStack virtualStack_;
-   private ContrastMetadataPanel cmcPanel_;
+   private ContrastPanelMagellanAdapter cpMagellan_;
+   private MetadataPanel mdPanel_;
    private boolean contrastInitialized_ = false; //used for autostretching on window opening
    private boolean firstImage_ = true;
    private String channelGroup_ = "none";
@@ -135,8 +136,9 @@ public abstract class VirtualAcquisitionDisplay{
       return title_;
    }
    
-   public void setCMCPanel(ContrastMetadataPanel panel) {
-      cmcPanel_ = panel;
+   public void setPanels(ContrastPanelMagellanAdapter c, MetadataPanel md) {
+      cpMagellan_ = c;
+      mdPanel_ = md;
    }
 
    /**
@@ -499,7 +501,7 @@ public abstract class VirtualAcquisitionDisplay{
          return;
       }
       int numChannels = imageCache_.getNumDisplayChannels();
-      Histograms histograms = cmcPanel_.getHistograms();
+      Histograms histograms = cpMagellan_.getHistograms();
       for (int channel = 0; channel < numChannels; channel++) {
          String id = channelGroup_ + "-" + imageCache_.getChannelName(channel);
          HistogramSettings settings = contrastSettings_.get(id);
@@ -708,8 +710,11 @@ public abstract class VirtualAcquisitionDisplay{
       if (hyperImage_ != null) {
          applyPixelSizeCalibration();
       }
-      if (cmcPanel_ != null) {
-         cmcPanel_.imageChangedUpdate(this);
+      if (cpMagellan_ != null) {
+         cpMagellan_.imageChangedUpdate(this);
+      }
+      if (mdPanel_ != null) {
+         mdPanel_.imageChangedUpdate(this);
       }
       imageChangedWindowUpdate(); //used to update status line
    }

@@ -55,6 +55,7 @@ public class DisplayWindowControls extends Panel {
     * Creates new form DisplayWindowControls
     */
    public DisplayWindowControls(DisplayPlus disp, EventBus bus, Acquisition acq) {
+
       bus_ = bus;
       display_ = disp;
       disp.registerControls(this);
@@ -104,6 +105,14 @@ public class DisplayWindowControls extends Panel {
       //Table column widths
       surfaceGridTable_.getColumnModel().getColumn(0).setMaxWidth(40); //show column
       surfaceGridTable_.getColumnModel().getColumn(1).setMaxWidth(120); //type column
+   }
+   
+   public ContrastPanelMagellanAdapter getContrastPanelMagellan() {
+      return cpMagellan_;
+   }
+   
+   public MetadataPanel getMetadataPanelMagellan() {
+      return metadataPanelMagellan_;
    }
 
    XYFootprint getCurrentSurfaceOrGrid() {
@@ -250,12 +259,16 @@ public class DisplayWindowControls extends Panel {
       showStagePositionsCheckBox_ = new javax.swing.JCheckBox();
       showInterpCheckBox_ = new javax.swing.JCheckBox();
       jLabel2 = new javax.swing.JLabel();
-      addSurfaceGridButtonPanel_ = new javax.swing.JPanel();
       newGridButton_ = new javax.swing.JButton();
       newSurfaceButton_ = new javax.swing.JButton();
       explorePanel_ = new javax.swing.JPanel();
       jScrollPane1 = new javax.swing.JScrollPane();
       channelsTable_ = new javax.swing.JTable();
+      acquireAtCurrentButton_ = new javax.swing.JButton();
+      contrastPanelPanel_ = new javax.swing.JPanel();
+      cpMagellan_ = new main.java.org.micromanager.plugins.magellan.imagedisplay.ContrastPanelMagellanAdapter();
+      metadataPanel_ = new javax.swing.JPanel();
+      metadataPanelMagellan_ = new main.java.org.micromanager.plugins.magellan.imagedisplay.MetadataPanel();
       showInFolderButton_ = new javax.swing.JButton();
       abortButton_ = new javax.swing.JButton();
       pauseButton_ = new javax.swing.JButton();
@@ -264,7 +277,6 @@ public class DisplayWindowControls extends Panel {
       showNewImagesCheckBox_ = new javax.swing.JCheckBox();
       elapsedTimeLabel_ = new javax.swing.JLabel();
       zPosLabel_ = new javax.swing.JLabel();
-      acquireAtCurrentButton_ = new javax.swing.JButton();
 
       tabbedPane_.setToolTipText("");
       tabbedPane_.addChangeListener(new javax.swing.event.ChangeListener() {
@@ -315,7 +327,7 @@ public class DisplayWindowControls extends Panel {
             .addComponent(gridColsLabel_)
             .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
             .addComponent(gridColsSpinner_, javax.swing.GroupLayout.PREFERRED_SIZE, 54, javax.swing.GroupLayout.PREFERRED_SIZE)
-            .addContainerGap(96, Short.MAX_VALUE))
+            .addContainerGap(javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
       );
       gridControlPanel_Layout.setVerticalGroup(
          gridControlPanel_Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
@@ -326,7 +338,7 @@ public class DisplayWindowControls extends Panel {
                .addComponent(gridColsLabel_)
                .addComponent(gridColsSpinner_, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
                .addComponent(jLabel1))
-            .addGap(0, 26, Short.MAX_VALUE))
+            .addGap(0, 0, Short.MAX_VALUE))
       );
 
       surfaceGridSpecificControlsPanel_.add(gridControlPanel_, "grid");
@@ -359,7 +371,7 @@ public class DisplayWindowControls extends Panel {
             .addComponent(showInterpCheckBox_)
             .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
             .addComponent(showStagePositionsCheckBox_)
-            .addContainerGap(78, Short.MAX_VALUE))
+            .addContainerGap(javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
       );
       surfaceControlPanel_Layout.setVerticalGroup(
          surfaceControlPanel_Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
@@ -368,7 +380,7 @@ public class DisplayWindowControls extends Panel {
                .addComponent(showStagePositionsCheckBox_)
                .addComponent(showInterpCheckBox_)
                .addComponent(jLabel2))
-            .addContainerGap(29, Short.MAX_VALUE))
+            .addContainerGap(javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
       );
 
       surfaceGridSpecificControlsPanel_.add(surfaceControlPanel_, "surface");
@@ -387,45 +399,33 @@ public class DisplayWindowControls extends Panel {
          }
       });
 
-      javax.swing.GroupLayout addSurfaceGridButtonPanel_Layout = new javax.swing.GroupLayout(addSurfaceGridButtonPanel_);
-      addSurfaceGridButtonPanel_.setLayout(addSurfaceGridButtonPanel_Layout);
-      addSurfaceGridButtonPanel_Layout.setHorizontalGroup(
-         addSurfaceGridButtonPanel_Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-         .addGroup(addSurfaceGridButtonPanel_Layout.createSequentialGroup()
-            .addComponent(newGridButton_)
-            .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-            .addComponent(newSurfaceButton_)
-            .addContainerGap(javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
-      );
-      addSurfaceGridButtonPanel_Layout.setVerticalGroup(
-         addSurfaceGridButtonPanel_Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-         .addGroup(addSurfaceGridButtonPanel_Layout.createSequentialGroup()
-            .addGroup(addSurfaceGridButtonPanel_Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
-               .addComponent(newGridButton_)
-               .addComponent(newSurfaceButton_))
-            .addGap(0, 0, Short.MAX_VALUE))
-      );
-
       javax.swing.GroupLayout surfaceGridPanel_Layout = new javax.swing.GroupLayout(surfaceGridPanel_);
       surfaceGridPanel_.setLayout(surfaceGridPanel_Layout);
       surfaceGridPanel_Layout.setHorizontalGroup(
          surfaceGridPanel_Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
          .addGroup(surfaceGridPanel_Layout.createSequentialGroup()
             .addContainerGap()
-            .addComponent(addSurfaceGridButtonPanel_, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+            .addComponent(newGridButton_)
             .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+            .addComponent(newSurfaceButton_)
+            .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
             .addComponent(surfaceGridSpecificControlsPanel_, javax.swing.GroupLayout.PREFERRED_SIZE, 424, javax.swing.GroupLayout.PREFERRED_SIZE))
-         .addComponent(jScrollPane2)
+         .addGroup(surfaceGridPanel_Layout.createSequentialGroup()
+            .addComponent(jScrollPane2)
+            .addContainerGap())
       );
       surfaceGridPanel_Layout.setVerticalGroup(
          surfaceGridPanel_Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
          .addGroup(surfaceGridPanel_Layout.createSequentialGroup()
-            .addComponent(jScrollPane2, javax.swing.GroupLayout.PREFERRED_SIZE, 95, javax.swing.GroupLayout.PREFERRED_SIZE)
-            .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
-            .addGroup(surfaceGridPanel_Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING, false)
-               .addComponent(surfaceGridSpecificControlsPanel_, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
-               .addComponent(addSurfaceGridButtonPanel_, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
-            .addGap(135, 135, 135))
+            .addGroup(surfaceGridPanel_Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+               .addGroup(surfaceGridPanel_Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
+                  .addComponent(newGridButton_)
+                  .addComponent(newSurfaceButton_))
+               .addGroup(surfaceGridPanel_Layout.createSequentialGroup()
+                  .addContainerGap()
+                  .addComponent(surfaceGridSpecificControlsPanel_, javax.swing.GroupLayout.PREFERRED_SIZE, 38, javax.swing.GroupLayout.PREFERRED_SIZE)))
+            .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
+            .addComponent(jScrollPane2, javax.swing.GroupLayout.DEFAULT_SIZE, 318, Short.MAX_VALUE))
       );
 
       tabbedPane_.addTab("Surfaces and Grids", surfaceGridPanel_);
@@ -435,18 +435,60 @@ public class DisplayWindowControls extends Panel {
       channelsTable_.setModel(acq_ != null ? new SimpleChannelTableModel(acq_.getChannels(),false) : new DefaultTableModel());
       jScrollPane1.setViewportView(channelsTable_);
 
+      acquireAtCurrentButton_.setText("Acquire image at current hardware position");
+      acquireAtCurrentButton_.addActionListener(new java.awt.event.ActionListener() {
+         public void actionPerformed(java.awt.event.ActionEvent evt) {
+            acquireAtCurrentButton_ActionPerformed(evt);
+         }
+      });
+
       javax.swing.GroupLayout explorePanel_Layout = new javax.swing.GroupLayout(explorePanel_);
       explorePanel_.setLayout(explorePanel_Layout);
       explorePanel_Layout.setHorizontalGroup(
          explorePanel_Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-         .addComponent(jScrollPane1, javax.swing.GroupLayout.DEFAULT_SIZE, 670, Short.MAX_VALUE)
+         .addComponent(jScrollPane1)
+         .addGroup(explorePanel_Layout.createSequentialGroup()
+            .addGap(159, 159, 159)
+            .addComponent(acquireAtCurrentButton_)
+            .addContainerGap(javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
       );
       explorePanel_Layout.setVerticalGroup(
          explorePanel_Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-         .addComponent(jScrollPane1, javax.swing.GroupLayout.Alignment.TRAILING, javax.swing.GroupLayout.DEFAULT_SIZE, 141, Short.MAX_VALUE)
+         .addGroup(javax.swing.GroupLayout.Alignment.TRAILING, explorePanel_Layout.createSequentialGroup()
+            .addComponent(acquireAtCurrentButton_)
+            .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+            .addComponent(jScrollPane1, javax.swing.GroupLayout.DEFAULT_SIZE, 339, Short.MAX_VALUE))
       );
 
       tabbedPane_.addTab("Explore", explorePanel_);
+
+      javax.swing.GroupLayout contrastPanelPanel_Layout = new javax.swing.GroupLayout(contrastPanelPanel_);
+      contrastPanelPanel_.setLayout(contrastPanelPanel_Layout);
+      contrastPanelPanel_Layout.setHorizontalGroup(
+         contrastPanelPanel_Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+         .addComponent(cpMagellan_, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+      );
+      contrastPanelPanel_Layout.setVerticalGroup(
+         contrastPanelPanel_Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+         .addGroup(contrastPanelPanel_Layout.createSequentialGroup()
+            .addComponent(cpMagellan_, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
+            .addGap(0, 0, Short.MAX_VALUE))
+      );
+
+      tabbedPane_.addTab("Contrast", contrastPanelPanel_);
+
+      javax.swing.GroupLayout metadataPanel_Layout = new javax.swing.GroupLayout(metadataPanel_);
+      metadataPanel_.setLayout(metadataPanel_Layout);
+      metadataPanel_Layout.setHorizontalGroup(
+         metadataPanel_Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+         .addComponent(metadataPanelMagellan_, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+      );
+      metadataPanel_Layout.setVerticalGroup(
+         metadataPanel_Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+         .addComponent(metadataPanelMagellan_, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+      );
+
+      tabbedPane_.addTab("Metadata", metadataPanel_);
 
       showInFolderButton_.setIcon(new javax.swing.ImageIcon(getClass().getResource("/main/resources/org/micromanager/folder.png"))); // NOI18N
       showInFolderButton_.setToolTipText("Show in folder");
@@ -494,23 +536,13 @@ public class DisplayWindowControls extends Panel {
 
       zPosLabel_.setText("Display Z position: ");
 
-      acquireAtCurrentButton_.setText("Acquire here");
-      acquireAtCurrentButton_.addActionListener(new java.awt.event.ActionListener() {
-         public void actionPerformed(java.awt.event.ActionEvent evt) {
-            acquireAtCurrentButton_ActionPerformed(evt);
-         }
-      });
-
       javax.swing.GroupLayout layout = new javax.swing.GroupLayout(this);
       this.setLayout(layout);
       layout.setHorizontalGroup(
          layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
          .addGroup(layout.createSequentialGroup()
             .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-               .addGroup(layout.createSequentialGroup()
-                  .addGap(0, 0, Short.MAX_VALUE)
-                  .addComponent(showNewImagesCheckBox_)
-                  .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED))
+               .addComponent(tabbedPane_)
                .addGroup(layout.createSequentialGroup()
                   .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
                      .addGroup(layout.createSequentialGroup()
@@ -519,45 +551,39 @@ public class DisplayWindowControls extends Panel {
                         .addComponent(abortButton_)
                         .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
                         .addComponent(pauseButton_)
+                        .addGap(18, 18, 18)
+                        .addComponent(fpsLabel_)
                         .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                        .addComponent(acquireAtCurrentButton_, javax.swing.GroupLayout.PREFERRED_SIZE, 105, javax.swing.GroupLayout.PREFERRED_SIZE))
+                        .addComponent(animationFPSSpinner_, javax.swing.GroupLayout.PREFERRED_SIZE, 45, javax.swing.GroupLayout.PREFERRED_SIZE)
+                        .addGap(18, 18, 18)
+                        .addComponent(showNewImagesCheckBox_))
                      .addGroup(layout.createSequentialGroup()
                         .addContainerGap()
-                        .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-                           .addComponent(zPosLabel_)
-                           .addGroup(layout.createSequentialGroup()
-                              .addComponent(fpsLabel_)
-                              .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                              .addComponent(animationFPSSpinner_, javax.swing.GroupLayout.PREFERRED_SIZE, 45, javax.swing.GroupLayout.PREFERRED_SIZE))
-                           .addComponent(elapsedTimeLabel_))))
-                  .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)))
-            .addComponent(tabbedPane_)
+                        .addComponent(zPosLabel_)
+                        .addGap(71, 71, 71)
+                        .addComponent(elapsedTimeLabel_)))
+                  .addGap(0, 0, Short.MAX_VALUE)))
             .addContainerGap())
       );
       layout.setVerticalGroup(
          layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
          .addGroup(layout.createSequentialGroup()
-            .addContainerGap(javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
             .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-               .addComponent(tabbedPane_, javax.swing.GroupLayout.PREFERRED_SIZE, 187, javax.swing.GroupLayout.PREFERRED_SIZE)
-               .addGroup(layout.createSequentialGroup()
-                  .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-                     .addGroup(layout.createSequentialGroup()
-                        .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
-                           .addComponent(showInFolderButton_)
-                           .addComponent(abortButton_)
-                           .addComponent(pauseButton_))
-                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                        .addComponent(zPosLabel_))
-                     .addComponent(acquireAtCurrentButton_))
-                  .addGap(2, 2, 2)
-                  .addComponent(elapsedTimeLabel_, javax.swing.GroupLayout.PREFERRED_SIZE, 27, javax.swing.GroupLayout.PREFERRED_SIZE)
-                  .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                  .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
-                     .addComponent(fpsLabel_)
-                     .addComponent(animationFPSSpinner_, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE))
-                  .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                  .addComponent(showNewImagesCheckBox_))))
+               .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
+                  .addComponent(showInFolderButton_)
+                  .addComponent(abortButton_)
+                  .addComponent(pauseButton_))
+               .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
+                  .addComponent(fpsLabel_)
+                  .addComponent(animationFPSSpinner_, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
+                  .addComponent(showNewImagesCheckBox_)))
+            .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+            .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
+               .addComponent(zPosLabel_)
+               .addComponent(elapsedTimeLabel_, javax.swing.GroupLayout.PREFERRED_SIZE, 27, javax.swing.GroupLayout.PREFERRED_SIZE))
+            .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+            .addComponent(tabbedPane_, javax.swing.GroupLayout.PREFERRED_SIZE, 420, Short.MAX_VALUE)
+            .addContainerGap())
       );
 
       tabbedPane_.getAccessibleContext().setAccessibleName("Status");
@@ -595,7 +621,7 @@ public class DisplayWindowControls extends Panel {
       } else if (tabbedPane_.getSelectedIndex() == 1) { //explore
          display_.setMode(DisplayPlus.EXPLORE);
          showInstructionLabel(((JPanel) tabbedPane_.getComponentAt(1)).getToolTipText());
-      }
+      } 
    }//GEN-LAST:event_tabbedPane_StateChanged
 
    private void gridRowsSpinner_StateChanged(javax.swing.event.ChangeEvent evt) {//GEN-FIRST:event_gridRowsSpinner_StateChanged
@@ -643,9 +669,10 @@ public class DisplayWindowControls extends Panel {
    // Variables declaration - do not modify//GEN-BEGIN:variables
    private javax.swing.JButton abortButton_;
    private javax.swing.JButton acquireAtCurrentButton_;
-   private javax.swing.JPanel addSurfaceGridButtonPanel_;
    private javax.swing.JSpinner animationFPSSpinner_;
    private javax.swing.JTable channelsTable_;
+   private javax.swing.JPanel contrastPanelPanel_;
+   private main.java.org.micromanager.plugins.magellan.imagedisplay.ContrastPanelMagellanAdapter cpMagellan_;
    private javax.swing.JLabel elapsedTimeLabel_;
    private javax.swing.JPanel explorePanel_;
    private javax.swing.JLabel fpsLabel_;
@@ -658,6 +685,8 @@ public class DisplayWindowControls extends Panel {
    private javax.swing.JLabel jLabel2;
    private javax.swing.JScrollPane jScrollPane1;
    private javax.swing.JScrollPane jScrollPane2;
+   private main.java.org.micromanager.plugins.magellan.imagedisplay.MetadataPanel metadataPanelMagellan_;
+   private javax.swing.JPanel metadataPanel_;
    private javax.swing.JButton newGridButton_;
    private javax.swing.JButton newSurfaceButton_;
    private javax.swing.JButton pauseButton_;

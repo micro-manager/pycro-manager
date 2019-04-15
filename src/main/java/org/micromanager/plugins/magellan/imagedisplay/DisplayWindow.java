@@ -55,12 +55,13 @@ public class DisplayWindow extends StackWindow {
    private ImagePlus plus_;
    private JPanel canvasPanel_;
    private SubImageControls subImageControls_;
-   private JToggleButton arrowButton_;
+   private final JToggleButton arrowButton_;
    private Acquisition acq_;
    private DisplayPlus disp_;
    private JPanel nonImagePanel_, controlsAndContrastPanel_;
    private volatile boolean saveWindowResize_ = false;
-   private ContrastMetadataPanel cmcPanel_;
+   private ContrastPanelMagellanAdapter contrastPanelMagellan_;
+   private MetadataPanel mdPanelMagellan_;
    private DisplayWindowControls dwControls_;
 
    // store window location in Java Preferences
@@ -104,7 +105,6 @@ public class DisplayWindow extends StackWindow {
       //disbale focus
       this.setFocusable(false);
       this.setFocusTraversalPolicy(new SortingFocusTraversalPolicy(new Comparator<Component>() {
-
          @Override
          public int compare(Component t, Component t1) {
             return 0;
@@ -138,16 +138,15 @@ public class DisplayWindow extends StackWindow {
       ic = new NoZoomCanvas(plus_);
       ic.setMinimumSize(new Dimension(200, 200));
 
-      //create contrast, metadata, and other controls
-      cmcPanel_ = new ContrastMetadataPanel(disp);
-      disp.setCMCPanel(cmcPanel_);
       dwControls_ = new DisplayWindowControls(disp, bus, disp.getAcquisition());
+      contrastPanelMagellan_ = dwControls_.getContrastPanelMagellan();
+      mdPanelMagellan_ = dwControls_.getMetadataPanelMagellan();
+      disp.setPanels(contrastPanelMagellan_, mdPanelMagellan_);
 
       //create non image panel
       nonImagePanel_ = new JPanel(new BorderLayout());
       controlsAndContrastPanel_ = new JPanel(new BorderLayout());
-      controlsAndContrastPanel_.add(dwControls_, BorderLayout.PAGE_START);
-      controlsAndContrastPanel_.add(cmcPanel_, BorderLayout.CENTER);
+      controlsAndContrastPanel_.add(dwControls_, BorderLayout.LINE_END);
 
       //show stuff on explore acquisitions, collapse for fixed area cqs
       arrowButton_ = new JToggleButton(disp_.getAcquisition() instanceof ExploreAcquisition ? "\u25c4" : "\u25ba");
@@ -215,7 +214,8 @@ public class DisplayWindow extends StackWindow {
          this.setSize(new Dimension(displayPrefs_.getInt(WINDOWSIZEX_FIXED, width),
                  displayPrefs_.getInt(WINDOWSIZEY_FIXED, height)));
       }
-      cmcPanel_.initialize(disp);
+      contrastPanelMagellan_.initialize(disp);
+      mdPanelMagellan_.initialize(disp);
       doLayout();
 
       SwingUtilities.invokeLater(new Runnable() {
@@ -612,7 +612,7 @@ public class DisplayWindow extends StackWindow {
    }
 
    public ContrastPanel getContrastPanel() {
-      return cmcPanel_.getContrastPanel();
+      return contrastPanelMagellan_;
    }
 
    // Force this window to go away.
@@ -623,7 +623,7 @@ public class DisplayWindow extends StackWindow {
          Log.log("Null pointer error in ImageJ code while closing window");
       }
       bus_.unregister(this);
-      cmcPanel_.prepareForClose();
+      mdPanelMagellan_.prepareForClose();
       dwControls_.prepareForClose();
 
       closed_ = true;
