@@ -15,6 +15,7 @@ import java.awt.Color;
 import java.awt.Panel;
 import java.awt.event.MouseEvent;
 import java.awt.event.MouseMotionAdapter;
+import java.util.ArrayList;
 import javax.swing.BorderFactory;
 import javax.swing.DefaultCellEditor;
 import javax.swing.JLabel;
@@ -105,6 +106,16 @@ public class DisplayWindowControls extends Panel {
       //Table column widths
       surfaceGridTable_.getColumnModel().getColumn(0).setMaxWidth(40); //show column
       surfaceGridTable_.getColumnModel().getColumn(1).setMaxWidth(120); //type column
+   }
+   
+   public ArrayList<XYFootprint> getSurfacesAndGridsForDisplay() {
+      ArrayList<XYFootprint> list = new ArrayList<XYFootprint>();
+      for (int i = 0; i < SurfaceGridManager.getInstance().getNumberOfGrids() +SurfaceGridManager.getInstance().getNumberOfSurfaces(); i++){
+         if ( (Boolean)surfaceGridTable_.getValueAt(i, 0)) {
+            list.add(SurfaceGridManager.getInstance().getSurfaceOrGrid(i));
+         }
+      }
+      return list;
    }
    
    public ContrastPanelMagellanAdapter getContrastPanelMagellan() {

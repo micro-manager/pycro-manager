@@ -6,6 +6,8 @@
 package main.java.org.micromanager.plugins.magellan.imagedisplay;
 
 import java.awt.geom.Point2D;
+import java.util.HashMap;
+import java.util.TreeMap;
 import javax.swing.table.AbstractTableModel;
 import main.java.org.micromanager.plugins.magellan.misc.Log;
 import main.java.org.micromanager.plugins.magellan.misc.NumberUtils;
@@ -23,12 +25,15 @@ public class DisplayWindowSurfaceGridTableModel extends AbstractTableModel imple
 
    private final String[] COLUMNS = {"Show", "Type", "Name"};
    //maybe, "Z Device"
-   
+   private HashMap<XYFootprint, Boolean> showSurfaceOrGridMap = new HashMap<XYFootprint, Boolean>();
 
    private SurfaceGridManager manager_ = SurfaceGridManager.getInstance();
 
    public DisplayWindowSurfaceGridTableModel() {
       manager_.registerSurfaceGridListener(this);
+      for (int i = 0; i < manager_.getNumberOfGrids() + manager_.getNumberOfSurfaces(); i++) {
+         showSurfaceOrGridMap.put(manager_.getSurfaceOrGrid(i), Boolean.TRUE);
+      }
    }
 
    @Override
@@ -59,7 +64,7 @@ public class DisplayWindowSurfaceGridTableModel extends AbstractTableModel imple
    @Override
    public void setValueAt(Object value, int row, int col) {
       if (col == 0) {
-      //TODO: show toggle
+         showSurfaceOrGridMap.put(manager_.getSurfaceOrGrid(row), !showSurfaceOrGridMap.get(manager_.getSurfaceOrGrid(row)));
       } else if (col == 2) { 
          try {
             manager_.rename(row, (String) value);
@@ -74,7 +79,7 @@ public class DisplayWindowSurfaceGridTableModel extends AbstractTableModel imple
          
       XYFootprint surfaceOrGird = manager_.getSurfaceOrGrid(rowIndex);
       if (columnIndex == 0) {
-         return true;
+         return showSurfaceOrGridMap.get(surfaceOrGird);
       } else if (columnIndex == 1) {
          return manager_.getSurfaceOrGrid(rowIndex) instanceof SurfaceInterpolator ? "Surface"  : "Grid";
       } else  {         
@@ -100,11 +105,13 @@ public class DisplayWindowSurfaceGridTableModel extends AbstractTableModel imple
 
    @Override
    public void SurfaceOrGridDeleted(XYFootprint f) {
+      showSurfaceOrGridMap.remove(f);
       this.fireTableDataChanged();
    }
 
    @Override
    public void SurfaceOrGridCreated(XYFootprint f) {
+      showSurfaceOrGridMap.put(f, Boolean.TRUE);
       this.fireTableDataChanged();
    }
 

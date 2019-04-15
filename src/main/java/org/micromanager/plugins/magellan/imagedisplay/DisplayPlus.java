@@ -322,7 +322,7 @@ public class DisplayPlus extends VirtualAcquisitionDisplay implements SurfaceGri
       subImageControls_.setAnimateFPS(fps);
    }
 
-   public XYFootprint getCurrentSurfaceOrGrid() {
+   public XYFootprint getCurrentEditableSurfaceOrGrid() {
       return dwc_.getCurrentSurfaceOrGrid();
    }
 
@@ -346,9 +346,9 @@ public class DisplayPlus extends VirtualAcquisitionDisplay implements SurfaceGri
             exploreEndTile_ = zoomableStack_.getTileIndicesFromDisplayedPixel(p2.x, p2.y);
          }
          overlayer_.redrawOverlay();
-      } else if (mode_ == SURFACE_AND_GRID && this.getCurrentSurfaceOrGrid() != null && 
-              this.getCurrentSurfaceOrGrid() instanceof SurfaceInterpolator) {
-         SurfaceInterpolator currentSurface = (SurfaceInterpolator) this.getCurrentSurfaceOrGrid();
+      } else if (mode_ == SURFACE_AND_GRID && this.getCurrentEditableSurfaceOrGrid() != null && 
+              this.getCurrentEditableSurfaceOrGrid() instanceof SurfaceInterpolator) {
+         SurfaceInterpolator currentSurface = (SurfaceInterpolator) this.getCurrentEditableSurfaceOrGrid();
          if (SwingUtilities.isRightMouseButton(e) && !mouseDragging_) {
             double z = zoomableStack_.getZCoordinateOfDisplayedSlice(DisplayPlus.this.getVisibleSliceIndex());
             if (e.isShiftDown()) {
@@ -394,9 +394,9 @@ public class DisplayPlus extends VirtualAcquisitionDisplay implements SurfaceGri
          mouseDragStartPointRight_ = currentPoint;
       } else if (SwingUtilities.isLeftMouseButton(e)) {
          //only move grid
-         if (mode_ == SURFACE_AND_GRID && this.getCurrentSurfaceOrGrid() != null && 
-              this.getCurrentSurfaceOrGrid() instanceof MultiPosGrid) {
-            MultiPosGrid currentGrid = (MultiPosGrid) this.getCurrentSurfaceOrGrid();
+         if (mode_ == SURFACE_AND_GRID && this.getCurrentEditableSurfaceOrGrid() != null && 
+              this.getCurrentEditableSurfaceOrGrid() instanceof MultiPosGrid) {
+            MultiPosGrid currentGrid = (MultiPosGrid) this.getCurrentEditableSurfaceOrGrid();
             int dx = (currentPoint.x - mouseDragStartPointLeft_.x);
             int dy = (currentPoint.y - mouseDragStartPointLeft_.y);
             //convert pixel dx dy to stage dx dy
@@ -629,6 +629,10 @@ public class DisplayPlus extends VirtualAcquisitionDisplay implements SurfaceGri
 
    void registerControls(DisplayWindowControls dwc) {
       dwc_ = dwc;
+   }
+
+   public ArrayList<XYFootprint> getSurfacesAndGridsForDisplay() {
+      return dwc_.getSurfacesAndGridsForDisplay();
    }
 
    private class RedrawPixelsRunnable implements RunnableFuture {
