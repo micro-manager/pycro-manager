@@ -91,11 +91,13 @@ public class DisplayWindowControls extends Panel implements SurfaceGridListener 
       //Table column widths
       surfaceGridTable_.getColumnModel().getColumn(0).setMaxWidth(40); //show column
       surfaceGridTable_.getColumnModel().getColumn(1).setMaxWidth(120); //type column
+      //So it is initialized correctly when surfaces are already present
+      updateSurfaceGridSelection();
    }
 
    private void updateSurfaceGridSelection() {
       selectedSurfaceGridIndex_ = surfaceGridTable_.getSelectedRow();
-      //if last acq in list is removed, update the selected index
+      //if last in list is removed, update the selected index
       if (selectedSurfaceGridIndex_ == surfaceGridTable_.getModel().getRowCount()) {
          surfaceGridTable_.getSelectionModel().setSelectionInterval(selectedSurfaceGridIndex_ - 1, selectedSurfaceGridIndex_ - 1);
       }

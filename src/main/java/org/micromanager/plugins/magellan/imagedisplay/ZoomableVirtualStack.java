@@ -63,6 +63,9 @@ public class ZoomableVirtualStack extends AcquisitionVirtualStack {
       disp_ = (DisplayPlus) vad;
       multiResStorage_ = multiResStorage;
       //display image could conceivably be bigger than a single FOV, but not smaller
+      if (width < 1 || height < 1) {
+         throw new RuntimeException();
+      }
       displayImageWidth_ = width;
       displayImageHeight_ = height;
       tileHeight_ = multiResStorage.getTileHeight();

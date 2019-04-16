@@ -153,6 +153,8 @@ public class MagellanEngine {
         for (AcquisitionSettings settings : acqs) {
             validateSettings(settings);
         }
+        
+        //TODO: check for available disk space
 
         //check if current fixed acquisition is running
         //abort existing fixed acq if needed

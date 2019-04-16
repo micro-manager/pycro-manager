@@ -1684,12 +1684,12 @@
                           <Group type="102" alignment="0" attributes="0">
                               <EmptySpace max="-2" attributes="0"/>
                               <Group type="103" groupAlignment="0" attributes="0">
-                                  <Component id="estDurationLabel_" min="-2" max="-2" attributes="0"/>
-                                  <Component id="estSizeLabel_" alignment="0" min="-2" max="-2" attributes="0"/>
+                                  <Component id="estDurationLabel_" max="32767" attributes="0"/>
+                                  <Component id="estSizeLabel_" max="32767" attributes="0"/>
                               </Group>
-                              <EmptySpace min="-2" pref="200" max="-2" attributes="0"/>
+                              <EmptySpace max="-2" attributes="0"/>
                               <Component id="runAcqButton_" min="-2" max="-2" attributes="0"/>
-                              <EmptySpace max="32767" attributes="0"/>
+                              <EmptySpace min="-2" pref="303" max="-2" attributes="0"/>
                           </Group>
                       </Group>
                     </DimensionLayout>
@@ -1703,7 +1703,7 @@
                                       <EmptySpace max="32767" attributes="0"/>
                                       <Component id="estSizeLabel_" min="-2" max="-2" attributes="0"/>
                                   </Group>
-                                  <Group type="102" alignment="1" attributes="0">
+                                  <Group type="102" alignment="0" attributes="0">
                                       <EmptySpace min="0" pref="0" max="32767" attributes="0"/>
                                       <Component id="runAcqButton_" min="-2" pref="44" max="-2" attributes="0"/>
                                   </Group>

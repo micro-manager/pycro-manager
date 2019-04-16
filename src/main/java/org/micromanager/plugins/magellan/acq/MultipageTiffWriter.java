@@ -185,6 +185,7 @@ public class MultipageTiffWriter {
              try {
                 buffer.rewind();
                 fileChannel_.write(buffer, position);
+                fileChannel_.force(false);
                 if (buffer.limit() == currentImageByteBufferCapacity_) {
                     currentImageByteBuffers_.offer(buffer);
                 }
@@ -202,6 +203,7 @@ public class MultipageTiffWriter {
            public void run() {
              try {
                 fileChannel_.write(buffers);
+                fileChannel_.force(false);
                 for (ByteBuffer buffer:buffers) {
                     if (buffer.limit() == currentImageByteBufferCapacity_) {
                         currentImageByteBuffers_.offer(buffer);
@@ -216,10 +218,6 @@ public class MultipageTiffWriter {
    
    public MultipageTiffReader getReader() {
       return reader_;
-   }
-   
-   public FileChannel getFileChannel() {
-      return fileChannel_;
    }
    
    public HashMap<String, Long> getIndexMap() {
@@ -477,9 +475,9 @@ public class MultipageTiffWriter {
          }
       }
       if (pixelOffset == -1 || bytesPerImage == -1) {
-         IJ.log("couldn't overwrite pixel data\n");
-         IJ.log("pixel offset " + pixelOffset);
-         IJ.log("bytes per image " + bytesPerImage);
+         IJ.log("Problem writing downsampled display data\n But full resolution data is unaffected");
+//         IJ.log("pixel offset " + pixelOffset);
+//         IJ.log("bytes per image " + bytesPerImage);
          return;
       }
       

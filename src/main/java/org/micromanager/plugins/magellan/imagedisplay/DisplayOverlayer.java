@@ -20,14 +20,15 @@ import main.java.org.micromanager.plugins.magellan.acq.Acquisition;
 import main.java.org.micromanager.plugins.magellan.acq.ExploreAcquisition;
 import main.java.org.micromanager.plugins.magellan.acq.FixedAreaAcquisition;
 import main.java.org.micromanager.plugins.magellan.coordinates.XYStagePosition;
-import ij.IJ;
 import ij.gui.ImageCanvas;
 import ij.gui.Line;
 import ij.gui.OvalRoi;
 import ij.gui.Overlay;
 import ij.gui.Roi;
+import ij.gui.TextRoi;
 import java.awt.Color;
 import java.awt.Dimension;
+import java.awt.Font;
 import java.awt.Point;
 import java.awt.geom.Point2D;
 import java.util.ArrayList;
@@ -61,9 +62,6 @@ public class DisplayOverlayer {
    private final static Color ACTIVE_OBJECT_COLOR = Color.cyan;
    private final static Color BACKGROUND_OBJECT_COLOR = Color.orange;
 
-   private static final int[] ICE_RED = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2, 4, 7, 9, 11, 14, 16, 19, 20, 21, 22, 24, 25, 26, 27, 29, 31, 34, 36, 39, 42, 44, 47, 50, 49, 49, 49, 49, 48, 48, 48, 48, 51, 55, 59, 63, 67, 71, 75, 79, 83, 87, 91, 95, 99, 103, 107, 112, 114, 117, 120, 123, 125, 128, 131, 134, 137, 140, 143, 146, 149, 152, 155, 158, 161, 165, 168, 172, 175, 179, 182, 186, 187, 189, 191, 193, 195, 197, 199, 201, 203, 205, 207, 209, 211, 213, 215, 217, 218, 220, 221, 223, 224, 226, 227, 229, 230, 232, 233, 235, 237, 238, 240, 242, 243, 244, 245, 246, 247, 248, 249, 250, 250, 250, 250, 250, 250, 250, 250, 250, 250, 250, 250, 250, 250, 250, 250, 250, 250, 250, 250, 250, 250, 250, 250, 250, 250, 250, 250, 250, 250, 250, 250, 251, 250, 250, 250, 250, 250, 250, 250, 250, 250, 250, 250, 250, 250, 250, 250, 250, 250, 250, 250, 250, 250, 250, 250, 250, 250, 250, 250, 250, 250, 250, 250, 250, 250, 250, 250, 250, 250, 250, 250, 251, 251, 251, 251, 251, 251, 251, 251, 251, 250, 249, 248, 247, 246, 245, 244, 243, 241, 239, 238, 236, 234, 233, 231, 230, 230, 230, 230, 230, 230, 230, 230};
-   private static final int[] ICE_GREEN = {156, 157, 158, 159, 160, 161, 162, 163, 165, 166, 167, 169, 170, 171, 173, 174, 176, 177, 178, 179, 180, 181, 182, 183, 184, 184, 185, 186, 187, 187, 188, 189, 190, 190, 191, 192, 193, 193, 194, 195, 196, 195, 195, 194, 194, 194, 193, 193, 193, 191, 190, 189, 188, 187, 186, 185, 184, 182, 180, 179, 177, 175, 174, 172, 171, 169, 168, 167, 166, 165, 164, 163, 162, 160, 158, 156, 154, 152, 150, 148, 146, 143, 140, 138, 135, 132, 130, 127, 125, 122, 120, 118, 116, 113, 111, 109, 107, 105, 103, 101, 100, 98, 96, 94, 93, 91, 90, 88, 87, 85, 84, 82, 81, 81, 82, 83, 84, 84, 85, 86, 87, 87, 88, 88, 89, 90, 90, 91, 92, 92, 93, 93, 94, 95, 95, 96, 97, 96, 96, 96, 96, 95, 95, 95, 95, 94, 94, 94, 94, 93, 93, 93, 93, 93, 93, 93, 93, 93, 93, 93, 93, 92, 92, 91, 91, 91, 90, 90, 90, 89, 88, 88, 87, 86, 86, 85, 85, 83, 81, 79, 77, 75, 73, 71, 69, 68, 67, 67, 66, 65, 65, 64, 64, 62, 61, 60, 59, 57, 56, 55, 54, 53, 52, 51, 50, 49, 48, 47, 47, 45, 44, 42, 41, 39, 38, 36, 35, 33, 31, 29, 27, 25, 23, 21, 19, 16, 14, 11, 9, 7, 4, 2, 0, 0, 1, 1, 2, 2, 3, 3, 4, 3, 3, 2, 2, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0};
-   private static final int[] ICE_BLUE = {140, 140, 141, 142, 143, 144, 145, 146, 147, 148, 149, 151, 152, 153, 155, 156, 158, 159, 160, 161, 162, 163, 164, 165, 166, 166, 167, 167, 168, 168, 169, 169, 170, 170, 171, 172, 173, 173, 174, 175, 176, 180, 184, 188, 192, 196, 200, 204, 209, 210, 211, 213, 214, 215, 217, 218, 220, 221, 223, 225, 227, 228, 230, 232, 234, 232, 231, 230, 229, 228, 227, 226, 225, 226, 227, 229, 230, 231, 233, 234, 236, 237, 238, 239, 241, 242, 243, 244, 246, 246, 247, 247, 248, 248, 249, 249, 250, 250, 250, 250, 250, 250, 250, 250, 251, 250, 250, 250, 250, 250, 250, 250, 250, 250, 250, 250, 250, 250, 250, 250, 250, 249, 248, 248, 247, 246, 246, 245, 245, 243, 241, 239, 237, 235, 233, 231, 230, 230, 230, 230, 230, 230, 230, 230, 230, 229, 228, 227, 226, 225, 224, 223, 222, 219, 217, 214, 212, 209, 207, 204, 202, 199, 196, 193, 191, 188, 185, 182, 180, 177, 175, 173, 171, 169, 167, 165, 163, 160, 157, 155, 152, 149, 147, 144, 142, 139, 137, 134, 132, 130, 127, 125, 123, 121, 120, 119, 118, 117, 116, 115, 114, 113, 112, 111, 110, 109, 108, 107, 106, 104, 103, 101, 100, 98, 97, 95, 94, 92, 91, 90, 89, 87, 86, 85, 84, 81, 79, 76, 74, 71, 69, 66, 64, 59, 54, 49, 45, 40, 35, 30, 26, 26, 26, 26, 26, 26, 26, 26, 27, 27, 27, 27, 27, 27, 27, 27};
    private static final int[] VIRIDIS_RED = {68, 68, 68, 69, 69, 69, 70, 70, 70, 70, 71, 71, 71, 71, 71, 71, 71, 72, 72, 72, 72, 72, 72, 72, 72, 72, 71, 71, 71, 71, 71, 71, 71, 70, 70, 70, 70, 69, 69, 69, 69, 68, 68, 67, 67, 67, 66, 66, 66, 65, 65, 64, 64, 63, 63, 62, 62, 61, 61, 61, 60, 60, 59, 59, 58, 58, 57, 57, 56, 56, 55, 55, 54, 54, 53, 53, 52, 52, 51, 51, 50, 50, 49, 49, 49, 48, 48, 47, 47, 46, 46, 46, 45, 45, 44, 44, 44, 43, 43, 42, 42, 42, 41, 41, 40, 40, 40, 39, 39, 39, 38, 38, 38, 37, 37, 36, 36, 36, 35, 35, 35, 34, 34, 34, 33, 33, 33, 32, 32, 32, 31, 31, 31, 31, 31, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 31, 31, 31, 32, 32, 33, 33, 34, 35, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 46, 47, 48, 50, 51, 53, 54, 56, 57, 59, 61, 62, 64, 66, 68, 69, 71, 73, 75, 77, 79, 81, 83, 85, 87, 89, 91, 94, 96, 98, 100, 103, 105, 107, 109, 112, 114, 116, 119, 121, 124, 126, 129, 131, 134, 136, 139, 141, 144, 146, 149, 151, 154, 157, 159, 162, 165, 167, 170, 173, 175, 178, 181, 183, 186, 189, 191, 194, 197, 199, 202, 205, 207, 210, 212, 215, 218, 220, 223, 225, 228, 231, 233, 236, 238, 241, 243, 246, 248, 250, 253};
    private static final int[] VIRIDIS_GREEN = {1, 2, 3, 5, 6, 8, 9, 11, 12, 14, 15, 17, 18, 20, 21, 22, 24, 25, 26, 28, 29, 30, 32, 33, 34, 35, 37, 38, 39, 40, 42, 43, 44, 45, 47, 48, 49, 50, 52, 53, 54, 55, 57, 58, 59, 60, 61, 62, 64, 65, 66, 67, 68, 69, 71, 72, 73, 74, 75, 76, 77, 78, 80, 81, 82, 83, 84, 85, 86, 87, 88, 89, 90, 91, 92, 93, 94, 95, 96, 97, 98, 99, 100, 101, 102, 103, 104, 105, 106, 107, 108, 109, 110, 111, 112, 113, 114, 115, 116, 117, 118, 119, 120, 121, 122, 122, 123, 124, 125, 126, 127, 128, 129, 130, 131, 132, 133, 134, 135, 136, 137, 137, 138, 139, 140, 141, 142, 143, 144, 145, 146, 147, 148, 149, 150, 151, 152, 153, 153, 154, 155, 156, 157, 158, 159, 160, 161, 162, 163, 164, 165, 166, 167, 167, 168, 169, 170, 171, 172, 173, 174, 175, 176, 177, 177, 178, 179, 180, 181, 182, 183, 184, 185, 185, 186, 187, 188, 189, 190, 190, 191, 192, 193, 194, 194, 195, 196, 197, 198, 198, 199, 200, 201, 201, 202, 203, 204, 204, 205, 206, 206, 207, 208, 208, 209, 210, 210, 211, 211, 212, 213, 213, 214, 214, 215, 215, 216, 216, 217, 217, 218, 218, 219, 219, 220, 220, 221, 221, 221, 222, 222, 223, 223, 223, 224, 224, 224, 225, 225, 225, 226, 226, 226, 227, 227, 227, 228, 228, 228, 229, 229, 229, 230, 230, 230, 231};
    private static final int[] VIRIDIS_BLUE = {84, 85, 87, 88, 90, 91, 92, 94, 95, 97, 98, 99, 101, 102, 103, 105, 106, 107, 108, 110, 111, 112, 113, 114, 115, 116, 117, 118, 119, 120, 121, 122, 123, 124, 124, 125, 126, 127, 127, 128, 129, 129, 130, 131, 131, 132, 132, 133, 133, 134, 134, 135, 135, 135, 136, 136, 137, 137, 137, 137, 138, 138, 138, 138, 139, 139, 139, 139, 139, 140, 140, 140, 140, 140, 140, 140, 141, 141, 141, 141, 141, 141, 141, 141, 141, 141, 141, 141, 141, 142, 142, 142, 142, 142, 142, 142, 142, 142, 142, 142, 142, 142, 142, 142, 142, 142, 142, 142, 142, 142, 142, 142, 142, 142, 141, 141, 141, 141, 141, 141, 141, 141, 141, 141, 141, 140, 140, 140, 140, 140, 140, 139, 139, 139, 139, 138, 138, 138, 138, 137, 137, 137, 136, 136, 136, 135, 135, 134, 134, 133, 133, 133, 132, 132, 131, 130, 130, 129, 129, 128, 127, 127, 126, 125, 125, 124, 123, 122, 122, 121, 120, 119, 118, 118, 117, 116, 115, 114, 113, 112, 111, 110, 109, 108, 107, 105, 104, 103, 102, 101, 100, 98, 97, 96, 95, 93, 92, 91, 89, 88, 86, 85, 84, 82, 81, 79, 78, 76, 75, 73, 71, 70, 68, 67, 65, 63, 62, 60, 58, 56, 55, 53, 51, 50, 48, 46, 44, 43, 41, 39, 38, 36, 34, 33, 31, 30, 29, 28, 27, 26, 25, 24, 24, 24, 24, 24, 25, 25, 26, 27, 28, 30, 31, 33, 34, 36};
@@ -71,10 +69,10 @@ public class DisplayOverlayer {
    private static final Color TRANSPARENT_GREEN = new Color(0, 255, 0, 100);
    private static final Color TRANSPARENT_MAGENTA = new Color(255, 0, 255, 100);
    private final DisplayPlus display_;
-   private Acquisition acq_;
+   private final Acquisition acq_;
    private volatile boolean showSurface_ = true, showConvexHull_ = true, showXYFootprint_ = true;
    private ZoomableVirtualStack zoomableStack_;
-   private ImageCanvas canvas_;
+   private final ImageCanvas canvas_;
    private final int tileWidth_, tileHeight_;
    private ExecutorService taskExecutor_, overlayMakerExecutor_;
    private Future currentTask_;
@@ -233,8 +231,18 @@ public class DisplayOverlayer {
             return createBackgroundOverlay();
          } else if (mode == DisplayPlus.SURFACE_AND_GRID) {
             //Add in the easier to render parts of all surfaces and grids
-            ArrayList<XYFootprint> sAndg = getSurfacesAndGridsInDrawOrder();
+            ArrayList<XYFootprint> sAndg = getSurfacesAndGridsInDrawOrder();           
             Overlay overlay = createBackgroundOverlay();
+            //if any surfaces are visible show the interp scale bar
+            boolean showSurfaceInterpScale = false;
+            for (XYFootprint xy : sAndg) {
+               if (xy instanceof SurfaceInterpolator && ((SurfaceInterpolator) xy).getPoints().length >= 3 ) {
+                  showSurfaceInterpScale = true;
+               }
+            }
+            if (showSurfaceInterpScale && showSurface_) {
+               drawSurfaceInterpScaleBar(overlay);
+            }
             for (XYFootprint xy : sAndg) {
                if (xy instanceof MultiPosGrid) {
                   addGridToOverlay(overlay, (MultiPosGrid) xy);
@@ -523,7 +531,57 @@ public class DisplayOverlayer {
    }
    
    private void drawSurfaceInterpScaleBar(Overlay overlay) {
+      ZoomableVirtualStack zStack = (ZoomableVirtualStack) display_.virtualStack_;
+      double sliceZ = zStack.getZCoordinateOfDisplayedSlice(display_.getVisibleSliceIndex());
+      double zStep = acq_.getZStep();
+      String label1 = String.format("%.2f", sliceZ - zStep) + " μm";
+      String label2 = String.format("%.2f", sliceZ) + " μm";
+      String label3 = String.format("%.2f", sliceZ + zStep) + " μm";
+ 
+      int fontSize = 12;
+      Font font = new Font("Arial", Font.BOLD, fontSize);
+      float textHeight = canvas_.getGraphics().getFontMetrics(font).getLineMetrics(label1, canvas_.getGraphics()).getHeight();
+      float textWidth = Math.max(Math.max(canvas_.getGraphics().getFontMetrics().stringWidth(label1),
+              canvas_.getGraphics().getFontMetrics().stringWidth(label2)),
+              canvas_.getGraphics().getFontMetrics().stringWidth(label3));
       
+      double scalePixelWidth = 10;
+      double scalePixelHeight = 100;
+      double borderSize = 2 + textHeight / 2;
+      double scalePosXBuffer = 50;
+      double offsetY = 10;
+      
+      //10 pixel border outside of scale
+      Roi backgroundRect = new Roi(zoomableStack_.width_ - scalePosXBuffer - textWidth - borderSize, offsetY, 
+              scalePixelWidth + 2*borderSize + textWidth, scalePixelHeight + 2*borderSize);
+      backgroundRect.setFillColor(new Color(230, 230, 230)); //magenta      
+      overlay.add(backgroundRect);
+
+      for (double y = 0; y < scalePixelHeight; y++) {
+         Roi line = new Roi(zoomableStack_.width_ - scalePosXBuffer, offsetY + borderSize + y, scalePixelWidth, 1);
+         double colorScale = y/scalePixelHeight;
+         line.setFillColor(new Color(VIRIDIS_RED[(int) (colorScale * VIRIDIS_RED.length)],
+                       VIRIDIS_GREEN[(int) (colorScale * VIRIDIS_GREEN.length)], VIRIDIS_BLUE[(int) (colorScale * VIRIDIS_BLUE.length)]));
+         overlay.add(line);
+      }
+      
+      
+      //outline rectange
+      Roi outline = new Roi(zoomableStack_.width_ - scalePosXBuffer, offsetY + borderSize, scalePixelWidth, scalePixelHeight);
+      outline.setStrokeColor(Color.black);
+      overlay.add(outline);
+      //add three labels
+      Roi labelTop = new TextRoi(zoomableStack_.width_ - scalePosXBuffer - textWidth, offsetY + borderSize - textHeight/2, label1, font);
+      labelTop.setStrokeColor(Color.black);
+      overlay.add(labelTop);
+      
+      Roi labelMid = new TextRoi(zoomableStack_.width_ - scalePosXBuffer - textWidth, offsetY + borderSize + scalePixelHeight/2 - textHeight/2, label2, font);
+      labelMid.setStrokeColor(Color.black);
+      overlay.add(labelMid);
+      
+      Roi labelBot = new TextRoi(zoomableStack_.width_ - scalePosXBuffer - textWidth, offsetY + borderSize + scalePixelHeight - textHeight/2, label3, font);
+      labelBot.setStrokeColor(Color.black);
+      overlay.add(labelBot);
    }
 
    private void drawZoomIndicator(Overlay overlay) {

@@ -146,9 +146,15 @@ public abstract class SurfaceInterpolator extends XYFootprint {
    
    public void delete() {
       executor_.shutdownNow();
-      convexHullLock_.notifyAll();
-      interpolationLock_.notifyAll();
-      xyPositionLock_.notifyAll();
+      synchronized(convexHullLock_){
+         convexHullLock_.notifyAll();
+      }
+      synchronized (interpolationLock_) {
+         interpolationLock_.notifyAll();
+      }
+      synchronized (xyPositionLock_) {
+         xyPositionLock_.notifyAll();
+      }
    }
    
    /**
