@@ -16,13 +16,9 @@
 //
 package main.java.org.micromanager.plugins.magellan.acq;
 
-import java.awt.Color;
-import java.util.ArrayList;
 import java.util.prefs.Preferences;
-import main.java.org.micromanager.plugins.magellan.channels.ChannelSetting;
 import main.java.org.micromanager.plugins.magellan.channels.ChannelSpec;
 import main.java.org.micromanager.plugins.magellan.main.Magellan;
-import main.java.org.micromanager.plugins.magellan.misc.Log;
 import main.java.org.micromanager.plugins.magellan.surfacesandregions.SurfaceInterpolator;
 import main.java.org.micromanager.plugins.magellan.surfacesandregions.XYFootprint;
 
@@ -30,7 +26,7 @@ import main.java.org.micromanager.plugins.magellan.surfacesandregions.XYFootprin
  *
  * @author Henry
  */
-public class AcquisitionSettings  {
+public class FixedAreaAcquisitionSettings  {
    
    public static final String PREF_PREFIX = "Fixed area acquisition ";
 
@@ -47,27 +43,27 @@ public class AcquisitionSettings  {
    //saving
    public String dir_, name_;
    //time
-   public boolean timeEnabled_;
-   public double timePointInterval_;
-   public int numTimePoints_;
-   public int timeIntervalUnit_; 
+   public volatile boolean timeEnabled_;
+   public volatile double timePointInterval_;
+   public volatile int numTimePoints_;
+   public volatile int timeIntervalUnit_; 
 
    //space
-   public double zStep_, zStart_, zEnd_, distanceBelowFixedSurface_, distanceAboveFixedSurface_,
+   public volatile double zStep_, zStart_, zEnd_, distanceBelowFixedSurface_, distanceAboveFixedSurface_,
            distanceAboveTopSurface_, distanceBelowBottomSurface_;
-   public int spaceMode_;
-   public boolean useCollectionPlane_ = false;
-   public SurfaceInterpolator topSurface_, bottomSurface_, fixedSurface_, collectionPlane_;
-   public XYFootprint footprint_;
-   public int useTopOrBottomFootprint_;
-   public double tileOverlap_; //stored as percent * 100, i.e. 55 => 55%
-   public boolean channelsAtEverySlice_;
+   public volatile int spaceMode_;
+   public volatile boolean useCollectionPlane_ = false;
+   public volatile SurfaceInterpolator topSurface_, bottomSurface_, fixedSurface_, collectionPlane_;
+   public volatile XYFootprint footprint_;
+   public volatile int useTopOrBottomFootprint_;
+   public volatile double tileOverlap_; //stored as percent * 100, i.e. 55 => 55%
+   public volatile boolean channelsAtEverySlice_;
    
    //channels
-   public String channelGroup_;
-   public ChannelSpec channels_ ;
+   public volatile String channelGroup_;
+   public volatile ChannelSpec channels_ ;
 
-   public AcquisitionSettings() {
+   public FixedAreaAcquisitionSettings() {
       Preferences prefs = Magellan.getPrefs();
       name_ = prefs.get(PREF_PREFIX + "NAME", "Untitled");
       timeEnabled_ = prefs.getBoolean(PREF_PREFIX + "TE", false);

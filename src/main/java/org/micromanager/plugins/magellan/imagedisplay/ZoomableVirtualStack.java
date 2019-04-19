@@ -236,7 +236,7 @@ public class ZoomableVirtualStack extends AcquisitionVirtualStack {
       //compensate for the possibility of negative slice indices 
       int slice = disp_.getVisibleSliceIndex() + ((ExploreAcquisition) acquisition_).getMinSliceIndex();
       //check for valid tiles (at lowest res) at this slice        
-      Set<Point> tiles = multiResStorage_.getExploredTilesAtSlice(slice);
+      Set<Point> tiles = multiResStorage_.getTileIndicesWithDataAt(slice);
       if (tiles.size() == 0) {
          return;
       }

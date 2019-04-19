@@ -16,18 +16,17 @@
 //
 package main.java.org.micromanager.plugins.magellan.acq;
 
-import ij.IJ;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.ExecutionException;
-import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.ScheduledFuture;
-import java.util.concurrent.ThreadFactory;
-import java.util.concurrent.TimeUnit;
 import java.awt.geom.Point2D;
+import java.util.Iterator;
+import java.util.Spliterator;
+import java.util.Spliterators;
+import java.util.function.Function;
+import java.util.stream.Stream;
+import java.util.stream.StreamSupport;
 import main.java.org.micromanager.plugins.magellan.coordinates.AffineUtils;
 import main.java.org.micromanager.plugins.magellan.coordinates.XYStagePosition;
 import main.java.org.micromanager.plugins.magellan.json.JSONArray;
@@ -45,27 +44,12 @@ import main.java.org.micromanager.plugins.magellan.surfacesandregions.XYFootprin
  */
 public class FixedAreaAcquisition extends Acquisition implements SurfaceGridListener {
 
-   private static final int EVENT_QUEUE_CAP = 25;
-
-   final private AcquisitionSettings settings_;
+   final private FixedAreaAcquisitionSettings settings_;
    private List<XYStagePosition> positions_;
-   private long nextTimePointStartTime_ms_;
-   private ParallelAcquisitionGroup acqGroup_;
-   //barrier to wait for event generation at successive time points
-   //signals come from 1) event genreating thread 2) Parallel acq group
-   private volatile CountDownLatch startNextTPLatch_ = new CountDownLatch(1);
-   //barrier to wait for all images to be written before starting nex time point stuff
-   //signals come from 1) event generating thread 2) tagged iamge sink
-   private volatile CountDownLatch tpImagesFinishedWritingLatch_ = new CountDownLatch(1);
    //executor service to wait for next execution
-   final private ScheduledExecutorService waitForNextTPSerivice_ = Executors.newScheduledThreadPool(1);
-   final private ExecutorService eventGenerator_;
    private final boolean towardsSampleIsPositive_;
-   private volatile boolean acqSettingsUpdated_ = false;
-   private volatile boolean tpImagesFinishedWriting_ = false;
-   private final Object tpFinishedLockObject_ = new Object();
-   private volatile double afCorrection_ = 0;
-   
+   private long lastTimePointEvent_ = -1;
+
    /**
     * Acquisition with fixed XY positions (although they can potentially all be
     * translated between time points Supports time points Z stacks that can
@@ -78,10 +62,9 @@ public class FixedAreaAcquisition extends Acquisition implements SurfaceGridList
     * @param acqGroup
     * @throws java.lang.Exception
     */
-   public FixedAreaAcquisition(AcquisitionSettings settings, ParallelAcquisitionGroup acqGroup) throws Exception {
+   public FixedAreaAcquisition(FixedAreaAcquisitionSettings settings) throws Exception {
       super(settings.zStep_, settings.channels_);
       SurfaceGridManager.getInstance().registerSurfaceGridListener(this);
-      acqGroup_ = acqGroup;
       settings_ = settings;
       try {
          int dir = Magellan.getCore().getFocusDirection(zStage_);
@@ -96,35 +79,321 @@ public class FixedAreaAcquisition extends Acquisition implements SurfaceGridList
          Log.log("Couldn't get focus direction of Z drive. Configre using Tools--Hardware Configuration Wizard");
          throw new RuntimeException();
       }
-      eventGenerator_ = Executors.newSingleThreadExecutor(new ThreadFactory() {
-         @Override
-         public Thread newThread(Runnable r) {
-            return new Thread(r, settings_.name_ + ": Event generator");
-         }
-      });
-      setupXYPositions();
+      createXYPositions();
       initialize(settings.dir_, settings.name_, settings.tileOverlap_);
       createEventGenerator();
    }
 
    public synchronized void acqSettingsUpdated() {
-      acqSettingsUpdated_ = true;
-      //restart event generation in case event generator is waiting at end of timepoint
-      tpImagesFinishedWritingLatch_.countDown();
+      //TODO something....
+   }
+
+   @Override
+   public int getMinSliceIndex() {
+      return minSliceIndex_;
+   }
+
+   @Override
+   public int getMaxSliceIndex() {
+      return maxSliceIndex_;
+   }
+
+   public double getTimeInterval_ms() {
+      return settings_.timePointInterval_ * (settings_.timeIntervalUnit_ == 1 ? 1000 : (settings_.timeIntervalUnit_ == 2 ? 60000 : 1));
+   }
+
+   private void createEventGenerator() {
+      Log.log("Create event generator started", false);
+      eventGenerator_.submit(new Runnable() {
+         //check interupt status before any blocking call is entered
+         @Override
+         public void run() {
+            Log.log("event generation beignning", false);
+            //get highest possible z position to image, which is slice index 0
+            zOrigin_ = getZTopCoordinate();
+            boolean tiltedPlane2D = settings_.spaceMode_ == FixedAreaAcquisitionSettings.REGION_2D && settings_.useCollectionPlane_;
+
+            Stream<AcquisitionEvent> eventStream = makeFrameIndexStream().map(timelapse()).flatMap(positions());
+            if (tiltedPlane2D) {
+               eventStream = eventStream.map(surfaceGuided2D()).flatMap(channels());
+            } else if (settings_.channelsAtEverySlice_) {
+               eventStream = eventStream.flatMap(zStack()).flatMap(channels());
+            } else {
+               eventStream = eventStream.flatMap(channels()).flatMap(zStack());
+            }
+
+            eventStream.
+                    //acqusiition has generated all of its events
+                    eventGeneratorShutdown();
+         }
+      });
+   }
+   
+   
+   
+   private void submitForAcquisition(AcquisitionEvent event) {
+//TODO: need to constanctly check for this???
+//         if (eventGenerator_.isShutdown()) {
+//            throw new InterruptedException();
+//         }
+      //keep track of biggest slice index and smallest slice. Maybe needed for display purposes but a little unclear
+      maxSliceIndex_ = Math.max(maxSliceIndex_, event.sliceIndex_);
+      minSliceIndex_ = Math.min(minSliceIndex_, event.sliceIndex_);
+      submitAcquisitionEvent(event);
    }
 
 
-   private void setupXYPositions() {
+   private Function<AcquisitionEvent, Stream<AcquisitionEvent>> positions() {
+      return (AcquisitionEvent event) -> {
+         Stream.Builder<AcquisitionEvent> builder = Stream.builder();
+         for (int posIndex = 0; posIndex < positions_.size(); posIndex++) {
+            AcquisitionEvent posEvent = event.copy();
+            posEvent.positionIndex_ = posIndex;
+            posEvent.xyPosition_ = positions_.get(posIndex);
+            builder.accept(posEvent);
+         }
+         return builder.build();
+      };
+   }
+
+   /**
+    * Get a finite stream of integers, stopping whenever what is currently set
+    * as the frame in the acquisition settings is reached, thereby allowing it
+    * to be changed dynamically during acquisition. Apparently this is much
+    * easier in java9 using the takeWhile() function
+    *
+    * @return
+    */
+   private Stream<Integer> makeFrameIndexStream() {
+      Iterator<Integer> frameIndexIterator = new Iterator() {
+         int frameIndex_ = 0;
+
+         @Override
+         public boolean hasNext() {
+            if (frameIndex_ == 0) {
+               return true;
+            }
+            if (settings_.timeEnabled_ && frameIndex_ < settings_.numTimePoints_) {
+               return true;
+            }
+            return false;
+         }
+
+         @Override
+         public Object next() {
+            frameIndex_++;
+            return frameIndex_ - 1;
+         }
+      };
+      Stream<Integer> iStream = StreamSupport.stream(Spliterators.spliteratorUnknownSize(frameIndexIterator, Spliterator.DISTINCT), false);
+      return iStream;
+   }
+
+   private Function<Integer, AcquisitionEvent> timelapse() {
+      return (Integer t) -> {
+         double interval_ms = settings_.timePointInterval_ * (settings_.timeIntervalUnit_ == 1 ? 1000 : (settings_.timeIntervalUnit_ == 2 ? 60000 : 1));
+         AcquisitionEvent timePointEvent = new AcquisitionEvent(FixedAreaAcquisition.this);
+         timePointEvent.miniumumStartTime_ = lastTimePointEvent_ + (long) interval_ms;
+         timePointEvent.timeIndex_ = t;
+         lastTimePointEvent_ = System.currentTimeMillis();
+         return timePointEvent;
+      };
+   }
+
+   private Function<AcquisitionEvent, Stream<AcquisitionEvent>> channels() {
+      return (AcquisitionEvent event) -> {
+         Stream.Builder<AcquisitionEvent> builder = Stream.builder();
+         for (int channelIndex = 0; channelIndex < settings_.channels_.getNumActiveChannels(); channelIndex++) {
+            if (!settings_.channels_.getActiveChannelSetting(channelIndex).uniqueEvent_) {
+               continue;
+            }
+            AcquisitionEvent channelEvent = event.copy();
+            channelEvent.channelIndex_ = channelIndex;
+            channelEvent.zPosition_ += settings_.channels_.getActiveChannelSetting(channelIndex).offset_;
+            builder.accept(channelEvent);
+         }
+         return builder.build();
+      };
+   }
+
+   private Function<AcquisitionEvent, Stream<AcquisitionEvent>> zStack() {
+      return (AcquisitionEvent event) -> {
+         Stream.Builder<AcquisitionEvent> builder = Stream.builder();
+
+         int sliceIndex = (int) Math.round((getZTopCoordinate() - zOrigin_) / zStep_);
+         while (true) {
+//         if (eventGenerator_.isShutdown()) { // check for aborts
+//            throw new InterruptedException();
+//         }
+            double zPos = zOrigin_ + sliceIndex * zStep_;
+            if ((settings_.spaceMode_ == FixedAreaAcquisitionSettings.REGION_2D || settings_.spaceMode_ == FixedAreaAcquisitionSettings.NO_SPACE)
+                    && sliceIndex > 0) {
+               break; //2D regions only have 1 slice
+            }
+
+            if (isImagingVolumeUndefinedAtPosition(settings_.spaceMode_, settings_, event.xyPosition_)) {
+               break;
+            }
+
+            if (isZBelowImagingVolume(settings_.spaceMode_, settings_, event.xyPosition_, zPos, zOrigin_) || (zStageHasLimits_ && zPos > zStageUpperLimit_)) {
+               //position is below z stack or limit of focus device, z stack finished
+               break;
+            }
+            //3D region
+            if (isZAboveImagingVolume(settings_.spaceMode_, settings_, event.xyPosition_, zPos, zOrigin_) || (zStageHasLimits_ && zPos < zStageLowerLimit_)) {
+               sliceIndex++;
+               continue; //position is above imaging volume or range of focus device
+            }
+
+            AcquisitionEvent sliceEvent = event.copy();
+            sliceEvent.sliceIndex_ = sliceIndex;
+            //Do plus equals here in case z positions have been modified by another function (e.g. channel specific focal offsets)
+            sliceEvent.zPosition_ += zPos;
+
+            builder.accept(sliceEvent);
+
+            //TODO: check if surfaces have been changedp????
+            sliceIndex++;
+         }//slice loop finish
+         return builder.build();
+      };
+
+   }
+
+   private Function<AcquisitionEvent, AcquisitionEvent> surfaceGuided2D() {
+      return (AcquisitionEvent event) -> {
+         //index all slcies as 0, even though they may nto be in the same plane
+         double zPos;
+         if (settings_.collectionPlane_.getCurentInterpolation().isInterpDefined(
+                 event.xyPosition_.getCenter().x, event.xyPosition_.getCenter().y)) {
+            zPos = settings_.collectionPlane_.getCurentInterpolation().getInterpolatedValue(
+                    event.xyPosition_.getCenter().x, event.xyPosition_.getCenter().y);
+         } else {
+            zPos = settings_.collectionPlane_.getExtrapolatedValue(event.xyPosition_.getCenter().x, event.xyPosition_.getCenter().y);
+         }
+         event.zPosition_ += zPos;
+         event.sliceIndex_ = 0; //Make these all 0 for the purposes of the display even though they may be in very differnet locations
+         return event;
+      };
+
+   }
+
+   private void eventGeneratorShutdown() {
+      eventGenerator_.shutdown();
+      SurfaceGridManager.getInstance().removeSurfaceGridListener(this);
+   }
+
+   public static boolean isImagingVolumeUndefinedAtPosition(int spaceMode, FixedAreaAcquisitionSettings settings, XYStagePosition position) {
+      if (spaceMode == FixedAreaAcquisitionSettings.SURFACE_FIXED_DISTANCE_Z_STACK) {
+         return !settings.footprint_.isDefinedAtPosition(position);
+      } else if (spaceMode == FixedAreaAcquisitionSettings.VOLUME_BETWEEN_SURFACES_Z_STACK) {
+         return !settings.topSurface_.isDefinedAtPosition(position)
+                 && !settings.bottomSurface_.isDefinedAtPosition(position);
+      }
+      return false;
+   }
+
+   /**
+    * This function and the one below determine which slices will be collected
+    * for a given position
+    *
+    * @param position
+    * @param zPos
+    * @return
+    */
+   public static boolean isZAboveImagingVolume(int spaceMode, FixedAreaAcquisitionSettings settings, XYStagePosition position, double zPos, double zOrigin) {
+      if (spaceMode == FixedAreaAcquisitionSettings.SURFACE_FIXED_DISTANCE_Z_STACK) {
+         boolean extrapolate = settings.fixedSurface_ != settings.footprint_;
+         //extrapolate only if different surface used for XY positions than footprint
+         return settings.fixedSurface_.isPositionCompletelyAboveSurface(position, settings.fixedSurface_, zPos + settings.distanceAboveFixedSurface_, extrapolate);
+      } else if (spaceMode == FixedAreaAcquisitionSettings.VOLUME_BETWEEN_SURFACES_Z_STACK) {
+         return settings.topSurface_.isPositionCompletelyAboveSurface(position, settings.topSurface_, zPos + settings.distanceAboveTopSurface_, false);
+      } else if (spaceMode == FixedAreaAcquisitionSettings.CUBOID_Z_STACK) {
+         return zPos < settings.zStart_;
+      } else {
+         //no zStack
+         return zPos < zOrigin;
+      }
+   }
+
+   public static boolean isZBelowImagingVolume(int spaceMode, FixedAreaAcquisitionSettings settings, XYStagePosition position, double zPos, double zOrigin) {
+      if (spaceMode == FixedAreaAcquisitionSettings.SURFACE_FIXED_DISTANCE_Z_STACK) {
+         boolean extrapolate = settings.fixedSurface_ != settings.footprint_;
+         //extrapolate only if different surface used for XY positions than footprint
+         return settings.fixedSurface_.isPositionCompletelyBelowSurface(position, settings.fixedSurface_, zPos - settings.distanceBelowFixedSurface_, extrapolate);
+      } else if (spaceMode == FixedAreaAcquisitionSettings.VOLUME_BETWEEN_SURFACES_Z_STACK) {
+         return settings.bottomSurface_.isPositionCompletelyBelowSurface(position, settings.bottomSurface_, zPos - settings.distanceBelowBottomSurface_, false);
+      } else if (spaceMode == FixedAreaAcquisitionSettings.CUBOID_Z_STACK) {
+         return zPos > settings.zEnd_;
+      } else {
+         //no zStack
+         return zPos > zOrigin;
+      }
+   }
+
+   private double getZTopCoordinate() {
+      return getZTopCoordinate(settings_.spaceMode_, settings_, towardsSampleIsPositive_, zStageHasLimits_, zStageLowerLimit_, zStageUpperLimit_, zStage_);
+   }
+
+   public static double getZTopCoordinate(int spaceMode, FixedAreaAcquisitionSettings settings, boolean towardsSampleIsPositive,
+           boolean zStageHasLimits, double zStageLowerLimit, double zStageUpperLimit, String zStage) {
+      if (spaceMode == FixedAreaAcquisitionSettings.SURFACE_FIXED_DISTANCE_Z_STACK) {
+         Point3d[] interpPoints = settings.fixedSurface_.getPoints();
+         if (towardsSampleIsPositive) {
+            double top = interpPoints[0].z - settings.distanceAboveFixedSurface_;
+            return zStageHasLimits ? Math.max(zStageLowerLimit, top) : top;
+         } else {
+            double top = interpPoints[interpPoints.length - 1].z + settings.distanceAboveFixedSurface_;
+            return zStageHasLimits ? Math.max(zStageUpperLimit, top) : top;
+         }
+      } else if (spaceMode == FixedAreaAcquisitionSettings.VOLUME_BETWEEN_SURFACES_Z_STACK) {
+         if (towardsSampleIsPositive) {
+            Point3d[] interpPoints = settings.topSurface_.getPoints();
+            double top = interpPoints[0].z - settings.distanceAboveTopSurface_;
+            return zStageHasLimits ? Math.max(zStageLowerLimit, top) : top;
+         } else {
+            Point3d[] interpPoints = settings.topSurface_.getPoints();
+            double top = interpPoints[interpPoints.length - 1].z + settings.distanceAboveTopSurface_;
+            return zStageHasLimits ? Math.max(zStageLowerLimit, top) : top;
+         }
+      } else if (spaceMode == FixedAreaAcquisitionSettings.CUBOID_Z_STACK) {
+         return settings.zStart_;
+      } else {
+         try {
+            //region2D or no region
+            return Magellan.getCore().getPosition(zStage);
+         } catch (Exception ex) {
+            Log.log("couldn't get z position", true);
+            throw new RuntimeException();
+         }
+      }
+   }
+
+   //TODO: this could be generalized into a method to get metadata specific to any acwuisiton surface type
+   public JSONArray getFixedSurfacePoints() {
+      Point3d[] points = settings_.fixedSurface_.getPoints();
+      JSONArray pointArray = new JSONArray();
+      for (Point3d p : points) {
+         pointArray.put(p.x + "_" + p.y + "_" + p.z);
+      }
+      return pointArray;
+   }
+
+   public int getSpaceMode() {
+      return settings_.spaceMode_;
+   }
+
+   private void createXYPositions() {
       try {
          //get XY positions
-         if (settings_.spaceMode_ == AcquisitionSettings.SURFACE_FIXED_DISTANCE_Z_STACK) {
+         if (settings_.spaceMode_ == FixedAreaAcquisitionSettings.SURFACE_FIXED_DISTANCE_Z_STACK) {
             positions_ = settings_.footprint_.getXYPositions(settings_.tileOverlap_);
-         } else if (settings_.spaceMode_ == AcquisitionSettings.VOLUME_BETWEEN_SURFACES_Z_STACK) {
-            positions_ = settings_.useTopOrBottomFootprint_ == AcquisitionSettings.FOOTPRINT_FROM_TOP
+         } else if (settings_.spaceMode_ == FixedAreaAcquisitionSettings.VOLUME_BETWEEN_SURFACES_Z_STACK) {
+            positions_ = settings_.useTopOrBottomFootprint_ == FixedAreaAcquisitionSettings.FOOTPRINT_FROM_TOP
                     ? settings_.topSurface_.getXYPositions(settings_.tileOverlap_) : settings_.bottomSurface_.getXYPositions(settings_.tileOverlap_);
-         } else if (settings_.spaceMode_ == AcquisitionSettings.CUBOID_Z_STACK) {
+         } else if (settings_.spaceMode_ == FixedAreaAcquisitionSettings.CUBOID_Z_STACK) {
             positions_ = settings_.footprint_.getXYPositions(settings_.tileOverlap_);
-         } else if (settings_.spaceMode_ == AcquisitionSettings.REGION_2D) {
+         } else if (settings_.spaceMode_ == FixedAreaAcquisitionSettings.REGION_2D) {
             positions_ = settings_.footprint_.getXYPositions(settings_.tileOverlap_);
          } else {
             //no space mode, use current stage positon
@@ -145,483 +414,6 @@ public class FixedAreaAcquisition extends Acquisition implements SurfaceGridList
    }
 
    @Override
-   public int getMinSliceIndex() {
-      return minSliceIndex_;
-   }
-
-   @Override
-   public int getMaxSliceIndex() {
-      return maxSliceIndex_;
-   }
-
-   public AcquisitionSettings getSettings() {
-      return settings_;
-   }
-
-   public double getTimeInterval_ms() {
-      return settings_.timePointInterval_ * (settings_.timeIntervalUnit_ == 1 ? 1000 : (settings_.timeIntervalUnit_ == 2 ? 60000 : 1));
-   }
-   
-   public long getNumRows() {
-      long maxIndex = 0;
-      synchronized (positions_) {
-         for (XYStagePosition p : positions_) {
-            maxIndex = Math.max(maxIndex, p.getGridRow());
-         }
-      }
-      return maxIndex + 1;
-   }
-
-   public long getNumColumns() {
-      long maxIndex = 0;
-      for (XYStagePosition p : positions_) {
-         maxIndex = Math.max(maxIndex, p.getGridCol());
-      }
-      return maxIndex + 1;
-   }
-
-   public long getNextWakeTime_ms() {
-      return nextTimePointStartTime_ms_;
-   }
-
-   /**
-    * abort acquisition. Block until successfully finished
-    */
-   public void abort() {
-      new Thread(new Runnable() {
-         @Override
-         public void run() {
-            if (finished_) {
-               //acq already aborted
-               return;
-            }
-            if (FixedAreaAcquisition.this.isPaused()) {
-               FixedAreaAcquisition.this.togglePaused();
-            }
-            //interrupt event generating thread
-            eventGenerator_.shutdownNow();
-            waitForNextTPSerivice_.shutdownNow();
-            try {
-               //wait for it to exit        
-               while (!eventGenerator_.isTerminated()) {
-                  Thread.sleep(5);
-               }
-            } catch (InterruptedException ex) {
-               IJ.log("Unexpected interrupt whil trying to abort acquisition");
-               //shouldn't happen
-            }
-            //clear any pending events, specific to this acqusition (since parallel acquisitions
-            //share their event queue                           
-            while (events_.pollLast() != null) {
-            }
-            try {
-               //not a big deal if an extra one of these is added since sink will shut down on the first one
-               events_.put(AcquisitionEvent.createAcquisitionFinishedEvent(FixedAreaAcquisition.this));
-               //make sure engine doesnt get stuck
-
-            } catch (InterruptedException ex) {
-               Log.log("Unexpected interrupted exception while trying to abort"); //shouldnt happen
-            }
-
-            //singal aborted will wait for the image sink to die so this function doesnt return until abort complete
-            acqGroup_.signalAborted(FixedAreaAcquisition.this);
-
-            //make sure parallel group doesnt hang waiting to signal this acq to start next TP
-            startNextTPLatch_.countDown();
-         }
-      }, "Aborting thread").start();
-   }
-
-   public void signalReadyForNextTP() {
-      //called by event generating thread and and parallel manager thread to
-      //ensure enough time has passed to start next TP and that parallel group allows it 
-      startNextTPLatch_.countDown();
-   }
-
-   /**
-    * Called by image sink at the end of writing images of each time point or
-    * when image sink is finishing, either due to an abort or the end of the
-    * final timepoint
-    */
-   public void imagesAtTimepointFinishedWriting() {
-      synchronized (tpFinishedLockObject_) {
-         tpImagesFinishedWriting_ = true;
-         tpImagesFinishedWritingLatch_.countDown();
-      }
-   }
-
-   /**
-    *
-    * @throws InterruptedException if acq aborted while waiting for next TP
-    */
-   private void pauseUntilReadyForTP() throws InterruptedException {
-      //Pause here bfore next time point starts
-      Log.log(getName() + " pausing before TP", false);
-      long timeUntilNext = nextTimePointStartTime_ms_ - System.currentTimeMillis();
-      if (timeUntilNext > 0) {
-         Log.log(getName() + " time before next greater than 0", false);
-         //wait for enough time to pass and parallel group to signal ready
-         Log.log(getName() + " scheduling wiat for next TP", false);
-         ScheduledFuture future = waitForNextTPSerivice_.schedule(new Runnable() {
-
-            @Override
-            public void run() {
-               try {
-                  Log.log(getName() + " awaiting next TP latch", false);
-                  startNextTPLatch_.await();
-                  Log.log(getName() + " finished awaiting TP latch", false);
-                  startNextTPLatch_ = new CountDownLatch(1);
-               } catch (InterruptedException ex) {
-                  throw new RuntimeException(); //propogate interrupt due to abort
-               }
-            }
-         }, timeUntilNext, TimeUnit.MILLISECONDS);
-         try {
-            future.get();
-         } catch (ExecutionException ex) {
-            throw new InterruptedException(); //acq aborted         
-         }
-      } else {
-         //already enough time passed, just wait for go-ahead from parallel group
-         Log.log(getName() + " already enought time passed for TP, awaiting next TP singal", false);
-         startNextTPLatch_.await();
-         startNextTPLatch_ = new CountDownLatch(1);
-      }
-   }
-
-   private void createEventGenerator() {
-      Log.log("Create event generator started", false);
-      eventGenerator_.submit(new Runnable() {
-         //check interupt status before any blocking call is entered
-         @Override
-         public void run() {
-            Log.log("event generation beignning", false);
-            try {
-               //get highest possible z position to image, which is slice index 0
-               zOrigin_ = getZTopCoordinate();
-               nextTimePointStartTime_ms_ = 0;
-               for (int timeIndex = 0; timeIndex < (settings_.timeEnabled_ ? settings_.numTimePoints_ : 1); timeIndex++) {
-                  if (eventGenerator_.isShutdown()) {
-                     throw new InterruptedException();
-                  }
-                  pauseUntilReadyForTP();
-                  if (eventGenerator_.isShutdown()) {
-                     throw new InterruptedException();
-                  }
-
-                  //set the next time point start time
-                  double interval_ms = settings_.timePointInterval_ * (settings_.timeIntervalUnit_ == 1 ? 1000 : (settings_.timeIntervalUnit_ == 2 ? 60000 : 1));
-                  nextTimePointStartTime_ms_ = (long) (System.currentTimeMillis() + interval_ms);
-
-                  while (true) {
-                     try {
-                        createEventsAtTimepoint(timeIndex);
-                     } catch (InterruptedException ie) {
-                        throw ie;
-                     } catch (Exception e) {
-                        e.printStackTrace();
-                        Log.log("Exception in event generating thread");
-                        Log.log(e);
-                     }
-                     //wait for final image of timepoint to be written before beginning end of timepoint stuff
-                     //three ways to get past this barrier:
-                     //1) interuption by an abort request will throw an interrupted exception and cause this thread to return
-                     //2) image sink will get a timepointFinished signal and call timepointImagesFinishedWriting
-                     //3) image sink will get an acquisitionFinsihed signal and call allImagesFinishedWriting
-                     //in the unlikely scenario that shudown is called by abort between these two calls, the imagesink should be able
-                     //to finish writing images as expected
-                     tpImagesFinishedWritingLatch_.await();
-                     //make sure that latch was triggered by tp finishing, rather than surface update
-                     synchronized (tpFinishedLockObject_) {
-                        if (tpImagesFinishedWriting_) {
-                           break;
-                        } else {
-                           tpImagesFinishedWritingLatch_ = new CountDownLatch(1);
-                        }
-                     }
-                  }
-                  //timepoint images finshed writing, so rest the latch
-                  synchronized (tpFinishedLockObject_) {
-                     tpImagesFinishedWritingLatch_ = new CountDownLatch(1);
-                     tpImagesFinishedWriting_ = false;
-                  }
-
-                  //this call starts a new thread to not hang up cyclic barriers   
-                  //signal to next acquisition in parallel group to start generating events, then continue using the event generator thread
-                  //to calculate autofocus
-                  acqGroup_.finishedTPEventGeneration(FixedAreaAcquisition.this);
-               }
-               //acqusiition has generated all of its events
-               eventGeneratorShutdown();
-            } catch (InterruptedException e) {
-               eventGeneratorShutdown();
-               return; //acq aborted
-            }
-         }
-      });
-   }
-
-   private void createEventsAtTimepoint(int timeIndex) throws InterruptedException, Exception {
-      int positionIndex;
-      if (lastEvent_ != null && lastEvent_.timeIndex_ == timeIndex) {
-         //continuation of an exisitng time point due to a surface being changed
-         positionIndex = lastEvent_.positionIndex_;
-      } else {
-         positionIndex = 0;
-      }
-
-      while (positionIndex < positions_.size()) {
-         //add events for all slices/channels at this position
-         XYStagePosition position = positions_.get(positionIndex);
-         boolean tiltedPlane2D = settings_.spaceMode_ == AcquisitionSettings.REGION_2D && settings_.collectionPlane_ != null; 
-       
-         if (settings_.channelsAtEverySlice_ && !tiltedPlane2D) {
-
-            int sliceIndex = (int) Math.round((getZTopCoordinate() - zOrigin_) / zStep_);
-            while (true) {
-               if (eventGenerator_.isShutdown()) { // check for aborts
-                  throw new InterruptedException();
-               }
-               double zPos = zOrigin_ + sliceIndex * zStep_;
-               if ((settings_.spaceMode_ == AcquisitionSettings.REGION_2D || settings_.spaceMode_ == AcquisitionSettings.NO_SPACE)
-                       && sliceIndex > 0) {
-                  break; //2D regions only have 1 slice
-               }
-
-               if (isImagingVolumeUndefinedAtPosition(settings_.spaceMode_, settings_, position)) {
-                  break;
-               }
-
-               if (isZBelowImagingVolume(settings_.spaceMode_, settings_, position, zPos, zOrigin_) || (zStageHasLimits_ && zPos > zStageUpperLimit_)) {
-                  //position is below z stack or limit of focus device, z stack finished
-                  break;
-               }
-               //3D region
-               if (isZAboveImagingVolume(settings_.spaceMode_, settings_, position, zPos, zOrigin_) || (zStageHasLimits_ && zPos < zStageLowerLimit_)) {
-                  sliceIndex++;
-                  continue; //position is above imaging volume or range of focus device
-               }
-
-               for (int channelIndex = 0; channelIndex < settings_.channels_.getNumActiveChannels(); channelIndex++) {
-                  if (!settings_.channels_.getActiveChannelSetting(channelIndex).uniqueEvent_) {
-                     continue;
-                  }
-                  
-                  AcquisitionEvent event = new AcquisitionEvent(FixedAreaAcquisition.this, timeIndex, channelIndex, sliceIndex,
-                          positionIndex, zPos + settings_.channels_.getActiveChannelSetting(channelIndex).offset_, position);
-                  if (eventGenerator_.isShutdown()) {
-                     throw new InterruptedException();
-                  }
-                  //keep track of biggest slice index and smallest slice for drift correciton purposes
-                  maxSliceIndex_ = Math.max(maxSliceIndex_, event.sliceIndex_);
-                  minSliceIndex_ = Math.min(minSliceIndex_, event.sliceIndex_);
-                  events_.put(event); //event generator will block if event queue is full
-                  //check if surfaces have been changed
-                  if (acqSettingsUpdated_) {
-                     //remove all elements in reverse order in case the front is taken for acquisition while doing this
-                     while (events_.pollLast() != null) {
-                     }
-                     acqSettingsUpdated_ = false;
-                     createEventsAtTimepoint(timeIndex);
-                     return;
-                  }
-
-               }
-               sliceIndex++;
-            } //slice loop finish
-         } else {
-            //Z stacks at each channel
-            for (int channelIndex = 0; channelIndex < settings_.channels_.getNumActiveChannels(); channelIndex++) {
-               if (!settings_.channels_.getActiveChannelSetting(channelIndex).uniqueEvent_ ) {
-                  continue;
-               }                 
-               //Special case: 2D tilted plane
-                if (tiltedPlane2D) {
-                    //index all slcies as 0, even though they may nto be in the same plane
-                    int sliceIndex = 0;
-                    double zPos; 
-                    if (settings_.collectionPlane_.waitForCurentInterpolation().isInterpDefined(
-                       position.getCenter().x, position.getCenter().y)) {
-                        zPos = settings_.collectionPlane_.waitForCurentInterpolation().getInterpolatedValue(
-                           position.getCenter().x, position.getCenter().y);
-                     } else  {
-                        zPos = settings_.collectionPlane_.getExtrapolatedValue(position.getCenter().x, position.getCenter().y);
-                    }
-                    AcquisitionEvent event = new AcquisitionEvent(FixedAreaAcquisition.this, timeIndex, channelIndex, sliceIndex,
-                            positionIndex, zPos + settings_.channels_.getActiveChannelSetting(channelIndex).offset_, position);
-                    events_.put(event);
-                    continue;
-                }
-
-
-               int sliceIndex = (int) Math.round((getZTopCoordinate() - zOrigin_) / zStep_);
-               while (true) {
-                  if (eventGenerator_.isShutdown()) { // check for aborts
-                     throw new InterruptedException();
-                  }
-                  double zPos = zOrigin_ + sliceIndex * zStep_;        
-                  if ((settings_.spaceMode_ == AcquisitionSettings.REGION_2D || settings_.spaceMode_ == AcquisitionSettings.NO_SPACE)
-                          && sliceIndex > 0) {
-                     break; //2D regions only have 1 slice
-                  }
-
-                  if (isImagingVolumeUndefinedAtPosition(settings_.spaceMode_, settings_, position)) {
-                     break;
-                  }
-
-                  if (isZBelowImagingVolume(settings_.spaceMode_, settings_, position, zPos, zOrigin_) || (zStageHasLimits_ && zPos > zStageUpperLimit_)) {
-                     //position is below z stack or limit of focus device, z stack finished
-                     break;
-                  }
-                  //3D region
-                  if (isZAboveImagingVolume(settings_.spaceMode_, settings_, position, zPos, zOrigin_) || (zStageHasLimits_ && zPos < zStageLowerLimit_)) {
-                     sliceIndex++;
-                     continue; //position is above imaging volume or range of focus device
-                  }
-
-                  AcquisitionEvent event = new AcquisitionEvent(FixedAreaAcquisition.this, timeIndex, channelIndex, sliceIndex,
-                          positionIndex, zPos + settings_.channels_.getActiveChannelSetting(channelIndex).offset_, position);
-                  if (eventGenerator_.isShutdown()) {
-                     throw new InterruptedException();
-                  }
-                  //keep track of biggest slice index and smallest slice for drift correciton purposes
-                  maxSliceIndex_ = Math.max(maxSliceIndex_, event.sliceIndex_);
-                  minSliceIndex_ = Math.min(minSliceIndex_, event.sliceIndex_);
-                  events_.put(event); //event generator will block if event queue is full
-                  //check if surfaces have been changed
-                  if (acqSettingsUpdated_) {
-                     //remove all elements in reverse order in case the front is taken for acquisition while doing this
-                     while (events_.pollLast() != null) {
-                     }
-                     acqSettingsUpdated_ = false;
-                     createEventsAtTimepoint(timeIndex);
-                     return;
-                  }
-               sliceIndex++;
-               }//slice loop finish
-               
-            } 
-         }
-         positionIndex++;
-      } //position loop finished
-      if (timeIndex == (settings_.timeEnabled_ ? settings_.numTimePoints_ : 1) - 1) {
-         //acquisition now finished, add event so engine can mark acquisition as finished                 
-         events_.put(AcquisitionEvent.createAcquisitionFinishedEvent(FixedAreaAcquisition.this));
-      } else {
-         events_.put(AcquisitionEvent.createTimepointFinishedEvent(FixedAreaAcquisition.this));
-      }
-      //check for abort
-      if (eventGenerator_.isShutdown()) {
-         throw new InterruptedException();
-      }
-   }
-
-   private void eventGeneratorShutdown() {
-      eventGenerator_.shutdown();
-      waitForNextTPSerivice_.shutdown();
-      SurfaceGridManager.getInstance().removeSurfaceGridListener(this);
-   }
-
-   public static boolean isImagingVolumeUndefinedAtPosition(int spaceMode, AcquisitionSettings settings, XYStagePosition position) {
-      if (spaceMode == AcquisitionSettings.SURFACE_FIXED_DISTANCE_Z_STACK) {
-         return !settings.footprint_.isDefinedAtPosition(position);
-      } else if (spaceMode == AcquisitionSettings.VOLUME_BETWEEN_SURFACES_Z_STACK) {
-         return !settings.topSurface_.isDefinedAtPosition(position)
-                 && !settings.bottomSurface_.isDefinedAtPosition(position);
-      }
-      return false;
-   }
-
-   /**
-    * This function and the one below determine which slices will be collected
-    * for a given position
-    *
-    * @param position
-    * @param zPos
-    * @return
-    */
-   public static boolean isZAboveImagingVolume(int spaceMode, AcquisitionSettings settings, XYStagePosition position, double zPos, double zOrigin) throws InterruptedException {
-      if (spaceMode == AcquisitionSettings.SURFACE_FIXED_DISTANCE_Z_STACK) {
-         boolean extrapolate = settings.fixedSurface_ != settings.footprint_;
-         //extrapolate only if different surface used for XY positions than footprint
-         return settings.fixedSurface_.isPositionCompletelyAboveSurface(position, settings.fixedSurface_, zPos + settings.distanceAboveFixedSurface_, extrapolate);
-      } else if (spaceMode == AcquisitionSettings.VOLUME_BETWEEN_SURFACES_Z_STACK) {
-         return settings.topSurface_.isPositionCompletelyAboveSurface(position, settings.topSurface_, zPos + settings.distanceAboveTopSurface_, false);
-      } else if (spaceMode == AcquisitionSettings.CUBOID_Z_STACK) {
-         return zPos < settings.zStart_;
-      } else {
-         //no zStack
-         return zPos < zOrigin;
-      }
-   }
-
-   public static boolean isZBelowImagingVolume(int spaceMode, AcquisitionSettings settings, XYStagePosition position, double zPos, double zOrigin) throws InterruptedException {
-      if (spaceMode == AcquisitionSettings.SURFACE_FIXED_DISTANCE_Z_STACK) {
-         boolean extrapolate = settings.fixedSurface_ != settings.footprint_;
-         //extrapolate only if different surface used for XY positions than footprint
-         return settings.fixedSurface_.isPositionCompletelyBelowSurface(position, settings.fixedSurface_, zPos - settings.distanceBelowFixedSurface_, extrapolate);
-      } else if (spaceMode == AcquisitionSettings.VOLUME_BETWEEN_SURFACES_Z_STACK) {
-         return settings.bottomSurface_.isPositionCompletelyBelowSurface(position, settings.bottomSurface_, zPos - settings.distanceBelowBottomSurface_, false);
-      } else if (spaceMode == AcquisitionSettings.CUBOID_Z_STACK) {
-         return zPos > settings.zEnd_;
-      } else {
-         //no zStack
-         return zPos > zOrigin;
-      }
-   }
-
-   private double getZTopCoordinate() {
-      return getZTopCoordinate(settings_.spaceMode_, settings_, towardsSampleIsPositive_, zStageHasLimits_, zStageLowerLimit_, zStageUpperLimit_, zStage_);
-   }
-
-   public static double getZTopCoordinate(int spaceMode, AcquisitionSettings settings, boolean towardsSampleIsPositive,
-           boolean zStageHasLimits, double zStageLowerLimit, double zStageUpperLimit, String zStage) {
-      if (spaceMode == AcquisitionSettings.SURFACE_FIXED_DISTANCE_Z_STACK) {
-         Point3d[] interpPoints = settings.fixedSurface_.getPoints();
-         if (towardsSampleIsPositive) {
-            double top = interpPoints[0].z - settings.distanceAboveFixedSurface_;
-            return zStageHasLimits ? Math.max(zStageLowerLimit, top) : top;
-         } else {
-            double top = interpPoints[interpPoints.length - 1].z + settings.distanceAboveFixedSurface_;
-            return zStageHasLimits ? Math.max(zStageUpperLimit, top) : top;
-         }
-      } else if (spaceMode == AcquisitionSettings.VOLUME_BETWEEN_SURFACES_Z_STACK) {
-         if (towardsSampleIsPositive) {
-            Point3d[] interpPoints = settings.topSurface_.getPoints();
-            double top = interpPoints[0].z - settings.distanceAboveTopSurface_;
-            return zStageHasLimits ? Math.max(zStageLowerLimit, top) : top;
-         } else {
-            Point3d[] interpPoints = settings.topSurface_.getPoints();
-            double top = interpPoints[interpPoints.length - 1].z + settings.distanceAboveTopSurface_;
-            return zStageHasLimits ? Math.max(zStageLowerLimit, top) : top;
-         }
-      } else if (spaceMode == AcquisitionSettings.CUBOID_Z_STACK) {
-         return settings.zStart_;
-      } else {
-         try {
-            //region2D or no region
-            return Magellan.getCore().getPosition(zStage);
-         } catch (Exception ex) {
-            Log.log("couldn't get z position", true);
-            throw new RuntimeException();
-         }
-      }
-   }
-
-   public JSONArray getFixedSurfacePoints() {
-       Point3d[] points = settings_.fixedSurface_.getPoints();
-       JSONArray pointArray = new JSONArray();
-       for (Point3d p : points) {
-           pointArray.put(p.x+ "_" + p.y + "_" + p.z);
-       }
-       return pointArray;
-   }
-   
-   public int getSpaceMode() {
-       return settings_.spaceMode_;
-   }
-
-   @Override
    protected JSONArray createInitialPositionList() {
       JSONArray pList = new JSONArray();
       for (XYStagePosition xyPos : positions_) {
@@ -631,47 +423,16 @@ public class FixedAreaAcquisition extends Acquisition implements SurfaceGridList
    }
 
    @Override
-   public int getAcqEventQueueCap() {
-      return EVENT_QUEUE_CAP;
-   }
-
-   //these two used for setting inital file size for speed purposes
-   @Override
-   public int getInitialNumFrames() {
-      return Math.max(1, settings_.numTimePoints_);
-   }
-
-   @Override
-   public int getInitialNumSlicesEstimate() {
-      if (settings_.spaceMode_ == AcquisitionSettings.SURFACE_FIXED_DISTANCE_Z_STACK) {
-         Point3d[] interpPoints = settings_.fixedSurface_.getPoints();
-         double top = interpPoints[0].z;
-         double bottom = interpPoints[interpPoints.length - 1].z;
-         return (int) Math.ceil((Math.abs(top - bottom) + settings_.distanceAboveFixedSurface_ + settings_.distanceBelowFixedSurface_) / zStep_);
-      } else if (settings_.spaceMode_ == AcquisitionSettings.VOLUME_BETWEEN_SURFACES_Z_STACK) {
-         Point3d[] interpPoints = settings_.topSurface_.getPoints();
-         double top = interpPoints[0].z;
-         double bottom = interpPoints[interpPoints.length - 1].z;
-         return (int) Math.ceil((Math.abs(top - bottom) + settings_.distanceAboveTopSurface_ + settings_.distanceBelowBottomSurface_) / zStep_);
-      } else if (settings_.spaceMode_ == AcquisitionSettings.CUBOID_Z_STACK) {
-         return (int) Math.ceil(Math.abs(settings_.zStart_ - settings_.zEnd_) / zStep_);
-      } else {
-         //region2D or no region
-         return 1;
-      }
-   }
-
-   @Override
    public void SurfaceOrGridChanged(XYFootprint f) {
       boolean updateNeeded = false;
-      if (settings_.spaceMode_ == AcquisitionSettings.SURFACE_FIXED_DISTANCE_Z_STACK && settings_.fixedSurface_ == f) {
+      if (settings_.spaceMode_ == FixedAreaAcquisitionSettings.SURFACE_FIXED_DISTANCE_Z_STACK && settings_.fixedSurface_ == f) {
          updateNeeded = true;
-      } else if (settings_.spaceMode_ == AcquisitionSettings.VOLUME_BETWEEN_SURFACES_Z_STACK
+      } else if (settings_.spaceMode_ == FixedAreaAcquisitionSettings.VOLUME_BETWEEN_SURFACES_Z_STACK
               && (settings_.topSurface_ == f || settings_.bottomSurface_ == f)) {
          updateNeeded = true;
-      } else if (settings_.spaceMode_ == AcquisitionSettings.CUBOID_Z_STACK) {
+      } else if (settings_.spaceMode_ == FixedAreaAcquisitionSettings.CUBOID_Z_STACK) {
 
-      } else if (settings_.spaceMode_ == AcquisitionSettings.REGION_2D) {
+      } else if (settings_.spaceMode_ == FixedAreaAcquisitionSettings.REGION_2D) {
 
       } else {
          //no space mode

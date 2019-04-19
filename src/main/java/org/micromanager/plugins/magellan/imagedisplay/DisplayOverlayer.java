@@ -534,9 +534,9 @@ public class DisplayOverlayer {
       ZoomableVirtualStack zStack = (ZoomableVirtualStack) display_.virtualStack_;
       double sliceZ = zStack.getZCoordinateOfDisplayedSlice(display_.getVisibleSliceIndex());
       double zStep = acq_.getZStep();
-      String label1 = String.format("%.2f", sliceZ - zStep) + " μm";
-      String label2 = String.format("%.2f", sliceZ) + " μm";
-      String label3 = String.format("%.2f", sliceZ + zStep) + " μm";
+      String label1 = String.format("%.1f", sliceZ - zStep/ 2) + " μm";
+      String label2 = String.format("%.1f", sliceZ) + " μm";
+      String label3 = String.format("%.1f", sliceZ + zStep / 2) + " μm";
  
       int fontSize = 12;
       Font font = new Font("Arial", Font.BOLD, fontSize);

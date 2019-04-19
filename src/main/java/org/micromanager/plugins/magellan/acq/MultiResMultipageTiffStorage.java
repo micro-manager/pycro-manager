@@ -26,7 +26,6 @@ import java.awt.geom.Point2D;
 import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.LinkedList;
@@ -42,6 +41,7 @@ import main.java.org.micromanager.plugins.magellan.misc.JavaUtils;
 import main.java.org.micromanager.plugins.magellan.misc.Log;
 import main.java.org.micromanager.plugins.magellan.misc.LongPoint;
 import main.java.org.micromanager.plugins.magellan.misc.MD;
+import org.micromanager.PositionListManager;
 
 /**
  * This class manages multiple multipage Tiff datasets, averaging multiple 2x2
@@ -67,12 +67,8 @@ public class MultiResMultipageTiffStorage {
    private boolean finished_;
    private String uniqueAcqName_;
    private int byteDepth_;
-   private TreeMap<Integer, Integer> backgroundPix_ = new TreeMap<Integer, Integer>(); //map of channel index to background pixel value
-   private boolean estimateBackground_;
    private double pixelSizeXY_, pixelSizeZ_;
    private AffineTransform affine_;
-   private BDVXMLWriter bdvXML_;
-   private int currentTP_ = -1;
    private boolean rgb_;
    
    /**
@@ -82,7 +78,6 @@ public class MultiResMultipageTiffStorage {
    public MultiResMultipageTiffStorage(String dir)  throws IOException {
       directory_ = dir;
       finished_ = true;
-      estimateBackground_ = false;
       String fullResDir = dir + (dir.endsWith(File.separator) ? "" : File.separator) + FULL_RES_SUFFIX;
       //create fullResStorage
       fullResStorage_ = new TaggedImageStorageMultipageTiff(fullResDir, false, null);
@@ -130,8 +125,7 @@ public class MultiResMultipageTiffStorage {
    /**
     * Constructor for creating new storage prior to acquisition
     */
-   public MultiResMultipageTiffStorage(String dir, JSONObject summaryMetadata, boolean estimateBackground) {
-      estimateBackground_ = estimateBackground;
+   public MultiResMultipageTiffStorage(String dir, JSONObject summaryMetadata) {
       try {
          //make a copy in case tag changes are needed later
          summaryMD_ = new JSONObject(summaryMetadata.toString());
@@ -171,11 +165,6 @@ public class MultiResMultipageTiffStorage {
          Log.log("couldn't create Full res storage", true);
       }
       lowResStorages_ = new TreeMap<Integer, TaggedImageStorageMultipageTiff>();
-      try {
-         bdvXML_ = new BDVXMLWriter(new File(directory_), fullResStorage_.getNumChannels(), MD.getBytesPerPixel(summaryMD_));
-      } catch (IOException ex) {
-         Log.log("Couldn't create BigDataViewer XML file");
-      }
    }
 
    public static JSONObject readSummaryMetadata(String dir) throws IOException {
@@ -325,28 +314,6 @@ public class MultiResMultipageTiffStorage {
       return backgroundVals;
    }
    
-   public int getBackgroundPixelValue(int channelIndex) {
-      return backgroundPix_.containsKey(channelIndex) ? backgroundPix_.get(channelIndex) : 0;
-   }
-
-   private void readBackgroundPixelValue(int channel, MagellanTaggedImage img) {
-       if (!estimateBackground_ || backgroundPix_.containsKey(channel)) {
-           return;
-       }
-      int[] pixVals = new int[fullResTileHeightIncludingOverlap_ * fullResTileWidthIncludingOverlap_];
-      if (byteDepth_ == 1 || byteDepth_ == 4) {
-         for (int j = 0; j < pixVals.length; j++) {
-            pixVals[j] = ((byte[])img.pix)[j] & 0xff;
-         }
-      } else {
-         for (int j = 0; j < pixVals.length; j++) {
-            pixVals[j] = ((short[])img.pix)[j] & 0xffff;
-         }
-      }
-      Arrays.sort(pixVals);
-      backgroundPix_.put(channel, pixVals[(int) (pixVals.length * BACKGROUND_PIXEL_PERCENTILE)]);
-   }
-   
    /**
     * Method for reading 3D volumes for compatibility with TeraFly
     * @return 
@@ -397,14 +364,8 @@ public class MultiResMultipageTiffStorage {
        } else {
            if (byteDepth_ == 1) {
                pixels = new byte[width * height];
-               if (backgroundPix_.containsKey(channel)) {
-                   Arrays.fill((byte[]) pixels, (byte) getBackgroundPixelValue(channel));
-               }
            } else {
                pixels = new short[width * height];
-               if (backgroundPix_.containsKey(channel)) {
-                   Arrays.fill((short[]) pixels, (short) getBackgroundPixelValue(channel));
-               }
            }
        }
       //go line by line through one column of tiles at a time, then move to next column
@@ -542,9 +503,6 @@ public class MultiResMultipageTiffStorage {
       int slice = MD.getSliceIndex(img.tags);
       int frame = MD.getFrameIndex(img.tags);
 
-      if (estimateBackground_) {
-         readBackgroundPixelValue(channel, img); //find a background pixel value in the first image
-      }
       Object previousLevelPix = img.pix;
       int resolutionIndex = previousResIndex + 1;
       
@@ -585,14 +543,7 @@ public class MultiResMultipageTiffStorage {
              } else {
                  currentLevelPix = new short[tileWidth_ * tileHeight_];
              }         
-            //fill in with background pixel value
-            if (rgb_) {
-                //whatever
-            }else if (byteDepth_ == 1) {
-               Arrays.fill((byte[]) currentLevelPix, (byte) getBackgroundPixelValue(channel));
-            } else {
-               Arrays.fill((short[]) currentLevelPix, (short) getBackgroundPixelValue(channel));
-            }
+
          } else {
             currentLevelPix = existingImage.pix; 
          }     
@@ -740,10 +691,6 @@ public class MultiResMultipageTiffStorage {
             //write to full res storage as normal (i.e. with overlap pixels present)
             fullResStorage_.putImage(MagellanTaggedImage);
             addToLowResStorage(MagellanTaggedImage, 0, MD.getPositionIndex(MagellanTaggedImage.tags));
-            if (currentTP_ < MD.getFrameIndex(MagellanTaggedImage.tags)) {
-               bdvXML_.addTP();
-               currentTP_ = MD.getFrameIndex(MagellanTaggedImage.tags);
-            }
          }
       } catch (IOException ex) {
          Log.log(ex.toString());
@@ -772,13 +719,6 @@ public class MultiResMultipageTiffStorage {
    }
 
    public void finished() {
-      try {
-         if (bdvXML_ != null) { //if its not an oened dataset
-            bdvXML_.close();
-         }
-      } catch (IOException ex) {
-         Log.log("Couldn't close BDV XML");
-      }
       fullResStorage_.finished();
       for (TaggedImageStorageMultipageTiff s : lowResStorages_.values()) {
          if (s != null) {
@@ -910,10 +850,10 @@ public class MultiResMultipageTiffStorage {
 
    /**
     * 
-    * @param slice
+    * @param sliceIndex
     * @return set of points (col, row) with indices of tiles that have been added at this slice index 
     */
-   public Set<Point> getExploredTilesAtSlice(int slice) {
+   public Set<Point> getTileIndicesWithDataAt(int sliceIndex) {
       Set<Point> exploredTiles = new TreeSet<Point>(new Comparator<Point>() {
          @Override
          public int compare(Point o1, Point o2) {
@@ -928,7 +868,7 @@ public class MultiResMultipageTiffStorage {
       Set<String> keys = new TreeSet<String>(imageKeys());
       for (String s : keys) {
             int[] indices = MD.getIndices(s);
-            if (indices[1] == slice) {
+            if (indices[1] == sliceIndex) {
                exploredTiles.add(new Point((int) posManager_.getGridCol(indices[3], 0), (int) posManager_.getGridRow(indices[3], 0)));
             }
 
@@ -948,5 +888,9 @@ public class MultiResMultipageTiffStorage {
     int getPositionIndexFromStageCoords(double xPos, double yPos) {
         return posManager_.getFullResPositionIndexFromStageCoords(xPos, yPos);
     }
+
+   PositionManager getPosManager() {
+      return posManager_;
+   }
    
 }

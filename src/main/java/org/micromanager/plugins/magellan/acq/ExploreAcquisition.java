@@ -18,10 +18,7 @@
 package main.java.org.micromanager.plugins.magellan.acq;
 
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
 import java.util.concurrent.LinkedBlockingQueue;
-import java.util.concurrent.TimeUnit;
 import main.java.org.micromanager.plugins.magellan.channels.ChannelSpec;
 import main.java.org.micromanager.plugins.magellan.imagedisplay.SubImageControls;
 import main.java.org.micromanager.plugins.magellan.json.JSONArray;
@@ -36,16 +33,12 @@ import mmcorej.CMMCore;
  */
 public class ExploreAcquisition extends Acquisition {
 
-    private static final int EXPLORE_EVENT_QUEUE_CAP = 2000; //big so you can see a lot of tiles waiting to be acquired
-
     private volatile double zTop_, zBottom_;
-    private ExecutorService eventAdderExecutor_ = Executors.newSingleThreadExecutor();
+    //Map with slice index as keys used to get rid of duplicate events
     private ConcurrentHashMap<Integer, LinkedBlockingQueue<ExploreTileWaitingToAcquire>> queuedTileEvents_ = new ConcurrentHashMap<Integer, LinkedBlockingQueue<ExploreTileWaitingToAcquire>>();
-    private ChannelSpec channels_;
 
     public ExploreAcquisition(ExploreAcqSettings settings) throws Exception {
         super(settings.zStep_, settings.channels_);
-        channels_ = settings.channels_;
         try {
             //start at current z position
             zTop_ = Magellan.getCore().getPosition(zStage_);
@@ -56,39 +49,7 @@ public class ExploreAcquisition extends Acquisition {
             throw new RuntimeException();
         }
         initialize(settings.dir_, settings.name_, settings.tileOverlap_);
-    }
-
-    public void clearEventQueue() {
-        events_.clear();
-        queuedTileEvents_.clear();
-    }
-
-    public void abort() {
-        if (this.isPaused()) {
-            this.togglePaused();
-        }
-        eventAdderExecutor_.shutdownNow();
-        //wait for shutdown
-        try {
-            //wait for it to exit
-            while (!eventAdderExecutor_.awaitTermination(5, TimeUnit.MILLISECONDS)) {
-            }
-        } catch (InterruptedException ex) {
-            Log.log("Unexpected interrupt while trying to abort acquisition", true);
-            //shouldn't happen
-        }
-        //abort all pending events
-        events_.clear();
-        queuedTileEvents_.clear();
-        //signal acquisition engine to start finishigng process
-        try {
-            events_.put(AcquisitionEvent.createAcquisitionFinishedEvent(this));
-            events_.put(AcquisitionEvent.createEngineTaskFinishedEvent());
-        } catch (InterruptedException ex) {
-            Log.log("Unexpected interrupted exception while trying to abort", true); //shouldnt happen
-        }
-        imageSink_.waitToDie();
-        //image sink will call finish when it completes
+        
     }
 
     /**
@@ -100,6 +61,14 @@ public class ExploreAcquisition extends Acquisition {
         return queuedTileEvents_.get(sliceIndex);
     }
 
+  
+    @Override
+    public void abort() { 
+       queuedTileEvents_.clear();
+       super.abort();
+    }
+
+    
     //called by acq engine
     public void eventAcquired(AcquisitionEvent e) {
         //remove from tile queue for overlay drawing purposes
@@ -108,7 +77,7 @@ public class ExploreAcquisition extends Acquisition {
     }
 
     public void acquireTileAtCurrentLocation(final SubImageControls controls) {
-        eventAdderExecutor_.submit(new Runnable() {
+        eventGenerator_.submit(new Runnable() {
 
             @Override
             public void run() {
@@ -123,7 +92,7 @@ public class ExploreAcquisition extends Acquisition {
                     return;
                 }
                 int sliceIndex = (int) Math.round((zPos - zOrigin_) / zStep_);
-                int posIndex = imageStorage_.getPositionIndexFromStageCoords(xPos, yPos);
+                int posIndex = posManager_.getFullResPositionIndexFromStageCoords(xPos, yPos);
 
                 for (int channelIndex = 0; channelIndex < Math.max(1, channels_.getNumActiveChannels()); channelIndex++) {
                     if (channels_ != null) {
@@ -137,8 +106,8 @@ public class ExploreAcquisition extends Acquisition {
                         queuedTileEvents_.put(sliceIndex, new LinkedBlockingQueue<ExploreTileWaitingToAcquire>());
                     }
 
-                    ExploreTileWaitingToAcquire tile = new ExploreTileWaitingToAcquire(imageStorage_.getXYPosition(posIndex).getGridRow(),
-                            imageStorage_.getXYPosition(posIndex).getGridCol(), sliceIndex, channelIndex);
+                    ExploreTileWaitingToAcquire tile = new ExploreTileWaitingToAcquire(posManager_.getXYPosition(posIndex).getGridRow(),
+                            posManager_.getXYPosition(posIndex).getGridCol(), sliceIndex, channelIndex);
                     if (queuedTileEvents_.get(sliceIndex).contains(tile)) {
                         continue; //ignor commands for duplicates
                     }
@@ -149,9 +118,9 @@ public class ExploreAcquisition extends Acquisition {
                          maxSliceIndex_ = Math.max(maxSliceIndex_, sliceIndex);
                          //update so that z limit sliders make sense
                         controls.setZLimitSliderValues(sliceIndex);
-                        events_.put(new AcquisitionEvent(ExploreAcquisition.this, 0, channelIndex, sliceIndex, posIndex, 
+                        engineQueue_.put(new AcquisitionEvent(ExploreAcquisition.this, 0, channelIndex, sliceIndex, posIndex, 
                                 getZCoordinate(sliceIndex) + channels_.getActiveChannelSetting(channelIndex).offset_,
-                                imageStorage_.getXYPosition(posIndex)));
+                                posManager_.getXYPosition(posIndex)));
                     } catch (InterruptedException e) {
                         //aborted acquisition
                         Log.log("Interrupted while trying to add acquire evenet");
@@ -162,7 +131,7 @@ public class ExploreAcquisition extends Acquisition {
     }
 
     public void acquireTiles(final int r1, final int c1, final int r2, final int c2) {
-        eventAdderExecutor_.submit(new Runnable() {
+        eventGenerator_.submit(new Runnable() {
 
             @Override
             public void run() {
@@ -197,7 +166,7 @@ public class ExploreAcquisition extends Acquisition {
                             newPositionCols[i] = c;
                         }
                     }
-                    posIndices = imageStorage_.getPositionIndices(newPositionRows, newPositionCols);
+                    posIndices = posManager_.getPositionIndices(newPositionRows, newPositionCols);
                 } catch (Exception e) {
                     e.printStackTrace();
                     Log.log("Problem with position metadata: couldn't add tile", true);
@@ -226,16 +195,16 @@ public class ExploreAcquisition extends Acquisition {
                                     queuedTileEvents_.put(sliceIndex, new LinkedBlockingQueue<ExploreTileWaitingToAcquire>());
                                 }
 
-                                ExploreTileWaitingToAcquire tile = new ExploreTileWaitingToAcquire(imageStorage_.getXYPosition(posIndices[i]).getGridRow(),
-                                        imageStorage_.getXYPosition(posIndices[i]).getGridCol(), sliceIndex, channelIndex);
+                                ExploreTileWaitingToAcquire tile = new ExploreTileWaitingToAcquire(posManager_.getXYPosition(posIndices[i]).getGridRow(),
+                                        posManager_.getXYPosition(posIndices[i]).getGridCol(), sliceIndex, channelIndex);
                                 if (queuedTileEvents_.get(sliceIndex).contains(tile)) {
                                     continue; //ignor commands for duplicates
                                 }
                                 queuedTileEvents_.get(sliceIndex).put(tile);
 
-                                events_.put(new AcquisitionEvent(ExploreAcquisition.this, 0, channelIndex, sliceIndex, posIndices[i], 
+                                engineQueue_.put(new AcquisitionEvent(ExploreAcquisition.this, 0, channelIndex, sliceIndex, posIndices[i], 
                                         getZCoordinate(sliceIndex) + channels_.getActiveChannelSetting(channelIndex).offset_,
-                                        imageStorage_.getXYPosition(posIndices[i])));
+                                        posManager_.getXYPosition(posIndices[i])));
                             } catch (InterruptedException ex) {
                                 //aborted acqusition
                                 return;
@@ -301,22 +270,6 @@ public class ExploreAcquisition extends Acquisition {
             Log.log("Couldn't create initial position list", true);
             return null;
         }
-    }
-
-    @Override
-    public int getAcqEventQueueCap() {
-        return EXPLORE_EVENT_QUEUE_CAP;
-    }
-
-    @Override
-    public int getInitialNumFrames() {
-        return 1;
-    }
-
-    @Override
-    public int getInitialNumSlicesEstimate() {
-        //Who knows??
-        return 1;
     }
 
     //slice and row/col index of an acquisition event in the queue

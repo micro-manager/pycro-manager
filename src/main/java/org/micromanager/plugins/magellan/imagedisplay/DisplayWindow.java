@@ -169,6 +169,10 @@ public class DisplayWindow extends StackWindow {
       arrowButton_.setFont(arrowButton_.getFont().deriveFont(20f));
       //so it doesn't show up as "..."
       arrowButton_.setBorder(null);
+      //make the arrow button clearly a button
+      arrowButton_.setBackground(new Color(225, 225, 225));
+      arrowButton_.setOpaque(true);
+
       arrowButton_.setMargin(new Insets(0, 0, 0, 0));
       arrowPanel.add(arrowButton_, BorderLayout.CENTER);
       arrowPanel.setPreferredSize(new Dimension(30, 30));
@@ -238,7 +242,6 @@ public class DisplayWindow extends StackWindow {
             });
          }
       });
-
    }
 
    public void removeIJScrollbars() {
@@ -381,6 +384,7 @@ public class DisplayWindow extends StackWindow {
                displayPrefs_.putInt(WINDOWSIZEX_EXPLORE, Math.max(MINIMUM_SAVED_WINDOW_DIMENSION, DisplayWindow.this.getSize().width));
                displayPrefs_.putInt(WINDOWSIZEY_EXPLORE, Math.max(MINIMUM_SAVED_WINDOW_DIMENSION, DisplayWindow.this.getSize().height));
             }
+            disp_.drawOverlay();
          }
       });
    }

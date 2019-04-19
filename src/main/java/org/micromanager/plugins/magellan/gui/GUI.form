@@ -1823,7 +1823,9 @@
             <DimensionLayout dim="0">
               <Group type="103" groupAlignment="0" attributes="0">
                   <Group type="102" alignment="1" attributes="0">
-                      <EmptySpace pref="556" max="32767" attributes="0"/>
+                      <EmptySpace max="-2" attributes="0"/>
+                      <Component id="freeDiskSpaceLabel_" min="-2" pref="197" max="-2" attributes="0"/>
+                      <EmptySpace pref="353" max="32767" attributes="0"/>
                       <Component id="exploreBrowseButton_" min="-2" max="-2" attributes="0"/>
                       <EmptySpace max="-2" attributes="0"/>
                       <Component id="openDatasetButton_" min="-2" max="-2" attributes="0"/>
@@ -1848,6 +1850,10 @@
                           <Component id="openDatasetButton_" alignment="3" min="-2" max="-2" attributes="0"/>
                       </Group>
                       <EmptySpace pref="14" max="32767" attributes="0"/>
+                  </Group>
+                  <Group type="102" alignment="1" attributes="0">
+                      <EmptySpace min="0" pref="0" max="32767" attributes="0"/>
+                      <Component id="freeDiskSpaceLabel_" min="-2" max="-2" attributes="0"/>
                   </Group>
                   <Group type="103" rootIndex="1" groupAlignment="0" attributes="0">
                       <Group type="102" alignment="0" attributes="0">
@@ -1900,6 +1906,12 @@
               <Events>
                 <EventHandler event="actionPerformed" listener="java.awt.event.ActionListener" parameters="java.awt.event.ActionEvent" handler="openDatasetButton_ActionPerformed"/>
               </Events>
+            </Component>
+            <Component class="javax.swing.JLabel" name="freeDiskSpaceLabel_">
+              <Properties>
+                <Property name="text" type="java.lang.String" value="Available disk space: "/>
+                <Property name="toolTipText" type="java.lang.String" value=""/>
+              </Properties>
             </Component>
           </SubComponents>
         </Container>

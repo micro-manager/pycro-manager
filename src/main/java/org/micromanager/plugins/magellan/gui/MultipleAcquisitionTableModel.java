@@ -17,10 +17,10 @@
 
 package main.java.org.micromanager.plugins.magellan.gui;
 
-import main.java.org.micromanager.plugins.magellan.acq.MultipleAcquisitionManager;
+import main.java.org.micromanager.plugins.magellan.acq.AcquisitionsManager;
 import main.java.org.micromanager.plugins.magellan.gui.GUI;
 import javax.swing.table.AbstractTableModel;
-import main.java.org.micromanager.plugins.magellan.acq.MultipleAcquisitionManager;
+import main.java.org.micromanager.plugins.magellan.acq.AcquisitionsManager;
 
 /**
  *
@@ -28,11 +28,11 @@ import main.java.org.micromanager.plugins.magellan.acq.MultipleAcquisitionManage
  */
 public class MultipleAcquisitionTableModel extends AbstractTableModel {
 
-   private static final String[] COLUMNS = {"Order","Name","Description","Status"};
-   private MultipleAcquisitionManager manager_;
+   private static final String[] COLUMNS = {"Name","Description","Status"};
+   private AcquisitionsManager manager_;
    private GUI gui_;
    
-   public MultipleAcquisitionTableModel(MultipleAcquisitionManager manager, GUI gui) {
+   public MultipleAcquisitionTableModel(AcquisitionsManager manager, GUI gui) {
       super();
       manager_ = manager;
       gui_ = gui;
@@ -53,13 +53,15 @@ public class MultipleAcquisitionTableModel extends AbstractTableModel {
       return COLUMNS.length;
    }
 
+   put this somewhere
+   GUI.getInstance().acquisitionRunning(false);
+   
+   
    @Override
    public Object getValueAt(int rowIndex, int columnIndex) {
       if (columnIndex == 0) {
-         return manager_.getGroupIndex(rowIndex) + 1;
-      } else if (columnIndex == 1) {
          return manager_.getAcquisitionName(rowIndex);
-      } else if (columnIndex == 2) {
+      } else if (columnIndex == 1) {
          return manager_.getAcquisitionDescription(rowIndex);
       } else {
          return manager_.getAcqStatus(rowIndex);
@@ -68,7 +70,7 @@ public class MultipleAcquisitionTableModel extends AbstractTableModel {
 
    @Override
    public void setValueAt(Object value, int row, int col) {
-       if (col == 1) {
+       if (col == 0) {
          manager_.getAcquisitionSettings(row).name_ = (String) value;
       }
       gui_.storeCurrentAcqSettings();
@@ -76,7 +78,7 @@ public class MultipleAcquisitionTableModel extends AbstractTableModel {
    
    @Override
    public boolean isCellEditable(int rowIndex, int colIndex) {
-      return colIndex == 1 ? true : false;
+      return colIndex == 0 ? true : false;
    }
 
 

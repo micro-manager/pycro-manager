@@ -74,7 +74,7 @@ public final class TaggedImageStorageMultipageTiff   {
     * Constructor that doesn't make reference to MMStudio so it can be used independently of MM GUI
     */
    public TaggedImageStorageMultipageTiff(String dir, boolean newDataSet, JSONObject summaryMetadata) throws IOException {
-      fastStorageMode_ = true;
+      fastStorageMode_ = false; //Make this false so that image writing executes synchrnously (i.e. no return until image has written to disk)
       separateMetadataFile_ = false;
       splitByXYPosition_ = false;
 

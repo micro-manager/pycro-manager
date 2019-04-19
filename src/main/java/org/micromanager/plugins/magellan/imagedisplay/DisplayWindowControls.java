@@ -58,6 +58,8 @@ public class DisplayWindowControls extends Panel implements SurfaceGridListener 
       acq_ = acq;
       initComponents();
 
+      this.setFocusable(false); //think this is good 
+
       if (acq_ instanceof ExploreAcquisition) {
          //left justified editor
          JTextField tf = new JTextField();
@@ -206,7 +208,7 @@ public class DisplayWindowControls extends Panel implements SurfaceGridListener 
               (Integer) gridRowsSpinner_.getValue(), (Integer) gridColsSpinner_.getValue(),
               display_.stageCoordFromImageCoords(imageWidth / 2, imageHeight / 2));
    }
-   
+
    public boolean isCurrentlyEditableSurfaceGridVisible() {
       if (selectedSurfaceGridIndex_ == -1) {
          return false;
@@ -626,14 +628,12 @@ public class DisplayWindowControls extends Panel implements SurfaceGridListener 
          } else {
             display_.setMode(DisplayPlus.NONE);
          }
+      } else if (tabbedPane_.getSelectedIndex() == 0) {
+         display_.setMode(DisplayPlus.SURFACE_AND_GRID);
+      } else if (tabbedPane_.getSelectedIndex() == 1) {
+         display_.setMode(DisplayPlus.NONE);
       } else {
-         if (tabbedPane_.getSelectedIndex() == 0) {
-            display_.setMode(DisplayPlus.SURFACE_AND_GRID);
-         } else if (tabbedPane_.getSelectedIndex() == 1) {
-            display_.setMode(DisplayPlus.NONE);
-         } else {
-            display_.setMode(DisplayPlus.NONE);
-         }
+         display_.setMode(DisplayPlus.NONE);
       }
    }//GEN-LAST:event_tabbedPane_StateChanged
 

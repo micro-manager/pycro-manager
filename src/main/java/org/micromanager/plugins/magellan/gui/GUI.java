@@ -57,9 +57,9 @@ import javax.swing.SwingConstants;
 import javax.swing.SwingUtilities;
 import main.java.org.micromanager.plugins.magellan.acq.AcqDurationEstimator;
 import main.java.org.micromanager.plugins.magellan.acq.ExploreAcqSettings;
-import main.java.org.micromanager.plugins.magellan.acq.AcquisitionSettings;
+import main.java.org.micromanager.plugins.magellan.acq.FixedAreaAcquisitionSettings;
 import main.java.org.micromanager.plugins.magellan.acq.MagellanEngine;
-import main.java.org.micromanager.plugins.magellan.acq.MultipleAcquisitionManager;
+import main.java.org.micromanager.plugins.magellan.acq.AcquisitionsManager;
 import main.java.org.micromanager.plugins.magellan.channels.ColorEditor;
 import main.java.org.micromanager.plugins.magellan.channels.ColorRenderer;
 import main.java.org.micromanager.plugins.magellan.coordinates.AffineGUI;
@@ -89,7 +89,7 @@ public class GUI extends javax.swing.JFrame {
    private AcqDurationEstimator acqDurationEstimator_;
    private Preferences prefs_;
    private SurfaceGridManager manager_ = new SurfaceGridManager();
-   private MultipleAcquisitionManager multiAcqManager_;
+   private AcquisitionsManager multiAcqManager_;
    private GlobalSettings settings_;
    private boolean storeAcqSettings_ = true;
    private int multiAcqSelectedIndex_ = 0;
@@ -104,7 +104,7 @@ public class GUI extends javax.swing.JFrame {
       this.setTitle("Micro-Magellan " + version);
       acqDurationEstimator_ = new AcqDurationEstimator();
       eng_ = new MagellanEngine(Magellan.getCore(), acqDurationEstimator_);
-      multiAcqManager_ = new MultipleAcquisitionManager(this, eng_);
+      multiAcqManager_ = new AcquisitionsManager(this, eng_);
       initComponents();
       moreInitialization();
       this.setVisible(true);
@@ -170,8 +170,19 @@ public class GUI extends javax.swing.JFrame {
          }
       });
    }
+   
+   private void updateAvailableDiskSpaceLabel() {
+      double mb = (new File(settings_.getStoredSavingDirectory()).getUsableSpace()) / 1024.0 /1024.0;
+      if (mb < 1024) {
+         freeDiskSpaceLabel_.setText("Free disk space: " + ((int)mb) + " MB" );
+      } else {
+         double gb = mb / 1024.0;
+         freeDiskSpaceLabel_.setText("Free disk space: " + String.format("%.1f", gb) + " GB");
+      }
+   }
 
    public void acquisitionSettingsChanged() {
+      updateAvailableDiskSpaceLabel();
       //refresh GUI and store its state in current acq settings
       refreshBoldedText();
       ((MultipleAcquisitionTableModel) multipleAcqTable_.getModel()).fireTableDataChanged();
@@ -182,7 +193,7 @@ public class GUI extends javax.swing.JFrame {
       storeCurrentAcqSettings();
    }
 
-   public AcquisitionSettings getActiveAcquisitionSettings() {
+   public FixedAreaAcquisitionSettings getActiveAcquisitionSettings() {
       return multiAcqManager_.getAcquisitionSettings(multiAcqSelectedIndex_);
    }
 
@@ -356,7 +367,7 @@ public class GUI extends javax.swing.JFrame {
       if (!storeAcqSettings_) {
          return;
       }
-      AcquisitionSettings settings = multiAcqManager_.getAcquisitionSettings(multiAcqSelectedIndex_);
+      FixedAreaAcquisitionSettings settings = multiAcqManager_.getAcquisitionSettings(multiAcqSelectedIndex_);
       //saving
       settings.dir_ = globalSavingDirTextField_.getText();
       settings.name_ = multiAcqManager_.getAcquisitionName(multiAcqSelectedIndex_);
@@ -370,7 +381,7 @@ public class GUI extends javax.swing.JFrame {
       //space  
       settings.tileOverlap_ = (Double) acqOverlapPercentSpinner_.getValue();
       if (button2D_.isSelected()) { //2D pane
-         settings.spaceMode_ = AcquisitionSettings.REGION_2D;
+         settings.spaceMode_ = FixedAreaAcquisitionSettings.REGION_2D;
          settings.footprint_ = manager_.getSurfaceOrGrid(footprint2DComboBox_.getSelectedIndex());
          settings.useCollectionPlane_ = useCollectionPlaneButton_.isSelected();
          if (useCollectionPlaneButton_.isSelected()) {
@@ -382,27 +393,27 @@ public class GUI extends javax.swing.JFrame {
          settings.zStep_ = (Double) zStepSpinner_.getValue();
          settings.channelsAtEverySlice_ = acqOrderCombo_.getSelectedIndex() == 0;
          if (cuboidVolumeButton_.isSelected()) {
-            settings.spaceMode_ = AcquisitionSettings.CUBOID_Z_STACK;
+            settings.spaceMode_ = FixedAreaAcquisitionSettings.CUBOID_Z_STACK;
             settings.footprint_ = manager_.getSurfaceOrGrid(simpleZStackFootprintCombo_.getSelectedIndex());
             settings.zStart_ = (Double) zStartSpinner_.getValue();
             settings.zEnd_ = (Double) zEndSpinner_.getValue();
          } else if (volumeBetweenSurfacesButton_.isSelected()) {
-            settings.spaceMode_ = AcquisitionSettings.VOLUME_BETWEEN_SURFACES_Z_STACK;
+            settings.spaceMode_ = FixedAreaAcquisitionSettings.VOLUME_BETWEEN_SURFACES_Z_STACK;
             settings.topSurface_ = manager_.getSurface(topSurfaceCombo_.getSelectedIndex());
             settings.bottomSurface_ = manager_.getSurface(bottomSurfaceCombo_.getSelectedIndex());
             settings.distanceAboveTopSurface_ = (Double) umAboveTopSurfaceSpinner_.getValue();
             settings.distanceBelowBottomSurface_ = (Double) umBelowBottomSurfaceSpinner_.getValue();
             settings.useTopOrBottomFootprint_ = volumeBetweenFootprintCombo_.getSelectedItem().equals("Top surface")
-                    ? AcquisitionSettings.FOOTPRINT_FROM_TOP : AcquisitionSettings.FOOTPRINT_FROM_BOTTOM;
+                    ? FixedAreaAcquisitionSettings.FOOTPRINT_FROM_TOP : FixedAreaAcquisitionSettings.FOOTPRINT_FROM_BOTTOM;
          } else if (withinDistanceFromSurfacesButton_.isSelected()) {
-            settings.spaceMode_ = AcquisitionSettings.SURFACE_FIXED_DISTANCE_Z_STACK;
+            settings.spaceMode_ = FixedAreaAcquisitionSettings.SURFACE_FIXED_DISTANCE_Z_STACK;
             settings.distanceBelowFixedSurface_ = ((Number) distanceBelowFixedSurfaceSpinner_.getValue()).doubleValue();
             settings.distanceAboveFixedSurface_ = ((Number) distanceAboveFixedSurfaceSpinner_.getValue()).doubleValue();
             settings.fixedSurface_ = manager_.getSurface(fixedDistanceSurfaceComboBox_.getSelectedIndex());
             settings.footprint_ = manager_.getSurfaceOrGrid(withinDistanceFromFootprintCombo_.getSelectedIndex());
          }
       } else {
-         settings.spaceMode_ = AcquisitionSettings.NO_SPACE; //This isnt a thing anymore...
+         settings.spaceMode_ = FixedAreaAcquisitionSettings.NO_SPACE; //This isnt a thing anymore...
       }
       
       //channels
@@ -421,7 +432,7 @@ public class GUI extends javax.swing.JFrame {
    }
 
    private void populateAcqControls() {
-      AcquisitionSettings settings = multiAcqManager_.getAcquisitionSettings(multiAcqSelectedIndex_);
+      FixedAreaAcquisitionSettings settings = multiAcqManager_.getAcquisitionSettings(multiAcqSelectedIndex_);
       //don't autostore outdated settings while controls are being populated
       storeAcqSettings_ = false;
       multiAcqManager_.setAcquisitionName(multiAcqSelectedIndex_, settings.name_);
@@ -434,20 +445,20 @@ public class GUI extends javax.swing.JFrame {
       acqOrderCombo_.setSelectedIndex(settings.channelsAtEverySlice_ ? 0 : 1);
       noCollectionPlaneButton_.setSelected(!settings.useCollectionPlane_);
       useCollectionPlaneButton_.setSelected(settings.useCollectionPlane_);
-      if (settings.spaceMode_ == AcquisitionSettings.REGION_2D) {
+      if (settings.spaceMode_ == FixedAreaAcquisitionSettings.REGION_2D) {
          button2D_.setSelected(true);
          button2D_ActionPerformed(null);
       } else {
          button3D_.setSelected(true);
          button3D_ActionPerformed(null);
       }
-      if (settings.spaceMode_ == AcquisitionSettings.CUBOID_Z_STACK) {
+      if (settings.spaceMode_ == FixedAreaAcquisitionSettings.CUBOID_Z_STACK) {
          cuboidVolumeButton_.setSelected(true);
          cuboidVolumeButton_ActionPerformed(null);
-      } else if (settings.spaceMode_ == AcquisitionSettings.VOLUME_BETWEEN_SURFACES_Z_STACK) {
+      } else if (settings.spaceMode_ == FixedAreaAcquisitionSettings.VOLUME_BETWEEN_SURFACES_Z_STACK) {
          volumeBetweenSurfacesButton_.setSelected(true);
          volumeBetweenFootprintCombo_ActionPerformed(null);
-      } else if (settings.spaceMode_ == AcquisitionSettings.SURFACE_FIXED_DISTANCE_Z_STACK) {
+      } else if (settings.spaceMode_ == FixedAreaAcquisitionSettings.SURFACE_FIXED_DISTANCE_Z_STACK) {
          withinDistanceFromSurfacesButton_.setSelected(true);
          withinDistanceFromSurfacesButton_ActionPerformed(null);
       }
@@ -485,16 +496,19 @@ public class GUI extends javax.swing.JFrame {
          @Override
          public void insertUpdate(DocumentEvent e) {
             settings_.storeSavingDirectory(globalSavingDirTextField_.getText());
+            acquisitionSettingsChanged();
          }
 
          @Override
          public void removeUpdate(DocumentEvent e) {
             settings_.storeSavingDirectory(globalSavingDirTextField_.getText());
+            acquisitionSettingsChanged();
          }
 
          @Override
          public void changedUpdate(DocumentEvent e) {
             settings_.storeSavingDirectory(globalSavingDirTextField_.getText());
+            acquisitionSettingsChanged();
          }
       });
    }
@@ -658,6 +672,7 @@ public class GUI extends javax.swing.JFrame {
       globalSavingDirTextField_ = new javax.swing.JTextField();
       exploreBrowseButton_ = new javax.swing.JButton();
       openDatasetButton_ = new javax.swing.JButton();
+      freeDiskSpaceLabel_ = new javax.swing.JLabel();
 
       setMinimumSize(new java.awt.Dimension(800, 654));
       getContentPane().setLayout(new javax.swing.BoxLayout(getContentPane(), javax.swing.BoxLayout.LINE_AXIS));
@@ -1780,12 +1795,17 @@ public class GUI extends javax.swing.JFrame {
          }
       });
 
+      freeDiskSpaceLabel_.setText("Available disk space: ");
+      freeDiskSpaceLabel_.setToolTipText("");
+
       javax.swing.GroupLayout topPanel_Layout = new javax.swing.GroupLayout(topPanel_);
       topPanel_.setLayout(topPanel_Layout);
       topPanel_Layout.setHorizontalGroup(
          topPanel_Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
          .addGroup(javax.swing.GroupLayout.Alignment.TRAILING, topPanel_Layout.createSequentialGroup()
-            .addContainerGap(556, Short.MAX_VALUE)
+            .addContainerGap()
+            .addComponent(freeDiskSpaceLabel_, javax.swing.GroupLayout.PREFERRED_SIZE, 197, javax.swing.GroupLayout.PREFERRED_SIZE)
+            .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED, 353, Short.MAX_VALUE)
             .addComponent(exploreBrowseButton_)
             .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
             .addComponent(openDatasetButton_))
@@ -1805,6 +1825,9 @@ public class GUI extends javax.swing.JFrame {
                .addComponent(exploreBrowseButton_)
                .addComponent(openDatasetButton_))
             .addContainerGap(14, Short.MAX_VALUE))
+         .addGroup(javax.swing.GroupLayout.Alignment.TRAILING, topPanel_Layout.createSequentialGroup()
+            .addGap(0, 0, Short.MAX_VALUE)
+            .addComponent(freeDiskSpaceLabel_))
          .addGroup(topPanel_Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
             .addGroup(topPanel_Layout.createSequentialGroup()
                .addContainerGap()
@@ -1844,13 +1867,7 @@ public class GUI extends javax.swing.JFrame {
    }// </editor-fold>//GEN-END:initComponents
 
    private void runAcqButton_ActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_runAcqButton_ActionPerformed
-      //run acquisition
-      new Thread(new Runnable() {
-         @Override
-         public void run() {
-            eng_.runFixedAreaAcquisition(multiAcqManager_.getAcquisitionSettings(multipleAcqTable_.getSelectedRow()));
-         }
-      }).start();
+      multiAcqManager_.runAllAcquisitions();
    }//GEN-LAST:event_runAcqButton_ActionPerformed
 
    private void newExploreWindowButton_ActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_newExploreWindowButton_ActionPerformed
@@ -1879,6 +1896,7 @@ public class GUI extends javax.swing.JFrame {
          f = f.getParentFile();
       }
       globalSavingDirTextField_.setText(f.getAbsolutePath());
+      acquisitionSettingsChanged();
    }//GEN-LAST:event_exploreBrowseButton_ActionPerformed
 
    private void exploreSavingNameTextField_ActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_exploreSavingNameTextField_ActionPerformed
@@ -1928,7 +1946,7 @@ public class GUI extends javax.swing.JFrame {
    }//GEN-LAST:event_helpButton_ActionPerformed
 
    private void moveAcqDownButton_ActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_moveAcqDownButton_ActionPerformed
-      int move = multiAcqManager_.moveDown(multipleAcqTable_.getSelectedRow());
+      multiAcqManager_.moveDown(multipleAcqTable_.getSelectedRow());
       multipleAcqTable_.getSelectionModel().setSelectionInterval(multiAcqSelectedIndex_ + move, multiAcqSelectedIndex_ + move);
       multipleAcqTable_.repaint();
    }//GEN-LAST:event_moveAcqDownButton_ActionPerformed
@@ -2064,7 +2082,7 @@ public class GUI extends javax.swing.JFrame {
    }//GEN-LAST:event_deleteSelectedRegionButton_ActionPerformed
 
    private void setCurrentZStartButton_ActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_setCurrentZStartButton_ActionPerformed
-      AcquisitionSettings settings = multiAcqManager_.getAcquisitionSettings(multiAcqSelectedIndex_);
+      FixedAreaAcquisitionSettings settings = multiAcqManager_.getAcquisitionSettings(multiAcqSelectedIndex_);
       try {
          settings.zStart_ = Magellan.getCore().getPosition();
          zStartSpinner_.setValue(settings.zStart_);
@@ -2075,7 +2093,7 @@ public class GUI extends javax.swing.JFrame {
    }//GEN-LAST:event_setCurrentZStartButton_ActionPerformed
 
    private void setCurrentZEndButton_ActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_setCurrentZEndButton_ActionPerformed
-      AcquisitionSettings settings = multiAcqManager_.getAcquisitionSettings(multiAcqSelectedIndex_);
+      FixedAreaAcquisitionSettings settings = multiAcqManager_.getAcquisitionSettings(multiAcqSelectedIndex_);
       try {
          settings.zEnd_ = Magellan.getCore().getPosition();
          zEndSpinner_.setValue(settings.zEnd_);
@@ -2177,6 +2195,7 @@ public class GUI extends javax.swing.JFrame {
    private javax.swing.JLabel fixedSurfaceLabel_;
    private javax.swing.JLabel footprin2DLabel_;
    private javax.swing.JComboBox footprint2DComboBox_;
+   private javax.swing.JLabel freeDiskSpaceLabel_;
    private javax.swing.JTextField globalSavingDirTextField_;
    private javax.swing.JButton helpButton_;
    private javax.swing.JLabel jLabel12;

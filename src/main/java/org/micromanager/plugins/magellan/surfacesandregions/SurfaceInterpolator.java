@@ -17,7 +17,7 @@
 
 package main.java.org.micromanager.plugins.magellan.surfacesandregions;
 
-import main.java.org.micromanager.plugins.magellan.acq.AcquisitionSettings;
+import main.java.org.micromanager.plugins.magellan.acq.FixedAreaAcquisitionSettings;
 import main.java.org.micromanager.plugins.magellan.coordinates.AffineUtils;
 import main.java.org.micromanager.plugins.magellan.coordinates.XYStagePosition;
 import java.awt.geom.AffineTransform;
@@ -32,8 +32,6 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.ThreadFactory;
-import java.util.logging.Level;
-import java.util.logging.Logger;
 import main.java.org.micromanager.plugins.magellan.main.Magellan;
 import main.java.org.micromanager.plugins.magellan.misc.Log;
 import org.apache.commons.math3.geometry.euclidean.twod.Euclidean2D;
@@ -200,6 +198,10 @@ public abstract class SurfaceInterpolator extends XYFootprint {
       }
    }
    
+   public SingleResolutionInterpolation getCurentInterpolation() {
+      return currentInterpolation_;
+   }
+    
    public SingleResolutionInterpolation waitForCurentInterpolation() throws InterruptedException {
       synchronized (interpolationLock_) {
          if (currentInterpolation_ == null) {
@@ -229,7 +231,7 @@ public abstract class SurfaceInterpolator extends XYFootprint {
     * 
     * @return true if every part of position is above surface, false otherwise
     */
-   public boolean isPositionCompletelyAboveSurface(XYStagePosition pos, SurfaceInterpolator surface, double zPos, boolean extrapolate) throws InterruptedException {
+   public boolean isPositionCompletelyAboveSurface(XYStagePosition pos, SurfaceInterpolator surface, double zPos, boolean extrapolate) {
       return testPositionRelativeToSurface(pos, surface, zPos, ABOVE_SURFACE, extrapolate);
    }
   
@@ -238,7 +240,7 @@ public abstract class SurfaceInterpolator extends XYFootprint {
     *
     * @return true if every part of position is above surface, false otherwise
     */
-   public boolean isPositionCompletelyBelowSurface(XYStagePosition pos, SurfaceInterpolator surface, double zPos, boolean extrapolate ) throws InterruptedException {
+   public boolean isPositionCompletelyBelowSurface(XYStagePosition pos, SurfaceInterpolator surface, double zPos, boolean extrapolate ) {
       return testPositionRelativeToSurface(pos, surface, zPos, BELOW_SURFACE, extrapolate);
    }
    
@@ -247,20 +249,20 @@ public abstract class SurfaceInterpolator extends XYFootprint {
     * @throws InterruptedException 
     */
    public boolean testPositionRelativeToSurface(XYStagePosition pos, SurfaceInterpolator surface, double zPos, 
-           int mode, boolean extrapolate) throws InterruptedException {
+           int mode, boolean extrapolate) {
       //get the corners with padding added in
       Point2D.Double[] corners = pos.getDisplayedTileCorners();
       //First check position corners before going into a more detailed set of test points
       for (Point2D.Double point : corners) {
          float interpVal;
-         if (!surface.waitForCurentInterpolation().isInterpDefined(point.x, point.y)) {
+         if (!surface.getCurentInterpolation().isInterpDefined(point.x, point.y)) {
             if (extrapolate) {
                interpVal = surface.getExtrapolatedValue(point.x, point.y);
             } else {
                continue;
             }
          } else {
-            interpVal = surface.waitForCurentInterpolation().getInterpolatedValue(point.x, point.y);
+            interpVal = surface.getCurentInterpolation().getInterpolatedValue(point.x, point.y);
          }
          if ((towardsSampleIsPositive_ && mode == ABOVE_SURFACE && zPos >= interpVal)
                  || (towardsSampleIsPositive_ && mode == BELOW_SURFACE && zPos <= interpVal)
@@ -295,14 +297,14 @@ public abstract class SurfaceInterpolator extends XYFootprint {
             transform.transform(new Point2D.Double(x, y), stageCoords);
             //test point for inclusion of position
             float interpVal;
-            if (!surface.waitForCurentInterpolation().isInterpDefined(stageCoords.x, stageCoords.y)) {
+            if (!surface.getCurentInterpolation().isInterpDefined(stageCoords.x, stageCoords.y)) {
                if (extrapolate) {
                   interpVal = surface.getExtrapolatedValue(stageCoords.x, stageCoords.y);
                } else {
                   continue;
                }
             } else {
-               interpVal = surface.waitForCurentInterpolation().getInterpolatedValue(stageCoords.x, stageCoords.y);
+               interpVal = surface.getCurentInterpolation().getInterpolatedValue(stageCoords.x, stageCoords.y);
             }
             if ((towardsSampleIsPositive_ && mode == ABOVE_SURFACE && zPos >= interpVal)
                     || (towardsSampleIsPositive_ && mode == BELOW_SURFACE && zPos <= interpVal)
@@ -583,7 +585,7 @@ public abstract class SurfaceInterpolator extends XYFootprint {
                   }
                   //use the most recently set overlap value for display purposes. When it comes time to calc the real thing, 
                   //get it from the acquisition settings
-                  fitXYPositionsToConvexHull(AcquisitionSettings.getStoredTileOverlapPercentage());
+                  fitXYPositionsToConvexHull(FixedAreaAcquisitionSettings.getStoredTileOverlapPercentage());
                   //Interpolate surface as specified by the subclass method
                   interpolateSurface(points);
                   //let manager handle event firing to acquisitions using surface

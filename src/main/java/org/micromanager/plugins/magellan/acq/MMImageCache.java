@@ -97,7 +97,7 @@ public class MMImageCache {
          checkForChangingTags(taggedImg);
          imageStorage_.putImage(taggedImg);
          
-           synchronized (this) {
+         synchronized (this) {
             lastFrame_ = Math.max(lastFrame_, MD.getFrameIndex(taggedImg.tags));
             lastTags_ = taggedImg.tags;
          }
