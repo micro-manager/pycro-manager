@@ -136,7 +136,7 @@ public class AcqDurationEstimator {
       }
    }
 
-   public synchronized void calcAcqDuration(FixedAreaAcquisitionSettings settings) {
+   public synchronized void calcAcqDuration(MagellanGUIAcquisitionSettings settings) {
       if (currentTask_ != null && !currentTask_.isDone()) {
          currentTask_.cancel(true);
       }
@@ -149,7 +149,7 @@ public class AcqDurationEstimator {
       }
    }
 
-   private Runnable estimateDuration(final FixedAreaAcquisitionSettings settings) {
+   private Runnable estimateDuration(final MagellanGUIAcquisitionSettings settings) {
       return new Runnable() {
          @Override
          public void run() {
@@ -177,17 +177,17 @@ public class AcqDurationEstimator {
 
                List<XYStagePosition> positions = getXYPositions(settings);
                long numImagesAcquired = 0, xyMoves = 0, zMoves = 0, channelSwitches = 0, numImages = 0;
-               double zOrigin = FixedAreaAcquisition.getZTopCoordinate(settings.spaceMode_,
+               double zOrigin = MagellanGUIAcquisition.getZTopCoordinate(settings.spaceMode_,
                        settings, towardsSampleIsPositive, false, 0, 0, Magellan.getCore().getFocusDevice());
                for (XYStagePosition pos : positions) {
                   int sliceIndex = 0;
-                  if (!FixedAreaAcquisition.isImagingVolumeUndefinedAtPosition(settings.spaceMode_, settings, pos)) {
+                  if (!MagellanGUIAcquisition.isImagingVolumeUndefinedAtPosition(settings.spaceMode_, settings, pos)) {
                      xyMoves++;
                   }
                   while (true) {
                      checkForInterrupt();
                      double zPos = zOrigin + sliceIndex * settings.zStep_;
-                     if ((settings.spaceMode_ == FixedAreaAcquisitionSettings.REGION_2D || settings.spaceMode_ == FixedAreaAcquisitionSettings.NO_SPACE)
+                     if ((settings.spaceMode_ == MagellanGUIAcquisitionSettings.REGION_2D || settings.spaceMode_ == MagellanGUIAcquisitionSettings.NO_SPACE)
                              && sliceIndex > 0) {
                         numImagesAcquired++;
                         numImages++;
@@ -195,16 +195,16 @@ public class AcqDurationEstimator {
                         break; //2D regions only have 1 slice
                      }
 
-                     if (FixedAreaAcquisition.isImagingVolumeUndefinedAtPosition(settings.spaceMode_, settings, pos)) {
+                     if (MagellanGUIAcquisition.isImagingVolumeUndefinedAtPosition(settings.spaceMode_, settings, pos)) {
                         break;
                      }
 
-                     if (FixedAreaAcquisition.isZBelowImagingVolume(settings.spaceMode_, settings, pos, zPos, zOrigin)) {
+                     if (MagellanGUIAcquisition.isZBelowImagingVolume(settings.spaceMode_, settings, pos, zPos, zOrigin)) {
                         //position is below z stack or limit of focus device, z stack finished
                         break;
                      }
                      //3D region
-                     if (FixedAreaAcquisition.isZAboveImagingVolume(settings.spaceMode_, settings, pos, zPos, zOrigin)) {
+                     if (MagellanGUIAcquisition.isZAboveImagingVolume(settings.spaceMode_, settings, pos, zPos, zOrigin)) {
                         sliceIndex++;
                         continue; //position is above imaging volume or range of focus device
                      }
@@ -269,16 +269,16 @@ public class AcqDurationEstimator {
       };
    }
 
-   private List<XYStagePosition> getXYPositions(FixedAreaAcquisitionSettings settings) throws Exception, InterruptedException {
+   private List<XYStagePosition> getXYPositions(MagellanGUIAcquisitionSettings settings) throws Exception, InterruptedException {
       List<XYStagePosition> list;
-      if (settings.spaceMode_ == FixedAreaAcquisitionSettings.SURFACE_FIXED_DISTANCE_Z_STACK) {
+      if (settings.spaceMode_ == MagellanGUIAcquisitionSettings.SURFACE_FIXED_DISTANCE_Z_STACK) {
          list = settings.footprint_.getXYPositionsNoUpdate();
-      } else if (settings.spaceMode_ == FixedAreaAcquisitionSettings.VOLUME_BETWEEN_SURFACES_Z_STACK) {
-         list = settings.useTopOrBottomFootprint_ == FixedAreaAcquisitionSettings.FOOTPRINT_FROM_TOP
+      } else if (settings.spaceMode_ == MagellanGUIAcquisitionSettings.VOLUME_BETWEEN_SURFACES_Z_STACK) {
+         list = settings.useTopOrBottomFootprint_ == MagellanGUIAcquisitionSettings.FOOTPRINT_FROM_TOP
                  ? settings.topSurface_.getXYPositionsNoUpdate() : settings.bottomSurface_.getXYPositionsNoUpdate();
-      } else if (settings.spaceMode_ == FixedAreaAcquisitionSettings.CUBOID_Z_STACK) {
+      } else if (settings.spaceMode_ == MagellanGUIAcquisitionSettings.CUBOID_Z_STACK) {
          list = settings.footprint_.getXYPositionsNoUpdate();
-      } else if (settings.spaceMode_ == FixedAreaAcquisitionSettings.REGION_2D) {
+      } else if (settings.spaceMode_ == MagellanGUIAcquisitionSettings.REGION_2D) {
          list = settings.footprint_.getXYPositionsNoUpdate();
       } else {
          list = new ArrayList<XYStagePosition>();

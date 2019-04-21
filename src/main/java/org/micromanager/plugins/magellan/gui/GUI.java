@@ -57,7 +57,7 @@ import javax.swing.SwingConstants;
 import javax.swing.SwingUtilities;
 import main.java.org.micromanager.plugins.magellan.acq.AcqDurationEstimator;
 import main.java.org.micromanager.plugins.magellan.acq.ExploreAcqSettings;
-import main.java.org.micromanager.plugins.magellan.acq.FixedAreaAcquisitionSettings;
+import main.java.org.micromanager.plugins.magellan.acq.MagellanGUIAcquisitionSettings;
 import main.java.org.micromanager.plugins.magellan.acq.MagellanEngine;
 import main.java.org.micromanager.plugins.magellan.acq.AcquisitionsManager;
 import main.java.org.micromanager.plugins.magellan.channels.ColorEditor;
@@ -193,7 +193,7 @@ public class GUI extends javax.swing.JFrame {
       storeCurrentAcqSettings();
    }
 
-   public FixedAreaAcquisitionSettings getActiveAcquisitionSettings() {
+   public MagellanGUIAcquisitionSettings getActiveAcquisitionSettings() {
       return multiAcqManager_.getAcquisitionSettings(multiAcqSelectedIndex_);
    }
 
@@ -367,7 +367,7 @@ public class GUI extends javax.swing.JFrame {
       if (!storeAcqSettings_) {
          return;
       }
-      FixedAreaAcquisitionSettings settings = multiAcqManager_.getAcquisitionSettings(multiAcqSelectedIndex_);
+      MagellanGUIAcquisitionSettings settings = multiAcqManager_.getAcquisitionSettings(multiAcqSelectedIndex_);
       //saving
       settings.dir_ = globalSavingDirTextField_.getText();
       settings.name_ = multiAcqManager_.getAcquisitionName(multiAcqSelectedIndex_);
@@ -381,7 +381,7 @@ public class GUI extends javax.swing.JFrame {
       //space  
       settings.tileOverlap_ = (Double) acqOverlapPercentSpinner_.getValue();
       if (button2D_.isSelected()) { //2D pane
-         settings.spaceMode_ = FixedAreaAcquisitionSettings.REGION_2D;
+         settings.spaceMode_ = MagellanGUIAcquisitionSettings.REGION_2D;
          settings.footprint_ = manager_.getSurfaceOrGrid(footprint2DComboBox_.getSelectedIndex());
          settings.useCollectionPlane_ = useCollectionPlaneButton_.isSelected();
          if (useCollectionPlaneButton_.isSelected()) {
@@ -393,27 +393,27 @@ public class GUI extends javax.swing.JFrame {
          settings.zStep_ = (Double) zStepSpinner_.getValue();
          settings.channelsAtEverySlice_ = acqOrderCombo_.getSelectedIndex() == 0;
          if (cuboidVolumeButton_.isSelected()) {
-            settings.spaceMode_ = FixedAreaAcquisitionSettings.CUBOID_Z_STACK;
+            settings.spaceMode_ = MagellanGUIAcquisitionSettings.CUBOID_Z_STACK;
             settings.footprint_ = manager_.getSurfaceOrGrid(simpleZStackFootprintCombo_.getSelectedIndex());
             settings.zStart_ = (Double) zStartSpinner_.getValue();
             settings.zEnd_ = (Double) zEndSpinner_.getValue();
          } else if (volumeBetweenSurfacesButton_.isSelected()) {
-            settings.spaceMode_ = FixedAreaAcquisitionSettings.VOLUME_BETWEEN_SURFACES_Z_STACK;
+            settings.spaceMode_ = MagellanGUIAcquisitionSettings.VOLUME_BETWEEN_SURFACES_Z_STACK;
             settings.topSurface_ = manager_.getSurface(topSurfaceCombo_.getSelectedIndex());
             settings.bottomSurface_ = manager_.getSurface(bottomSurfaceCombo_.getSelectedIndex());
             settings.distanceAboveTopSurface_ = (Double) umAboveTopSurfaceSpinner_.getValue();
             settings.distanceBelowBottomSurface_ = (Double) umBelowBottomSurfaceSpinner_.getValue();
             settings.useTopOrBottomFootprint_ = volumeBetweenFootprintCombo_.getSelectedItem().equals("Top surface")
-                    ? FixedAreaAcquisitionSettings.FOOTPRINT_FROM_TOP : FixedAreaAcquisitionSettings.FOOTPRINT_FROM_BOTTOM;
+                    ? MagellanGUIAcquisitionSettings.FOOTPRINT_FROM_TOP : MagellanGUIAcquisitionSettings.FOOTPRINT_FROM_BOTTOM;
          } else if (withinDistanceFromSurfacesButton_.isSelected()) {
-            settings.spaceMode_ = FixedAreaAcquisitionSettings.SURFACE_FIXED_DISTANCE_Z_STACK;
+            settings.spaceMode_ = MagellanGUIAcquisitionSettings.SURFACE_FIXED_DISTANCE_Z_STACK;
             settings.distanceBelowFixedSurface_ = ((Number) distanceBelowFixedSurfaceSpinner_.getValue()).doubleValue();
             settings.distanceAboveFixedSurface_ = ((Number) distanceAboveFixedSurfaceSpinner_.getValue()).doubleValue();
             settings.fixedSurface_ = manager_.getSurface(fixedDistanceSurfaceComboBox_.getSelectedIndex());
             settings.footprint_ = manager_.getSurfaceOrGrid(withinDistanceFromFootprintCombo_.getSelectedIndex());
          }
       } else {
-         settings.spaceMode_ = FixedAreaAcquisitionSettings.NO_SPACE; //This isnt a thing anymore...
+         settings.spaceMode_ = MagellanGUIAcquisitionSettings.NO_SPACE; //This isnt a thing anymore...
       }
       
       //channels
@@ -432,7 +432,7 @@ public class GUI extends javax.swing.JFrame {
    }
 
    private void populateAcqControls() {
-      FixedAreaAcquisitionSettings settings = multiAcqManager_.getAcquisitionSettings(multiAcqSelectedIndex_);
+      MagellanGUIAcquisitionSettings settings = multiAcqManager_.getAcquisitionSettings(multiAcqSelectedIndex_);
       //don't autostore outdated settings while controls are being populated
       storeAcqSettings_ = false;
       multiAcqManager_.setAcquisitionName(multiAcqSelectedIndex_, settings.name_);
@@ -445,20 +445,20 @@ public class GUI extends javax.swing.JFrame {
       acqOrderCombo_.setSelectedIndex(settings.channelsAtEverySlice_ ? 0 : 1);
       noCollectionPlaneButton_.setSelected(!settings.useCollectionPlane_);
       useCollectionPlaneButton_.setSelected(settings.useCollectionPlane_);
-      if (settings.spaceMode_ == FixedAreaAcquisitionSettings.REGION_2D) {
+      if (settings.spaceMode_ == MagellanGUIAcquisitionSettings.REGION_2D) {
          button2D_.setSelected(true);
          button2D_ActionPerformed(null);
       } else {
          button3D_.setSelected(true);
          button3D_ActionPerformed(null);
       }
-      if (settings.spaceMode_ == FixedAreaAcquisitionSettings.CUBOID_Z_STACK) {
+      if (settings.spaceMode_ == MagellanGUIAcquisitionSettings.CUBOID_Z_STACK) {
          cuboidVolumeButton_.setSelected(true);
          cuboidVolumeButton_ActionPerformed(null);
-      } else if (settings.spaceMode_ == FixedAreaAcquisitionSettings.VOLUME_BETWEEN_SURFACES_Z_STACK) {
+      } else if (settings.spaceMode_ == MagellanGUIAcquisitionSettings.VOLUME_BETWEEN_SURFACES_Z_STACK) {
          volumeBetweenSurfacesButton_.setSelected(true);
          volumeBetweenFootprintCombo_ActionPerformed(null);
-      } else if (settings.spaceMode_ == FixedAreaAcquisitionSettings.SURFACE_FIXED_DISTANCE_Z_STACK) {
+      } else if (settings.spaceMode_ == MagellanGUIAcquisitionSettings.SURFACE_FIXED_DISTANCE_Z_STACK) {
          withinDistanceFromSurfacesButton_.setSelected(true);
          withinDistanceFromSurfacesButton_ActionPerformed(null);
       }
@@ -2082,7 +2082,7 @@ public class GUI extends javax.swing.JFrame {
    }//GEN-LAST:event_deleteSelectedRegionButton_ActionPerformed
 
    private void setCurrentZStartButton_ActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_setCurrentZStartButton_ActionPerformed
-      FixedAreaAcquisitionSettings settings = multiAcqManager_.getAcquisitionSettings(multiAcqSelectedIndex_);
+      MagellanGUIAcquisitionSettings settings = multiAcqManager_.getAcquisitionSettings(multiAcqSelectedIndex_);
       try {
          settings.zStart_ = Magellan.getCore().getPosition();
          zStartSpinner_.setValue(settings.zStart_);
@@ -2093,7 +2093,7 @@ public class GUI extends javax.swing.JFrame {
    }//GEN-LAST:event_setCurrentZStartButton_ActionPerformed
 
    private void setCurrentZEndButton_ActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_setCurrentZEndButton_ActionPerformed
-      FixedAreaAcquisitionSettings settings = multiAcqManager_.getAcquisitionSettings(multiAcqSelectedIndex_);
+      MagellanGUIAcquisitionSettings settings = multiAcqManager_.getAcquisitionSettings(multiAcqSelectedIndex_);
       try {
          settings.zEnd_ = Magellan.getCore().getPosition();
          zEndSpinner_.setValue(settings.zEnd_);

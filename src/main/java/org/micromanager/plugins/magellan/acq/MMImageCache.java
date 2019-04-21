@@ -45,8 +45,7 @@ public class MMImageCache {
    private MultiResMultipageTiffStorage imageStorage_;
    private Set<String> changingKeys_;
    private JSONObject firstTags_;
-   private int lastFrame_ = -1;
-   private JSONObject lastTags_;
+    private JSONObject lastTags_;
    private final ExecutorService listenerExecutor_;
 
    public void setDisplay(DisplayPlus d) {
@@ -98,20 +97,7 @@ public class MMImageCache {
          imageStorage_.putImage(taggedImg);
          
          synchronized (this) {
-            lastFrame_ = Math.max(lastFrame_, MD.getFrameIndex(taggedImg.tags));
             lastTags_ = taggedImg.tags;
-         }
-         JSONObject displayAndComments = imageStorage_.getDisplayAndComments();
-         if (displayAndComments.length() > 0) {
-            JSONArray channelSettings = imageStorage_.getDisplayAndComments().getJSONArray("Channels");
-            JSONObject imageTags = taggedImg.tags;
-//            int chanIndex = MD.getChannelIndex(imageTags);
-//            if (chanIndex >= channelSettings.length()) {
-//               JSONObject newChanObject = new JSONObject();
-//               MD.setChannelName(newChanObject, MD.getChannelName(imageTags));
-//               MD.setChannelColor(newChanObject, MD.getChannelColor(imageTags));
-//               channelSettings.put(chanIndex, newChanObject);
-//            }
          }
 
          listenerExecutor_.submit(

@@ -18,7 +18,7 @@ package main.java.org.micromanager.plugins.magellan.imagedisplay;
 
 import main.java.org.micromanager.plugins.magellan.acq.Acquisition;
 import main.java.org.micromanager.plugins.magellan.acq.ExploreAcquisition;
-import main.java.org.micromanager.plugins.magellan.acq.FixedAreaAcquisition;
+import main.java.org.micromanager.plugins.magellan.acq.MagellanGUIAcquisition;
 import main.java.org.micromanager.plugins.magellan.coordinates.XYStagePosition;
 import ij.gui.ImageCanvas;
 import ij.gui.Line;
@@ -289,7 +289,7 @@ public class DisplayOverlayer {
          sizeBar.addToOverlay(overlay);
       }
 
-      if (display_.getAcquisition() instanceof FixedAreaAcquisition || display_.getAcquisition() == null) {
+      if (display_.getAcquisition() instanceof MagellanGUIAcquisition || display_.getAcquisition() == null) {
          drawZoomIndicator(overlay);
       }
       return overlay;

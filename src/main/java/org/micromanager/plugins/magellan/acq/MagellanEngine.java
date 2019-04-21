@@ -28,13 +28,16 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.awt.geom.AffineTransform;
 import java.util.ArrayList;
+import java.util.LinkedList;
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Future;
 import java.util.concurrent.LinkedBlockingDeque;
+import java.util.function.Consumer;
 import java.util.function.Function;
+import java.util.function.Predicate;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import main.java.org.micromanager.plugins.magellan.channels.ChannelSetting;
@@ -50,8 +53,17 @@ import mmcorej.CMMCore;
 import mmcorej.TaggedImage;
 
 /**
- * Engine has a single thread executor, which sits idly waiting for new
- * acquisitions when not in use
+ * Desired characteristics: 
+ * 1) Lazy evaluation of acquisition events (in case
+ * the number is enourmous, so they can be processed as acq is running). Also so
+ * that acquisition settings can be changed during acquisition, and the
+ * acquisition will adapt. 
+ * 2) The ability to monitor the progress of certain
+ * parts of acq event (as its acquired, when it reaches disk, if there was an
+ * exception along the way) 
+ * 3) black box optimization of acquisition events, so sequence acquisitions 
+ * can run super fast without caller having to worry about the details
+ *
  */
 public class MagellanEngine {
 
@@ -61,14 +73,13 @@ public class MagellanEngine {
 
    private static final int MAX_ACQUIRED_IMAGES_WAITING_TO_SAVE = 40;
 
-   
    private static final int HARDWARE_ERROR_RETRIES = 6;
    private static final int DELAY_BETWEEN_RETRIES_MS = 5;
    private static CMMCore core_;
    private static MagellanEngine singleton_;
    private AcquisitionEvent lastEvent_ = null;
    private ExploreAcquisition currentExploreAcq_;
-   private FixedAreaAcquisition currentFixedAcqs_;
+   private MagellanGUIAcquisition currentFixedAcqs_;
    private AcquisitionsManager multiAcqManager_;
    private final ExecutorService acqExecutor_;
    private AcqDurationEstimator acqDurationEstiamtor_; //get information about how much time different hardware moves take
@@ -85,37 +96,34 @@ public class MagellanEngine {
    public static MagellanEngine getInstance() {
       return singleton_;
    }
-   
-   
-   
+
    /**
-    * Just submit it for later execution. Won't block, will return a Future
-    * @param e 
+    * Modify the first acquisition event in the list to do an entire sequence
     */
-   public Future<Future> submitEvent(AcquisitionEvent e) {
-      return acqExecutor_.submit(new Callable() {
-         @Override
-         public Future call() throws Exception {
-            return executeAcquisitionEvent(e);
-         }
-      });
+   private boolean accumulate(LinkedList<AcquisitionEvent> accumulator, AcquisitionEvent event) {
+      //For now, every event is different
+      accumulator.clear();
+      return true;
+      //TODO: if they can be merged, add to accumulator, modify the first one in the list as needed, and return false
    }
 
-   
-   
    /**
-    * Submit a stream of acquisition events for acquisition. 
-    * 
     *
-    * Returns a Future<Future>. The first get returns when the last event has 
-    * been acquired, the second returns when the when its image has been written to disk
-    * 
-    *  @return
+    * Submit a stream of acquisition events for acquisition.
+    *
+    *
+    * @return
     */
-   public void acquire(Stream<AcquisitionEvent> eventStream) {
-      
+   public Stream<Future<Future>> mapToAcquisition(Stream<AcquisitionEvent> eventStream) {
+
+      //Lazily optimize the stream of events for sequence acquisition
+      LinkedList<AcquisitionEvent> accumulator = new LinkedList<AcquisitionEvent>();
+      eventStream.filter((AcquisitionEvent t) -> {
+         return accumulate(accumulator, t);
+      });
+
       //TODO: some processing to make things optimized when sequenceable hardware is present
-     
+      //Lazily map the optimized acquisition events to a stream of futures
       Stream<Future<Future>> futureStream = eventStream.map((AcquisitionEvent event) -> {
          Future<Future> imageAcquiredFuture = acqExecutor_.submit(new Callable() {
             @Override
@@ -126,18 +134,8 @@ public class MagellanEngine {
          });
          return imageAcquiredFuture;
       });
-      
-      //TODO: or perhaps you want to return and do this in the acquisition code,
-      // because that way it can handle its own exceptions and maybe even cancel
-      //subsequent events
-      //Map through all of these futures, checking for Exceptions
-      //Then if nothing wrong map the the futures of the futures
-      //Finally return when the last image has been written to disk
-      futureStream.map(new Function<Future<Future>, R>)
-      
-              
-      List<AcquisitionEvent> eventList = eventStream.collect(Collectors.toList());
-      
+
+      return futureStream;
    }
 
    /**
@@ -392,73 +390,15 @@ public class MagellanEngine {
          MD.setStageY(tags, event.xyPosition_.getCenter().y);
          //add data about surface
          //right now this only works for fixed distance from the surface
-         if ((event.acquisition_ instanceof FixedAreaAcquisition)
-                 && ((FixedAreaAcquisition) event.acquisition_).getSpaceMode() == FixedAreaAcquisitionSettings.SURFACE_FIXED_DISTANCE_Z_STACK) {
+         if ((event.acquisition_ instanceof MagellanGUIAcquisition)
+                 && ((MagellanGUIAcquisition) event.acquisition_).getSpaceMode() == MagellanGUIAcquisitionSettings.SURFACE_FIXED_DISTANCE_Z_STACK) {
             //add metadata about surface
-            MD.setSurfacePoints(tags, ((FixedAreaAcquisition) event.acquisition_).getFixedSurfacePoints());
+            MD.setSurfacePoints(tags, ((MagellanGUIAcquisition) event.acquisition_).getFixedSurfacePoints());
          }
       } catch (Exception e) {
          Log.log("Problem adding image metadata");
          throw new RuntimeException();
       }
-   }
-
-   public static JSONObject makeSummaryMD(Acquisition acq, String prefix) {
-      //num channels is camera channels * acquisitionChannels
-      int numChannels = acq.getNumChannels();
-
-      CMMCore core = Magellan.getCore();
-      JSONObject summary = new JSONObject();
-      MD.setAcqDate(summary, getCurrentDateAndTime());
-      //Actual number of channels is equal or less than this field
-      MD.setNumChannels(summary, numChannels);
-
-      MD.setZCTOrder(summary, false);
-      MD.setPixelTypeFromByteDepth(summary, (int) core_.getBytesPerPixel());
-      MD.setBitDepth(summary, (int) core_.getImageBitDepth());
-      MD.setWidth(summary, (int) Magellan.getCore().getImageWidth());
-      MD.setHeight(summary, (int) Magellan.getCore().getImageHeight());
-      MD.setSavingPrefix(summary, prefix);
-      JSONArray initialPosList = acq.createInitialPositionList();
-      MD.setInitialPositionList(summary, initialPosList);
-      MD.setPixelSizeUm(summary, core.getPixelSizeUm());
-      MD.setZStepUm(summary, acq.getZStep());
-      MD.setIntervalMs(summary, acq instanceof FixedAreaAcquisition ? ((FixedAreaAcquisition) acq).getTimeInterval_ms() : 0);
-      MD.setPixelOverlapX(summary, acq.getOverlapX());
-      MD.setPixelOverlapY(summary, acq.getOverlapY());
-      MD.setExploreAcq(summary, acq instanceof ExploreAcquisition);
-      //affine transform
-      String pixelSizeConfig;
-      try {
-         pixelSizeConfig = core.getCurrentPixelSizeConfig();
-      } catch (Exception ex) {
-         Log.log("couldn't get affine transform");
-         throw new RuntimeException();
-      }
-      AffineTransform at = AffineUtils.getAffineTransform(pixelSizeConfig, 0, 0);
-      if (at == null) {
-         Log.log("No affine transform found for pixel size config: " + pixelSizeConfig
-                 + "\nUse \"Calibrate\" button on main Magellan window to configure\n\n");
-         throw new RuntimeException();
-      }
-      MD.setAffineTransformString(summary, AffineUtils.transformToString(at));
-      JSONArray chNames = new JSONArray();
-      JSONArray chColors = new JSONArray();
-      String[] names = acq.getChannelNames();
-      Color[] colors = acq.getChannelColors();
-      for (int i = 0; i < numChannels; i++) {
-         chNames.put(names[i]);
-         chColors.put(colors[i].getRGB());
-      }
-      MD.setChannelNames(summary, chNames);
-      MD.setChannelColors(summary, chColors);
-      try {
-         MD.setCoreXY(summary, Magellan.getCore().getXYStageDevice());
-         MD.setCoreFocus(summary, Magellan.getCore().getFocusDevice());
-      } catch (Exception e) {
-         Log.log("couldn't get XY or Z stage from core");
-      }
-      return summary;
    }
 
    private static MagellanTaggedImage convertTaggedImage(TaggedImage img) {

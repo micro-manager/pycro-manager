@@ -20,6 +20,8 @@ package main.java.org.micromanager.plugins.magellan.coordinates;
 import java.awt.geom.AffineTransform;
 import java.awt.geom.NoninvertibleTransformException;
 import java.awt.geom.Point2D;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.TreeMap;
 import java.util.TreeSet;
 import main.java.org.micromanager.plugins.magellan.json.JSONArray;
@@ -98,6 +100,18 @@ public class PositionManager {
       fullTileHeight_ = fullTileHeight;
       overlapX_ = overlapX; 
       overlapY_ = overlapY;
+   }
+   
+   public List<XYStagePosition> getPositionList() {
+      ArrayList<XYStagePosition> list = new ArrayList<XYStagePosition>();
+      for (int i =0; i < positionList_.length(); i++) {
+         try {
+            list.add((XYStagePosition) positionList_.get(i));
+         } catch (JSONException ex) {
+            throw new RuntimeException(ex);
+         }
+      }
+      return list;
    }
    
    public synchronized String getSerializedPositionList() {

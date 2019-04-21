@@ -26,7 +26,7 @@ import main.java.org.micromanager.plugins.magellan.surfacesandregions.XYFootprin
  *
  * @author Henry
  */
-public class FixedAreaAcquisitionSettings  {
+public class MagellanGUIAcquisitionSettings  {
    
    public static final String PREF_PREFIX = "Fixed area acquisition ";
 
@@ -63,7 +63,7 @@ public class FixedAreaAcquisitionSettings  {
    public volatile String channelGroup_;
    public volatile ChannelSpec channels_ ;
 
-   public FixedAreaAcquisitionSettings() {
+   public MagellanGUIAcquisitionSettings() {
       Preferences prefs = Magellan.getPrefs();
       name_ = prefs.get(PREF_PREFIX + "NAME", "Untitled");
       timeEnabled_ = prefs.getBoolean(PREF_PREFIX + "TE", false);

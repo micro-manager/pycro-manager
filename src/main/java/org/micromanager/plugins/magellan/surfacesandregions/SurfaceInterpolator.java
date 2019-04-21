@@ -17,7 +17,7 @@
 
 package main.java.org.micromanager.plugins.magellan.surfacesandregions;
 
-import main.java.org.micromanager.plugins.magellan.acq.FixedAreaAcquisitionSettings;
+import main.java.org.micromanager.plugins.magellan.acq.MagellanGUIAcquisitionSettings;
 import main.java.org.micromanager.plugins.magellan.coordinates.AffineUtils;
 import main.java.org.micromanager.plugins.magellan.coordinates.XYStagePosition;
 import java.awt.geom.AffineTransform;
@@ -585,7 +585,7 @@ public abstract class SurfaceInterpolator extends XYFootprint {
                   }
                   //use the most recently set overlap value for display purposes. When it comes time to calc the real thing, 
                   //get it from the acquisition settings
-                  fitXYPositionsToConvexHull(FixedAreaAcquisitionSettings.getStoredTileOverlapPercentage());
+                  fitXYPositionsToConvexHull(MagellanGUIAcquisitionSettings.getStoredTileOverlapPercentage());
                   //Interpolate surface as specified by the subclass method
                   interpolateSurface(points);
                   //let manager handle event firing to acquisitions using surface

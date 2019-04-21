@@ -18,13 +18,14 @@ package main.java.org.micromanager.plugins.magellan.acq;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.concurrent.Executors;
-import java.util.concurrent.ScheduledExecutorService;
 import java.awt.geom.Point2D;
 import java.util.Iterator;
 import java.util.Spliterator;
 import java.util.Spliterators;
+import java.util.concurrent.Future;
 import java.util.function.Function;
+import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 import java.util.stream.Stream;
 import java.util.stream.StreamSupport;
 import main.java.org.micromanager.plugins.magellan.coordinates.AffineUtils;
@@ -33,22 +34,18 @@ import main.java.org.micromanager.plugins.magellan.json.JSONArray;
 import main.java.org.micromanager.plugins.magellan.main.Magellan;
 import main.java.org.micromanager.plugins.magellan.misc.Log;
 import main.java.org.micromanager.plugins.magellan.surfacesandregions.Point3d;
-import main.java.org.micromanager.plugins.magellan.surfacesandregions.SurfaceGridManager;
-import main.java.org.micromanager.plugins.magellan.surfacesandregions.SurfaceInterpolator;
-import main.java.org.micromanager.plugins.magellan.surfacesandregions.SurfaceGridListener;
-import main.java.org.micromanager.plugins.magellan.surfacesandregions.XYFootprint;
 
 /**
  *
  * @author Henry
  */
-public class FixedAreaAcquisition extends Acquisition implements SurfaceGridListener {
+public class MagellanGUIAcquisition extends Acquisition {
 
-   final private FixedAreaAcquisitionSettings settings_;
-   private List<XYStagePosition> positions_;
+   final private MagellanGUIAcquisitionSettings settings_;
    //executor service to wait for next execution
    private final boolean towardsSampleIsPositive_;
    private long lastTimePointEvent_ = -1;
+   private List<XYStagePosition> positions_;
 
    /**
     * Acquisition with fixed XY positions (although they can potentially all be
@@ -62,9 +59,8 @@ public class FixedAreaAcquisition extends Acquisition implements SurfaceGridList
     * @param acqGroup
     * @throws java.lang.Exception
     */
-   public FixedAreaAcquisition(FixedAreaAcquisitionSettings settings) throws Exception {
+   public MagellanGUIAcquisition(MagellanGUIAcquisitionSettings settings) throws Exception {
       super(settings.zStep_, settings.channels_);
-      SurfaceGridManager.getInstance().registerSurfaceGridListener(this);
       settings_ = settings;
       try {
          int dir = Magellan.getCore().getFocusDirection(zStage_);
@@ -81,11 +77,39 @@ public class FixedAreaAcquisition extends Acquisition implements SurfaceGridList
       }
       createXYPositions();
       initialize(settings.dir_, settings.name_, settings.tileOverlap_);
-      createEventGenerator();
+
+      //Submit a generating stream to get this acquisition going
+      Stream<AcquisitionEvent> acqEventStream = magellanGUIAcqEventStream();
+      submitEventStream(acqEventStream);  
    }
 
-   public synchronized void acqSettingsUpdated() {
-      //TODO something....
+   /**
+    * Build the event stream according to the provided acquisition settings
+    *
+    * @return
+    */
+   private Stream<AcquisitionEvent> magellanGUIAcqEventStream() {
+      ArrayList<Function<AcquisitionEvent, Stream<AcquisitionEvent>>> acqFunctions
+              = new ArrayList<Function<AcquisitionEvent, Stream<AcquisitionEvent>>>();
+      //Define where slice index 0 will be
+      zOrigin_ = getZTopCoordinate();
+      boolean surfaceGuided2D = settings_.spaceMode_ == MagellanGUIAcquisitionSettings.REGION_2D && settings_.useCollectionPlane_;
+
+      acqFunctions.add(timelapse());
+      acqFunctions.add(positions(IntStream.rangeClosed(0, 10).toArray(), positions_));
+      if (surfaceGuided2D) {
+         acqFunctions.add(surfaceGuided2D());
+         acqFunctions.add(channels(settings_.channels_));
+      } else if (settings_.channelsAtEverySlice_) {
+         acqFunctions.add(MagellanZStack());
+         acqFunctions.add(channels(settings_.channels_));
+      } else {
+         acqFunctions.add(channels(settings_.channels_));
+         acqFunctions.add(MagellanZStack());
+      }
+      Stream<AcquisitionEvent> eventStream = makeEventStream(acqFunctions);
+      eventStream = eventStream.map(monitorSliceIndices());
+      return eventStream;
    }
 
    @Override
@@ -102,57 +126,11 @@ public class FixedAreaAcquisition extends Acquisition implements SurfaceGridList
       return settings_.timePointInterval_ * (settings_.timeIntervalUnit_ == 1 ? 1000 : (settings_.timeIntervalUnit_ == 2 ? 60000 : 1));
    }
 
-   private void createEventGenerator() {
-      Log.log("Create event generator started", false);
-      eventGenerator_.submit(new Runnable() {
-         //check interupt status before any blocking call is entered
-         @Override
-         public void run() {
-            Log.log("event generation beignning", false);
-            //get highest possible z position to image, which is slice index 0
-            zOrigin_ = getZTopCoordinate();
-            boolean tiltedPlane2D = settings_.spaceMode_ == FixedAreaAcquisitionSettings.REGION_2D && settings_.useCollectionPlane_;
-
-            Stream<AcquisitionEvent> eventStream = makeFrameIndexStream().map(timelapse()).flatMap(positions());
-            if (tiltedPlane2D) {
-               eventStream = eventStream.map(surfaceGuided2D()).flatMap(channels());
-            } else if (settings_.channelsAtEverySlice_) {
-               eventStream = eventStream.flatMap(zStack()).flatMap(channels());
-            } else {
-               eventStream = eventStream.flatMap(channels()).flatMap(zStack());
-            }
-
-            eventStream.
-                    //acqusiition has generated all of its events
-                    eventGeneratorShutdown();
-         }
-      });
-   }
-   
-   
-   
-   private void submitForAcquisition(AcquisitionEvent event) {
-//TODO: need to constanctly check for this???
-//         if (eventGenerator_.isShutdown()) {
-//            throw new InterruptedException();
-//         }
-      //keep track of biggest slice index and smallest slice. Maybe needed for display purposes but a little unclear
-      maxSliceIndex_ = Math.max(maxSliceIndex_, event.sliceIndex_);
-      minSliceIndex_ = Math.min(minSliceIndex_, event.sliceIndex_);
-      submitAcquisitionEvent(event);
-   }
-
-
-   private Function<AcquisitionEvent, Stream<AcquisitionEvent>> positions() {
+   private Function<AcquisitionEvent, AcquisitionEvent> monitorSliceIndices() {
       return (AcquisitionEvent event) -> {
-         Stream.Builder<AcquisitionEvent> builder = Stream.builder();
-         for (int posIndex = 0; posIndex < positions_.size(); posIndex++) {
-            AcquisitionEvent posEvent = event.copy();
-            posEvent.positionIndex_ = posIndex;
-            posEvent.xyPosition_ = positions_.get(posIndex);
-            builder.accept(posEvent);
-         }
-         return builder.build();
+         maxSliceIndex_ = Math.max(maxSliceIndex_, event.sliceIndex_);
+         minSliceIndex_ = Math.min(minSliceIndex_, event.sliceIndex_);
+         return event;
       };
    }
 
@@ -189,44 +167,32 @@ public class FixedAreaAcquisition extends Acquisition implements SurfaceGridList
       return iStream;
    }
 
-   private Function<Integer, AcquisitionEvent> timelapse() {
-      return (Integer t) -> {
-         double interval_ms = settings_.timePointInterval_ * (settings_.timeIntervalUnit_ == 1 ? 1000 : (settings_.timeIntervalUnit_ == 2 ? 60000 : 1));
-         AcquisitionEvent timePointEvent = new AcquisitionEvent(FixedAreaAcquisition.this);
-         timePointEvent.miniumumStartTime_ = lastTimePointEvent_ + (long) interval_ms;
-         timePointEvent.timeIndex_ = t;
-         lastTimePointEvent_ = System.currentTimeMillis();
-         return timePointEvent;
-      };
-   }
-
-   private Function<AcquisitionEvent, Stream<AcquisitionEvent>> channels() {
+   private Function<AcquisitionEvent, Stream<AcquisitionEvent>> timelapse() {
       return (AcquisitionEvent event) -> {
-         Stream.Builder<AcquisitionEvent> builder = Stream.builder();
-         for (int channelIndex = 0; channelIndex < settings_.channels_.getNumActiveChannels(); channelIndex++) {
-            if (!settings_.channels_.getActiveChannelSetting(channelIndex).uniqueEvent_) {
-               continue;
-            }
-            AcquisitionEvent channelEvent = event.copy();
-            channelEvent.channelIndex_ = channelIndex;
-            channelEvent.zPosition_ += settings_.channels_.getActiveChannelSetting(channelIndex).offset_;
-            builder.accept(channelEvent);
-         }
-         return builder.build();
+         Stream<Integer> frameIndexStream = makeFrameIndexStream();
+         Function<Integer, AcquisitionEvent> indexToEvent = (Integer t) -> {
+            double interval_ms = settings_.timePointInterval_ * (settings_.timeIntervalUnit_ == 1 ? 1000 : (settings_.timeIntervalUnit_ == 2 ? 60000 : 1));
+            AcquisitionEvent timePointEvent = event.copy();
+            timePointEvent.miniumumStartTime_ = lastTimePointEvent_ + (long) interval_ms;
+            timePointEvent.timeIndex_ = t;
+            lastTimePointEvent_ = System.currentTimeMillis();
+            return timePointEvent;
+         };
+         return frameIndexStream.map(indexToEvent);
       };
    }
 
-   private Function<AcquisitionEvent, Stream<AcquisitionEvent>> zStack() {
+   /**
+    * Fancy Z stack Magellan style
+    */
+   protected Function<AcquisitionEvent, Stream<AcquisitionEvent>> MagellanZStack() {
       return (AcquisitionEvent event) -> {
          Stream.Builder<AcquisitionEvent> builder = Stream.builder();
 
          int sliceIndex = (int) Math.round((getZTopCoordinate() - zOrigin_) / zStep_);
          while (true) {
-//         if (eventGenerator_.isShutdown()) { // check for aborts
-//            throw new InterruptedException();
-//         }
             double zPos = zOrigin_ + sliceIndex * zStep_;
-            if ((settings_.spaceMode_ == FixedAreaAcquisitionSettings.REGION_2D || settings_.spaceMode_ == FixedAreaAcquisitionSettings.NO_SPACE)
+            if ((settings_.spaceMode_ == MagellanGUIAcquisitionSettings.REGION_2D || settings_.spaceMode_ == MagellanGUIAcquisitionSettings.NO_SPACE)
                     && sliceIndex > 0) {
                break; //2D regions only have 1 slice
             }
@@ -249,10 +215,7 @@ public class FixedAreaAcquisition extends Acquisition implements SurfaceGridList
             sliceEvent.sliceIndex_ = sliceIndex;
             //Do plus equals here in case z positions have been modified by another function (e.g. channel specific focal offsets)
             sliceEvent.zPosition_ += zPos;
-
             builder.accept(sliceEvent);
-
-            //TODO: check if surfaces have been changedp????
             sliceIndex++;
          }//slice loop finish
          return builder.build();
@@ -260,7 +223,7 @@ public class FixedAreaAcquisition extends Acquisition implements SurfaceGridList
 
    }
 
-   private Function<AcquisitionEvent, AcquisitionEvent> surfaceGuided2D() {
+   private Function<AcquisitionEvent, Stream<AcquisitionEvent>> surfaceGuided2D() {
       return (AcquisitionEvent event) -> {
          //index all slcies as 0, even though they may nto be in the same plane
          double zPos;
@@ -273,20 +236,15 @@ public class FixedAreaAcquisition extends Acquisition implements SurfaceGridList
          }
          event.zPosition_ += zPos;
          event.sliceIndex_ = 0; //Make these all 0 for the purposes of the display even though they may be in very differnet locations
-         return event;
+         return Stream.of(event);
       };
 
    }
 
-   private void eventGeneratorShutdown() {
-      eventGenerator_.shutdown();
-      SurfaceGridManager.getInstance().removeSurfaceGridListener(this);
-   }
-
-   public static boolean isImagingVolumeUndefinedAtPosition(int spaceMode, FixedAreaAcquisitionSettings settings, XYStagePosition position) {
-      if (spaceMode == FixedAreaAcquisitionSettings.SURFACE_FIXED_DISTANCE_Z_STACK) {
+   public static boolean isImagingVolumeUndefinedAtPosition(int spaceMode, MagellanGUIAcquisitionSettings settings, XYStagePosition position) {
+      if (spaceMode == MagellanGUIAcquisitionSettings.SURFACE_FIXED_DISTANCE_Z_STACK) {
          return !settings.footprint_.isDefinedAtPosition(position);
-      } else if (spaceMode == FixedAreaAcquisitionSettings.VOLUME_BETWEEN_SURFACES_Z_STACK) {
+      } else if (spaceMode == MagellanGUIAcquisitionSettings.VOLUME_BETWEEN_SURFACES_Z_STACK) {
          return !settings.topSurface_.isDefinedAtPosition(position)
                  && !settings.bottomSurface_.isDefinedAtPosition(position);
       }
@@ -301,14 +259,14 @@ public class FixedAreaAcquisition extends Acquisition implements SurfaceGridList
     * @param zPos
     * @return
     */
-   public static boolean isZAboveImagingVolume(int spaceMode, FixedAreaAcquisitionSettings settings, XYStagePosition position, double zPos, double zOrigin) {
-      if (spaceMode == FixedAreaAcquisitionSettings.SURFACE_FIXED_DISTANCE_Z_STACK) {
+   public static boolean isZAboveImagingVolume(int spaceMode, MagellanGUIAcquisitionSettings settings, XYStagePosition position, double zPos, double zOrigin) {
+      if (spaceMode == MagellanGUIAcquisitionSettings.SURFACE_FIXED_DISTANCE_Z_STACK) {
          boolean extrapolate = settings.fixedSurface_ != settings.footprint_;
          //extrapolate only if different surface used for XY positions than footprint
          return settings.fixedSurface_.isPositionCompletelyAboveSurface(position, settings.fixedSurface_, zPos + settings.distanceAboveFixedSurface_, extrapolate);
-      } else if (spaceMode == FixedAreaAcquisitionSettings.VOLUME_BETWEEN_SURFACES_Z_STACK) {
+      } else if (spaceMode == MagellanGUIAcquisitionSettings.VOLUME_BETWEEN_SURFACES_Z_STACK) {
          return settings.topSurface_.isPositionCompletelyAboveSurface(position, settings.topSurface_, zPos + settings.distanceAboveTopSurface_, false);
-      } else if (spaceMode == FixedAreaAcquisitionSettings.CUBOID_Z_STACK) {
+      } else if (spaceMode == MagellanGUIAcquisitionSettings.CUBOID_Z_STACK) {
          return zPos < settings.zStart_;
       } else {
          //no zStack
@@ -316,14 +274,14 @@ public class FixedAreaAcquisition extends Acquisition implements SurfaceGridList
       }
    }
 
-   public static boolean isZBelowImagingVolume(int spaceMode, FixedAreaAcquisitionSettings settings, XYStagePosition position, double zPos, double zOrigin) {
-      if (spaceMode == FixedAreaAcquisitionSettings.SURFACE_FIXED_DISTANCE_Z_STACK) {
+   public static boolean isZBelowImagingVolume(int spaceMode, MagellanGUIAcquisitionSettings settings, XYStagePosition position, double zPos, double zOrigin) {
+      if (spaceMode == MagellanGUIAcquisitionSettings.SURFACE_FIXED_DISTANCE_Z_STACK) {
          boolean extrapolate = settings.fixedSurface_ != settings.footprint_;
          //extrapolate only if different surface used for XY positions than footprint
          return settings.fixedSurface_.isPositionCompletelyBelowSurface(position, settings.fixedSurface_, zPos - settings.distanceBelowFixedSurface_, extrapolate);
-      } else if (spaceMode == FixedAreaAcquisitionSettings.VOLUME_BETWEEN_SURFACES_Z_STACK) {
+      } else if (spaceMode == MagellanGUIAcquisitionSettings.VOLUME_BETWEEN_SURFACES_Z_STACK) {
          return settings.bottomSurface_.isPositionCompletelyBelowSurface(position, settings.bottomSurface_, zPos - settings.distanceBelowBottomSurface_, false);
-      } else if (spaceMode == FixedAreaAcquisitionSettings.CUBOID_Z_STACK) {
+      } else if (spaceMode == MagellanGUIAcquisitionSettings.CUBOID_Z_STACK) {
          return zPos > settings.zEnd_;
       } else {
          //no zStack
@@ -335,9 +293,9 @@ public class FixedAreaAcquisition extends Acquisition implements SurfaceGridList
       return getZTopCoordinate(settings_.spaceMode_, settings_, towardsSampleIsPositive_, zStageHasLimits_, zStageLowerLimit_, zStageUpperLimit_, zStage_);
    }
 
-   public static double getZTopCoordinate(int spaceMode, FixedAreaAcquisitionSettings settings, boolean towardsSampleIsPositive,
+   public static double getZTopCoordinate(int spaceMode, MagellanGUIAcquisitionSettings settings, boolean towardsSampleIsPositive,
            boolean zStageHasLimits, double zStageLowerLimit, double zStageUpperLimit, String zStage) {
-      if (spaceMode == FixedAreaAcquisitionSettings.SURFACE_FIXED_DISTANCE_Z_STACK) {
+      if (spaceMode == MagellanGUIAcquisitionSettings.SURFACE_FIXED_DISTANCE_Z_STACK) {
          Point3d[] interpPoints = settings.fixedSurface_.getPoints();
          if (towardsSampleIsPositive) {
             double top = interpPoints[0].z - settings.distanceAboveFixedSurface_;
@@ -346,7 +304,7 @@ public class FixedAreaAcquisition extends Acquisition implements SurfaceGridList
             double top = interpPoints[interpPoints.length - 1].z + settings.distanceAboveFixedSurface_;
             return zStageHasLimits ? Math.max(zStageUpperLimit, top) : top;
          }
-      } else if (spaceMode == FixedAreaAcquisitionSettings.VOLUME_BETWEEN_SURFACES_Z_STACK) {
+      } else if (spaceMode == MagellanGUIAcquisitionSettings.VOLUME_BETWEEN_SURFACES_Z_STACK) {
          if (towardsSampleIsPositive) {
             Point3d[] interpPoints = settings.topSurface_.getPoints();
             double top = interpPoints[0].z - settings.distanceAboveTopSurface_;
@@ -356,7 +314,7 @@ public class FixedAreaAcquisition extends Acquisition implements SurfaceGridList
             double top = interpPoints[interpPoints.length - 1].z + settings.distanceAboveTopSurface_;
             return zStageHasLimits ? Math.max(zStageLowerLimit, top) : top;
          }
-      } else if (spaceMode == FixedAreaAcquisitionSettings.CUBOID_Z_STACK) {
+      } else if (spaceMode == MagellanGUIAcquisitionSettings.CUBOID_Z_STACK) {
          return settings.zStart_;
       } else {
          try {
@@ -386,14 +344,14 @@ public class FixedAreaAcquisition extends Acquisition implements SurfaceGridList
    private void createXYPositions() {
       try {
          //get XY positions
-         if (settings_.spaceMode_ == FixedAreaAcquisitionSettings.SURFACE_FIXED_DISTANCE_Z_STACK) {
+         if (settings_.spaceMode_ == MagellanGUIAcquisitionSettings.SURFACE_FIXED_DISTANCE_Z_STACK) {
             positions_ = settings_.footprint_.getXYPositions(settings_.tileOverlap_);
-         } else if (settings_.spaceMode_ == FixedAreaAcquisitionSettings.VOLUME_BETWEEN_SURFACES_Z_STACK) {
-            positions_ = settings_.useTopOrBottomFootprint_ == FixedAreaAcquisitionSettings.FOOTPRINT_FROM_TOP
+         } else if (settings_.spaceMode_ == MagellanGUIAcquisitionSettings.VOLUME_BETWEEN_SURFACES_Z_STACK) {
+            positions_ = settings_.useTopOrBottomFootprint_ == MagellanGUIAcquisitionSettings.FOOTPRINT_FROM_TOP
                     ? settings_.topSurface_.getXYPositions(settings_.tileOverlap_) : settings_.bottomSurface_.getXYPositions(settings_.tileOverlap_);
-         } else if (settings_.spaceMode_ == FixedAreaAcquisitionSettings.CUBOID_Z_STACK) {
+         } else if (settings_.spaceMode_ == MagellanGUIAcquisitionSettings.CUBOID_Z_STACK) {
             positions_ = settings_.footprint_.getXYPositions(settings_.tileOverlap_);
-         } else if (settings_.spaceMode_ == FixedAreaAcquisitionSettings.REGION_2D) {
+         } else if (settings_.spaceMode_ == MagellanGUIAcquisitionSettings.REGION_2D) {
             positions_ = settings_.footprint_.getXYPositions(settings_.tileOverlap_);
          } else {
             //no space mode, use current stage positon
@@ -420,47 +378,6 @@ public class FixedAreaAcquisition extends Acquisition implements SurfaceGridList
          pList.put(xyPos.getMMPosition());
       }
       return pList;
-   }
-
-   @Override
-   public void SurfaceOrGridChanged(XYFootprint f) {
-      boolean updateNeeded = false;
-      if (settings_.spaceMode_ == FixedAreaAcquisitionSettings.SURFACE_FIXED_DISTANCE_Z_STACK && settings_.fixedSurface_ == f) {
-         updateNeeded = true;
-      } else if (settings_.spaceMode_ == FixedAreaAcquisitionSettings.VOLUME_BETWEEN_SURFACES_Z_STACK
-              && (settings_.topSurface_ == f || settings_.bottomSurface_ == f)) {
-         updateNeeded = true;
-      } else if (settings_.spaceMode_ == FixedAreaAcquisitionSettings.CUBOID_Z_STACK) {
-
-      } else if (settings_.spaceMode_ == FixedAreaAcquisitionSettings.REGION_2D) {
-
-      } else {
-         //no space mode
-      }
-
-      if (updateNeeded) {
-         acqSettingsUpdated();
-      }
-   }
-
-   @Override
-   public void SurfaceOrGridDeleted(XYFootprint f) {
-      //
-   }
-
-   @Override
-   public void SurfaceOrGridCreated(XYFootprint f) {
-      //
-   }
-
-   @Override
-   public void SurfaceOrGridRenamed(XYFootprint f) {
-      //
-   }
-
-   @Override
-   public void SurfaceInterpolationUpdated(SurfaceInterpolator s) {
-      //
    }
 
 }

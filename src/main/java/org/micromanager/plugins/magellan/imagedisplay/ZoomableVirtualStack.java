@@ -22,7 +22,7 @@ package main.java.org.micromanager.plugins.magellan.imagedisplay;
  */
 import main.java.org.micromanager.plugins.magellan.acq.Acquisition;
 import main.java.org.micromanager.plugins.magellan.acq.ExploreAcquisition;
-import main.java.org.micromanager.plugins.magellan.acq.FixedAreaAcquisition;
+import main.java.org.micromanager.plugins.magellan.acq.MagellanGUIAcquisition;
 import main.java.org.micromanager.plugins.magellan.acq.MMImageCache;
 import main.java.org.micromanager.plugins.magellan.acq.MagellanTaggedImage;
 import main.java.org.micromanager.plugins.magellan.acq.MultiResMultipageTiffStorage;
@@ -71,7 +71,7 @@ public class ZoomableVirtualStack extends AcquisitionVirtualStack {
       tileHeight_ = multiResStorage.getTileHeight();
       tileWidth_ = multiResStorage.getTileWidth();
       acquisition_ = acq;
-      if (acq instanceof FixedAreaAcquisition) {
+      if (acq instanceof MagellanGUIAcquisition) {
          boundedImage_ = true;
          xMax_ = disp_.getStorage().getNumCols() * tileWidth_;
          yMax_ = disp_.getStorage().getNumRows() * tileHeight_;
@@ -118,7 +118,7 @@ public class ZoomableVirtualStack extends AcquisitionVirtualStack {
       acquisition_ = oldStack.acquisition_;
       xView_ = oldStack.xView_;
       yView_ = oldStack.yView_;
-      if (acquisition_ instanceof FixedAreaAcquisition || acquisition_ == null) {
+      if (acquisition_ instanceof MagellanGUIAcquisition || acquisition_ == null) {
          boundedImage_ = true;
          xMax_ = oldStack.xMax_;
          yMax_ = oldStack.yMax_;
@@ -226,7 +226,7 @@ public class ZoomableVirtualStack extends AcquisitionVirtualStack {
       }
 
 
-      if (acquisition_ instanceof FixedAreaAcquisition || acquisition_ == null) {
+      if (acquisition_ instanceof MagellanGUIAcquisition || acquisition_ == null) {
          //change the canvas size, and shrink canvas only if moving out
          ((DisplayWindow) vad_.getHyperImage().getWindow()).resizeCanvas(numLevels > 0, previousDSFactor, true);
       }

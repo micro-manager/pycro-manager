@@ -18,7 +18,7 @@ package main.java.org.micromanager.plugins.magellan.imagedisplay;
 
 import main.java.org.micromanager.plugins.magellan.acq.Acquisition;
 import main.java.org.micromanager.plugins.magellan.acq.ExploreAcquisition;
-import main.java.org.micromanager.plugins.magellan.acq.FixedAreaAcquisition;
+import main.java.org.micromanager.plugins.magellan.acq.MagellanGUIAcquisition;
 import com.google.common.eventbus.EventBus;
 import com.google.common.eventbus.Subscribe;
 import ij.ImagePlus;
@@ -279,7 +279,7 @@ public class DisplayWindow extends StackWindow {
          fitCanvasToWindow();
       } else //set initial zoom so that full acq area fits within window, which has already been set
       //to stored prefferred size
-      if (acq_ instanceof FixedAreaAcquisition) { //if its not an explore opened on disk
+      if (acq_ instanceof MagellanGUIAcquisition) { //if its not an explore opened on disk
          double widthRatio = disp_.getFullResWidth() / (double) canvasPanel_.getSize().width;
          double heightRatio = disp_.getFullResHeight() / (double) canvasPanel_.getSize().height;
          int viewResIndex = (int) Math.max(0, Math.ceil(Math.log(Math.max(widthRatio, heightRatio)) / Math.log(2)));
@@ -357,7 +357,7 @@ public class DisplayWindow extends StackWindow {
          @Override
          public void run() {
 
-            if (acq_ == null || acq_ instanceof FixedAreaAcquisition) {
+            if (acq_ == null || acq_ instanceof MagellanGUIAcquisition) {
                Dimension availableSize = new Dimension(canvasPanel_.getSize().width - 2 * CANVAS_PIXEL_BORDER,
                        canvasPanel_.getSize().height - 2 * CANVAS_PIXEL_BORDER);
                int dsFactor = ((ZoomableVirtualStack) disp_.getHyperImage().getStack()).getDownsampleFactor();

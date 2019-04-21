@@ -18,7 +18,7 @@ package main.java.org.micromanager.plugins.magellan.imagedisplay;
 
 import main.java.org.micromanager.plugins.magellan.acq.Acquisition;
 import main.java.org.micromanager.plugins.magellan.acq.ExploreAcquisition;
-import main.java.org.micromanager.plugins.magellan.acq.FixedAreaAcquisition;
+import main.java.org.micromanager.plugins.magellan.acq.MagellanGUIAcquisition;
 import com.google.common.eventbus.EventBus;
 import com.google.common.eventbus.Subscribe;
 import ij.gui.StackWindow;
@@ -294,7 +294,7 @@ public class SubImageControls extends Panel {
          public void componentResized(ComponentEvent e) {
             Dimension curSize = getSize(); //size of subimage controls
             //expand window when new scrollbars shown for fixed acq
-            if (display_.getAcquisition() instanceof FixedAreaAcquisition) {
+            if (display_.getAcquisition() instanceof MagellanGUIAcquisition) {
                if (displayHeight_ == -1) {
                   displayHeight_ = curSize.height;
                } else if (curSize.height != displayHeight_) {
