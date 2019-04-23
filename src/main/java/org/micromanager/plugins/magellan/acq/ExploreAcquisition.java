@@ -17,15 +17,11 @@
 package main.java.org.micromanager.plugins.magellan.acq;
 
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.List;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.LinkedBlockingQueue;
-import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.Predicate;
-import java.util.logging.Level;
-import java.util.logging.Logger;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import main.java.org.micromanager.plugins.magellan.imagedisplay.SubImageControls;
@@ -45,7 +41,7 @@ public class ExploreAcquisition extends Acquisition {
    //Map with slice index as keys used to get rid of duplicate events
    private ConcurrentHashMap<Integer, LinkedBlockingQueue<ExploreTileWaitingToAcquire>> queuedTileEvents_ = new ConcurrentHashMap<Integer, LinkedBlockingQueue<ExploreTileWaitingToAcquire>>();
 
-   public ExploreAcquisition(ExploreAcqSettings settings) throws Exception {
+   public ExploreAcquisition(ExploreAcqSettings settings) {
       super(settings.zStep_, settings.channels_);
       try {
          //start at current z position
@@ -129,12 +125,12 @@ public class ExploreAcquisition extends Acquisition {
       ArrayList<Function<AcquisitionEvent, Stream<AcquisitionEvent>>> acqFunctions
               = new ArrayList<Function<AcquisitionEvent, Stream<AcquisitionEvent>>>();
       acqFunctions.add(positions(posIndices, posManager_.getPositionList()));
-      acqFunctions.add(zStack(minZIndex, maxZIndex));
+      acqFunctions.add(zStack(minZIndex, maxZIndex + 1));
       acqFunctions.add(channels(channels_));
 
       Stream<AcquisitionEvent> eventStream = makeEventStream(acqFunctions);
       eventStream = eventStream.map(monitorSliceIndices());
-
+     
       //Get rid of duplicates, send to acquisition engine 
       eventStream = eventStream.filter(filterExistingEventsAndDisplayQueuedTiles());
       //Do a terminal operation now, so that tiles explore tiles waiting to collect can be shown
@@ -158,8 +154,8 @@ public class ExploreAcquisition extends Acquisition {
                queuedTileEvents_.put(event.sliceIndex_, new LinkedBlockingQueue<ExploreTileWaitingToAcquire>());
             }
 
-            ExploreTileWaitingToAcquire tile = new ExploreTileWaitingToAcquire(event.gridRow_,
-                    event.gridCol_, event.sliceIndex_, event.channelIndex_);
+            ExploreTileWaitingToAcquire tile = new ExploreTileWaitingToAcquire(event.xyPosition_.getGridRow(),
+                    event.xyPosition_.getGridCol(), event.sliceIndex_, event.channelIndex_);
             if (queuedTileEvents_.get(event.sliceIndex_).contains(tile)) {
                return false; //This tile is already waiting to be acquired
             }

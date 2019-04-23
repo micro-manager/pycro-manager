@@ -29,29 +29,22 @@ import javax.swing.JFileChooser;
 import javax.swing.JLabel;
 import javax.swing.JRadioButton;
 import javax.swing.JSpinner;
-import javax.swing.JTable;
 import javax.swing.event.DocumentEvent;
 import javax.swing.event.DocumentListener;
 import javax.swing.event.ListSelectionEvent;
 import javax.swing.event.ListSelectionListener;
 import javax.swing.table.AbstractTableModel;
 import javax.swing.table.DefaultTableCellRenderer;
-import javax.swing.table.TableCellRenderer;
-import javax.swing.table.TableColumn;
 import java.awt.FileDialog;
 import java.awt.event.ComponentAdapter;
 import java.awt.event.ComponentEvent;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
 import java.awt.geom.AffineTransform;
-import java.beans.PropertyChangeEvent;
-import java.beans.PropertyChangeListener;
 import java.io.IOException;
 import java.util.LinkedList;
-import java.util.logging.Level;
-import java.util.logging.Logger;
 import javax.swing.DefaultCellEditor;
-import javax.swing.JSplitPane;
+import javax.swing.JOptionPane;
 import javax.swing.JTextField;
 import javax.swing.SwingConstants;
 import javax.swing.SwingUtilities;
@@ -60,6 +53,7 @@ import main.java.org.micromanager.plugins.magellan.acq.ExploreAcqSettings;
 import main.java.org.micromanager.plugins.magellan.acq.MagellanGUIAcquisitionSettings;
 import main.java.org.micromanager.plugins.magellan.acq.MagellanEngine;
 import main.java.org.micromanager.plugins.magellan.acq.AcquisitionsManager;
+import main.java.org.micromanager.plugins.magellan.acq.ExploreAcquisition;
 import main.java.org.micromanager.plugins.magellan.channels.ColorEditor;
 import main.java.org.micromanager.plugins.magellan.channels.ColorRenderer;
 import main.java.org.micromanager.plugins.magellan.coordinates.AffineGUI;
@@ -70,7 +64,6 @@ import main.java.org.micromanager.plugins.magellan.misc.JavaUtils;
 import main.java.org.micromanager.plugins.magellan.misc.LoadedAcquisitionData;
 import main.java.org.micromanager.plugins.magellan.misc.Log;
 import main.java.org.micromanager.plugins.magellan.surfacesandregions.SurfaceGridManager;
-import main.java.org.micromanager.plugins.magellan.surfacesandregions.XYFootprint;
 import org.micromanager.internal.MMStudio;
 
 /**
@@ -95,6 +88,8 @@ public class GUI extends javax.swing.JFrame {
    private int multiAcqSelectedIndex_ = 0;
    private LinkedList<JSpinner> offsetSpinners_ = new LinkedList<JSpinner>();
    private static GUI singleton_;
+   private ExploreAcquisition exploreAcq_;
+   private volatile boolean acquisitionRunning_ = false;
 
    public GUI(Preferences prefs, String version) {
       singleton_ = this;
@@ -250,7 +245,7 @@ public class GUI extends javax.swing.JFrame {
       });
       //Table column widths
       multipleAcqTable_.getColumnModel().getColumn(0).setMaxWidth(40); //order column
-      multipleAcqTable_.getColumnModel().getColumn(3).setMaxWidth(100); //status column
+      multipleAcqTable_.getColumnModel().getColumn(2).setMaxWidth(100); //status column
 
       channelsTable_.getColumnModel().getColumn(0).setMaxWidth(30); //Acitve checkbox column
       
@@ -422,13 +417,8 @@ public class GUI extends javax.swing.JFrame {
       settings.storePreferedValues();
       multipleAcqTable_.repaint();
 
-      if (multiAcqManager_.isRunning()) {
-         //signal acquisition settings change for dynamic updating of acquisiitons
-         multiAcqManager_.signalAcqSettingsChange();
-      } else {
-         //estimate time needed for acquisition
-         acqDurationEstimator_.calcAcqDuration(getActiveAcquisitionSettings());
-      }
+      acqDurationEstimator_.calcAcqDuration(getActiveAcquisitionSettings());
+      
    }
 
    private void populateAcqControls() {
@@ -529,7 +519,9 @@ public class GUI extends javax.swing.JFrame {
       removeAcqButton_.setEnabled(enable);
       moveAcqDownButton_.setEnabled(enable);
       moveAcqUpButton_.setEnabled(enable);
+      runAcqButton_.setText(enable ? "Run acquisition(s)" : "Abort acquisiton(s)"); 
       repaint();
+      acquisitionRunning_ = !enable;
    }
 
    /**
@@ -1867,14 +1859,28 @@ public class GUI extends javax.swing.JFrame {
    }// </editor-fold>//GEN-END:initComponents
 
    private void runAcqButton_ActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_runAcqButton_ActionPerformed
-      multiAcqManager_.runAllAcquisitions();
+      if (acquisitionRunning_) {
+         multiAcqManager_.abort();
+      } else {
+         multiAcqManager_.runAllAcquisitions();
+      }
    }//GEN-LAST:event_runAcqButton_ActionPerformed
 
    private void newExploreWindowButton_ActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_newExploreWindowButton_ActionPerformed
       ExploreAcqSettings settings = new ExploreAcqSettings(
               ((Number) exploreZStepSpinner_.getValue()).doubleValue(), (Double) exploreTileOverlapSpinner_.getValue(),
               globalSavingDirTextField_.getText(), exploreSavingNameTextField_.getText(), (String) exploreChannelGroupCombo_.getSelectedItem());
-      eng_.runExploreAcquisition(settings);
+      //check for abort of existing explore acquisition
+       //abort existing explore acq if needed
+        if (exploreAcq_ != null && !exploreAcq_.isFinished()) {
+            int result = JOptionPane.showConfirmDialog(null, "Finish exisiting explore acquisition?", "Finish Current Explore Acquisition", JOptionPane.OK_CANCEL_OPTION);
+            if (result == JOptionPane.OK_OPTION) {
+                exploreAcq_.abort();
+            } else {
+                return;
+            }
+        }
+      exploreAcq_ = new ExploreAcquisition(settings);
    }//GEN-LAST:event_newExploreWindowButton_ActionPerformed
 
    private void exploreZStepSpinner_StateChanged(javax.swing.event.ChangeEvent evt) {//GEN-FIRST:event_exploreZStepSpinner_StateChanged
@@ -1946,7 +1952,7 @@ public class GUI extends javax.swing.JFrame {
    }//GEN-LAST:event_helpButton_ActionPerformed
 
    private void moveAcqDownButton_ActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_moveAcqDownButton_ActionPerformed
-      multiAcqManager_.moveDown(multipleAcqTable_.getSelectedRow());
+      int move = multiAcqManager_.moveDown(multipleAcqTable_.getSelectedRow());
       multipleAcqTable_.getSelectionModel().setSelectionInterval(multiAcqSelectedIndex_ + move, multiAcqSelectedIndex_ + move);
       multipleAcqTable_.repaint();
    }//GEN-LAST:event_moveAcqDownButton_ActionPerformed

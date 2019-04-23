@@ -26,13 +26,30 @@ import main.java.org.micromanager.plugins.magellan.json.JSONObject;
  * @author Henry
  */
 public class MagellanTaggedImage {
+
+   static MagellanTaggedImage createAcquisitionFinishedImage() {
+      return new MagellanTaggedImage();
+   }
+   
+   static boolean isAcquisitionFinishedImage(MagellanTaggedImage img) {
+      return img.acqFinishedSignal_;
+   }
+   
    
    public final JSONObject tags;
    public final Object pix;
+   private final boolean acqFinishedSignal_;
+   
+   public MagellanTaggedImage() {
+      tags =null;
+      pix =null;
+      acqFinishedSignal_ = true;
+   }
    
    public MagellanTaggedImage(Object pix, JSONObject tags) {
       this.pix = pix;
       this.tags = tags;
+      acqFinishedSignal_ = false;
    }
    
   public JSONObject getTags() {

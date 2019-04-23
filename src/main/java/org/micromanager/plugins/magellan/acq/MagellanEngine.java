@@ -20,29 +20,17 @@ package main.java.org.micromanager.plugins.magellan.acq;
  * To change this template, choose Tools | Templates and open the template in
  * the editor.
  */
-import java.awt.Color;
 import java.text.DateFormat;
 import java.text.SimpleDateFormat;
 import java.util.Calendar;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
-import java.awt.geom.AffineTransform;
 import java.util.ArrayList;
 import java.util.LinkedList;
-import java.util.List;
-import java.util.Optional;
 import java.util.concurrent.Callable;
-import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Future;
-import java.util.concurrent.LinkedBlockingDeque;
-import java.util.function.Consumer;
-import java.util.function.Function;
-import java.util.function.Predicate;
-import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import main.java.org.micromanager.plugins.magellan.channels.ChannelSetting;
-import main.java.org.micromanager.plugins.magellan.coordinates.AffineUtils;
-import main.java.org.micromanager.plugins.magellan.json.JSONArray;
 import main.java.org.micromanager.plugins.magellan.json.JSONException;
 import main.java.org.micromanager.plugins.magellan.json.JSONObject;
 import main.java.org.micromanager.plugins.magellan.main.Magellan;
@@ -117,8 +105,9 @@ public class MagellanEngine {
    public Stream<Future<Future>> mapToAcquisition(Stream<AcquisitionEvent> eventStream) {
 
       //Lazily optimize the stream of events for sequence acquisition
+      //this might be a bit against the rules of streams because technically it has a side effect...
       LinkedList<AcquisitionEvent> accumulator = new LinkedList<AcquisitionEvent>();
-      eventStream.filter((AcquisitionEvent t) -> {
+      eventStream = eventStream.filter((AcquisitionEvent t) -> {
          return accumulate(accumulator, t);
       });
 
@@ -149,7 +138,7 @@ public class MagellanEngine {
    private Future executeAcquisitionEvent(final AcquisitionEvent event) throws InterruptedException {
       if (event.isAcquisitionFinishedEvent()) {
          //signal to MagellanTaggedImageSink to finish saving thread and mark acquisition as finished
-         return event.acquisition_.saveImage(new SignalTaggedImage(SignalTaggedImage.AcqSingal.AcqusitionFinsihed));
+         return event.acquisition_.saveImage(MagellanTaggedImage.createAcquisitionFinishedImage());
       } else {
          updateHardware(event);
          return acquireImage(event);
@@ -353,6 +342,7 @@ public class MagellanEngine {
       for (int i = 0; i < HARDWARE_ERROR_RETRIES; i++) {
          try {
             r.run();
+            return;
          } catch (Exception e) {
             e.printStackTrace();
             Log.log(getCurrentDateAndTime() + ": Problem " + commandName + "\n Retry #" + i + " in " + DELAY_BETWEEN_RETRIES_MS + " ms", true);
@@ -373,9 +363,9 @@ public class MagellanEngine {
            int camChannelIndex, long elapsed_ms, double exposure) {
       //add tags
       try {
-         long gridRow = event.gridRow_;
-         long gridCol = event.gridCol_;
-         MD.setPositionName(tags, "Grid_" + event.gridRow_ + "_" + event.gridCol_);
+         long gridRow = event.xyPosition_.getGridRow();
+         long gridCol = event.xyPosition_.getGridCol();
+         MD.setPositionName(tags, "Grid_" + gridRow+ "_" + gridCol);
          MD.setPositionIndex(tags, event.positionIndex_);
          MD.setSliceIndex(tags, event.sliceIndex_);
          MD.setFrameIndex(tags, timeIndex);

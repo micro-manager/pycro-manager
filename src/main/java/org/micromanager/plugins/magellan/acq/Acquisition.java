@@ -30,9 +30,11 @@ import java.util.concurrent.Future;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
+import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import static main.java.org.micromanager.plugins.magellan.acq.MagellanGUIAcquisition.isImagingVolumeUndefinedAtPosition;
 import static main.java.org.micromanager.plugins.magellan.acq.MagellanGUIAcquisition.isZAboveImagingVolume;
@@ -76,7 +78,7 @@ public abstract class Acquisition {
    protected PositionManager posManager_;
    private MagellanEngine eng_;
 
-   public Acquisition(double zStep, ChannelSpec channels) throws Exception {
+   public Acquisition(double zStep, ChannelSpec channels) {
       eng_ = MagellanEngine.getInstance();
       xyStage_ = Magellan.getCore().getXYStageDevice();
       zStage_ = Magellan.getCore().getFocusDevice();
@@ -84,12 +86,16 @@ public abstract class Acquisition {
       //"postion" is not generic name..and as of right now there is now way of getting generic z positions
       //from a z deviec in MM
       String positionName = "Position";
-      if (Magellan.getCore().hasProperty(zStage_, positionName)) {
-         zStageHasLimits_ = Magellan.getCore().hasPropertyLimits(zStage_, positionName);
-         if (zStageHasLimits_) {
-            zStageLowerLimit_ = Magellan.getCore().getPropertyLowerLimit(zStage_, positionName);
-            zStageUpperLimit_ = Magellan.getCore().getPropertyUpperLimit(zStage_, positionName);
+      try {
+         if (Magellan.getCore().hasProperty(zStage_, positionName)) {
+            zStageHasLimits_ = Magellan.getCore().hasPropertyLimits(zStage_, positionName);
+            if (zStageHasLimits_) {
+               zStageLowerLimit_ = Magellan.getCore().getPropertyLowerLimit(zStage_, positionName);
+               zStageUpperLimit_ = Magellan.getCore().getPropertyUpperLimit(zStage_, positionName);
+            }
          }
+      } catch (Exception ex) {
+         Log.log("Problem communicating with core to get Z stage limits");
       }
       zStep_ = zStep;
    }
@@ -106,7 +112,7 @@ public abstract class Acquisition {
       imageCache_.setSummaryMetadata(summaryMetadata);
       new DisplayPlus(imageCache_, this, summaryMetadata, imageStorage);
       savingExecutor_ = new ThreadPoolExecutor(1, 1, 0L, TimeUnit.MILLISECONDS, new LinkedBlockingQueue<Runnable>(),
-              (Runnable r) -> new Thread(r, name_ + ": Event generator"));
+              (Runnable r) -> new Thread(r, name_ + ": Saving xecutor"));
       eventGenerator_ = Executors.newSingleThreadExecutor((Runnable r) -> new Thread(r, name_ + ": Event generator"));
       //subclasses are resonsible for submitting event streams to begin acquisiton
    }
@@ -123,7 +129,9 @@ public abstract class Acquisition {
       eventGenerator_.submit(() -> {
          //Submit stream to acqusition event for execution, getting a stream of Future<Future>
          //This won't actually do anything until the terminal operation on the stream has taken place
+
          Stream<Future<Future>> eventFutureStream = eng_.mapToAcquisition(eventStream);
+        
          //Make sure events can't be submitted to the engine way faster than images can be written to disk
          eventFutureStream = eventFutureStream.map(new Function<Future<Future>, Future<Future>>() {
             @Override
@@ -137,16 +145,21 @@ public abstract class Acquisition {
                }
                return t;
             }
+
+            //TODO: add something that checks for canellatio on abort?
          });
-         
-         
+
          try {
             //make sure last one has written to disk
-            eventFutureStream.reduce((first, second) -> second).get().get().get();
+            Future<Future> lastEventSubmittedFuture = eventFutureStream.reduce((first, second) -> second).get();
+            Future lastImageSavedFuture = lastEventSubmittedFuture.get();
+            lastImageSavedFuture.get();
          } catch (InterruptedException ex) {
-            //Acquition cancelled, TODO: something
+            //Acquition aborted
          } catch (ExecutionException ex) {
             //Problem with acquisition or with saving TODO something
+            ex.printStackTrace();
+            throw new RuntimeException(ex);
          }
 
       });
@@ -178,15 +191,16 @@ public abstract class Acquisition {
     * Called by acquisition engine to save an image, returns a future that can
     * be gotten once that image has made it onto the disk
     */
-   Future saveImage(MagellanTaggedImage image) throws InterruptedException {
-      return savingExecutor_.submit(new Runnable() {
-         @Override
-         public void run() {
-            if (SignalTaggedImage.isAcquisitionFinsihedSignal(image)) {
-               imageCache_.finished();
-            } else {
-               imageCache_.putImage(image);
-            }
+   Future saveImage(MagellanTaggedImage image) {
+      //The saving executor is essentially doing the work of making the image pyramid, while there
+      //is a seperate internal executor in MultiResMultipageTiffStorage that does all the writing
+      return savingExecutor_.submit(() -> {
+         if (MagellanTaggedImage.isAcquisitionFinishedImage(image)) {
+            imageCache_.finished();
+            finished_ = true;
+         } else {
+            //this method doesnt return until all images have been writtent to disk
+            imageCache_.putImage(image);
          }
       });
    }
@@ -198,24 +212,21 @@ public abstract class Acquisition {
       new Thread(new Runnable() {
          @Override
          public void run() {
-
             if (finished_) {
                //acq already aborted
                return;
             }
-
 //            if (Acquisition.this.isPaused()) {
 //               Acquisition.this.togglePaused();
 //            }
             eventGenerator_.shutdownNow();
-            savingExecutor_.shutdownNow();
+
             //wait for shutdown
             try {
                //wait for it to exit
                while (!eventGenerator_.awaitTermination(5, TimeUnit.MILLISECONDS)) {
                }
-               while (!savingExecutor_.awaitTermination(5, TimeUnit.MILLISECONDS)) {
-               }
+
             } catch (InterruptedException ex) {
                Log.log("Unexpected interrupt while trying to abort acquisition", true);
                //shouldn't happen
@@ -231,6 +242,14 @@ public abstract class Acquisition {
                Log.log("aborting acquisition interrupted");
             } catch (ExecutionException ex) {
                Log.log("Exception encountered when trying to end acquisition", true);
+            }
+             savingExecutor_.shutdown();
+            try {
+               while (!savingExecutor_.awaitTermination(5, TimeUnit.MILLISECONDS)) {
+               }
+            } catch (InterruptedException ex) {
+               Log.log("Unexpected interrupt while trying to abort acquisition", true);
+               //shouldn't happen
             }
          }
       }, "Aborting thread").start();
@@ -294,6 +313,18 @@ public abstract class Acquisition {
       return summary;
    }
 
+   public static void main(String[] args) {
+      Stream<AcquisitionEvent> eventStream = Stream.of(new AcquisitionEvent(null));
+      eventStream = eventStream.map(new Function<AcquisitionEvent, AcquisitionEvent>() {
+         @Override
+         public AcquisitionEvent apply(AcquisitionEvent t) {
+            System.out.println("Stream consuming now");
+            return t;
+         }
+      });
+      eventStream.collect(Collectors.toList());
+   }
+
    /**
     * Build a lazy stream of events based on the hierarchy of acquisition
     * functions
@@ -309,7 +340,10 @@ public abstract class Acquisition {
       }
       //Start with a root event and lazily map all functions to it as needed
       Stream<AcquisitionEvent> eventStream = Stream.of(new AcquisitionEvent(this));
-      eventStream.map(composedFunction);
+      Stream<Stream<AcquisitionEvent>> streamOStreams = eventStream.map(composedFunction);
+      eventStream = streamOStreams.reduce((stream1, stream2) -> {
+         return Stream.concat(stream1, stream2);
+      }).get();
       //keep track of min and max slice indices as events are submitted
       return eventStream;
    }
@@ -340,7 +374,6 @@ public abstract class Acquisition {
             //Do plus equals here in case z positions have been modified by another function (e.g. channel specific focal offsets)
             sliceEvent.zPosition_ += zPos;
             builder.accept(sliceEvent);
-            sliceIndex++;
          }//slice loop finish
          return builder.build();
       };
@@ -365,10 +398,10 @@ public abstract class Acquisition {
            int[] positionIndices, List<XYStagePosition> positions) {
       return (AcquisitionEvent event) -> {
          Stream.Builder<AcquisitionEvent> builder = Stream.builder();
-         for (int index = 0; index < positions.size(); index++) {
+         for (int index = 0; index < positionIndices.length; index++) {
             AcquisitionEvent posEvent = event.copy();
             posEvent.positionIndex_ = positionIndices[index];
-            posEvent.xyPosition_ = positions.get(index);
+            posEvent.xyPosition_ = positions.get(posEvent.positionIndex_);
             builder.accept(posEvent);
          }
          return builder.build();
@@ -427,10 +460,6 @@ public abstract class Acquisition {
 
    public boolean isFinished() {
       return finished_;
-   }
-
-   public void markAsFinished() {
-      finished_ = true;
    }
 
    public long getStartTime_ms() {

@@ -105,11 +105,7 @@ public class PositionManager {
    public List<XYStagePosition> getPositionList() {
       ArrayList<XYStagePosition> list = new ArrayList<XYStagePosition>();
       for (int i =0; i < positionList_.length(); i++) {
-         try {
-            list.add((XYStagePosition) positionList_.get(i));
-         } catch (JSONException ex) {
-            throw new RuntimeException(ex);
-         }
+          list.add(getXYPosition(i));
       }
       return list;
    }

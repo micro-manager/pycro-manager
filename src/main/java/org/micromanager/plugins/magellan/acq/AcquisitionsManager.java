@@ -19,9 +19,9 @@ package main.java.org.micromanager.plugins.magellan.acq;
 import main.java.org.micromanager.plugins.magellan.gui.GUI;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Collections;
-import java.util.List;
-import java.util.concurrent.CyclicBarrier;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
 import javax.swing.JOptionPane;
 import main.java.org.micromanager.plugins.magellan.main.Magellan;
 import main.java.org.micromanager.plugins.magellan.misc.Log;
@@ -32,21 +32,21 @@ import main.java.org.micromanager.plugins.magellan.misc.Log;
  */
 public class AcquisitionsManager {
 
-   private List<MagellanGUIAcquisitionSettings> acqSettingsList_ =  Collections.synchronizedList(new ArrayList<MagellanGUIAcquisitionSettings>());
-   
+   private ArrayList<MagellanGUIAcquisitionSettings> acqSettingsList_ = new ArrayList<MagellanGUIAcquisitionSettings>();
+
    private String[] acqStatus_;
    private GUI gui_;
    private MagellanEngine eng_;
-   private volatile boolean running_ = false;
-   private Thread managerThread_;
    private volatile MagellanGUIAcquisition currentAcq_;
-   private CyclicBarrier acqGroupFinishedBarrier_ = new CyclicBarrier(2);
+   private ExecutorService acqManageExecuterService_;
+   ArrayList<Future> acqFutures_;
 
    public AcquisitionsManager(GUI gui, MagellanEngine eng) {
       gui_ = gui;
       acqSettingsList_.add(new MagellanGUIAcquisitionSettings());
       eng_ = eng;
       eng_.setMultiAcqManager(this);
+      acqManageExecuterService_ = Executors.newSingleThreadScheduledExecutor((Runnable r) -> new Thread(r, "Acquisition manager thread"));
    }
 
    public MagellanGUIAcquisitionSettings getAcquisitionSettings(int index) {
@@ -64,7 +64,7 @@ public class AcquisitionsManager {
    public String setAcquisitionName(int index, String newName) {
       return acqSettingsList_.get(index).name_ = newName;
    }
-   
+
    /**
     * change in position of selected acq
     */
@@ -73,17 +73,17 @@ public class AcquisitionsManager {
          //nothing to do
          return 0;
       } else {
-         acqSettingsList_.add(index-1, acqSettingsList_.remove(index));
+         acqSettingsList_.add(index - 1, acqSettingsList_.remove(index));
          return -1;
       }
    }
-   
+
    public int moveDown(int index) {
       if (index == acqSettingsList_.size() - 1) {
          //nothing to do
          return 0;
-      } else  {
-         acqSettingsList_.add(index+1, acqSettingsList_.remove(index));
+      } else {
+         acqSettingsList_.add(index + 1, acqSettingsList_.remove(index));
          return 1;
       }
    }
@@ -95,12 +95,8 @@ public class AcquisitionsManager {
    public void remove(int index) {
       //must always have at least one acquisition
       if (index != -1 && acqSettingsList_.size() > 1) {
-         acqSettingsList_.remove(index);       
+         acqSettingsList_.remove(index);
       }
-   }
-
-   public boolean isRunning() {
-      return running_;
    }
 
    public void abort() {
@@ -108,61 +104,57 @@ public class AcquisitionsManager {
       if (result != JOptionPane.OK_OPTION) {
          return;
       }
-
       //stop future acquisitions
-      managerThread_.interrupt();
-      //abort current parallel acquisition group
+      acqManageExecuterService_.shutdown();
+      //abort current acquisition
       if (currentAcq_ != null) {
          currentAcq_.abort();
       }
-      //abort blocks until all the acquisition stuff is closed, so can reset GUI here
-      multipleAcquisitionsFinsihed();
+      for (Future f : acqFutures_) {
+         f.cancel(true);
+      }
+
    }
 
    public void runAllAcquisitions() {
-      managerThread_ = new Thread(new Runnable() {
-         @Override
-         public void run() {
-            
-            //TODO: once an API, disable adding and deleting of acquisitions here
-            
-            gui_.enableMultiAcquisitionControls(false); //disallow changes while running
-            running_ = true;
-            acqStatus_ = new String[acqSettingsList_.size()];
-            Arrays.fill(acqStatus_, "Waiting");
+      //submit initialization events
+      acqManageExecuterService_.submit(() -> {
+         //TODO: validate settings on all
+         //TODO: once an API, disable adding and deleting of acquisitions here or just copy the list 
+         gui_.enableMultiAcquisitionControls(false); //disallow changes while running
+         acqStatus_ = new String[acqSettingsList_.size()];
+         Arrays.fill(acqStatus_, "Waiting");
+         gui_.repaint();
+      });
+
+      //submit acquisition events
+      acqFutures_ = new ArrayList<Future>();
+      for (int acqIndex = 0; acqIndex < acqSettingsList_.size(); acqIndex++) {
+         final int index = acqIndex;
+         MagellanGUIAcquisitionSettings settings = acqSettingsList_.get(index);
+         acqFutures_.add(acqManageExecuterService_.submit(() -> {
+            acqStatus_[index] = "Running";
+            gui_.acquisitionRunning(true);
+            currentAcq_ = new MagellanGUIAcquisition(settings);
+            currentAcq_.waitForCompletion();
+            gui_.acquisitionRunning(false);
+            gui_.acquisitionSettingsChanged(); //so that the available disk space label updates
             gui_.repaint();
-            //run acquisitions
-            synchronized (acqSettingsList_) {
-               for (int acqIndex = 0; acqIndex < acqSettingsList_.size(); acqIndex++) {
-                  if (managerThread_.isInterrupted()) {
-                     break; //user aborted
-                  }
-                  acqStatus_[acqIndex] = "Running";
-                  try {
-                     MagellanGUIAcquisition acq = eng_.runAcquistion(acqSettingsList_.get(acqIndex));
-                     acq.is
-                  } catch (InterruptedException ex) {
-                     //all acquisitions have been aborted
-                     break;
-                  }
-            
-                  gui_.acquisitionSettingsChanged(); //so that the available data thing updates
-                  gui_.repaint();
-               }
-            }
-            multipleAcquisitionsFinsihed();
-         }
-      }, "Multiple acquisition manager thread");
-      managerThread_.start();
+         }));
+      }
+      //submit finishing events
+      acqManageExecuterService_.submit(() -> {
+           //run acquisitions
+            acqStatus_ = null;
+            gui_.enableMultiAcquisitionControls(true);
+      });
    }
 
-   private void multipleAcquisitionsFinsihed() {
-      //reset barier for a new round
-      acqGroupFinishedBarrier_ = new CyclicBarrier(2);
-      //update GUI
-      running_ = false;
-      acqStatus_ = null;
-      gui_.enableMultiAcquisitionControls(true);
+   public String getAcqStatus(int index) {
+      if (acqStatus_ == null) {
+         return "";
+      }
+      return acqStatus_[index];
    }
 
    public void markAsAborted(MagellanGUIAcquisitionSettings settings) {
@@ -170,24 +162,6 @@ public class AcquisitionsManager {
          acqStatus_[acqSettingsList_.indexOf(settings)] = "Aborted";
          gui_.repaint();
       }
-   }
-
-   /**
-    * Called by parallel acquisition group when it is finished so that manager
-    * knows to move onto next one
-    */
-   public void parallelAcqGroupFinished() {
-      try {
-         if (managerThread_.isAlive()) {
-            acqGroupFinishedBarrier_.await();
-         } //otherwise it was aborted, so nothing to do        
-      } catch (Exception ex) {
-         //exceptions should never happen because this is always the second await to be called
-         Log.log("Unexpected exception: multi acq manager interrupted or barrier broken");
-         ex.printStackTrace();
-         throw new RuntimeException();
-      }
-      currentAcq_ = null;
    }
 
    public String getAcquisitionDescription(int index) {

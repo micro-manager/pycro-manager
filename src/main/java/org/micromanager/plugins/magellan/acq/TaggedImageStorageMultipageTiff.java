@@ -32,6 +32,7 @@ import java.util.LinkedList;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.Future;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
@@ -70,11 +71,10 @@ public final class TaggedImageStorageMultipageTiff   {
    private HashMap<String, MultipageTiffReader> tiffReadersByLabel_;
    private static boolean showProgressBars_ = true;
 
-   /*
-    * Constructor that doesn't make reference to MMStudio so it can be used independently of MM GUI
-    */
-   public TaggedImageStorageMultipageTiff(String dir, boolean newDataSet, JSONObject summaryMetadata) throws IOException {
-      fastStorageMode_ = false; //Make this false so that image writing executes synchrnously (i.e. no return until image has written to disk)
+   public TaggedImageStorageMultipageTiff(String dir, boolean newDataSet, JSONObject summaryMetadata, 
+           ThreadPoolExecutor writingExecutor) throws IOException {
+      writingExecutor_ = writingExecutor;
+      fastStorageMode_ = true; 
       separateMetadataFile_ = false;
       splitByXYPosition_ = false;
 
@@ -232,48 +232,36 @@ public final class TaggedImageStorageMultipageTiff   {
       fileSets_.get(fileSetIndex).overwritePixels(pix, channel, slice, frame, position); 
    }
 
-   public void putImage(MagellanTaggedImage MagellanTaggedImage) throws IOException {
-      final String label = MD.getLabel(MagellanTaggedImage.tags);
-      startWritingTask(label, MagellanTaggedImage);
-
+   public Future putImage(MagellanTaggedImage MagellanTaggedImage) throws IOException {
+      final String label = MD.getLabel(MagellanTaggedImage.tags);      
       // Now, we must hold on to MagellanTaggedImage, so that we can return it if
       // somebody calls getImage() before the writing is finished.
       // There is a data race if the MagellanTaggedImage is modified by other code, but
       // that would be a bad thing to do anyway (will break the writer) and is
       // considered forbidden.
-
-      // We are here depending on the fact that writingExecutor_ is a
-      // single-thread ThreadPoolExecutor, and that submitted tasks are
-      // executed in order. A better implementation might use Guava's
-      // ListenableFuture.
-      // Also note that the image will be dropped if the writing fails due to
-      // any error. This is acceptable for disk-backed storage.
       writePendingImages_.put(label, MagellanTaggedImage);
+      Future f = startWritingTask(label, MagellanTaggedImage);
+
       writingExecutor_.submit(new Runnable() {
          @Override public void run() {
             writePendingImages_.remove(label);
          }
       });
+      return f;
    }
 
    /*
     * Sets up and kicks off the writing of a new image. This, in an indirect
     * way, ends up submitting the writing task to writingExecutor_.
     */
-   private void startWritingTask(String label, MagellanTaggedImage MagellanTaggedImage)
+   private Future startWritingTask(String label, MagellanTaggedImage MagellanTaggedImage)
       throws IOException
    {
       if (!newDataSet_) {
          Log.log("Tried to write image to a finished data set");
-         throw new RuntimeException("This ImageFileManager is read-only.");
+         throw new RuntimeException("This Dataset is read-only.");
       }
-      //initialize writing executor
-      if (fastStorageMode_ && writingExecutor_ == null) {
-         // Note: Code elsewhere assumes that the writing task is performed on
-         // a _single_ background thread.
-         writingExecutor_ = new ThreadPoolExecutor(1, 1, 0, TimeUnit.NANOSECONDS,
-                 new LinkedBlockingQueue<java.lang.Runnable>());
-      }
+
       int fileSetIndex = 0;
       if (splitByXYPosition_) {
          fileSetIndex = MD.getPositionIndex(MagellanTaggedImage.tags);
@@ -292,10 +280,12 @@ public final class TaggedImageStorageMultipageTiff   {
       }
       FileSet set = fileSets_.get(fileSetIndex);
       try {
-         set.writeImage(MagellanTaggedImage);
+         Future f = set.writeImage(MagellanTaggedImage);
          tiffReadersByLabel_.put(label, set.getCurrentReader());
+         return f;
       } catch (IOException ex) {
         Log.log("problem writing image to file");
+        throw new RuntimeException(ex);
       }
    }
 
@@ -329,22 +319,6 @@ public final class TaggedImageStorageMultipageTiff   {
             count++;
             progressBar.setProgress(count);
          }            
-         //shut down writing executor--pause here until all tasks have finished writing
-         //so that no attempt is made to close the dataset (and thus the FileChannel)
-         //before everything has finished writing
-         //mkae sure all images have finished writing if they are on seperate thread 
-         if (writingExecutor_ != null && !writingExecutor_.isShutdown()) {
-            writingExecutor_.shutdown();
-            try {
-               //now that shutdown has been called, need to wait for tasks to finish
-               while (!writingExecutor_.awaitTermination(4, TimeUnit.SECONDS)) {
-                  Log.log("Waiting for image stack file finishing to complete", false);
-               }
-            } catch (InterruptedException e) {
-               Log.log("File finishing thread interrupted", true);
-               Thread.interrupted();
-            }
-         }
       } catch (IOException ex) {
          Log.log(ex);
       }
@@ -459,7 +433,6 @@ public final class TaggedImageStorageMultipageTiff   {
       private String currentTiffUUID_;;
       private String metadataFileFullPath_;
       private boolean finished_ = false;
-      private int ifdCount_ = 0;
       private TaggedImageStorageMultipageTiff mpTiff_;
       int nextExpectedChannel_ = 0, nextExpectedSlice_ = 0, nextExpectedFrame_ = 0;
       int currentFrame_ = 0;
@@ -474,8 +447,7 @@ public final class TaggedImageStorageMultipageTiff   {
          currentTiffFilename_ = baseFilename_ +  ".tif";
          currentTiffUUID_ = "urn:uuid:" + UUID.randomUUID().toString();
          //make first writer
-         tiffWriters_.add(new MultipageTiffWriter(directory_, currentTiffFilename_, summaryMetadata_, mpt,
-                 fastStorageMode_, splitByXYPosition_));
+         tiffWriters_.add(new MultipageTiffWriter(directory_, currentTiffFilename_, summaryMetadata_, mpt, splitByXYPosition_, writingExecutor_));
    
          try {
             if (separateMetadataFile_) {
@@ -512,7 +484,7 @@ public final class TaggedImageStorageMultipageTiff   {
          }
          
          //only need to finish last one here because previous ones in set are finished as they fill up with images
-         tiffWriters_.getLast().finish();
+         tiffWriters_.getLast().finishedWriting();
          //close all
          for (MultipageTiffWriter w : tiffWriters_) {
             w.close();
@@ -536,17 +508,15 @@ public final class TaggedImageStorageMultipageTiff   {
          return currentFrame_;
       }
       
-      public void writeImage(MagellanTaggedImage img) throws IOException {
+      public Future writeImage(MagellanTaggedImage img) throws IOException {
          //check if current writer is out of space, if so, make a new one
          if (!tiffWriters_.getLast().hasSpaceToWrite(img)) {
             //write index map here but still need to call close() at end of acq
-            tiffWriters_.getLast().finish();          
+            tiffWriters_.getLast().finishedWriting();          
             
             currentTiffFilename_ = baseFilename_ + "_" + tiffWriters_.size() + ".tif";
             currentTiffUUID_ = "urn:uuid:" + UUID.randomUUID().toString();
-            ifdCount_ = 0;
-            tiffWriters_.add(new MultipageTiffWriter(directory_ ,currentTiffFilename_, summaryMetadata_, mpTiff_,
-                    fastStorageMode_, splitByXYPosition_));
+            tiffWriters_.add(new MultipageTiffWriter(directory_ ,currentTiffFilename_, summaryMetadata_, mpTiff_, splitByXYPosition_, writingExecutor_));
          }      
 
          //Add filename to image tags
@@ -557,12 +527,11 @@ public final class TaggedImageStorageMultipageTiff   {
          }
 
          //write image
-         tiffWriters_.getLast().writeImage(img);
+         Future f = tiffWriters_.getLast().writeImage(img);
 
          int frame = MD.getFrameIndex(img.tags);
          int pos = MD.getPositionIndex(img.tags);
          lastAcquiredPosition_ = Math.max(pos, lastAcquiredPosition_);
-
 
          try {
             if (separateMetadataFile_) {
@@ -571,7 +540,7 @@ public final class TaggedImageStorageMultipageTiff   {
          } catch (JSONException ex) {
             Log.log("Problem with image metadata", true);
          }
-         ifdCount_++;
+         return f;
       }
 
       private void writeToMetadataFile(JSONObject md) throws JSONException {

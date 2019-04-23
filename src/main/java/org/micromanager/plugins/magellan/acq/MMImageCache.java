@@ -59,7 +59,7 @@ public class MMImageCache {
    }
 
    public void finished() {
-      imageStorage_.finished();
+      imageStorage_.finishedWriting();
       String path = getDiskLocation();
       display_.imagingFinished(path);
       listenerExecutor_.shutdown();

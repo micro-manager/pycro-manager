@@ -17,8 +17,6 @@
 
 package main.java.org.micromanager.plugins.magellan.gui;
 
-import main.java.org.micromanager.plugins.magellan.acq.AcquisitionsManager;
-import main.java.org.micromanager.plugins.magellan.gui.GUI;
 import javax.swing.table.AbstractTableModel;
 import main.java.org.micromanager.plugins.magellan.acq.AcquisitionsManager;
 
@@ -53,9 +51,6 @@ public class MultipleAcquisitionTableModel extends AbstractTableModel {
       return COLUMNS.length;
    }
 
-   put this somewhere
-   GUI.getInstance().acquisitionRunning(false);
-   
    
    @Override
    public Object getValueAt(int rowIndex, int columnIndex) {

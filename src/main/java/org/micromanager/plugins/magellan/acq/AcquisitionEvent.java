@@ -29,7 +29,7 @@ public class AcquisitionEvent {
    };
 
    public Acquisition acquisition_;
-   public int timeIndex_, sliceIndex_, channelIndex_, positionIndex_, gridRow_, gridCol_;
+   public int timeIndex_, sliceIndex_, channelIndex_, positionIndex_;
    public long miniumumStartTime_; //For pausing between time points
    public double zPosition_;
    public XYStagePosition xyPosition_;
@@ -46,8 +46,6 @@ public class AcquisitionEvent {
       e.channelIndex_ = channelIndex_;
       e.sliceIndex_ = sliceIndex_;
       e.positionIndex_ = positionIndex_;
-      e.gridRow_ = gridRow_;
-      e.gridCol_ = gridCol_;
       e.zPosition_ = zPosition_;
       e.xyPosition_ = xyPosition_;   
       e.miniumumStartTime_ = miniumumStartTime_;

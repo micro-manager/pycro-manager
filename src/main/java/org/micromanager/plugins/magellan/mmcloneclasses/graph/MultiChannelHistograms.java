@@ -53,7 +53,7 @@ public final class MultiChannelHistograms extends JPanel implements Histograms {
 
       setupChannelControls(cache_, contrastPanel);
    }
-
+  
    @Override
    public synchronized void setupChannelControls(MMImageCache cache, ContrastPanel cp) {
       this.removeAll();

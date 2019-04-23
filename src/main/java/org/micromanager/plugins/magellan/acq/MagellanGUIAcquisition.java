@@ -24,6 +24,8 @@ import java.util.Spliterator;
 import java.util.Spliterators;
 import java.util.concurrent.Future;
 import java.util.function.Function;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
@@ -59,7 +61,7 @@ public class MagellanGUIAcquisition extends Acquisition {
     * @param acqGroup
     * @throws java.lang.Exception
     */
-   public MagellanGUIAcquisition(MagellanGUIAcquisitionSettings settings) throws Exception {
+   public MagellanGUIAcquisition(MagellanGUIAcquisitionSettings settings) {
       super(settings.zStep_, settings.channels_);
       settings_ = settings;
       try {
@@ -82,7 +84,17 @@ public class MagellanGUIAcquisition extends Acquisition {
       Stream<AcquisitionEvent> acqEventStream = magellanGUIAcqEventStream();
       submitEventStream(acqEventStream);  
    }
-
+   
+   public void waitForCompletion() {
+      while (!finished_) {
+         try {
+            Thread.sleep(10);
+         } catch (InterruptedException ex) {
+            //Doesnt matter, should still finish eventually if everything works right
+         }
+      }
+   }
+   
    /**
     * Build the event stream according to the provided acquisition settings
     *
@@ -109,6 +121,8 @@ public class MagellanGUIAcquisition extends Acquisition {
       }
       Stream<AcquisitionEvent> eventStream = makeEventStream(acqFunctions);
       eventStream = eventStream.map(monitorSliceIndices());
+      //create event to signal finished
+      eventStream = Stream.concat(eventStream, Stream.of(AcquisitionEvent.createAcquisitionFinishedEvent(this)));
       return eventStream;
    }
 

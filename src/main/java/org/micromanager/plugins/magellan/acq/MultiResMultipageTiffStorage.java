@@ -14,7 +14,6 @@
 //               CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT,
 //               INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES.
 //
-
 package main.java.org.micromanager.plugins.magellan.acq;
 
 import main.java.org.micromanager.plugins.magellan.coordinates.AffineUtils;
@@ -29,9 +28,17 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.LinkedList;
+import java.util.List;
 import java.util.Set;
 import java.util.TreeMap;
 import java.util.TreeSet;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.Future;
+import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.ThreadPoolExecutor;
+import java.util.concurrent.TimeUnit;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import main.java.org.micromanager.plugins.magellan.json.JSONArray;
@@ -70,32 +77,33 @@ public class MultiResMultipageTiffStorage {
    private double pixelSizeXY_, pixelSizeZ_;
    private AffineTransform affine_;
    private boolean rgb_;
-   
+   private ThreadPoolExecutor writingExecutor_;
+
    /**
-    * Constructor to load existing storage from disk
-    * dir --top level saving directory
+    * Constructor to load existing storage from disk dir --top level saving
+    * directory
     */
-   public MultiResMultipageTiffStorage(String dir)  throws IOException {
+   public MultiResMultipageTiffStorage(String dir) throws IOException {
       directory_ = dir;
       finished_ = true;
       String fullResDir = dir + (dir.endsWith(File.separator) ? "" : File.separator) + FULL_RES_SUFFIX;
       //create fullResStorage
-      fullResStorage_ = new TaggedImageStorageMultipageTiff(fullResDir, false, null);
+      fullResStorage_ = new TaggedImageStorageMultipageTiff(fullResDir, false, null, null);
       summaryMD_ = fullResStorage_.getSummaryMetadata();
       processSummaryMetadata();
       lowResStorages_ = new TreeMap<Integer, TaggedImageStorageMultipageTiff>();
       //create low res storages
       int resIndex = 1;
       while (true) {
-         String dsDir = directory_ + (directory_.endsWith(File.separator) ? "" : File.separator) + 
-              DOWNSAMPLE_SUFFIX + (int) Math.pow(2, resIndex);
-         if (!new File(dsDir).exists() ) {
+         String dsDir = directory_ + (directory_.endsWith(File.separator) ? "" : File.separator)
+                 + DOWNSAMPLE_SUFFIX + (int) Math.pow(2, resIndex);
+         if (!new File(dsDir).exists()) {
             break;
          }
-         lowResStorages_.put(resIndex, new TaggedImageStorageMultipageTiff(dsDir, false, null));
-         resIndex++;         
+         lowResStorages_.put(resIndex, new TaggedImageStorageMultipageTiff(dsDir, false, null, null));
+         resIndex++;
       }
-         
+
       //create position manager
       try {
          TreeMap<Integer, XYStagePosition> positions = new TreeMap<Integer, XYStagePosition>();
@@ -126,6 +134,8 @@ public class MultiResMultipageTiffStorage {
     * Constructor for creating new storage prior to acquisition
     */
    public MultiResMultipageTiffStorage(String dir, JSONObject summaryMetadata) {
+      writingExecutor_ = new ThreadPoolExecutor(1, 1, 0, TimeUnit.NANOSECONDS,
+              new LinkedBlockingQueue<java.lang.Runnable>());
       try {
          //make a copy in case tag changes are needed later
          summaryMD_ = new JSONObject(summaryMetadata.toString());
@@ -160,7 +170,7 @@ public class MultiResMultipageTiffStorage {
       }
       try {
          //Create full Res storage
-         fullResStorage_ = new TaggedImageStorageMultipageTiff(fullResDir, true, summaryMetadata);
+         fullResStorage_ = new TaggedImageStorageMultipageTiff(fullResDir, true, summaryMetadata, writingExecutor_);
       } catch (IOException ex) {
          Log.log("couldn't create Full res storage", true);
       }
@@ -173,9 +183,9 @@ public class MultiResMultipageTiffStorage {
    }
 
    public boolean isRGB() {
-       return rgb_;
+      return rgb_;
    }
-   
+
    public int getXOverlap() {
       return xOverlap_;
    }
@@ -183,7 +193,7 @@ public class MultiResMultipageTiffStorage {
    public int getYOverlap() {
       return yOverlap_;
    }
-   
+
    private void processSummaryMetadata() {
       rgb_ = MD.isRGB(summaryMD_);
       xOverlap_ = MD.getPixelOverlapX(summaryMD_);
@@ -197,11 +207,11 @@ public class MultiResMultipageTiffStorage {
       pixelSizeXY_ = MD.getPixelSizeUm(summaryMD_);
       affine_ = AffineUtils.stringToTransform(MD.getAffineTransformString(summaryMD_));
    }
-   
+
    public int getByteDepth() {
       return byteDepth_;
    }
-   
+
    public String getUniqueAcqName() {
       return uniqueAcqName_;
    }
@@ -209,15 +219,15 @@ public class MultiResMultipageTiffStorage {
    public double getPixelSizeZ() {
       return pixelSizeZ_;
    }
-   
+
    public double getPixelSizeXY() {
       return pixelSizeXY_;
    }
-   
+
    public int getNumResLevels() {
       return 1 + lowResStorages_.keySet().size();
    }
-   
+
    public int getTileWidth() {
       return tileWidth_;
    }
@@ -225,28 +235,28 @@ public class MultiResMultipageTiffStorage {
    public int getTileHeight() {
       return tileHeight_;
    }
-   
+
    public long getNumRows() {
       return posManager_.getNumRows();
    }
-   
+
    public long getNumCols() {
       return posManager_.getNumCols();
    }
-   
+
    public long getGridRow(int fullResPosIndex, int resIndex) {
       return posManager_.getGridRow(fullResPosIndex, resIndex);
    }
-   
+
    public long getGridCol(int fullResPosIndex, int resIndex) {
       return posManager_.getGridCol(fullResPosIndex, resIndex);
    }
-   
+
    public XYStagePosition getXYPosition(int index) {
       return posManager_.getXYPosition(index);
    }
-   
-   public  int[] getPositionIndices(int[] rows, int[] cols) {
+
+   public int[] getPositionIndices(int[] rows, int[] cols) {
       return posManager_.getPositionIndices(rows, cols);
    }
 
@@ -267,7 +277,7 @@ public class MultiResMultipageTiffStorage {
    public Point2D.Double getStageCoordsFromPixelCoords(long xAbsolute, long yAbsolute) {
       return posManager_.getStageCoordsFromPixelCoords(xAbsolute, yAbsolute);
    }
-   
+
    /*
     * It doesnt matter what resolution level the pixel is at since tiles
     * are the same size at every level
@@ -277,16 +287,16 @@ public class MultiResMultipageTiffStorage {
          return i / (xDirection ? tileWidth_ : tileHeight_);
       } else {
          //highest pixel is -1 for tile indexed -1, so need to add one to pixel values before dividing
-         return (i +  1) / (xDirection ? tileWidth_ : tileHeight_) - 1;
+         return (i + 1) / (xDirection ? tileWidth_ : tileHeight_) - 1;
       }
    }
-   
+
    public int[] readBackgroundPixelValues() {
       //grab 5 random images from each channel to estiamte background
-      Set<String> keys  = imageKeys();
+      Set<String> keys = imageKeys();
       int numChannels = fullResStorage_.getNumChannels();
       int[] backgroundVals = new int[numChannels];
-      int pixPerImage = tileWidth_*tileHeight_;
+      int pixPerImage = tileWidth_ * tileHeight_;
       ArrayList<String> keyList = new ArrayList<String>(keys);
       Collections.shuffle(keyList);
       for (int c = 0; c < numChannels; c++) {
@@ -297,11 +307,11 @@ public class MultiResMultipageTiffStorage {
             int[] indices = MD.getIndices(key);
             if (indices[0] != c) {
                continue;
-            } 
+            }
             //correct channel
             byte[] pix = (byte[]) fullResStorage_.getImage(indices[0], indices[1], indices[2], indices[3]).pix;
             for (byte b : pix) {
-               pixels.add( b & 0xff);
+               pixels.add(b & 0xff);
             }
             count++;
             if (count == 5) {
@@ -309,32 +319,33 @@ public class MultiResMultipageTiffStorage {
             }
          }
          Collections.sort(pixels);
-         backgroundVals[c] = pixels.get((int)(pixels.size() * 0.15));
+         backgroundVals[c] = pixels.get((int) (pixels.size() * 0.15));
       }
       return backgroundVals;
    }
-   
+
    /**
     * Method for reading 3D volumes for compatibility with TeraFly
-    * @return 
+    *
+    * @return
     */
    public MagellanTaggedImage loadSubvolume(int channel, int frame, int resIndex,
            int xStart, int yStart, int zStart, int width, int height, int depth) {
       JSONObject metadata = null;
       if (byteDepth_ == 1) {
-         byte[] pix = new byte[width*height*depth];
-         for (int z = zStart; z < zStart + depth; z++ ) {
+         byte[] pix = new byte[width * height * depth];
+         for (int z = zStart; z < zStart + depth; z++) {
             MagellanTaggedImage image = getImageForDisplay(channel, z, frame, resIndex, xStart, yStart, width, height);
             metadata = image.tags;
-            System.arraycopy(image.pix, 0, pix, (z-zStart)*(width*height), width*height);
+            System.arraycopy(image.pix, 0, pix, (z - zStart) * (width * height), width * height);
          }
          return new MagellanTaggedImage(pix, metadata);
       } else {
-         short[] pix = new short[width*height*depth];
-         for (int z = zStart; z < zStart + depth; z++ ) {
+         short[] pix = new short[width * height * depth];
+         for (int z = zStart; z < zStart + depth; z++) {
             MagellanTaggedImage image = getImageForDisplay(channel, z, frame, resIndex, xStart, yStart, width, height);
             metadata = image.tags;
-            System.arraycopy(image.pix, 0, pix, (z-zStart)*(width*height), width*height);
+            System.arraycopy(image.pix, 0, pix, (z - zStart) * (width * height), width * height);
          }
          return new MagellanTaggedImage(pix, metadata);
       }
@@ -353,21 +364,19 @@ public class MultiResMultipageTiffStorage {
     * @param y coordinate of topmost pixel in requested resolution
     * @param width pixel width of image at requested resolution
     * @param height pixel height of image at requested resolution
-    * @return Tagged image or taggeded image with background pixels and null tags if no
-    * pixel data is present
+    * @return Tagged image or taggeded image with background pixels and null
+    * tags if no pixel data is present
     */
-   public MagellanTaggedImage getImageForDisplay(int channel, int slice, int frame, int dsIndex, long x, long y, 
+   public MagellanTaggedImage getImageForDisplay(int channel, int slice, int frame, int dsIndex, long x, long y,
            int width, int height) {
       Object pixels;
-       if (rgb_) {
-          pixels = new byte[width * height * 4];
-       } else {
-           if (byteDepth_ == 1) {
-               pixels = new byte[width * height];
-           } else {
-               pixels = new short[width * height];
-           }
-       }
+      if (rgb_) {
+         pixels = new byte[width * height * 4];
+      } else if (byteDepth_ == 1) {
+         pixels = new byte[width * height];
+      } else {
+         pixels = new short[width * height];
+      }
       //go line by line through one column of tiles at a time, then move to next column
       JSONObject topLeftMD = null;
       //first calculate how many columns and rows of tiles are relevant and the number of pixels
@@ -404,22 +413,22 @@ public class MultiResMultipageTiffStorage {
       for (long col = colStart; col < colStart + lineWidths.size(); col++) {
          int yOffset = 0;
          for (long row = rowStart; row < rowStart + lineHeights.size(); row++) {
-            MagellanTaggedImage tile = null;          
+            MagellanTaggedImage tile = null;
             if (dsIndex == 0) {
                tile = fullResStorage_.getImage(channel, slice, frame, posManager_.getPositionIndexFromTilePosition(dsIndex, row, col));
-            } else {               
-               tile = lowResStorages_.get(dsIndex) == null ? null : 
-                       lowResStorages_.get(dsIndex).getImage(channel, slice, frame, posManager_.getPositionIndexFromTilePosition(dsIndex, row, col));
+            } else {
+               tile = lowResStorages_.get(dsIndex) == null ? null
+                       : lowResStorages_.get(dsIndex).getImage(channel, slice, frame, posManager_.getPositionIndexFromTilePosition(dsIndex, row, col));
             }
             if (tile == null) {
-               yOffset += lineHeights.get((int)(row - rowStart)); //increment y offset so new tiles appear in correct position
+               yOffset += lineHeights.get((int) (row - rowStart)); //increment y offset so new tiles appear in correct position
                continue; //If no data present for this tile go on to next one
-            } else if ( (tile.pix instanceof byte[] && ((byte[]) tile.pix).length == 0) ||
-                    (tile.pix instanceof short[] && ((short[]) tile.pix).length == 0))  {
+            } else if ((tile.pix instanceof byte[] && ((byte[]) tile.pix).length == 0)
+                    || (tile.pix instanceof short[] && ((short[]) tile.pix).length == 0)) {
                //Somtimes an inability to read IFDs soon after they are written results in an image being read 
                //with 0 length pixels. Can't figure out why this happens, but it is rare and will result at worst with
                //a black flickering during acquisition
-               yOffset += lineHeights.get((int)(row - rowStart)); //increment y offset so new tiles appear in correct position
+               yOffset += lineHeights.get((int) (row - rowStart)); //increment y offset so new tiles appear in correct position
                continue;
             }
             //take top left tile for metadata
@@ -428,9 +437,9 @@ public class MultiResMultipageTiffStorage {
             }
             //Copy pixels into the image to be returned
             //yOffset is how many rows from top of viewable area, y is top of image to top of area
-            for (int line = yOffset; line < lineHeights.get((int)(row - rowStart)) + yOffset; line++) {
+            for (int line = yOffset; line < lineHeights.get((int) (row - rowStart)) + yOffset; line++) {
                int tileYPix = (int) ((y + line) % tileHeight_);
-               int tileXPix = (int) ((x + xOffset) % tileWidth_);                   
+               int tileXPix = (int) ((x + xOffset) % tileWidth_);
                //make sure tile pixels are positive
                while (tileXPix < 0) {
                   tileXPix += tileWidth_;
@@ -439,31 +448,33 @@ public class MultiResMultipageTiffStorage {
                   tileYPix += tileHeight_;
                }
                try {
-                  int multiplier = rgb_ ? 4 : 1; 
+                  int multiplier = rgb_ ? 4 : 1;
                   if (dsIndex == 0) {
                      //account for overlaps when viewing full resolution tiles
                      tileYPix += yOverlap_ / 2;
                      tileXPix += xOverlap_ / 2;
-                     System.arraycopy(tile.pix, multiplier*(tileYPix * fullResTileWidthIncludingOverlap_ + tileXPix), pixels, (xOffset + width * line)*multiplier, multiplier*lineWidths.get((int) (col - colStart)));                 
+                     System.arraycopy(tile.pix, multiplier * (tileYPix * fullResTileWidthIncludingOverlap_ + tileXPix), pixels, (xOffset + width * line) * multiplier, multiplier * lineWidths.get((int) (col - colStart)));
                   } else {
-                     System.arraycopy(tile.pix, multiplier*(tileYPix * tileWidth_ + tileXPix), pixels, multiplier*(xOffset + width * line), multiplier*lineWidths.get((int)(col - colStart)));
+                     System.arraycopy(tile.pix, multiplier * (tileYPix * tileWidth_ + tileXPix), pixels, multiplier * (xOffset + width * line), multiplier * lineWidths.get((int) (col - colStart)));
                   }
                } catch (Exception e) {
                   e.printStackTrace();
                   Log.log("Problem copying pixels");
                }
             }
-            yOffset += lineHeights.get((int)(row - rowStart));
+            yOffset += lineHeights.get((int) (row - rowStart));
 
          }
-         xOffset += lineWidths.get((int)(col - colStart));
+         xOffset += lineWidths.get((int) (col - colStart));
       }
       return new MagellanTaggedImage(pixels, topLeftMD);
    }
-   
+
    /**
-    * Called before any images have been added to initialize the resolution to the specifiec zoom level
-    * @param resIndex 
+    * Called before any images have been added to initialize the resolution to
+    * the specifiec zoom level
+    *
+    * @param resIndex
     */
    public void initializeToLevel(int resIndex) {
       //create a null pointer in lower res storages to signal addToLoResStorage function
@@ -476,28 +487,29 @@ public class MultiResMultipageTiffStorage {
    }
 
    /**
-    * create an additional lower resolution level so that image can be zoomed out 
+    * create an additional lower resolution level so that image can be zoomed
+    * out
     */
    public boolean addLowerResolution() {
-      synchronized(this) {
-         if (fullResStorage_.imageKeys().size() == 0) {
-            //nothing to downsample
-            return false;
-         }
-         //create a null pointer in lower res storages to signal addToLoResStorage function
-         //to continue downsampling to this level
-         lowResStorages_.put(1 + lowResStorages_.keySet().size(), null);
-         //update position manager to reflect addition of new resolution level
-         posManager_.updateLowerResolutionNodes(lowResStorages_.keySet().size());
-         String aLabel = fullResStorage_.imageKeys().iterator().next();
-         int[] indices = MD.getIndices(aLabel);
-         MagellanTaggedImage anImage = fullResStorage_.getImage(indices[0], indices[1], indices[2], indices[3]);         
-         addToLowResStorage(anImage, 0, indices[3]);
-         return true;
+      if (fullResStorage_.imageKeys().size() == 0) {
+         //nothing to downsample
+         return false;
       }
+      //create a null pointer in lower res storages to signal addToLoResStorage function
+      //to continue downsampling to this level
+      lowResStorages_.put(1 + lowResStorages_.keySet().size(), null);
+      //update position manager to reflect addition of new resolution level
+      posManager_.updateLowerResolutionNodes(lowResStorages_.keySet().size());
+      String aLabel = fullResStorage_.imageKeys().iterator().next();
+      int[] indices = MD.getIndices(aLabel);
+      MagellanTaggedImage anImage = fullResStorage_.getImage(indices[0], indices[1], indices[2], indices[3]);
+      addToLowResStorage(anImage, 0, indices[3]);
+      return true;
+
    }
-   
-   private void addToLowResStorage(MagellanTaggedImage img, int previousResIndex, int fullResPositionIndex) {
+
+   private List<Future> addToLowResStorage(MagellanTaggedImage img, int previousResIndex, int fullResPositionIndex) {
+      List<Future> writeFinishedList = new ArrayList<Future>();
       //Read indices
       int channel = MD.getChannelIndex(img.tags);
       int slice = MD.getSliceIndex(img.tags);
@@ -505,11 +517,11 @@ public class MultiResMultipageTiffStorage {
 
       Object previousLevelPix = img.pix;
       int resolutionIndex = previousResIndex + 1;
-      
+
       //Auto downsample until max number of tiles in either direction is less than the highest dsFactor
       //or keep going until lowest user created resolution exists
-      while (lowResStorages_.containsKey(resolutionIndex) ||
-              (posManager_.getNumRows() >= Math.pow(2, resolutionIndex) || posManager_.getNumCols() >= Math.pow(2, resolutionIndex)) ) {
+      while (lowResStorages_.containsKey(resolutionIndex)
+              || (posManager_.getNumRows() >= Math.pow(2, resolutionIndex) || posManager_.getNumCols() >= Math.pow(2, resolutionIndex))) {
 
          //See if storage level exists
          if (!lowResStorages_.containsKey(resolutionIndex) || lowResStorages_.get(resolutionIndex) == null) {
@@ -520,15 +532,16 @@ public class MultiResMultipageTiffStorage {
                previousLevelStorage = fullResStorage_;
             } else {
                previousLevelStorage = lowResStorages_.get(resolutionIndex - 1);
-            }            
+            }
             Set<String> imageKeys = previousLevelStorage.imageKeys();
             for (String key : imageKeys) {
                String[] indices = key.split("_");
                MagellanTaggedImage ti = previousLevelStorage.getImage(Integer.parseInt(indices[0]), Integer.parseInt(indices[1]),
                        Integer.parseInt(indices[2]), Integer.parseInt(indices[3]));
-               addToLowResStorage(ti, resolutionIndex - 1, posManager_.getFullResPositionIndex(Integer.parseInt(indices[3]), resolutionIndex - 1)); 
+               writeFinishedList.addAll(addToLowResStorage(ti, resolutionIndex - 1, 
+                       posManager_.getFullResPositionIndex(Integer.parseInt(indices[3]), resolutionIndex - 1)) );
             }
-            return; //this will include the higher res tile intially added, so can return here and
+            return writeFinishedList; //this will include the higher res tile intially added, so can return here and
             //not worry about having to add it again
          }
          //Create pixels or get appropriate pixels to add to
@@ -536,19 +549,18 @@ public class MultiResMultipageTiffStorage {
                  posManager_.getLowResPositionIndex(fullResPositionIndex, resolutionIndex));
          Object currentLevelPix;
          if (existingImage == null) {
-             if (rgb_) {
-                 currentLevelPix = new byte[tileWidth_ * tileHeight_ * 4];
-             } else if (byteDepth_ == 1) {
-                 currentLevelPix = new byte[tileWidth_ * tileHeight_];
-             } else {
-                 currentLevelPix = new short[tileWidth_ * tileHeight_];
-             }         
+            if (rgb_) {
+               currentLevelPix = new byte[tileWidth_ * tileHeight_ * 4];
+            } else if (byteDepth_ == 1) {
+               currentLevelPix = new byte[tileWidth_ * tileHeight_];
+            } else {
+               currentLevelPix = new short[tileWidth_ * tileHeight_];
+            }
 
          } else {
-            currentLevelPix = existingImage.pix; 
-         }     
+            currentLevelPix = existingImage.pix;
+         }
 
-         
          //Determine which position in 2x2 this tile sits in
          int xPos = (int) Math.abs((posManager_.getGridCol(fullResPositionIndex, resolutionIndex - 1) % 2));
          int yPos = (int) Math.abs((posManager_.getGridRow(fullResPositionIndex, resolutionIndex - 1) % 2));
@@ -558,14 +570,14 @@ public class MultiResMultipageTiffStorage {
                //average a square of 4 pixels from previous level
                //edges: if odd number of pixels in tile, round to determine which
                //tiles pixels make it to next res level
-               
+
                //these are the indices of pixels at the previous res level, which are offset
                //when moving from res level 0 to one as we throw away the overlapped image edges
-               int pixelX, pixelY, previousLevelWidth, previousLevelHeight; 
-               if ( resolutionIndex == 1 ) {                  
+               int pixelX, pixelY, previousLevelWidth, previousLevelHeight;
+               if (resolutionIndex == 1) {
                   //add offsets to account for overlap pixels at resolution level 0
                   pixelX = x + xOverlap_ / 2;
-                  pixelY = y + yOverlap_ /2;
+                  pixelY = y + yOverlap_ / 2;
                   previousLevelWidth = fullResTileWidthIncludingOverlap_;
                   previousLevelHeight = fullResTileHeightIncludingOverlap_;
                } else {
@@ -575,66 +587,66 @@ public class MultiResMultipageTiffStorage {
                   previousLevelHeight = tileHeight_;
 
                }
-                int rgbMultiplier_ = rgb_ ? 4 : 1;
-                for (int compIndex = 0; compIndex < (rgb_ ? 3 : 1); compIndex++) {
-                    int count = 1; //count is number of pixels (out of 4) used to create a pixel at this level
-                    //always take top left pixel, maybe take others depending on whether at image edge
-                    int sum = 0;
-                    if (byteDepth_ == 1 || rgb_) {
-                        sum += ((byte[]) previousLevelPix)[(pixelY * previousLevelWidth + pixelX)*rgbMultiplier_ + compIndex] & 0xff;
-                    } else {
-                        sum += ((short[]) previousLevelPix)[(pixelY * previousLevelWidth + pixelX)*rgbMultiplier_ + compIndex] & 0xffff;
-                    }
+               int rgbMultiplier_ = rgb_ ? 4 : 1;
+               for (int compIndex = 0; compIndex < (rgb_ ? 3 : 1); compIndex++) {
+                  int count = 1; //count is number of pixels (out of 4) used to create a pixel at this level
+                  //always take top left pixel, maybe take others depending on whether at image edge
+                  int sum = 0;
+                  if (byteDepth_ == 1 || rgb_) {
+                     sum += ((byte[]) previousLevelPix)[(pixelY * previousLevelWidth + pixelX) * rgbMultiplier_ + compIndex] & 0xff;
+                  } else {
+                     sum += ((short[]) previousLevelPix)[(pixelY * previousLevelWidth + pixelX) * rgbMultiplier_ + compIndex] & 0xffff;
+                  }
 
-                    //pixel index can be different from index in tile at resolution level 0 if there is nonzero overlap
-                    if (x < previousLevelWidth - 1 && y < previousLevelHeight - 1) { //if not bottom right corner, add three more pix
-                        count += 3;
-                        if (byteDepth_ == 1 || rgb_) {
-                            sum += (((byte[]) previousLevelPix)[((pixelY + 1) * previousLevelWidth + pixelX + 1)*rgbMultiplier_+compIndex] & 0xff)
-                                    + (((byte[]) previousLevelPix)[(pixelY * previousLevelWidth + pixelX + 1)*rgbMultiplier_+compIndex] & 0xff)
-                                    + (((byte[]) previousLevelPix)[((pixelY + 1) * previousLevelWidth + pixelX)*rgbMultiplier_+compIndex] & 0xff);
-                        } else {
-                            sum += (((short[]) previousLevelPix)[((pixelY + 1) * previousLevelWidth + pixelX + 1)*rgbMultiplier_+compIndex] & 0xffff)
-                                    + (((short[]) previousLevelPix)[(pixelY * previousLevelWidth + pixelX + 1)*rgbMultiplier_+compIndex] & 0xffff)
-                                    + (((short[]) previousLevelPix)[((pixelY + 1) * previousLevelWidth + pixelX)*rgbMultiplier_+compIndex] & 0xffff);
-                        }
-                    } else if (x < previousLevelWidth - 1) { //if not right edge, add one more pix
-                        count++;
-                        if (byteDepth_ == 1 || rgb_) {
-                            sum += ((byte[]) previousLevelPix)[(pixelY * previousLevelWidth + pixelX + 1)*rgbMultiplier_+compIndex] & 0xff;
-                        } else {
-                            sum += ((short[]) previousLevelPix)[(pixelY * previousLevelWidth + pixelX + 1)*rgbMultiplier_+compIndex] & 0xffff;
-                        }
-                    } else if (y < previousLevelHeight - 1) { // if not bottom edge, add one more pix
-                        count++;
-                        if (byteDepth_ == 1 || rgb_) {
-                            sum += ((byte[]) previousLevelPix)[((pixelY + 1) * previousLevelWidth + pixelX)*rgbMultiplier_+compIndex] & 0xff;
-                        } else {
-                            sum += ((short[]) previousLevelPix)[((pixelY + 1) * previousLevelWidth + pixelX)*rgbMultiplier_+compIndex] & 0xffff;
-                        }
-                    } else {
-                        //it is the bottom right corner, no more pix to add
-                    }
-                    //add averaged pixel into appropriate quadrant of current res level
-                    //if full res tile has an odd number of pix, the last one gets chopped off
-                    //to make it fit into tile containers
-                    try {
-                        int index = (((y + yPos * tileHeight_) / 2) * tileWidth_ + (x + xPos * tileWidth_) / 2)*rgbMultiplier_+compIndex;
-                        if (byteDepth_ == 1 || rgb_) {
-                            ((byte[]) currentLevelPix)[index] = (byte) Math.round(sum / count);
-                        } else {
-                            ((short[]) currentLevelPix)[index] = (short) Math.round(sum / count);
-                        }
-                    } catch (Exception e) {
-                        Log.log("Couldn't copy pixels to lower resolution");
-                        e.printStackTrace();
-                        return;
-                    }
+                  //pixel index can be different from index in tile at resolution level 0 if there is nonzero overlap
+                  if (x < previousLevelWidth - 1 && y < previousLevelHeight - 1) { //if not bottom right corner, add three more pix
+                     count += 3;
+                     if (byteDepth_ == 1 || rgb_) {
+                        sum += (((byte[]) previousLevelPix)[((pixelY + 1) * previousLevelWidth + pixelX + 1) * rgbMultiplier_ + compIndex] & 0xff)
+                                + (((byte[]) previousLevelPix)[(pixelY * previousLevelWidth + pixelX + 1) * rgbMultiplier_ + compIndex] & 0xff)
+                                + (((byte[]) previousLevelPix)[((pixelY + 1) * previousLevelWidth + pixelX) * rgbMultiplier_ + compIndex] & 0xff);
+                     } else {
+                        sum += (((short[]) previousLevelPix)[((pixelY + 1) * previousLevelWidth + pixelX + 1) * rgbMultiplier_ + compIndex] & 0xffff)
+                                + (((short[]) previousLevelPix)[(pixelY * previousLevelWidth + pixelX + 1) * rgbMultiplier_ + compIndex] & 0xffff)
+                                + (((short[]) previousLevelPix)[((pixelY + 1) * previousLevelWidth + pixelX) * rgbMultiplier_ + compIndex] & 0xffff);
+                     }
+                  } else if (x < previousLevelWidth - 1) { //if not right edge, add one more pix
+                     count++;
+                     if (byteDepth_ == 1 || rgb_) {
+                        sum += ((byte[]) previousLevelPix)[(pixelY * previousLevelWidth + pixelX + 1) * rgbMultiplier_ + compIndex] & 0xff;
+                     } else {
+                        sum += ((short[]) previousLevelPix)[(pixelY * previousLevelWidth + pixelX + 1) * rgbMultiplier_ + compIndex] & 0xffff;
+                     }
+                  } else if (y < previousLevelHeight - 1) { // if not bottom edge, add one more pix
+                     count++;
+                     if (byteDepth_ == 1 || rgb_) {
+                        sum += ((byte[]) previousLevelPix)[((pixelY + 1) * previousLevelWidth + pixelX) * rgbMultiplier_ + compIndex] & 0xff;
+                     } else {
+                        sum += ((short[]) previousLevelPix)[((pixelY + 1) * previousLevelWidth + pixelX) * rgbMultiplier_ + compIndex] & 0xffff;
+                     }
+                  } else {
+                     //it is the bottom right corner, no more pix to add
+                  }
+                  //add averaged pixel into appropriate quadrant of current res level
+                  //if full res tile has an odd number of pix, the last one gets chopped off
+                  //to make it fit into tile containers
+                  try {
+                     int index = (((y + yPos * tileHeight_) / 2) * tileWidth_ + (x + xPos * tileWidth_) / 2) * rgbMultiplier_ + compIndex;
+                     if (byteDepth_ == 1 || rgb_) {
+                        ((byte[]) currentLevelPix)[index] = (byte) Math.round(sum / count);
+                     } else {
+                        ((short[]) currentLevelPix)[index] = (short) Math.round(sum / count);
+                     }
+                  } catch (Exception e) {
+                     Log.log("Couldn't copy pixels to lower resolution");
+                     e.printStackTrace();
+                     return null;
+                  }
 
-                }
+               }
             }
          }
-         
+
          //store this tile in the storage class correspondign to this resolution
          try {
             if (existingImage == null) {     //Image doesn't yet exist at this level, so add it
@@ -647,7 +659,7 @@ public class MultiResMultipageTiffStorage {
                long gridRow = posManager_.getGridRow(fullResPositionIndex, resolutionIndex);
                long gridCol = posManager_.getGridCol(fullResPositionIndex, resolutionIndex);
                MD.setPositionName(tags, "Grid_" + gridRow + "_" + gridCol);
-               MD.setPositionIndex(tags, posManager_.getLowResPositionIndex(fullResPositionIndex, resolutionIndex));  
+               MD.setPositionIndex(tags, posManager_.getLowResPositionIndex(fullResPositionIndex, resolutionIndex));
                lowResStorages_.get(resolutionIndex).putImage(new MagellanTaggedImage(currentLevelPix, tags));
             } else {
                //Image already exists, only overwrite pixels to include new tiles
@@ -663,11 +675,12 @@ public class MultiResMultipageTiffStorage {
          previousLevelPix = currentLevelPix;
          resolutionIndex++;
       }
+      return writeFinishedList;
    }
 
    private void createDownsampledStorage(int resIndex) {
-      String dsDir = directory_ + (directory_.endsWith(File.separator) ? "" : File.separator) + 
-              DOWNSAMPLE_SUFFIX + (int) Math.pow(2, resIndex);
+      String dsDir = directory_ + (directory_.endsWith(File.separator) ? "" : File.separator)
+              + DOWNSAMPLE_SUFFIX + (int) Math.pow(2, resIndex);
       try {
          JavaUtils.createDirectory(dsDir);
       } catch (Exception ex) {
@@ -678,25 +691,31 @@ public class MultiResMultipageTiffStorage {
          //reset dimensions so that overlap not included
          MD.setWidth(smd, tileWidth_);
          MD.setHeight(smd, tileHeight_);
-         TaggedImageStorageMultipageTiff storage = new TaggedImageStorageMultipageTiff(dsDir, true, smd);
+         TaggedImageStorageMultipageTiff storage = new TaggedImageStorageMultipageTiff(dsDir, true, smd, writingExecutor_);
          lowResStorages_.put(resIndex, storage);
       } catch (Exception ex) {
          Log.log("Couldnt create downsampled storage");
       }
    }
 
-   public void putImage(MagellanTaggedImage MagellanTaggedImage)  {
+   /**
+    * Don't return until all iamges have been written to disk 
+    */
+   public void putImage(MagellanTaggedImage MagellanTaggedImage) {
       try {
-         synchronized (this) {            
-            //write to full res storage as normal (i.e. with overlap pixels present)
-            fullResStorage_.putImage(MagellanTaggedImage);
-            addToLowResStorage(MagellanTaggedImage, 0, MD.getPositionIndex(MagellanTaggedImage.tags));
+         List<Future> writeFinishedList =  new ArrayList<Future>();
+         //write to full res storage as normal (i.e. with overlap pixels present)
+         writeFinishedList.add(fullResStorage_.putImage(MagellanTaggedImage));
+         writeFinishedList.addAll(addToLowResStorage(MagellanTaggedImage, 0, MD.getPositionIndex(MagellanTaggedImage.tags)));
+         for (Future f: writeFinishedList) {
+            f.get();
          }
-      } catch (IOException ex) {
+      } catch (IOException | ExecutionException | InterruptedException ex ) {
          Log.log(ex.toString());
-      } 
+         throw new RuntimeException(ex);
+      }
    }
-   
+
    public MagellanTaggedImage getImage(int channelIndex, int sliceIndex, int frameIndex, int positionIndex, int resLevel) {
       if (resLevel == 0) {
          return fullResStorage_.getImage(channelIndex, sliceIndex, frameIndex, positionIndex);
@@ -718,7 +737,7 @@ public class MultiResMultipageTiffStorage {
       return fullResStorage_.imageKeys();
    }
 
-   public void finished() {
+   public void finishedWriting() {
       fullResStorage_.finished();
       for (TaggedImageStorageMultipageTiff s : lowResStorages_.values()) {
          if (s != null) {
@@ -726,6 +745,16 @@ public class MultiResMultipageTiffStorage {
             //when other bugs prevent storage from being properly created
             s.finished();
          }
+      }
+      writingExecutor_.shutdown();
+      //shut down writing executor--pause here until all tasks have finished writing
+      //so that no attempt is made to close the dataset (and thus the FileChannel)
+      //before everything has finished writing
+      //mkae sure all images have finished writing if they are on seperate thread 
+      try {
+         writingExecutor_.awaitTermination(5, TimeUnit.MILLISECONDS);
+      } catch (InterruptedException ex) {
+         Log.log("unexpected interrup when closing image storage");
       }
       finished_ = true;
    }
@@ -767,15 +796,15 @@ public class MultiResMultipageTiffStorage {
             for (TaggedImageStorageMultipageTiff s : lowResStorages_.values()) {
                s.close();
             }
-         } 
-      },"closing thread").start();
+         }
+      }, "closing thread").start();
    }
 
    public String getDiskLocation() {
       //For display purposes
       return directory_;
    }
-   
+
    public String getChannelName(int index) {
       try {
          return summaryMD_.getJSONArray("ChNames").getString(index);
@@ -783,7 +812,7 @@ public class MultiResMultipageTiffStorage {
          throw new RuntimeException("Channel names missing");
       }
    }
-   
+
    public int getNumChannels() {
       return fullResStorage_.getNumChannels();
    }
@@ -791,15 +820,15 @@ public class MultiResMultipageTiffStorage {
    public int getNumFrames() {
       return fullResStorage_.getMaxFrameIndexOpenedDataset() + 1;
    }
-   
+
    public int getNumSlices() {
       return fullResStorage_.getMaxSliceIndexOpenedDataset() - fullResStorage_.getMinSliceIndexOpenedDataset() + 1;
    }
-   
+
    public int getMinSliceIndexOpenedDataset() {
       return fullResStorage_.getMinSliceIndexOpenedDataset();
    }
-   
+
    public int getMaxSliceIndexOpenedDataset() {
       return fullResStorage_.getMaxSliceIndexOpenedDataset();
    }
@@ -849,48 +878,48 @@ public class MultiResMultipageTiffStorage {
    }
 
    /**
-    * 
+    *
     * @param sliceIndex
-    * @return set of points (col, row) with indices of tiles that have been added at this slice index 
+    * @return set of points (col, row) with indices of tiles that have been
+    * added at this slice index
     */
    public Set<Point> getTileIndicesWithDataAt(int sliceIndex) {
       Set<Point> exploredTiles = new TreeSet<Point>(new Comparator<Point>() {
          @Override
          public int compare(Point o1, Point o2) {
-           if (o1.x != o2.x) {
-              return o1.x - o2.x;
-           } else if (o1.y != o2.y) {
-              return o1.y - o2.y;
-           }
-           return 0;
+            if (o1.x != o2.x) {
+               return o1.x - o2.x;
+            } else if (o1.y != o2.y) {
+               return o1.y - o2.y;
+            }
+            return 0;
          }
-      } );
+      });
       Set<String> keys = new TreeSet<String>(imageKeys());
       for (String s : keys) {
-            int[] indices = MD.getIndices(s);
-            if (indices[1] == sliceIndex) {
-               exploredTiles.add(new Point((int) posManager_.getGridCol(indices[3], 0), (int) posManager_.getGridRow(indices[3], 0)));
-            }
+         int[] indices = MD.getIndices(s);
+         if (indices[1] == sliceIndex) {
+            exploredTiles.add(new Point((int) posManager_.getGridCol(indices[3], 0), (int) posManager_.getGridRow(indices[3], 0)));
+         }
 
       }
       return exploredTiles;
    }
-   
+
    public long getMinRow() {
       return posManager_.getMinRow();
    }
-   
-   
+
    public long getMinCol() {
       return posManager_.getMinCol();
    }
 
-    int getPositionIndexFromStageCoords(double xPos, double yPos) {
-        return posManager_.getFullResPositionIndexFromStageCoords(xPos, yPos);
-    }
+   int getPositionIndexFromStageCoords(double xPos, double yPos) {
+      return posManager_.getFullResPositionIndexFromStageCoords(xPos, yPos);
+   }
 
    PositionManager getPosManager() {
       return posManager_;
    }
-   
+
 }
