@@ -22,7 +22,10 @@ import java.awt.geom.AffineTransform;
 import java.text.DateFormat;
 import java.text.SimpleDateFormat;
 import java.util.Calendar;
+import java.util.Iterator;
 import java.util.List;
+import java.util.Spliterator;
+import java.util.Spliterators;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -32,13 +35,13 @@ import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
 import java.util.function.Function;
+import java.util.function.Predicate;
+import java.util.function.Supplier;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
-import static main.java.org.micromanager.plugins.magellan.acq.MagellanGUIAcquisition.isImagingVolumeUndefinedAtPosition;
-import static main.java.org.micromanager.plugins.magellan.acq.MagellanGUIAcquisition.isZAboveImagingVolume;
-import static main.java.org.micromanager.plugins.magellan.acq.MagellanGUIAcquisition.isZBelowImagingVolume;
+import java.util.stream.StreamSupport;
 import main.java.org.micromanager.plugins.magellan.channels.ChannelSpec;
 import main.java.org.micromanager.plugins.magellan.coordinates.AffineUtils;
 import main.java.org.micromanager.plugins.magellan.coordinates.PositionManager;
@@ -56,7 +59,7 @@ import mmcorej.CMMCore;
  */
 public abstract class Acquisition {
 
-   private static final int MAX_QUEUED_IMAGES_FOR_WRITE = 50;
+   private static final int MAX_QUEUED_IMAGES_FOR_WRITE = 20;
 
    protected final double zStep_;
    protected double zOrigin_;
@@ -66,17 +69,18 @@ public abstract class Acquisition {
    protected double zStageLowerLimit_, zStageUpperLimit_;
    protected AcquisitionEvent lastEvent_ = null;
    protected volatile boolean finished_ = false;
+   private JSONObject summaryMetadata_;
    private String name_;
    private long startTime_ms_ = -1;
    private int overlapX_, overlapY_;
-   private volatile boolean pause_ = false;
-   private Object pauseLock_ = new Object();
+   private volatile boolean paused_ = false;
    protected ChannelSpec channels_;
    private MMImageCache imageCache_;
    private ThreadPoolExecutor savingExecutor_;
    private ExecutorService eventGenerator_;
    protected PositionManager posManager_;
    private MagellanEngine eng_;
+   protected volatile boolean aborted_ = false;
 
    public Acquisition(double zStep, ChannelSpec channels) {
       eng_ = MagellanEngine.getInstance();
@@ -103,16 +107,16 @@ public abstract class Acquisition {
    protected void initialize(String dir, String name, double overlapPercent) {
       overlapX_ = (int) (Magellan.getCore().getImageWidth() * overlapPercent / 100);
       overlapY_ = (int) (Magellan.getCore().getImageHeight() * overlapPercent / 100);
-      JSONObject summaryMetadata = makeSummaryMD(name);
-      MultiResMultipageTiffStorage imageStorage = new MultiResMultipageTiffStorage(dir, summaryMetadata);
+      summaryMetadata_ = makeSummaryMD(name);
+      MultiResMultipageTiffStorage imageStorage = new MultiResMultipageTiffStorage(dir, summaryMetadata_);
       posManager_ = imageStorage.getPosManager();
       //storage class has determined unique acq name, so it can now be stored
       name_ = imageStorage.getUniqueAcqName();
       imageCache_ = new MMImageCache(imageStorage);
-      imageCache_.setSummaryMetadata(summaryMetadata);
-      new DisplayPlus(imageCache_, this, summaryMetadata, imageStorage);
+      imageCache_.setSummaryMetadata(summaryMetadata_);
+      new DisplayPlus(imageCache_, this, summaryMetadata_, imageStorage);
       savingExecutor_ = new ThreadPoolExecutor(1, 1, 0L, TimeUnit.MILLISECONDS, new LinkedBlockingQueue<Runnable>(),
-              (Runnable r) -> new Thread(r, name_ + ": Saving xecutor"));
+              (Runnable r) -> new Thread(r, name_ + ": Saving executor"));
       eventGenerator_ = Executors.newSingleThreadExecutor((Runnable r) -> new Thread(r, name_ + ": Event generator"));
       //subclasses are resonsible for submitting event streams to begin acquisiton
    }
@@ -131,11 +135,12 @@ public abstract class Acquisition {
          //This won't actually do anything until the terminal operation on the stream has taken place
 
          Stream<Future<Future>> eventFutureStream = eng_.mapToAcquisition(eventStream);
-        
+
          //Make sure events can't be submitted to the engine way faster than images can be written to disk
          eventFutureStream = eventFutureStream.map(new Function<Future<Future>, Future<Future>>() {
             @Override
             public Future<Future> apply(Future<Future> t) {
+//               int queuedSavingImages = savingExecutor_.getQueue().size();
                while (savingExecutor_.getQueue().size() > MAX_QUEUED_IMAGES_FOR_WRITE) {
                   try {
                      Thread.sleep(2);
@@ -145,23 +150,39 @@ public abstract class Acquisition {
                }
                return t;
             }
-
-            //TODO: add something that checks for canellatio on abort?
          });
 
-         try {
-            //make sure last one has written to disk
-            Future<Future> lastEventSubmittedFuture = eventFutureStream.reduce((first, second) -> second).get();
-            Future lastImageSavedFuture = lastEventSubmittedFuture.get();
-            lastImageSavedFuture.get();
-         } catch (InterruptedException ex) {
-            //Acquition aborted
-         } catch (ExecutionException ex) {
-            //Problem with acquisition or with saving TODO something
-            ex.printStackTrace();
-            throw new RuntimeException(ex);
-         }
+         //Wait around while pause is engaged
+         eventFutureStream = eventFutureStream.map(new Function<Future<Future>, Future<Future>>() {
+            @Override
+            public Future<Future> apply(Future<Future> t) {
+               while (paused_) {
+                  try {
+                     Thread.sleep(5);
+                  } catch (InterruptedException ex) {
+                     throw new RuntimeException(ex);
+                  }
+               }
+               return t;
+            }
+         });
 
+         //lazily iterate through them
+         Stream<Future> imageSavedFutureStream = eventFutureStream.map((Future<Future> t) -> {
+            try {
+               return t.get();
+            } catch (InterruptedException | ExecutionException ex) {
+               throw new RuntimeException(ex);
+            }
+         });
+         //Iterate through and amke 
+         imageSavedFutureStream.forEach((Future t) -> {
+            try {
+               t.get();
+            } catch (InterruptedException | ExecutionException ex) {
+               throw new RuntimeException(ex);
+            }
+         });
       });
    }
 
@@ -196,6 +217,9 @@ public abstract class Acquisition {
       //is a seperate internal executor in MultiResMultipageTiffStorage that does all the writing
       return savingExecutor_.submit(() -> {
          if (MagellanTaggedImage.isAcquisitionFinishedImage(image)) {
+            eventGenerator_.shutdown();
+            savingExecutor_.shutdown();
+            //Dont wait for it to shutdown because it is the one executing this code
             imageCache_.finished();
             finished_ = true;
          } else {
@@ -216,17 +240,15 @@ public abstract class Acquisition {
                //acq already aborted
                return;
             }
+            aborted_ = true;
 //            if (Acquisition.this.isPaused()) {
 //               Acquisition.this.togglePaused();
 //            }
             eventGenerator_.shutdownNow();
-
-            //wait for shutdown
             try {
                //wait for it to exit
                while (!eventGenerator_.awaitTermination(5, TimeUnit.MILLISECONDS)) {
                }
-
             } catch (InterruptedException ex) {
                Log.log("Unexpected interrupt while trying to abort acquisition", true);
                //shouldn't happen
@@ -241,15 +263,7 @@ public abstract class Acquisition {
             } catch (InterruptedException ex) {
                Log.log("aborting acquisition interrupted");
             } catch (ExecutionException ex) {
-               Log.log("Exception encountered when trying to end acquisition", true);
-            }
-             savingExecutor_.shutdown();
-            try {
-               while (!savingExecutor_.awaitTermination(5, TimeUnit.MILLISECONDS)) {
-               }
-            } catch (InterruptedException ex) {
-               Log.log("Unexpected interrupt while trying to abort acquisition", true);
-               //shouldn't happen
+               Log.log("Exception encountered when trying to end acquisition");
             }
          }
       }, "Aborting thread").start();
@@ -313,18 +327,6 @@ public abstract class Acquisition {
       return summary;
    }
 
-   public static void main(String[] args) {
-      Stream<AcquisitionEvent> eventStream = Stream.of(new AcquisitionEvent(null));
-      eventStream = eventStream.map(new Function<AcquisitionEvent, AcquisitionEvent>() {
-         @Override
-         public AcquisitionEvent apply(AcquisitionEvent t) {
-            System.out.println("Stream consuming now");
-            return t;
-         }
-      });
-      eventStream.collect(Collectors.toList());
-   }
-
    /**
     * Build a lazy stream of events based on the hierarchy of acquisition
     * functions
@@ -332,50 +334,63 @@ public abstract class Acquisition {
     * @param acqFunctions
     * @return
     */
-   protected Stream<AcquisitionEvent> makeEventStream(List<Function<AcquisitionEvent, Stream<AcquisitionEvent>>> acqFunctions) {
+   protected Stream<AcquisitionEvent> makeEventStream(List<Function<AcquisitionEvent, Iterator<AcquisitionEvent>>> acqFunctions) {
       //Make a composed function that expands every level of the acquisition tree as needed
-      Function<AcquisitionEvent, Stream<AcquisitionEvent>> composedFunction = acqFunctions.get(0);
-      for (int i = 1; i < acqFunctions.size(); i++) {
-         composedFunction = composedFunction.andThen(stream2Stream(acqFunctions.get(i)));
-      }
-      //Start with a root event and lazily map all functions to it as needed
-      Stream<AcquisitionEvent> eventStream = Stream.of(new AcquisitionEvent(this));
-      Stream<Stream<AcquisitionEvent>> streamOStreams = eventStream.map(composedFunction);
-      eventStream = streamOStreams.reduce((stream1, stream2) -> {
-         return Stream.concat(stream1, stream2);
-      }).get();
-      //keep track of min and max slice indices as events are submitted
-      return eventStream;
+      AcquisitionEventIterator iterator = new AcquisitionEventIterator(new AcquisitionEvent(this), acqFunctions);
+      Stream<AcquisitionEvent> targetStream = StreamSupport.stream(Spliterators.spliteratorUnknownSize(iterator, Spliterator.ORDERED), false);
+      return targetStream;
    }
 
-   protected Function<AcquisitionEvent, Stream<AcquisitionEvent>> channels(ChannelSpec channels) {
+   protected Function<AcquisitionEvent, Iterator<AcquisitionEvent>> channels(ChannelSpec channels) {
       return (AcquisitionEvent event) -> {
-         Stream.Builder<AcquisitionEvent> builder = Stream.builder();
-         for (int channelIndex = 0; channelIndex < channels.getNumActiveChannels(); channelIndex++) {
-            if (!channels.getActiveChannelSetting(channelIndex).uniqueEvent_) {
-               continue;
+         return new Iterator<AcquisitionEvent>() {
+            int channelIndex_ = 0;
+
+            @Override
+            public boolean hasNext() {
+               while (channelIndex_ < channels.getNumActiveChannels() && !channels.getActiveChannelSetting(channelIndex_).uniqueEvent_) {
+                  channelIndex_++;
+                  if (channelIndex_ >= channels.getNumActiveChannels()) {
+                     return false;
+                  }
+               }
+               return channelIndex_ < channels.getNumActiveChannels();
             }
-            AcquisitionEvent channelEvent = event.copy();
-            channelEvent.channelIndex_ = channelIndex;
-            channelEvent.zPosition_ += channels.getActiveChannelSetting(channelIndex).offset_;
-            builder.accept(channelEvent);
-         }
-         return builder.build();
+
+            @Override
+            public AcquisitionEvent next() {
+               AcquisitionEvent channelEvent = event.copy();
+               channelEvent.channelIndex_ = channelIndex_;
+               channelEvent.zPosition_ += channels.getActiveChannelSetting(channelIndex_).offset_;
+               channelIndex_++;
+               return channelEvent;
+            }
+         };
       };
    }
 
-   protected Function<AcquisitionEvent, Stream<AcquisitionEvent>> zStack(int startSliceIndex, int stopSliceIndex) {
+   protected Function<AcquisitionEvent, Iterator<AcquisitionEvent>> zStack(int startSliceIndex, int stopSliceIndex) {
       return (AcquisitionEvent event) -> {
-         Stream.Builder<AcquisitionEvent> builder = Stream.builder();
-         for (int sliceIndex = startSliceIndex; sliceIndex < stopSliceIndex; sliceIndex++) {
-            double zPos = sliceIndex * zStep_ + zOrigin_;
-            AcquisitionEvent sliceEvent = event.copy();
-            sliceEvent.sliceIndex_ = sliceIndex;
-            //Do plus equals here in case z positions have been modified by another function (e.g. channel specific focal offsets)
-            sliceEvent.zPosition_ += zPos;
-            builder.accept(sliceEvent);
-         }//slice loop finish
-         return builder.build();
+         return new Iterator<AcquisitionEvent>() {
+
+            private int sliceIndex_ = startSliceIndex;
+
+            @Override
+            public boolean hasNext() {
+               return sliceIndex_ < stopSliceIndex;
+            }
+
+            @Override
+            public AcquisitionEvent next() {
+               double zPos = sliceIndex_ * zStep_ + zOrigin_;
+               AcquisitionEvent sliceEvent = event.copy();
+               sliceEvent.sliceIndex_ = sliceIndex_;
+               //Do plus equals here in case z positions have been modified by another function (e.g. channel specific focal offsets)
+               sliceEvent.zPosition_ += zPos;
+               sliceIndex_++;
+               return sliceEvent;
+            }
+         };
       };
    }
 
@@ -394,7 +409,7 @@ public abstract class Acquisition {
 //         return builder.build();
 //      };
 //   }
-   protected Function<AcquisitionEvent, Stream<AcquisitionEvent>> positions(
+   protected Function<AcquisitionEvent, Iterator<AcquisitionEvent>> positions(
            int[] positionIndices, List<XYStagePosition> positions) {
       return (AcquisitionEvent event) -> {
          Stream.Builder<AcquisitionEvent> builder = Stream.builder();
@@ -404,7 +419,7 @@ public abstract class Acquisition {
             posEvent.xyPosition_ = positions.get(posEvent.positionIndex_);
             builder.accept(posEvent);
          }
-         return builder.build();
+         return builder.build().iterator();
       };
    }
 
@@ -500,14 +515,11 @@ public abstract class Acquisition {
    }
 
    public boolean isPaused() {
-      return pause_;
+      return paused_;
    }
 
    public void togglePaused() {
-      pause_ = !pause_;
-      synchronized (pauseLock_) {
-         pauseLock_.notifyAll();
-      }
+      paused_ = !paused_;
    }
 
    public String[] getChannelNames() {
@@ -522,6 +534,10 @@ public abstract class Acquisition {
       DateFormat df = new SimpleDateFormat("yyyy/MM/dd HH:mm:ss");
       Calendar calobj = Calendar.getInstance();
       return df.format(calobj.getTime());
+   }
+
+   public JSONObject getSummaryMetadata() {
+      return summaryMetadata_;
    }
 
 }

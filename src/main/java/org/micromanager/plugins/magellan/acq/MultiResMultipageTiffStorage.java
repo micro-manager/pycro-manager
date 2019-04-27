@@ -738,6 +738,9 @@ public class MultiResMultipageTiffStorage {
    }
 
    public void finishedWriting() {
+     if (finished_) {
+        return;
+     }
       fullResStorage_.finished();
       for (TaggedImageStorageMultipageTiff s : lowResStorages_.values()) {
          if (s != null) {
@@ -785,7 +788,6 @@ public class MultiResMultipageTiffStorage {
          @Override
          public void run() {
             while (!finished_) {
-               System.out.print("waiting for files to finish");
                try {
                   Thread.sleep(5);
                } catch (InterruptedException ex) {
@@ -794,7 +796,9 @@ public class MultiResMultipageTiffStorage {
             }
             fullResStorage_.close();
             for (TaggedImageStorageMultipageTiff s : lowResStorages_.values()) {
-               s.close();
+               if (s != null) { //this only happens if the viewer requested new resolution levels that were never filled in because no iamges arrived                  
+                  s.close();
+               }
             }
          }
       }, "closing thread").start();

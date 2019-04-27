@@ -385,7 +385,12 @@ public class SubImageControls extends Panel {
          sliceIndex_ = slice - 1;
          display_.getHyperImage().setPosition(channel, slice, frame);
       }
-
+      try {
+         display_.setCurrentMetadata(((ZoomableVirtualStack) display_.getHyperImage().getStack()).getLatestMetadata());
+      } catch (Exception e) {
+         //This is a hack inside a hack inside a hack so if it fails whatever
+      }
+      
       display_.drawOverlay();
       if (acq_ instanceof ExploreAcquisition) {
          //convert slice index to explore scrollbar index       

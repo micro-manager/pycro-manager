@@ -23,7 +23,6 @@ import main.java.org.micromanager.plugins.magellan.coordinates.XYStagePosition;
  */
 public class AcquisitionEvent {
 
-   //TODO: change an generalize these
    enum SpecialFlag {
       AcqusitionFinished
    };
@@ -68,6 +67,7 @@ public class AcquisitionEvent {
          return "Acq finished event";
       }
 
-      return "P: " + positionIndex_ + "\t\tT: " + timeIndex_ + "\t\tZ: " + sliceIndex_ + "\t\tC: " + channelIndex_;
+      return "P: " + positionIndex_ + "\tT: " + timeIndex_ + "\tZ: " + 
+              sliceIndex_ + "\tC: " + channelIndex_ + "\tPos: " + xyPosition_;
    }
 }

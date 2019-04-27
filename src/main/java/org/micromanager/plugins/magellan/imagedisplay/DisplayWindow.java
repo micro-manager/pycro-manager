@@ -83,7 +83,7 @@ public class DisplayWindow extends StackWindow {
       public DisplayWindow window_;
 
       public RequestToCloseEvent(DisplayWindow window) {
-         if (displayPrefs_ != null) {
+         if (displayPrefs_ != null && acq_ != null) {
             if (acq_ instanceof ExploreAcquisition) {
                displayPrefs_.putInt(EXPLOREWINDOWPOSX, window.getLocation().x);
                displayPrefs_.putInt(EXPLOREWINDOWPOSY, window.getLocation().y);
@@ -141,7 +141,7 @@ public class DisplayWindow extends StackWindow {
       dwControls_ = new DisplayWindowControls(disp, bus, disp.getAcquisition());
       contrastPanelMagellan_ = dwControls_.getContrastPanelMagellan();
       mdPanelMagellan_ = dwControls_.getMetadataPanelMagellan();
-      disp.setPanels(contrastPanelMagellan_, mdPanelMagellan_);
+      disp.setControls(dwControls_);
 
       //create non image panel
       nonImagePanel_ = new JPanel(new BorderLayout());
@@ -255,10 +255,12 @@ public class DisplayWindow extends StackWindow {
          remove(zSelector);
       }
    }
-   
+
    /**
-    * Override the imageJ method that is doing god knows what, in order to fix annoying bug where image dimensions go craxy on maximize
-    * @return 
+    * Override the imageJ method that is doing god knows what, in order to fix
+    * annoying bug where image dimensions go craxy on maximize
+    *
+    * @return
     */
    @Override
    public Rectangle getMaximumBounds() {
@@ -267,7 +269,7 @@ public class DisplayWindow extends StackWindow {
       int height = (int) screenSize.getHeight();
       return new Rectangle(0, 0, width, height);
    }
-   
+
    /**
     * Expand canvas to window size for explore acquisitions shrink window to
     * correct aspect ratio for fixed area acqs this is called before dynamic
@@ -279,29 +281,31 @@ public class DisplayWindow extends StackWindow {
          fitCanvasToWindow();
       } else //set initial zoom so that full acq area fits within window, which has already been set
       //to stored prefferred size
-      if (acq_ instanceof MagellanGUIAcquisition) { //if its not an explore opened on disk
-         double widthRatio = disp_.getFullResWidth() / (double) canvasPanel_.getSize().width;
-         double heightRatio = disp_.getFullResHeight() / (double) canvasPanel_.getSize().height;
-         int viewResIndex = (int) Math.max(0, Math.ceil(Math.log(Math.max(widthRatio, heightRatio)) / Math.log(2)));
-         //set max res index so that min dimension doesn't shrink below 64-128 pixels
-         int maxResIndex = (int) Math.ceil(Math.log((Math.min(disp_.getFullResWidth(), disp_.getFullResHeight())
-                 / MINIMUM_CANVAS_DIMENSION)) / Math.log(2));
-         ((ZoomableVirtualStack) disp_.getHyperImage().getStack()).initializeUpToRes(viewResIndex, maxResIndex);
-         //resize to the biggest it can be in current window with correct aspect ration                
-         int dsFactor = ((ZoomableVirtualStack) disp_.getHyperImage().getStack()).getDownsampleFactor();
-         ZoomableVirtualStack newStack = new ZoomableVirtualStack((ZoomableVirtualStack) plus_.getStack(),
-                 (int) (disp_.getFullResWidth() / dsFactor), (int) (disp_.getFullResHeight() / dsFactor));
-         disp_.changeStack(newStack);
-         this.validate();
-         //fit window around correctly sized canvas, but don't save the window size
-         saveWindowResize_ = false;
-         shrinkWindowToFitCanvas();
-      } else {
-         //explore acq opened on disk
-         ((ZoomableVirtualStack) disp_.getHyperImage().getStack()).setInitialResolutionIndex(disp_.getStorage().getNumResLevels());
-         onWindowResize();
+      {
+         if (acq_ instanceof MagellanGUIAcquisition) { //if its not an explore opened on disk
+            double widthRatio = disp_.getFullResWidth() / (double) canvasPanel_.getSize().width;
+            double heightRatio = disp_.getFullResHeight() / (double) canvasPanel_.getSize().height;
+            int viewResIndex = (int) Math.max(0, Math.ceil(Math.log(Math.max(widthRatio, heightRatio)) / Math.log(2)));
+            //set max res index so that min dimension doesn't shrink below 64-128 pixels
+            int maxResIndex = (int) Math.ceil(Math.log((Math.min(disp_.getFullResWidth(), disp_.getFullResHeight())
+                    / MINIMUM_CANVAS_DIMENSION)) / Math.log(2));
+            ((ZoomableVirtualStack) disp_.getHyperImage().getStack()).initializeUpToRes(viewResIndex, maxResIndex);
+            //resize to the biggest it can be in current window with correct aspect ration                
+            int dsFactor = ((ZoomableVirtualStack) disp_.getHyperImage().getStack()).getDownsampleFactor();
+            ZoomableVirtualStack newStack = new ZoomableVirtualStack((ZoomableVirtualStack) plus_.getStack(),
+                    (int) (disp_.getFullResWidth() / dsFactor), (int) (disp_.getFullResHeight() / dsFactor));
+            disp_.changeStack(newStack);
+            this.validate();
+            //fit window around correctly sized canvas, but don't save the window size
+            saveWindowResize_ = false;
+            shrinkWindowToFitCanvas();
+         } else {
+            //explore acq opened on disk
+            ((ZoomableVirtualStack) disp_.getHyperImage().getStack()).setInitialResolutionIndex(disp_.getStorage().getNumResLevels());
+            onWindowResize();
+         }
       }
-   } 
+   }
 
    /**
     * When shrinking with arrow: -remove controls and shrink window by the size
@@ -379,10 +383,12 @@ public class DisplayWindow extends StackWindow {
                }
                saveWindowResize_ = true;
             } else //Explore acq, resize to use all available space
-            if (fitCanvasToWindow()) {
-               //store explore acquisition size if resize successful    
-               displayPrefs_.putInt(WINDOWSIZEX_EXPLORE, Math.max(MINIMUM_SAVED_WINDOW_DIMENSION, DisplayWindow.this.getSize().width));
-               displayPrefs_.putInt(WINDOWSIZEY_EXPLORE, Math.max(MINIMUM_SAVED_WINDOW_DIMENSION, DisplayWindow.this.getSize().height));
+            {
+               if (fitCanvasToWindow()) {
+                  //store explore acquisition size if resize successful    
+                  displayPrefs_.putInt(WINDOWSIZEX_EXPLORE, Math.max(MINIMUM_SAVED_WINDOW_DIMENSION, DisplayWindow.this.getSize().width));
+                  displayPrefs_.putInt(WINDOWSIZEY_EXPLORE, Math.max(MINIMUM_SAVED_WINDOW_DIMENSION, DisplayWindow.this.getSize().height));
+               }
             }
             disp_.drawOverlay();
          }
@@ -604,25 +610,25 @@ public class DisplayWindow extends StackWindow {
 
    // Force this window to go away.
    public void forceClosed() {
+      bus_.unregister(this);
+      mdPanelMagellan_.prepareForClose();
+      dwControls_.prepareForClose();
       try {
          super.close();
       } catch (NullPointerException ex) {
          Log.log("Null pointer error in ImageJ code while closing window");
       }
-      bus_.unregister(this);
-      mdPanelMagellan_.prepareForClose();
-      dwControls_.prepareForClose();
 
       closed_ = true;
    }
 
    @Override
-    public int getNScrollbars() {
-       //Trick imageJ into thinking all scrollbars are there so it doesnt try to change them when 
-       //changing the stack to resize canvas
-       return 3; 
-    } 
-   
+   public int getNScrollbars() {
+      //Trick imageJ into thinking all scrollbars are there so it doesnt try to change them when 
+      //changing the stack to resize canvas
+      return 3;
+   }
+
    @Override
    public boolean validDimensions() {
       //override this so that code that replaces imagej stack to resize the canvas works

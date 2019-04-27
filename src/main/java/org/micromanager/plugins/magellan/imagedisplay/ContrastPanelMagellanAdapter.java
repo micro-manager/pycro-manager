@@ -33,7 +33,7 @@ public class ContrastPanelMagellanAdapter extends ContrastPanel {
          histograms_ = new MultiChannelHistograms(currentDisplay_, this);
       }
       displayChanged(currentDisplay_, histograms_);
-      imageChangedUpdate(currentDisplay_);
+      imageChangedUpdate();
    }
    
    public Histograms getHistograms() {
@@ -50,13 +50,8 @@ public class ContrastPanelMagellanAdapter extends ContrastPanel {
     * is changing rapidly, to ensure that we don't end up with a race condition
     * that causes us to display the wrong metadata.
     */
-   public void imageChangedUpdate(final VirtualAcquisitionDisplay disp) { 
-      if (disp == null ) {
-         this.imageChanged();
-      } else {
-         //repaint histograms
-         this.imageChanged();   
-      }
+   public void imageChangedUpdate() { 
+     this.imageChanged();
    }
    
    

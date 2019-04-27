@@ -209,7 +209,7 @@ public class MultipageTiffReader {
    public MagellanTaggedImage readImage(String label) {
       if (indexMap_.containsKey(label)) {
          if (fileChannel_ == null) {
-            Log.log("Attempted to read image on FileChannel that is null", true);
+            Log.log("Attempted to read image on FileChannel that is null", false); //can happen on acquiition abort
             return null;
          }
          try {

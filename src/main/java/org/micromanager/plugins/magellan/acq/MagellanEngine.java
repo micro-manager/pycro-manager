@@ -66,9 +66,6 @@ public class MagellanEngine {
    private static CMMCore core_;
    private static MagellanEngine singleton_;
    private AcquisitionEvent lastEvent_ = null;
-   private ExploreAcquisition currentExploreAcq_;
-   private MagellanGUIAcquisition currentFixedAcqs_;
-   private AcquisitionsManager multiAcqManager_;
    private final ExecutorService acqExecutor_;
    private AcqDurationEstimator acqDurationEstiamtor_; //get information about how much time different hardware moves take
 
@@ -117,8 +114,7 @@ public class MagellanEngine {
          Future<Future> imageAcquiredFuture = acqExecutor_.submit(new Callable() {
             @Override
             public Object call() throws Exception {
-               Future future = executeAcquisitionEvent(event);
-               return future;
+               return executeAcquisitionEvent(event);
             }
          });
          return imageAcquiredFuture;
@@ -136,6 +132,9 @@ public class MagellanEngine {
     * @throws InterruptedException
     */
    private Future executeAcquisitionEvent(final AcquisitionEvent event) throws InterruptedException {
+      while (System.currentTimeMillis() < event.miniumumStartTime_) {
+         Thread.sleep(1);
+      }
       if (event.isAcquisitionFinishedEvent()) {
          //signal to MagellanTaggedImageSink to finish saving thread and mark acquisition as finished
          return event.acquisition_.saveImage(MagellanTaggedImage.createAcquisitionFinishedImage());
@@ -400,9 +399,6 @@ public class MagellanEngine {
       }
    }
 
-   public void setMultiAcqManager(AcquisitionsManager multiAcqManager) {
-      multiAcqManager_ = multiAcqManager;
-   }
 }
 
 class HardwareControlException extends RuntimeException {

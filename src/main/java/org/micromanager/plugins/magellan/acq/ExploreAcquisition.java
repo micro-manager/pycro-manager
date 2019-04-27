@@ -17,6 +17,7 @@
 package main.java.org.micromanager.plugins.magellan.acq;
 
 import java.util.ArrayList;
+import java.util.Iterator;
 import java.util.List;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.LinkedBlockingQueue;
@@ -122,8 +123,8 @@ public class ExploreAcquisition extends Acquisition {
 
    private void submitEvents(int[] newPositionRows, int[] newPositionCols, int minZIndex, int maxZIndex) {
       int[] posIndices = posManager_.getPositionIndices(newPositionRows, newPositionCols);
-      ArrayList<Function<AcquisitionEvent, Stream<AcquisitionEvent>>> acqFunctions
-              = new ArrayList<Function<AcquisitionEvent, Stream<AcquisitionEvent>>>();
+      ArrayList<Function<AcquisitionEvent, Iterator<AcquisitionEvent>>> acqFunctions
+              = new ArrayList<Function<AcquisitionEvent, Iterator<AcquisitionEvent>>>();
       acqFunctions.add(positions(posIndices, posManager_.getPositionList()));
       acqFunctions.add(zStack(minZIndex, maxZIndex + 1));
       acqFunctions.add(channels(channels_));

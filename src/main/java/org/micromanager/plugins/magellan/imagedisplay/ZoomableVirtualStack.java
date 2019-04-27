@@ -30,6 +30,7 @@ import java.awt.Dimension;
 import java.awt.Point;
 import java.awt.Rectangle;
 import java.util.Set;
+import main.java.org.micromanager.plugins.magellan.json.JSONObject;
 import main.java.org.micromanager.plugins.magellan.misc.LongPoint;
 
 /**
@@ -53,6 +54,7 @@ public class ZoomableVirtualStack extends AcquisitionVirtualStack {
    private final boolean boundedImage_;
    private final long xMax_, yMax_, xMin_, yMin_;
    final private DisplayPlus disp_;
+   private volatile JSONObject latestMetadata_;
 
    public ZoomableVirtualStack(int type, int width, int height, MMImageCache imageCache,
            int nSlices, VirtualAcquisitionDisplay vad, MultiResMultipageTiffStorage multiResStorage,
@@ -403,6 +405,10 @@ public class ZoomableVirtualStack extends AcquisitionVirtualStack {
       return acquisition_.getDisplaySliceIndexFromZCoordinate(zPos);
    }
 
+   public JSONObject getLatestMetadata() {
+      return latestMetadata_;
+   }
+   
    //this method is called to get the tagged image for display purposes only
    //return the zoomed or downsampled image here for fast performance
    @Override
@@ -417,8 +423,10 @@ public class ZoomableVirtualStack extends AcquisitionVirtualStack {
          slice += disp_.getStorage().getMinSliceIndexOpenedDataset();
       }
 
-      return multiResStorage_.getImageForDisplay(channel, slice, frame, resolutionIndex_,
+      MagellanTaggedImage img = multiResStorage_.getImageForDisplay(channel, slice, frame, resolutionIndex_,
               xView_, yView_, displayImageWidth_, displayImageHeight_);
+      latestMetadata_ =img.tags;
+      return img;
    }
    
 }

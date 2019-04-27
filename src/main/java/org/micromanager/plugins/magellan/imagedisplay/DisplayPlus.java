@@ -81,7 +81,8 @@ public class DisplayPlus extends VirtualAcquisitionDisplay implements SurfaceGri
    private int tileWidth_, tileHeight_;
    private MultiResMultipageTiffStorage multiResStorage_;
    private DisplayWindowControls dwc_;
-
+   private volatile JSONObject currentMetadata_;
+   
    public DisplayPlus(final MMImageCache stitchedCache, final Acquisition acq, JSONObject summaryMD,
            MultiResMultipageTiffStorage multiResStorage) {
       super(stitchedCache, acq != null ? acq.getName() : new File(multiResStorage.getDiskLocation()).getName(), summaryMD);      
@@ -147,6 +148,10 @@ public class DisplayPlus extends VirtualAcquisitionDisplay implements SurfaceGri
          }
       });
 
+   }
+   
+   public DisplayWindowControls getDisplayWindowControls() {
+      return dwc_;
    }
    
    public MultiResMultipageTiffStorage getStorage() {
@@ -287,8 +292,6 @@ public class DisplayPlus extends VirtualAcquisitionDisplay implements SurfaceGri
             return;
          }
       }
-      ProgressBar bar = new ProgressBar("Closing dataset", 0, 1);
-      bar.setVisible(true);
       this.getEventBus().unregister(this);
       SurfaceGridManager.getInstance().removeSurfaceGridListener(this);
       overlayer_.shutdown();
@@ -298,7 +301,6 @@ public class DisplayPlus extends VirtualAcquisitionDisplay implements SurfaceGri
          acq_.waitUntilClosed();
       } 
       super.onWindowClose(event);
-      bar.setVisible(false);
    }
 
    public void setSurfaceDisplaySettings(boolean surf, boolean footprint) {
@@ -642,6 +644,14 @@ public class DisplayPlus extends VirtualAcquisitionDisplay implements SurfaceGri
 
    public ArrayList<XYFootprint> getSurfacesAndGridsForDisplay() {
       return dwc_.getSurfacesAndGridsForDisplay();
+   }
+   
+   public void setCurrentMetadata(JSONObject md) {
+      currentMetadata_ = md;
+   }
+   
+   JSONObject getCurrentMetadata() {
+      return currentMetadata_;
    }
 
    private class RedrawPixelsRunnable implements RunnableFuture {

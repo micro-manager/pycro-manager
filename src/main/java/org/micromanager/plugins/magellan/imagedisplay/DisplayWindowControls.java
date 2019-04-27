@@ -13,15 +13,17 @@ import com.google.common.eventbus.Subscribe;
 import java.awt.CardLayout;
 import java.awt.Color;
 import java.awt.Panel;
+import java.awt.geom.Point2D;
 import java.util.ArrayList;
 import javax.swing.DefaultCellEditor;
+import javax.swing.JOptionPane;
 import javax.swing.JTextField;
-import javax.swing.Popup;
 import javax.swing.SwingConstants;
 import javax.swing.event.ListSelectionEvent;
 import javax.swing.event.ListSelectionListener;
 import javax.swing.table.DefaultTableCellRenderer;
 import javax.swing.table.DefaultTableModel;
+import main.java.org.micromanager.plugins.magellan.coordinates.NoPositionsDefinedYetException;
 import main.java.org.micromanager.plugins.magellan.json.JSONObject;
 import main.java.org.micromanager.plugins.magellan.main.Magellan;
 import main.java.org.micromanager.plugins.magellan.misc.ExactlyOneRowSelectionModel;
@@ -57,6 +59,7 @@ public class DisplayWindowControls extends Panel implements SurfaceGridListener 
       bus_.register(this);
       acq_ = acq;
       initComponents();
+      metadataPanelMagellan_.setSummaryMetadata(disp.getSummaryMetadata());
 
       this.setFocusable(false); //think this is good 
 
@@ -120,6 +123,19 @@ public class DisplayWindowControls extends Panel implements SurfaceGridListener 
       display_.drawOverlay();
    }
 
+   /**
+    * Called just before image redrawn
+    */
+   public void imageChangedUpdate(JSONObject metadata) {
+      if (cpMagellan_ != null) {
+         cpMagellan_.imageChangedUpdate();
+      }
+      if (metadataPanel_ != null) {
+         metadataPanelMagellan_.imageChangedUpdate(metadata);
+      }
+      updateStatusLabel(metadata);
+   }
+
    public ArrayList<XYFootprint> getSurfacesAndGridsForDisplay() {
       ArrayList<XYFootprint> list = new ArrayList<XYFootprint>();
       for (int i = 0; i < SurfaceGridManager.getInstance().getNumberOfGrids() + SurfaceGridManager.getInstance().getNumberOfSurfaces(); i++) {
@@ -152,7 +168,7 @@ public class DisplayWindowControls extends Panel implements SurfaceGridListener 
    @Subscribe
    public void onNewImageEvent(NewImageEvent e) {
       //once there's an image, surfaces and grids are game
-      tabbedPane_.setEnabledAt(acq_ instanceof ExploreAcquisition ? 1 : 0, true);
+//      tabbedPane_.setEnabledAt(acq_ instanceof ExploreAcquisition ? 1 : 0, true);
    }
 
    @Subscribe
@@ -164,21 +180,14 @@ public class DisplayWindowControls extends Panel implements SurfaceGridListener 
       if (tags == null) {
          return;
       }
+      updateStatusLabel(tags);
+   }
 
-      //update status panel
-//      long sizeBytes = acq_.getStorage().getDataSetSize();
-//      if (sizeBytes < 1024) {
-//         datasetSizeLabel_.setText(sizeBytes + "  Bytes");
-//      } else if (sizeBytes < 1024 * 1024) {
-//         datasetSizeLabel_.setText(sizeBytes / 1024 + "  KB");
-//      } else if (sizeBytes < 1024l * 1024 * 1024) {
-//         datasetSizeLabel_.setText(sizeBytes / 1024 / 1024 + "  MB");
-//      } else if (sizeBytes < 1024l * 1024 * 1024 * 1024) {
-//         datasetSizeLabel_.setText(sizeBytes / 1024 / 1024 / 1024 + "  GB");
-//      } else {
-//         datasetSizeLabel_.setText(sizeBytes / 1024 / 1024 / 1024 / 1024 + "  TB");
-//      }
-      long elapsed = MD.getElapsedTimeMs(tags);
+   private void updateStatusLabel(JSONObject metadata) {
+      if (metadata == null) {
+         return;
+      }
+      long elapsed = MD.getElapsedTimeMs(metadata);
       long days = elapsed / (60 * 60 * 24 * 1000), hours = elapsed / 60 / 60 / 1000, minutes = elapsed / 60 / 1000, seconds = elapsed / 1000;
 
       hours = hours % 24;
@@ -190,7 +199,7 @@ public class DisplayWindowControls extends Panel implements SurfaceGridListener 
       String label = days + ":" + h + ":" + m + ":" + s + " (D:H:M:S)";
 
       elapsedTimeLabel_.setText("Elapsed time: " + label);
-      zPosLabel_.setText("Display Z position: " + MD.getZPositionUm(tags) + "um");
+      zPosLabel_.setText("Display Z position: " + MD.getZPositionUm(metadata) + "um");
    }
 
    public void prepareForClose() {
@@ -644,10 +653,16 @@ public class DisplayWindowControls extends Panel implements SurfaceGridListener 
    }//GEN-LAST:event_gridRowsSpinner_StateChanged
 
    private void newGridButton_ActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_newGridButton_ActionPerformed
-      MultiPosGrid r = ((DisplayWindowSurfaceGridTableModel) surfaceGridTable_.getModel()).newGrid(
-              (Integer) gridRowsSpinner_.getValue(), (Integer) gridColsSpinner_.getValue(), display_.getCurrentDisplayedCoordinate());
-      selectedSurfaceGridIndex_ = SurfaceGridManager.getInstance().getIndex(r);
-      surfaceGridTable_.getSelectionModel().setSelectionInterval(selectedSurfaceGridIndex_, selectedSurfaceGridIndex_);
+      try {
+         Point2D.Double coord = display_.getCurrentDisplayedCoordinate();
+         MultiPosGrid r = ((DisplayWindowSurfaceGridTableModel) surfaceGridTable_.getModel()).newGrid(
+                 (Integer) gridRowsSpinner_.getValue(), (Integer) gridColsSpinner_.getValue(), coord);
+         selectedSurfaceGridIndex_ = SurfaceGridManager.getInstance().getIndex(r);
+         surfaceGridTable_.getSelectionModel().setSelectionInterval(selectedSurfaceGridIndex_, selectedSurfaceGridIndex_);
+      } catch (NoPositionsDefinedYetException e) {
+         JOptionPane.showMessageDialog(this, "Explore a tile first before adding a position");
+         return;
+      }
    }//GEN-LAST:event_newGridButton_ActionPerformed
 
    private void showInFolderButton_ActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_showInFolderButton_ActionPerformed
@@ -661,8 +676,8 @@ public class DisplayWindowControls extends Panel implements SurfaceGridListener 
     private void pauseButton_ActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_pauseButton_ActionPerformed
        acq_.togglePaused();
        pauseButton_.setIcon(new javax.swing.ImageIcon(getClass().getResource(
-               acq_.isPaused() ? "main/resources/org/micromanager/play.png" : "main/resources/org/micromanager/pause.png")));
-       repaint();
+               acq_.isPaused() ? "/main/resources/org/micromanager/play.png" : "/main/resources/org/micromanager/pause.png")));
+      repaint();
     }//GEN-LAST:event_pauseButton_ActionPerformed
 
     private void abortButton_ActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_abortButton_ActionPerformed

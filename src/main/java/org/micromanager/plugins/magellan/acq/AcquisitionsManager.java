@@ -22,6 +22,8 @@ import java.util.Arrays;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 import javax.swing.JOptionPane;
 import main.java.org.micromanager.plugins.magellan.main.Magellan;
 import main.java.org.micromanager.plugins.magellan.misc.Log;
@@ -36,24 +38,25 @@ public class AcquisitionsManager {
 
    private String[] acqStatus_;
    private GUI gui_;
-   private MagellanEngine eng_;
    private volatile MagellanGUIAcquisition currentAcq_;
+   private volatile int currentAcqIndex_;
    private ExecutorService acqManageExecuterService_;
    ArrayList<Future> acqFutures_;
 
-   public AcquisitionsManager(GUI gui, MagellanEngine eng) {
+   public AcquisitionsManager(GUI gui) {
       gui_ = gui;
       acqSettingsList_.add(new MagellanGUIAcquisitionSettings());
-      eng_ = eng;
-      eng_.setMultiAcqManager(this);
       acqManageExecuterService_ = Executors.newSingleThreadScheduledExecutor((Runnable r) -> new Thread(r, "Acquisition manager thread"));
    }
 
    public MagellanGUIAcquisitionSettings getAcquisitionSettings(int index) {
-      return acqSettingsList_.get(index);
+      if (index < acqSettingsList_.size()) {
+         return acqSettingsList_.get(index);
+      }
+      return null;
    }
 
-   public int getSize() {
+   public int getNumberOfAcquisitions() {
       return acqSettingsList_.size();
    }
 
@@ -69,6 +72,7 @@ public class AcquisitionsManager {
     * change in position of selected acq
     */
    public int moveUp(int index) {
+      acqStatus_ = null;
       if (index == 0) {
          //nothing to do
          return 0;
@@ -79,6 +83,7 @@ public class AcquisitionsManager {
    }
 
    public int moveDown(int index) {
+      acqStatus_ = null;
       if (index == acqSettingsList_.size() - 1) {
          //nothing to do
          return 0;
@@ -89,10 +94,12 @@ public class AcquisitionsManager {
    }
 
    public void addNew() {
+      acqStatus_ = null;
       acqSettingsList_.add(new MagellanGUIAcquisitionSettings());
    }
 
    public void remove(int index) {
+      acqStatus_ = null;
       //must always have at least one acquisition
       if (index != -1 && acqSettingsList_.size() > 1) {
          acqSettingsList_.remove(index);
@@ -105,21 +112,32 @@ public class AcquisitionsManager {
          return;
       }
       //stop future acquisitions
-      acqManageExecuterService_.shutdown();
+      for (Future f : acqFutures_) {
+         f.cancel(true);
+      }
+      //mark them as aborted
+      for (int i = currentAcqIndex_; i < acqStatus_.length; i++) {
+         acqStatus_[i] = "Cancelled";
+      }
       //abort current acquisition
       if (currentAcq_ != null) {
          currentAcq_.abort();
-      }
-      for (Future f : acqFutures_) {
-         f.cancel(true);
       }
 
    }
 
    public void runAllAcquisitions() {
+      for (MagellanGUIAcquisitionSettings settings : acqSettingsList_) {
+         try {
+            validateSettings(settings);
+         } catch (Exception ex) {
+           JOptionPane.showMessageDialog(gui_, "Problem with acquisition settings: \n" + ex.getMessage());
+           return;
+         }
+      }
+      
       //submit initialization events
       acqManageExecuterService_.submit(() -> {
-         //TODO: validate settings on all
          //TODO: once an API, disable adding and deleting of acquisitions here or just copy the list 
          gui_.enableMultiAcquisitionControls(false); //disallow changes while running
          acqStatus_ = new String[acqSettingsList_.size()];
@@ -135,8 +153,16 @@ public class AcquisitionsManager {
          acqFutures_.add(acqManageExecuterService_.submit(() -> {
             acqStatus_[index] = "Running";
             gui_.acquisitionRunning(true);
-            currentAcq_ = new MagellanGUIAcquisition(settings);
-            currentAcq_.waitForCompletion();
+            try {
+               currentAcq_ = new MagellanGUIAcquisition(settings);
+               currentAcqIndex_ = index;
+               boolean aborted = !currentAcq_.waitForCompletion();
+               acqStatus_[index] = aborted ? "Aborted" : "Complete";
+            } catch (Exception e) {
+               acqStatus_[index] = "Error";
+               e.printStackTrace();
+               Log.log(e);
+            }
             gui_.acquisitionRunning(false);
             gui_.acquisitionSettingsChanged(); //so that the available disk space label updates
             gui_.repaint();
@@ -144,9 +170,8 @@ public class AcquisitionsManager {
       }
       //submit finishing events
       acqManageExecuterService_.submit(() -> {
-           //run acquisitions
-            acqStatus_ = null;
-            gui_.enableMultiAcquisitionControls(true);
+         //run acquisitions
+         gui_.enableMultiAcquisitionControls(true);
       });
    }
 
@@ -173,27 +198,23 @@ public class AcquisitionsManager {
       //non null surface
       if ((settings.spaceMode_ == MagellanGUIAcquisitionSettings.REGION_2D || settings.spaceMode_ == MagellanGUIAcquisitionSettings.CUBOID_Z_STACK)
               && settings.footprint_ == null) {
-         Log.log("Error: No surface or region selected for " + settings.name_, true);
-         throw new Exception();
+         throw new Exception("Error: No surface or region selected for " + settings.name_);
       }
       if (settings.spaceMode_ == MagellanGUIAcquisitionSettings.SURFACE_FIXED_DISTANCE_Z_STACK && settings.fixedSurface_ == null) {
          Log.log("Error: No surface selected for " + settings.name_, true);
          throw new Exception();
       }
       if (settings.spaceMode_ == MagellanGUIAcquisitionSettings.SURFACE_FIXED_DISTANCE_Z_STACK && settings.footprint_ == null) {
-         Log.log("Error: No xy footprint selected for " + settings.name_, true);
-         throw new Exception();
+         throw new Exception("Error: No xy footprint selected for " + settings.name_);
       }
       if (settings.spaceMode_ == MagellanGUIAcquisitionSettings.VOLUME_BETWEEN_SURFACES_Z_STACK
               && (settings.topSurface_ == null || settings.bottomSurface_ == null)) {
-         Log.log("Error: No surface selected for " + settings.name_, true);
-         throw new Exception();
+         throw new Exception("Error: No surface selected for " + settings.name_);
       }
       //correct coordinate devices--XY
       if ((settings.spaceMode_ == MagellanGUIAcquisitionSettings.REGION_2D || settings.spaceMode_ == MagellanGUIAcquisitionSettings.CUBOID_Z_STACK)
               && !settings.footprint_.getXYDevice().equals(Magellan.getCore().getXYStageDevice())) {
-         Log.log("Error: XY device for surface/grid does match XY device in MM core in " + settings.name_, true);
-         throw new Exception();
+         throw new Exception("Error: XY device for surface/grid does match XY device in MM core in " + settings.name_);
       }
       if (settings.spaceMode_ == MagellanGUIAcquisitionSettings.SURFACE_FIXED_DISTANCE_Z_STACK
               && !settings.fixedSurface_.getXYDevice().equals(Magellan.getCore().getXYStageDevice())) {
@@ -203,20 +224,17 @@ public class AcquisitionsManager {
       if (settings.spaceMode_ == MagellanGUIAcquisitionSettings.VOLUME_BETWEEN_SURFACES_Z_STACK
               && (!settings.topSurface_.getXYDevice().equals(Magellan.getCore().getXYStageDevice())
               || !settings.bottomSurface_.getXYDevice().equals(Magellan.getCore().getXYStageDevice()))) {
-         Log.log("Error: XY device for surface does match XY device in MM core in " + settings.name_, true);
-         throw new Exception();
+         throw new Exception("Error: XY device for surface does match XY device in MM core in " + settings.name_);
       }
       //correct coordinate device--Z
       if (settings.spaceMode_ == MagellanGUIAcquisitionSettings.SURFACE_FIXED_DISTANCE_Z_STACK
               && !settings.fixedSurface_.getZDevice().equals(Magellan.getCore().getFocusDevice())) {
-         Log.log("Error: Z device for surface does match Z device in MM core in " + settings.name_, true);
-         throw new Exception();
+         throw new Exception("Error: Z device for surface does match Z device in MM core in " + settings.name_);
       }
       if (settings.spaceMode_ == MagellanGUIAcquisitionSettings.VOLUME_BETWEEN_SURFACES_Z_STACK
               && (!settings.topSurface_.getZDevice().equals(Magellan.getCore().getFocusDevice())
               || !settings.bottomSurface_.getZDevice().equals(Magellan.getCore().getFocusDevice()))) {
-         Log.log("Error: Z device for surface does match Z device in MM core in " + settings.name_, true);
-         throw new Exception();
+         throw new Exception("Error: Z device for surface does match Z device in MM core in " + settings.name_);
       }
 
       //channels

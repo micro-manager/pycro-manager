@@ -43,7 +43,7 @@ public class MultipleAcquisitionTableModel extends AbstractTableModel {
 
    @Override
    public int getRowCount() {
-      return manager_.getSize();
+      return manager_.getNumberOfAcquisitions();
    }
 
    @Override

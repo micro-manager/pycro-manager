@@ -90,8 +90,7 @@ public abstract class VirtualAcquisitionDisplay{
    private ImagePlus hyperImage_;
    protected SubImageControls subImageControls_;
    public AcquisitionVirtualStack virtualStack_;
-   private ContrastPanelMagellanAdapter cpMagellan_;
-   private MetadataPanel mdPanel_;
+   private DisplayWindowControls dwc_;
    private boolean contrastInitialized_ = false; //used for autostretching on window opening
    private boolean firstImage_ = true;
    private String channelGroup_ = "none";
@@ -100,7 +99,8 @@ public abstract class VirtualAcquisitionDisplay{
    private int numGrayChannels_;
    protected ImageCanvas canvas_;
    private static HashMap<String, HistogramSettings> contrastSettings_ = new HashMap<String, HistogramSettings>();
-
+   
+   
    private EventBus bus_;
 
 //   @Subscribe
@@ -136,9 +136,8 @@ public abstract class VirtualAcquisitionDisplay{
       return title_;
    }
    
-   public void setPanels(ContrastPanelMagellanAdapter c, MetadataPanel md) {
-      cpMagellan_ = c;
-      mdPanel_ = md;
+   public void setControls(DisplayWindowControls dwc) {
+      dwc_ = dwc;
    }
 
    /**
@@ -371,15 +370,6 @@ public abstract class VirtualAcquisitionDisplay{
       }
       return Math.max(Math.max(s, c), f);
    }
-
-   private void imageChangedWindowUpdate() {
-      if (hyperImage_ != null && hyperImage_.isVisible()) {
-//         JSONObject md = getCurrentMetadata();
-//         if (md != null) {
-//            subImageControls_.newImageUpdate(md);
-//         }
-      }
-   }
    
    public void updateAndDraw(boolean force) {
       imageChangedUpdate();
@@ -425,7 +415,7 @@ public abstract class VirtualAcquisitionDisplay{
          return;
       }
       updateWindowTitleAndStatus();
-
+      
       if (tags == null) {
          return;
       }
@@ -491,6 +481,11 @@ public abstract class VirtualAcquisitionDisplay{
          initializeContrast();
       }
 
+      try {
+         ((DisplayPlus) this).setCurrentMetadata(((ZoomableVirtualStack) ((DisplayPlus) this).getHyperImage().getStack()).getLatestMetadata());
+      } catch (Exception e) {
+         //This is a hack inside a hack inside a hack so if it fails whatever
+      }
       updateAndDraw(true);      
       ((DisplayPlus) this).drawOverlay();
       hyperImage_.getWindow().repaint();
@@ -501,7 +496,7 @@ public abstract class VirtualAcquisitionDisplay{
          return;
       }
       int numChannels = imageCache_.getNumDisplayChannels();
-      Histograms histograms = cpMagellan_.getHistograms();
+      Histograms histograms = dwc_.getContrastPanelMagellan().getHistograms();
       for (int channel = 0; channel < numChannels; channel++) {
          String id = channelGroup_ + "-" + imageCache_.getChannelName(channel);
          HistogramSettings settings = contrastSettings_.get(id);
@@ -627,16 +622,6 @@ public abstract class VirtualAcquisitionDisplay{
       window.forceClosed();
    }
 
-   //Return metadata associated with image currently shown in the viewer
-   public JSONObject getCurrentMetadata() {
-      if (hyperImage_ != null) {
-         JSONObject md = virtualStack_.getImageTags(hyperImage_.getCurrentSlice());
-         return md;
-      } else {
-         return null;
-      }
-   }
-
    public int getNumSlices() {
       return hyperImage_ == null ? 1 : ((IMMImagePlus) hyperImage_).getNSlicesUnverified();
    }
@@ -710,13 +695,9 @@ public abstract class VirtualAcquisitionDisplay{
       if (hyperImage_ != null) {
          applyPixelSizeCalibration();
       }
-      if (cpMagellan_ != null) {
-         cpMagellan_.imageChangedUpdate(this);
+      if (dwc_ != null) {
+         dwc_.imageChangedUpdate(((DisplayPlus) this).getCurrentMetadata());
       }
-      if (mdPanel_ != null) {
-         mdPanel_.imageChangedUpdate(this);
-      }
-      imageChangedWindowUpdate(); //used to update status line
    }
 
 
@@ -729,5 +710,5 @@ public abstract class VirtualAcquisitionDisplay{
          ((IMMImagePlus) hyperImage_).drawWithoutUpdate();
       }
    }
-   
+
 }

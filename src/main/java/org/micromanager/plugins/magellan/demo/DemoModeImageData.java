@@ -14,93 +14,92 @@
 //               CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT,
 //               INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES.
 //
-
 package main.java.org.micromanager.plugins.magellan.demo;
 
 import ij.IJ;
 import ij.ImagePlus;
 import ij.WindowManager;
 import java.awt.Frame;
+import java.util.Random;
+import java.util.function.Function;
+import java.util.function.IntUnaryOperator;
+import java.util.stream.IntStream;
 import main.java.org.micromanager.plugins.magellan.acq.MultiResMultipageTiffStorage;
-import main.java.org.micromanager.plugins.magellan.main.Magellan;
-import main.java.org.micromanager.plugins.magellan.misc.GlobalSettings;
-import main.java.org.micromanager.plugins.magellan.misc.Log;
 
 /**
  *
  * @author Henry
  */
 public class DemoModeImageData {
-      
+
    private static ImagePlus img_;
    private static int pixelSizeZ_ = 3;
    private static int imageSizeZ_ = 399;
-   private static volatile MultiResMultipageTiffStorage storage_;
    private static int numChannels_ = 6;
+   
+   private static Random rand_ = new Random();
+   
+   private static DemoModeImageData singleton_;
+
+   public DemoModeImageData() {
+      singleton_ = this;
+      //make covariance matrix
+      
+      
+      
+   }
    
    public static int getNumChannels() {
       return numChannels_;
+      
+      
    }
    
-   public DemoModeImageData() {
-         //open LN magellan dataset
-         //386x386 per tile
-//         Thread opener = new Thread(new Runnable() {
-//            @Override
-//            public void run() {
-//               try {
-//                  storage_ = new MultiResMultipageTiffStorage("/Users/henrypinkard/Desktop/LNData/Left LN_2");
-//                  Magellan.getCore().setProperty("Camera", "OnCameraCCDXSize", 386);
-//                  Magellan.getCore().setProperty("Camera", "OnCameraCCDYSize", 386);
-//               } catch (Exception ex) {
-//                  Log.log(ex);
-//               }
-//            }
-//         });
-//         opener.start();
 
-      
-//      String name= "lung.tif";
-//      IJ.runMacro("run(\"TIFF Virtual Stack...\", \"open=[/Users/henrypinkard/Desktop/ForHenry/lung.tif]\");");
-//      img_ = WindowManager.getImage(name);
-//      pixelSizeZ_ = (int) img_.getCalibration().pixelDepth;
-//      imageSizeZ_ = img_.getDimensions()[3] * pixelSizeZ_;
-//      numChannels_ = 1;
-//         
-      
-//      String name = "wholeIVMwindow_1.tif";
-//      IJ.runMacro("run(\"TIFF Virtual Stack...\", \"open=[/Users/henrypinkard/Desktop/ForHenry/wholeIVMwindow_1.tif]\");");
-//      img_ = WindowManager.getImage(name);
-//      pixelSizeZ_ = (int) img_.getCalibration().pixelDepth;
-//      imageSizeZ_ = img_.getDimensions()[3] * pixelSizeZ_;
 
-      IJ.runMacro("run(\"TIFF Virtual Stack...\", \"open=[./Magellan_demo_data.tif]\");");
-      img_ =  WindowManager.getImage("Magellan_demo_data.tif");
-   
+   private static IntUnaryOperator pixelIndToGaussProcess(boolean x) {
+      return new IntUnaryOperator() {
+         @Override
+         public int applyAsInt(int t) {
+         rand_.setSeed(t + (x ? 23423 : 0));
+         double gaussian = rand_.nextGaussian();
+         return (int) (gaussian * 20000);
+         }
+      };
 
-      img_.getWindow().setState(Frame.ICONIFIED);
    }
-   
-   
-//    public static byte[] getBytePixelData(int channel, int x, int y, int z, int width, int height) {
-//      int xOffset = 182;
-//      int yOffset = 75;
-//      int sliceIndex = (int) (z / 4.5);
-//      int frame = 6;
-//      return (byte[]) storage_.getImageForDisplay(channel, sliceIndex, frame, 0, x+xOffset, y+yOffset, width, height).pix;
-//   }
    
    public static byte[] getBytePixelData(int channel, int x, int y, int z, int width, int height) {
+      Random randX = new Random();
+      Random randY = new Random();
+      
+      IntStream yStream = IntStream.range(y, y + height).map(pixelIndToGaussProcess(true));
+      
+      
+      
+      
+//      for (int yPix = y; yPix < y + height; yPix++) {
+//         randY.setSeed(y);
+//      }
+//      for (int xPix = x; xPix < x + width; xPix++) {
+//         randY.setSeed(x);
+//      }
+
       int fullWidth = img_.getWidth();
-      int fullHeight = img_.getHeight();      
-      while (x < 0) x+= fullWidth;
-      while (y < 0) y+= fullHeight;
-      while (z < 0) z+= imageSizeZ_;
+      int fullHeight = img_.getHeight();
+      while (x < 0) {
+         x += fullWidth;
+      }
+      while (y < 0) {
+         y += fullHeight;
+      }
+      while (z < 0) {
+         z += imageSizeZ_;
+      }
       x = x % fullWidth;
       y = y % fullHeight;
       int sliceIndex = (z % imageSizeZ_) / pixelSizeZ_;
 //      int sliceIndex = (z) / pixelSizeZ_;
-  
 
       byte[] fullSlice = (byte[]) img_.getStack().getPixels(numChannels_ * sliceIndex + channel + 1);
       byte[] pixels = new byte[width * height];
@@ -118,6 +117,5 @@ public class DemoModeImageData {
       }
       return pixels;
    }
-  
-   
+
 }

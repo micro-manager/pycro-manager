@@ -457,7 +457,7 @@ public class PositionManager {
          return null;
       }
    }
-
+   
    /**
     * 
     * @param xAbsolute x coordinate in the full Res stitched image
@@ -466,6 +466,9 @@ public class PositionManager {
     */
    public synchronized Point2D.Double getStageCoordsFromPixelCoords(long xAbsolute, long yAbsolute) {
       try {
+         if (positionList_.length() == 0) {
+            throw new NoPositionsDefinedYetException();
+         } 
          JSONObject existingPosition = positionList_.getJSONObject(0);
          double exisitngX = existingPosition.getJSONObject(COORDINATES_KEY).getJSONArray(xyStageName_).getDouble(0);
          double exisitngY = existingPosition.getJSONObject(COORDINATES_KEY).getJSONArray(xyStageName_).getDouble(1);        

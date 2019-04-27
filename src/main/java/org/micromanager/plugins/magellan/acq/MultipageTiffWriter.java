@@ -303,6 +303,12 @@ public class MultipageTiffWriter {
       ByteBuffer indexMapNumEntries = allocateByteBuffer(4);
       indexMapNumEntries.putInt(0, numImages);
       fileChannelWrite(indexMapNumEntries, indexMapFirstEntry_ - 4);
+      try {
+         //extra byte of space, just to make sure nothing gets cut off
+         raFile_.setLength(filePosition_ + 8);
+      } catch (IOException ex) {
+         Log.log(ex);
+      }
    }
 
    /**
@@ -328,12 +334,6 @@ public class MultipageTiffWriter {
       Future f = executeWritingTask(new Runnable() {
          @Override
          public void run() {
-            try {
-               //extra byte of space, just to make sure nothing gets cut off
-               raFile_.setLength(filePosition_ + 8);
-            } catch (IOException ex) {
-               Log.log(ex);
-            }
 //            reader_.finishedWriting();
             //Dont close file channel and random access file becase Tiff reader still using them
             fileChannel_ = null;

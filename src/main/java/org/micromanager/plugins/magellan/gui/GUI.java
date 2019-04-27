@@ -19,6 +19,7 @@ package main.java.org.micromanager.plugins.magellan.gui;
 import java.awt.CardLayout;
 import java.awt.Color;
 import java.awt.Component;
+import java.awt.Cursor;
 import java.awt.Font;
 import java.awt.event.FocusAdapter;
 import java.awt.event.FocusEvent;
@@ -40,9 +41,11 @@ import java.awt.event.ComponentAdapter;
 import java.awt.event.ComponentEvent;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
+import java.awt.font.TextAttribute;
 import java.awt.geom.AffineTransform;
 import java.io.IOException;
 import java.util.LinkedList;
+import java.util.Map;
 import javax.swing.DefaultCellEditor;
 import javax.swing.JOptionPane;
 import javax.swing.JTextField;
@@ -95,11 +98,11 @@ public class GUI extends javax.swing.JFrame {
       singleton_ = this;
       storeAcqSettings_ = false; // dont store during intialization
       prefs_ = prefs;
-      settings_ = new GlobalSettings(prefs_, this);
+      settings_ = new GlobalSettings(prefs_);
       this.setTitle("Micro-Magellan " + version);
       acqDurationEstimator_ = new AcqDurationEstimator();
       eng_ = new MagellanEngine(Magellan.getCore(), acqDurationEstimator_);
-      multiAcqManager_ = new AcquisitionsManager(this, eng_);
+      multiAcqManager_ = new AcquisitionsManager(this);
       initComponents();
       moreInitialization();
       this.setVisible(true);
@@ -225,6 +228,23 @@ public class GUI extends javax.swing.JFrame {
             }).start();
          }
       });
+      
+      //add link to g report
+      bugReportLink_.addMouseListener(new MouseAdapter() {
+         @Override
+         public void mousePressed(MouseEvent e) {
+            new Thread(new Runnable() {
+               @Override
+               public void run() {
+                  try {
+                     ij.plugin.BrowserLauncher.openURL("https://github.com/henrypinkard/Micro-Magellan/issues/");
+                  } catch (IOException ex) {
+                     Log.log("couldn't open citation link");
+                  }
+               }
+            }).start();
+         }
+      });
 
       //exactly one acquisition selected at all times
       multipleAcqTable_.setSelectionModel(new ExactlyOneRowSelectionModel());
@@ -244,7 +264,7 @@ public class GUI extends javax.swing.JFrame {
          }
       });
       //Table column widths
-      multipleAcqTable_.getColumnModel().getColumn(0).setMaxWidth(40); //order column
+//      multipleAcqTable_.getColumnModel().getColumn(0).setMaxWidth(40); //name column
       multipleAcqTable_.getColumnModel().getColumn(2).setMaxWidth(100); //status column
 
       channelsTable_.getColumnModel().getColumn(0).setMaxWidth(30); //Acitve checkbox column
@@ -263,13 +283,13 @@ public class GUI extends javax.swing.JFrame {
             renderer.setHorizontalAlignment(SwingConstants.LEFT); // left justify
             channelsTable_.getColumnModel().getColumn(col).setCellRenderer(renderer);
          }
-         if (col == 2) {
-            //left justified editor
-            JTextField tf = new JTextField();
-            tf.setHorizontalAlignment(SwingConstants.LEFT);
-            DefaultCellEditor ed = new DefaultCellEditor(tf);
-            channelsTable_.getColumnModel().getColumn(col).setCellEditor(ed);
-         }
+//         if (col == 2) {
+//            //left justified editor
+//            JTextField tf = new JTextField();
+//            tf.setHorizontalAlignment(SwingConstants.LEFT);
+//            DefaultCellEditor ed = new DefaultCellEditor(tf);
+//            channelsTable_.getColumnModel().getColumn(col).setCellEditor(ed);
+//         }
       }
 
       //load global settings     
@@ -569,8 +589,6 @@ public class GUI extends javax.swing.JFrame {
       surfaceAndGridsPanel_ = new javax.swing.JPanel();
       deleteAllRegionsButton_ = new javax.swing.JButton();
       deleteSelectedRegionButton_ = new javax.swing.JButton();
-      loadButton_ = new javax.swing.JButton();
-      saveButton_ = new javax.swing.JButton();
       jScrollPane2 = new javax.swing.JScrollPane();
       surfacesAndGridsTable_ = new javax.swing.JTable();
       surfacesAndGrdisLabel_ = new javax.swing.JLabel();
@@ -659,6 +677,7 @@ public class GUI extends javax.swing.JFrame {
       citeLink_ = new javax.swing.JLabel();
       helpButton_ = new javax.swing.JButton();
       calinrateTilingButton_ = new javax.swing.JButton();
+      bugReportLink_ = new javax.swing.JLabel();
       topPanel_ = new javax.swing.JPanel();
       exploreSavingDirLabel_ = new javax.swing.JLabel();
       globalSavingDirTextField_ = new javax.swing.JTextField();
@@ -736,20 +755,6 @@ public class GUI extends javax.swing.JFrame {
          }
       });
 
-      loadButton_.setText("Load");
-      loadButton_.addActionListener(new java.awt.event.ActionListener() {
-         public void actionPerformed(java.awt.event.ActionEvent evt) {
-            loadButton_ActionPerformed(evt);
-         }
-      });
-
-      saveButton_.setText("Save");
-      saveButton_.addActionListener(new java.awt.event.ActionListener() {
-         public void actionPerformed(java.awt.event.ActionEvent evt) {
-            saveButton_ActionPerformed(evt);
-         }
-      });
-
       surfacesAndGridsTable_.setModel(new SurfaceGridTableModel());
       surfacesAndGridsTable_.setSelectionMode(javax.swing.ListSelectionModel.SINGLE_SELECTION);
       jScrollPane2.setViewportView(surfacesAndGridsTable_);
@@ -760,29 +765,23 @@ public class GUI extends javax.swing.JFrame {
          surfaceAndGridsPanel_Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
          .addGroup(surfaceAndGridsPanel_Layout.createSequentialGroup()
             .addContainerGap()
-            .addComponent(saveButton_)
-            .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-            .addComponent(loadButton_)
-            .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
             .addComponent(deleteSelectedRegionButton_)
             .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
             .addComponent(deleteAllRegionsButton_)
-            .addGap(347, 347, 347))
+            .addContainerGap(javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
          .addGroup(surfaceAndGridsPanel_Layout.createSequentialGroup()
-            .addComponent(jScrollPane2)
+            .addComponent(jScrollPane2, javax.swing.GroupLayout.DEFAULT_SIZE, 755, Short.MAX_VALUE)
             .addContainerGap())
       );
       surfaceAndGridsPanel_Layout.setVerticalGroup(
          surfaceAndGridsPanel_Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
          .addGroup(surfaceAndGridsPanel_Layout.createSequentialGroup()
             .addGap(20, 20, 20)
-            .addComponent(jScrollPane2, javax.swing.GroupLayout.DEFAULT_SIZE, 267, Short.MAX_VALUE)
+            .addComponent(jScrollPane2, javax.swing.GroupLayout.DEFAULT_SIZE, 280, Short.MAX_VALUE)
             .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
             .addGroup(surfaceAndGridsPanel_Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
                .addComponent(deleteSelectedRegionButton_)
-               .addComponent(deleteAllRegionsButton_)
-               .addComponent(saveButton_)
-               .addComponent(loadButton_))
+               .addComponent(deleteAllRegionsButton_))
             .addContainerGap())
       );
 
@@ -801,7 +800,7 @@ public class GUI extends javax.swing.JFrame {
                      .addGroup(explorePanelLayout.createSequentialGroup()
                         .addComponent(exploreSavingNameLabel_)
                         .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                        .addComponent(exploreSavingNameTextField_))
+                        .addComponent(exploreSavingNameTextField_, javax.swing.GroupLayout.DEFAULT_SIZE, 640, Short.MAX_VALUE))
                      .addGroup(explorePanelLayout.createSequentialGroup()
                         .addGroup(explorePanelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
                            .addGroup(explorePanelLayout.createSequentialGroup()
@@ -1717,10 +1716,12 @@ public class GUI extends javax.swing.JFrame {
       exploreAcqTabbedPane_.addTab("Acquisition(s)", acqPanel);
 
       userGuideLink_.setFont(new java.awt.Font("Tahoma", 0, 14)); // NOI18N
-      userGuideLink_.setText("<html><a href=\\\"https://micro-manager.org/wiki/MicroMagellan\\\">Micro-Magellan User Guide</a></html>");
+      userGuideLink_.setForeground(new java.awt.Color(153, 204, 255));
+      userGuideLink_.setText("Micro-Magellan User Guide");
 
       citeLink_.setFont(new java.awt.Font("Tahoma", 0, 14)); // NOI18N
-      citeLink_.setText("<html><a href=\\\"http://www.nature.com/nmeth/journal/v13/n10/full/nmeth.3991.html\\\">Cite Micro-Magellan</a></html>");
+      citeLink_.setForeground(new java.awt.Color(153, 204, 255));
+      citeLink_.setText("Cite Micro-Magellan");
 
       helpButton_.setBackground(new java.awt.Color(200, 255, 200));
       helpButton_.setFont(new java.awt.Font("Tahoma", 0, 14)); // NOI18N
@@ -1739,6 +1740,26 @@ public class GUI extends javax.swing.JFrame {
          }
       });
 
+      bugReportLink_.setFont(new java.awt.Font("Tahoma", 0, 14)); // NOI18N
+      bugReportLink_.setForeground(new java.awt.Color(153, 204, 255));
+      bugReportLink_.setText("Report a bug");
+
+      userGuideLink_.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
+      Font font = userGuideLink_.getFont();
+      Map attributes = font.getAttributes();
+      attributes.put(TextAttribute.UNDERLINE, TextAttribute.UNDERLINE_ON);
+      userGuideLink_.setFont(font.deriveFont(attributes));
+      citeLink_.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
+      Font font3 = citeLink_.getFont();
+      Map attributes3 = font3.getAttributes();
+      attributes3.put(TextAttribute.UNDERLINE, TextAttribute.UNDERLINE_ON);
+      citeLink_.setFont(font3.deriveFont(attributes3));
+      bugReportLink_.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
+      Font font2 = bugReportLink_.getFont();
+      Map attributes2 = font2.getAttributes();
+      attributes2.put(TextAttribute.UNDERLINE, TextAttribute.UNDERLINE_ON);
+      bugReportLink_.setFont(font2.deriveFont(attributes2));
+
       javax.swing.GroupLayout bottomPanel_Layout = new javax.swing.GroupLayout(bottomPanel_);
       bottomPanel_.setLayout(bottomPanel_Layout);
       bottomPanel_Layout.setHorizontalGroup(
@@ -1748,11 +1769,13 @@ public class GUI extends javax.swing.JFrame {
             .addComponent(helpButton_)
             .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
             .addComponent(calinrateTilingButton_)
-            .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED, 80, Short.MAX_VALUE)
-            .addComponent(userGuideLink_, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
-            .addGap(113, 113, 113)
-            .addComponent(citeLink_, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
-            .addGap(94, 94, 94))
+            .addGap(53, 53, 53)
+            .addComponent(userGuideLink_)
+            .addGap(66, 66, 66)
+            .addComponent(citeLink_)
+            .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+            .addComponent(bugReportLink_)
+            .addGap(27, 27, 27))
       );
       bottomPanel_Layout.setVerticalGroup(
          bottomPanel_Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
@@ -1761,8 +1784,9 @@ public class GUI extends javax.swing.JFrame {
             .addGroup(bottomPanel_Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
                .addComponent(calinrateTilingButton_)
                .addComponent(helpButton_)
-               .addComponent(citeLink_, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
-               .addComponent(userGuideLink_, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)))
+               .addComponent(citeLink_)
+               .addComponent(userGuideLink_)
+               .addComponent(bugReportLink_)))
       );
 
       exploreSavingDirLabel_.setFont(new java.awt.Font("Tahoma", 0, 14)); // NOI18N
@@ -1797,7 +1821,7 @@ public class GUI extends javax.swing.JFrame {
          .addGroup(javax.swing.GroupLayout.Alignment.TRAILING, topPanel_Layout.createSequentialGroup()
             .addContainerGap()
             .addComponent(freeDiskSpaceLabel_, javax.swing.GroupLayout.PREFERRED_SIZE, 197, javax.swing.GroupLayout.PREFERRED_SIZE)
-            .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED, 353, Short.MAX_VALUE)
+            .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED, 381, Short.MAX_VALUE)
             .addComponent(exploreBrowseButton_)
             .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
             .addComponent(openDatasetButton_))
@@ -1839,7 +1863,7 @@ public class GUI extends javax.swing.JFrame {
                .addGroup(root_panel_Layout.createSequentialGroup()
                   .addComponent(bottomPanel_, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
                   .addContainerGap())
-               .addComponent(exploreAcqTabbedPane_, javax.swing.GroupLayout.PREFERRED_SIZE, 0, Short.MAX_VALUE)
+               .addComponent(exploreAcqTabbedPane_)
                .addComponent(topPanel_, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)))
       );
       root_panel_Layout.setVerticalGroup(
@@ -1965,6 +1989,10 @@ public class GUI extends javax.swing.JFrame {
 
    private void removeAcqButton_ActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_removeAcqButton_ActionPerformed
       multiAcqManager_.remove(multipleAcqTable_.getSelectedRow());
+      if (multiAcqSelectedIndex_ == multiAcqManager_.getNumberOfAcquisitions()) {
+         multiAcqSelectedIndex_--; 
+         multipleAcqTable_.getSelectionModel().setSelectionInterval(multiAcqSelectedIndex_, multiAcqSelectedIndex_);
+      }
       acquisitionSettingsChanged();
    }//GEN-LAST:event_removeAcqButton_ActionPerformed
 
@@ -2069,14 +2097,6 @@ public class GUI extends javax.swing.JFrame {
       acquisitionSettingsChanged();
    }//GEN-LAST:event_timeIntevalUnitCombo_ActionPerformed
 
-   private void loadButton_ActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_loadButton_ActionPerformed
-      manager_.load(this);
-   }//GEN-LAST:event_loadButton_ActionPerformed
-
-   private void saveButton_ActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_saveButton_ActionPerformed
-      manager_.save(this);
-   }//GEN-LAST:event_saveButton_ActionPerformed
-
    private void deleteAllRegionsButton_ActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_deleteAllRegionsButton_ActionPerformed
       manager_.deleteAll();
    }//GEN-LAST:event_deleteAllRegionsButton_ActionPerformed
@@ -2166,6 +2186,7 @@ public class GUI extends javax.swing.JFrame {
    private javax.swing.JPanel bottomPanel_;
    private javax.swing.JComboBox bottomSurfaceCombo_;
    private javax.swing.JLabel bottomSurfaceLabel_;
+   private javax.swing.JLabel bugReportLink_;
    private javax.swing.JRadioButton button2D_;
    private javax.swing.JRadioButton button3D_;
    private javax.swing.JButton calinrateTilingButton_;
@@ -2210,7 +2231,6 @@ public class GUI extends javax.swing.JFrame {
    private javax.swing.JLabel jLabel5;
    private javax.swing.JScrollPane jScrollPane1;
    private javax.swing.JScrollPane jScrollPane2;
-   private javax.swing.JButton loadButton_;
    private javax.swing.JButton moveAcqDownButton_;
    private javax.swing.JButton moveAcqUpButton_;
    private javax.swing.JScrollPane multipleAcqScrollPane_;
@@ -2227,7 +2247,6 @@ public class GUI extends javax.swing.JFrame {
    private javax.swing.JPanel root_panel_;
    private javax.swing.JButton runAcqButton_;
    private javax.swing.JPanel runAcqPanel_;
-   private javax.swing.JButton saveButton_;
    private javax.swing.JButton setCurrentZEndButton_;
    private javax.swing.JButton setCurrentZStartButton_;
    private javax.swing.JPanel simpleZPanel_;

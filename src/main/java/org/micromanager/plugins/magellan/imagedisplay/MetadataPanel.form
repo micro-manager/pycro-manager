@@ -85,20 +85,12 @@
           <Layout>
             <DimensionLayout dim="0">
               <Group type="103" groupAlignment="0" attributes="0">
-                  <Component id="jScrollPane1" pref="0" max="32767" attributes="0"/>
-                  <Group type="102" attributes="0">
-                      <Component id="showUnchangingPropertiesCheckBox_" min="-2" max="-2" attributes="0"/>
-                      <EmptySpace min="0" pref="162" max="32767" attributes="0"/>
-                  </Group>
+                  <Component id="jScrollPane1" pref="373" max="32767" attributes="0"/>
               </Group>
             </DimensionLayout>
             <DimensionLayout dim="1">
               <Group type="103" groupAlignment="0" attributes="0">
-                  <Group type="102" alignment="1" attributes="0">
-                      <Component id="showUnchangingPropertiesCheckBox_" min="-2" max="-2" attributes="0"/>
-                      <EmptySpace max="-2" attributes="0"/>
-                      <Component id="jScrollPane1" pref="254" max="32767" attributes="0"/>
-                  </Group>
+                  <Component id="jScrollPane1" alignment="1" pref="283" max="32767" attributes="0"/>
               </Group>
             </DimensionLayout>
           </Layout>
@@ -116,11 +108,6 @@
                 </Component>
               </SubComponents>
             </Container>
-            <Component class="javax.swing.JCheckBox" name="showUnchangingPropertiesCheckBox_">
-              <Properties>
-                <Property name="text" type="java.lang.String" value="Show unchanging properties"/>
-              </Properties>
-            </Component>
           </SubComponents>
         </Container>
       </SubComponents>

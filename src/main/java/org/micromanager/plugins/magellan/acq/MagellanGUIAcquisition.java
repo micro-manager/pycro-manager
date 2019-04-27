@@ -82,10 +82,14 @@ public class MagellanGUIAcquisition extends Acquisition {
 
       //Submit a generating stream to get this acquisition going
       Stream<AcquisitionEvent> acqEventStream = magellanGUIAcqEventStream();
-      submitEventStream(acqEventStream);  
+      submitEventStream(acqEventStream);
    }
-   
-   public void waitForCompletion() {
+
+   /**
+    *
+    * @return true if finished normally, false if aborted
+    */
+   public boolean waitForCompletion() {
       while (!finished_) {
          try {
             Thread.sleep(10);
@@ -93,23 +97,26 @@ public class MagellanGUIAcquisition extends Acquisition {
             //Doesnt matter, should still finish eventually if everything works right
          }
       }
+      return !aborted_;
    }
-   
+
    /**
     * Build the event stream according to the provided acquisition settings
     *
     * @return
     */
    private Stream<AcquisitionEvent> magellanGUIAcqEventStream() {
-      ArrayList<Function<AcquisitionEvent, Stream<AcquisitionEvent>>> acqFunctions
-              = new ArrayList<Function<AcquisitionEvent, Stream<AcquisitionEvent>>>();
+      ArrayList<Function<AcquisitionEvent, Iterator<AcquisitionEvent>>> acqFunctions
+              = new ArrayList<Function<AcquisitionEvent, Iterator<AcquisitionEvent>>>();
       //Define where slice index 0 will be
       zOrigin_ = getZTopCoordinate();
       boolean surfaceGuided2D = settings_.spaceMode_ == MagellanGUIAcquisitionSettings.REGION_2D && settings_.useCollectionPlane_;
 
       acqFunctions.add(timelapse());
-      acqFunctions.add(positions(IntStream.rangeClosed(0, 10).toArray(), positions_));
-      if (surfaceGuided2D) {
+      acqFunctions.add(positions(IntStream.range(0, positions_.size()).toArray(), positions_));
+      if (settings_.spaceMode_ == MagellanGUIAcquisitionSettings.REGION_2D) {
+         acqFunctions.add(channels(settings_.channels_));
+      } else if (surfaceGuided2D) {
          acqFunctions.add(surfaceGuided2D());
          acqFunctions.add(channels(settings_.channels_));
       } else if (settings_.channelsAtEverySlice_) {
@@ -148,96 +155,74 @@ public class MagellanGUIAcquisition extends Acquisition {
       };
    }
 
-   /**
-    * Get a finite stream of integers, stopping whenever what is currently set
-    * as the frame in the acquisition settings is reached, thereby allowing it
-    * to be changed dynamically during acquisition. Apparently this is much
-    * easier in java9 using the takeWhile() function
-    *
-    * @return
-    */
-   private Stream<Integer> makeFrameIndexStream() {
-      Iterator<Integer> frameIndexIterator = new Iterator() {
-         int frameIndex_ = 0;
-
-         @Override
-         public boolean hasNext() {
-            if (frameIndex_ == 0) {
-               return true;
-            }
-            if (settings_.timeEnabled_ && frameIndex_ < settings_.numTimePoints_) {
-               return true;
-            }
-            return false;
-         }
-
-         @Override
-         public Object next() {
-            frameIndex_++;
-            return frameIndex_ - 1;
-         }
-      };
-      Stream<Integer> iStream = StreamSupport.stream(Spliterators.spliteratorUnknownSize(frameIndexIterator, Spliterator.DISTINCT), false);
-      return iStream;
-   }
-
-   private Function<AcquisitionEvent, Stream<AcquisitionEvent>> timelapse() {
+   private Function<AcquisitionEvent, Iterator<AcquisitionEvent>> timelapse() {
       return (AcquisitionEvent event) -> {
-         Stream<Integer> frameIndexStream = makeFrameIndexStream();
-         Function<Integer, AcquisitionEvent> indexToEvent = (Integer t) -> {
-            double interval_ms = settings_.timePointInterval_ * (settings_.timeIntervalUnit_ == 1 ? 1000 : (settings_.timeIntervalUnit_ == 2 ? 60000 : 1));
-            AcquisitionEvent timePointEvent = event.copy();
-            timePointEvent.miniumumStartTime_ = lastTimePointEvent_ + (long) interval_ms;
-            timePointEvent.timeIndex_ = t;
-            lastTimePointEvent_ = System.currentTimeMillis();
-            return timePointEvent;
+         return new Iterator<AcquisitionEvent>() {
+            int frameIndex_ = 0;
+
+            @Override
+            public boolean hasNext() {
+               if (frameIndex_ == 0) {
+                  return true;
+               }
+               if (settings_.timeEnabled_ && frameIndex_ < settings_.numTimePoints_) {
+                  return true;
+               }
+               return false;
+            }
+
+            @Override
+            public AcquisitionEvent next() {
+               frameIndex_++;
+               double interval_ms = settings_.timePointInterval_ * (settings_.timeIntervalUnit_ == 1 ? 1000 : (settings_.timeIntervalUnit_ == 2 ? 60000 : 1));
+               AcquisitionEvent timePointEvent = event.copy();
+               timePointEvent.miniumumStartTime_ = lastTimePointEvent_ + (long) interval_ms;
+               timePointEvent.timeIndex_ = frameIndex_ - 1;
+               lastTimePointEvent_ = System.currentTimeMillis();
+               return timePointEvent;
+            }
          };
-         return frameIndexStream.map(indexToEvent);
       };
    }
 
    /**
     * Fancy Z stack Magellan style
     */
-   protected Function<AcquisitionEvent, Stream<AcquisitionEvent>> MagellanZStack() {
+   protected Function<AcquisitionEvent, Iterator<AcquisitionEvent>> MagellanZStack() {
       return (AcquisitionEvent event) -> {
-         Stream.Builder<AcquisitionEvent> builder = Stream.builder();
+         return new Iterator<AcquisitionEvent>() {
+            private int sliceIndex_ = (int) Math.round((getZTopCoordinate() - zOrigin_) / zStep_);
 
-         int sliceIndex = (int) Math.round((getZTopCoordinate() - zOrigin_) / zStep_);
-         while (true) {
-            double zPos = zOrigin_ + sliceIndex * zStep_;
-            if ((settings_.spaceMode_ == MagellanGUIAcquisitionSettings.REGION_2D || settings_.spaceMode_ == MagellanGUIAcquisitionSettings.NO_SPACE)
-                    && sliceIndex > 0) {
-               break; //2D regions only have 1 slice
-            }
-
-            if (isImagingVolumeUndefinedAtPosition(settings_.spaceMode_, settings_, event.xyPosition_)) {
-               break;
-            }
-
-            if (isZBelowImagingVolume(settings_.spaceMode_, settings_, event.xyPosition_, zPos, zOrigin_) || (zStageHasLimits_ && zPos > zStageUpperLimit_)) {
+            @Override
+            public boolean hasNext() {
+               double zPos = zOrigin_ + sliceIndex_ * zStep_;
+               boolean undefined = isImagingVolumeUndefinedAtPosition(settings_.spaceMode_, settings_, event.xyPosition_);
                //position is below z stack or limit of focus device, z stack finished
-               break;
-            }
-            //3D region
-            if (isZAboveImagingVolume(settings_.spaceMode_, settings_, event.xyPosition_, zPos, zOrigin_) || (zStageHasLimits_ && zPos < zStageLowerLimit_)) {
-               sliceIndex++;
-               continue; //position is above imaging volume or range of focus device
+               boolean below = isZBelowImagingVolume(settings_.spaceMode_, settings_, event.xyPosition_, zPos, zOrigin_)
+                       || (zStageHasLimits_ && zPos > zStageUpperLimit_);
+               return (undefined || below) ? false : true;
             }
 
-            AcquisitionEvent sliceEvent = event.copy();
-            sliceEvent.sliceIndex_ = sliceIndex;
-            //Do plus equals here in case z positions have been modified by another function (e.g. channel specific focal offsets)
-            sliceEvent.zPosition_ += zPos;
-            builder.accept(sliceEvent);
-            sliceIndex++;
-         }//slice loop finish
-         return builder.build();
+            @Override
+            public AcquisitionEvent next() {
+               double zPos = zOrigin_ + sliceIndex_ * zStep_;
+               while (isZAboveImagingVolume(settings_.spaceMode_, settings_, event.xyPosition_, zPos, zOrigin_) || (zStageHasLimits_ && zPos < zStageLowerLimit_)) {
+                  sliceIndex_++;
+                  zPos = zOrigin_ + sliceIndex_ * zStep_;
+               }
+               AcquisitionEvent sliceEvent = event.copy();
+               sliceEvent.sliceIndex_ = sliceIndex_;
+               //Do plus equals here in case z positions have been modified by another function (e.g. channel specific focal offsets)
+               sliceEvent.zPosition_ += zPos;
+               sliceIndex_++;
+               return sliceEvent;
+            }
+         };
       };
 
    }
 
-   private Function<AcquisitionEvent, Stream<AcquisitionEvent>> surfaceGuided2D() {
+   private Function<AcquisitionEvent, Iterator<AcquisitionEvent>> surfaceGuided2D() {
       return (AcquisitionEvent event) -> {
          //index all slcies as 0, even though they may nto be in the same plane
          double zPos;
@@ -250,7 +235,7 @@ public class MagellanGUIAcquisition extends Acquisition {
          }
          event.zPosition_ += zPos;
          event.sliceIndex_ = 0; //Make these all 0 for the purposes of the display even though they may be in very differnet locations
-         return Stream.of(event);
+         return Stream.of(event).iterator();
       };
 
    }
