@@ -58,9 +58,11 @@ public class DisplayOverlayer {
 
    private final static int INTERP_POINT_DIAMETER = 12;
    private final static int INITIAL_NUM_INTERPOLATION_DIVISIONS = 10;
-   
+
    private final static Color ACTIVE_OBJECT_COLOR = Color.cyan;
    private final static Color BACKGROUND_OBJECT_COLOR = Color.orange;
+   private static final Color LIGHT_BLUE = new Color(200, 200, 255);
+   private static final Color DARK_BLUE = new Color(100, 100, 255);
 
    private static final int[] VIRIDIS_RED = {68, 68, 68, 69, 69, 69, 70, 70, 70, 70, 71, 71, 71, 71, 71, 71, 71, 72, 72, 72, 72, 72, 72, 72, 72, 72, 71, 71, 71, 71, 71, 71, 71, 70, 70, 70, 70, 69, 69, 69, 69, 68, 68, 67, 67, 67, 66, 66, 66, 65, 65, 64, 64, 63, 63, 62, 62, 61, 61, 61, 60, 60, 59, 59, 58, 58, 57, 57, 56, 56, 55, 55, 54, 54, 53, 53, 52, 52, 51, 51, 50, 50, 49, 49, 49, 48, 48, 47, 47, 46, 46, 46, 45, 45, 44, 44, 44, 43, 43, 42, 42, 42, 41, 41, 40, 40, 40, 39, 39, 39, 38, 38, 38, 37, 37, 36, 36, 36, 35, 35, 35, 34, 34, 34, 33, 33, 33, 32, 32, 32, 31, 31, 31, 31, 31, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 31, 31, 31, 32, 32, 33, 33, 34, 35, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 46, 47, 48, 50, 51, 53, 54, 56, 57, 59, 61, 62, 64, 66, 68, 69, 71, 73, 75, 77, 79, 81, 83, 85, 87, 89, 91, 94, 96, 98, 100, 103, 105, 107, 109, 112, 114, 116, 119, 121, 124, 126, 129, 131, 134, 136, 139, 141, 144, 146, 149, 151, 154, 157, 159, 162, 165, 167, 170, 173, 175, 178, 181, 183, 186, 189, 191, 194, 197, 199, 202, 205, 207, 210, 212, 215, 218, 220, 223, 225, 228, 231, 233, 236, 238, 241, 243, 246, 248, 250, 253};
    private static final int[] VIRIDIS_GREEN = {1, 2, 3, 5, 6, 8, 9, 11, 12, 14, 15, 17, 18, 20, 21, 22, 24, 25, 26, 28, 29, 30, 32, 33, 34, 35, 37, 38, 39, 40, 42, 43, 44, 45, 47, 48, 49, 50, 52, 53, 54, 55, 57, 58, 59, 60, 61, 62, 64, 65, 66, 67, 68, 69, 71, 72, 73, 74, 75, 76, 77, 78, 80, 81, 82, 83, 84, 85, 86, 87, 88, 89, 90, 91, 92, 93, 94, 95, 96, 97, 98, 99, 100, 101, 102, 103, 104, 105, 106, 107, 108, 109, 110, 111, 112, 113, 114, 115, 116, 117, 118, 119, 120, 121, 122, 122, 123, 124, 125, 126, 127, 128, 129, 130, 131, 132, 133, 134, 135, 136, 137, 137, 138, 139, 140, 141, 142, 143, 144, 145, 146, 147, 148, 149, 150, 151, 152, 153, 153, 154, 155, 156, 157, 158, 159, 160, 161, 162, 163, 164, 165, 166, 167, 167, 168, 169, 170, 171, 172, 173, 174, 175, 176, 177, 177, 178, 179, 180, 181, 182, 183, 184, 185, 185, 186, 187, 188, 189, 190, 190, 191, 192, 193, 194, 194, 195, 196, 197, 198, 198, 199, 200, 201, 201, 202, 203, 204, 204, 205, 206, 206, 207, 208, 208, 209, 210, 210, 211, 211, 212, 213, 213, 214, 214, 215, 215, 216, 216, 217, 217, 218, 218, 219, 219, 220, 220, 221, 221, 221, 222, 222, 223, 223, 223, 224, 224, 224, 225, 225, 225, 226, 226, 226, 227, 227, 227, 228, 228, 228, 229, 229, 229, 230, 230, 230, 231};
@@ -147,7 +149,7 @@ public class DisplayOverlayer {
               new Callable<Overlay>() {
          @Override
          public Overlay call() throws InterruptedException {
-            return createEasyRenderOverlay();
+            return createEasyPartsOfOverlay();
          }
       });
       try {
@@ -183,60 +185,29 @@ public class DisplayOverlayer {
     *
     * @return
     */
-   private Overlay createEasyRenderOverlay() throws InterruptedException {
-
+   private Overlay createEasyPartsOfOverlay() throws InterruptedException {
       try {
          //determine appropriate overlay
          int mode = display_.getMode();
+         Overlay overlay = createBackgroundOverlay();
          if (mode == DisplayPlus.EXPLORE) {
-            Overlay overlay = createBackgroundOverlay();
-            if (display_.getExploreEndTile() != null) {
-               //draw explore tiles waiting to be confirmed with a click
-               highlightTilesOnOverlay(overlay, Math.min(display_.getExploreEndTile().y, display_.getExploreStartTile().y),
-                       Math.max(display_.getExploreEndTile().y, display_.getExploreStartTile().y),
-                       Math.min(display_.getExploreEndTile().x, display_.getExploreStartTile().x),
-                       Math.max(display_.getExploreEndTile().x, display_.getExploreStartTile().x), TRANSPARENT_MAGENTA);
-            } else if (display_.getMouseDragStartPointLeft() != null) {
-               //highlight multiple tiles when mouse dragging    
-               Point mouseLoc = display_.getCurrentMouseLocation();
-               Point dragStart = display_.getMouseDragStartPointLeft();
-               Point p2Tiles = zoomableStack_.getTileIndicesFromDisplayedPixel(mouseLoc.x, mouseLoc.y),
-                       p1Tiles = zoomableStack_.getTileIndicesFromDisplayedPixel(dragStart.x, dragStart.y);
-               highlightTilesOnOverlay(overlay, Math.min(p1Tiles.y, p2Tiles.y), Math.max(p1Tiles.y, p2Tiles.y),
-                       Math.min(p1Tiles.x, p2Tiles.x), Math.max(p1Tiles.x, p2Tiles.x), TRANSPARENT_BLUE);
-            } else if (display_.getCurrentMouseLocation() != null) {
-               //draw single highlighted tile under mouse
-               Point coords = zoomableStack_.getTileIndicesFromDisplayedPixel(display_.getCurrentMouseLocation().x, display_.getCurrentMouseLocation().y);
-               highlightTilesOnOverlay(overlay, coords.y, coords.y, coords.x, coords.x, TRANSPARENT_BLUE); //highligth single tile
-
-            }
-            try {
-               if (acq_ instanceof ExploreAcquisition) {
-                  //always draw tiles waiting to be acquired
-                  LinkedBlockingQueue<ExploreAcquisition.ExploreTileWaitingToAcquire> tiles
-                          = ((ExploreAcquisition) acq_).getTilesWaitingToAcquireAtSlice(display_.getVisibleSliceIndex()
-                                  + ((ExploreAcquisition) acq_).getMinSliceIndex());
-                  if (tiles != null) {
-                     for (ExploreAcquisition.ExploreTileWaitingToAcquire t : tiles) {
-                        highlightTilesOnOverlay(overlay, t.row, t.row, t.col, t.col, TRANSPARENT_GREEN);
-                     }
-                  }
-               }
-            } catch (Exception e) {
-               e.printStackTrace();
-            }
-
+            addExploreToOverlay(overlay);
             return overlay;
          } else if (mode == DisplayPlus.NONE) {
-            return createBackgroundOverlay();
+            return overlay;
          } else if (mode == DisplayPlus.SURFACE_AND_GRID) {
             //Add in the easier to render parts of all surfaces and grids
-            ArrayList<XYFootprint> sAndg = getSurfacesAndGridsInDrawOrder();           
-            Overlay overlay = createBackgroundOverlay();
+            ArrayList<XYFootprint> sAndg = getSurfacesAndGridsInDrawOrder();
+            if (sAndg.isEmpty()) {
+               String[] text = {"Grid and surface mode:",
+                  "",
+                  "Use the \"New Grid\" or \"New Surface\" buttons to the right to get started"};
+               addTextBox(text, overlay);
+            }
             //if any surfaces are visible show the interp scale bar
             boolean showSurfaceInterpScale = false;
             for (XYFootprint xy : sAndg) {
-               if (xy instanceof SurfaceInterpolator && ((SurfaceInterpolator) xy).getPoints().length >= 3 ) {
+               if (xy instanceof SurfaceInterpolator && ((SurfaceInterpolator) xy).getPoints().length >= 3) {
                   showSurfaceInterpScale = true;
                }
             }
@@ -257,6 +228,14 @@ public class DisplayOverlayer {
                      if (showXYFootprint_) {
                         addStagePositions((SurfaceInterpolator) xy, overlay);
                      }
+                  } else if (((SurfaceInterpolator) xy).getPoints().length == 0) {
+                     //Add surface instructions
+                     String[] text = {"Surface creation (for non-rectangular/cuboidal acquisitions):",
+                        "",
+                        "Left click to add interpolation points",
+                        "Right click to remove points",
+                        "Shift + right click to remove all points on current Z slice"};
+                     addTextBox(text, overlay);
                   }
 
                }
@@ -270,6 +249,74 @@ public class DisplayOverlayer {
          Log.log("Null pointer exception while creating overlay. written to stack ", false);
          npe.printStackTrace();
          return null;
+      }
+   }
+
+   private void addExploreToOverlay(Overlay overlay) {
+      if (acq_ instanceof ExploreAcquisition) {
+         ExploreAcquisition expAcq = (ExploreAcquisition) acq_;
+         if (display_.getExploreEndTile() != null) {
+            //draw explore tiles waiting to be confirmed with a click
+            highlightTilesOnOverlay(overlay, Math.min(display_.getExploreEndTile().y, display_.getExploreStartTile().y),
+                    Math.max(display_.getExploreEndTile().y, display_.getExploreStartTile().y),
+                    Math.min(display_.getExploreEndTile().x, display_.getExploreStartTile().x),
+                    Math.max(display_.getExploreEndTile().x, display_.getExploreStartTile().x), TRANSPARENT_MAGENTA);
+         } else if (display_.getMouseDragStartPointLeft() != null) {
+            //highlight multiple tiles when mouse dragging    
+            Point mouseLoc = display_.getCurrentMouseLocation();
+            Point dragStart = display_.getMouseDragStartPointLeft();
+            Point p2Tiles = zoomableStack_.getTileIndicesFromDisplayedPixel(mouseLoc.x, mouseLoc.y),
+                    p1Tiles = zoomableStack_.getTileIndicesFromDisplayedPixel(dragStart.x, dragStart.y);
+            highlightTilesOnOverlay(overlay, Math.min(p1Tiles.y, p2Tiles.y), Math.max(p1Tiles.y, p2Tiles.y),
+                    Math.min(p1Tiles.x, p2Tiles.x), Math.max(p1Tiles.x, p2Tiles.x), TRANSPARENT_BLUE);
+         } else if (display_.getCurrentMouseLocation() != null) {
+            //draw single highlighted tile under mouse
+            Point coords = zoomableStack_.getTileIndicesFromDisplayedPixel(display_.getCurrentMouseLocation().x, display_.getCurrentMouseLocation().y);
+            highlightTilesOnOverlay(overlay, coords.y, coords.y, coords.x, coords.x, TRANSPARENT_BLUE); //highligth single tile
+         } else {
+
+            String[] text = {"Explore mode controls:", "", "Left click or left click and drag to select tiles",
+               "Left click again to confirm", "Right click and drag to pan", "+/- keys or mouse wheel to zoom in/out"};
+
+            addTextBox(text, overlay);
+
+            //always draw tiles waiting to be acquired
+            LinkedBlockingQueue<ExploreAcquisition.ExploreTileWaitingToAcquire> tiles
+                    = expAcq.getTilesWaitingToAcquireAtSlice(display_.getVisibleSliceIndex() + expAcq.getMinSliceIndex());
+            if (tiles != null) {
+               for (ExploreAcquisition.ExploreTileWaitingToAcquire t : tiles) {
+                  highlightTilesOnOverlay(overlay, t.row, t.row, t.col, t.col, TRANSPARENT_GREEN);
+               }
+            }
+         }
+      }
+   }
+
+   private void addTextBox(String[] text, Overlay overlay) {
+      int fontSize = 12;
+      Font font = new Font("Arial", Font.BOLD, fontSize);
+      float lineHeight = 0;
+      float textWidth = 0;
+      for (String line : text) {
+         lineHeight = Math.max(lineHeight, canvas_.getGraphics().getFontMetrics(font).getLineMetrics(line, canvas_.getGraphics()).getHeight());
+         textWidth = Math.max(textWidth, canvas_.getGraphics().getFontMetrics().stringWidth(line));
+      }
+      float textHeight = lineHeight * text.length;
+      //10 pixel border 
+      int border = 10;
+      int roiWidth = (int) (textWidth + 2 * border);
+      int roiHeight = (int) (textHeight + 2 * border);
+      Roi rectangle = new Roi(display_.canvas_.getBounds().width / 2 - roiWidth / 2,
+              display_.canvas_.getBounds().height / 2 - roiHeight / 2, roiWidth, roiHeight);
+      rectangle.setStrokeWidth(3f);
+      rectangle.setFillColor(LIGHT_BLUE);
+
+      overlay.add(rectangle);
+      for (int i = 0; i < text.length; i++) {
+         TextRoi troi = new TextRoi(display_.canvas_.getBounds().width / 2 - roiWidth / 2 + border,
+                 display_.canvas_.getBounds().height / 2 - roiHeight / 2 + border + lineHeight * i, text[i], font);
+         troi.setStrokeColor(Color.black);
+         overlay.add(troi);
       }
    }
 
@@ -314,7 +361,7 @@ public class DisplayOverlayer {
          overlay.add(circle);
       }
    }
-   
+
    private Color getSurfaceGridLineColor(XYFootprint xy) {
       if (xy == display_.getCurrentEditableSurfaceOrGrid()) {
          return ACTIVE_OBJECT_COLOR;
@@ -351,13 +398,11 @@ public class DisplayOverlayer {
    }
 
    private void addStagePositions(SurfaceInterpolator surface, Overlay overlay) throws InterruptedException {
-      double zPosition = zoomableStack_.getZCoordinateOfDisplayedSlice(display_.getVisibleSliceIndex());
-
-      List<XYStagePosition> positionsAtSlice = surface.getXYPositionsNoUpdate();
-      if (positionsAtSlice == null) {
+      List<XYStagePosition> positionsXY = surface.getXYPositionsNoUpdate();
+      if (positionsXY == null) {
          return;
       }
-      for (XYStagePosition pos : positionsAtSlice) {
+      for (XYStagePosition pos : positionsXY) {
          if (Thread.interrupted()) {
             throw new InterruptedException();
          }
@@ -389,7 +434,7 @@ public class DisplayOverlayer {
       //start out with 10 interpolation points across the whole image 
       int displayPixPerInterpPoint = Math.max(display_.getImagePlus().getWidth(), display_.getImagePlus().getHeight()) / INITIAL_NUM_INTERPOLATION_DIVISIONS;
       //keep redrawing until surface full interpolated  
-      final Overlay startingOverlay = createEasyRenderOverlay();
+      final Overlay startingOverlay = createEasyPartsOfOverlay();
 
       int maxMinPixPerInterpPoint = Integer.MAX_VALUE;
       while (true) {
@@ -405,7 +450,7 @@ public class DisplayOverlayer {
          for (XYFootprint xy : getSurfacesAndGridsInDrawOrder()) {
             if (xy instanceof MultiPosGrid || ((SurfaceInterpolator) xy).getPoints().length < 3) {
                continue;
-            } 
+            }
             SurfaceInterpolator surface = ((SurfaceInterpolator) xy);
 
             SingleResolutionInterpolation interp = surface.waitForCurentInterpolation();
@@ -429,17 +474,17 @@ public class DisplayOverlayer {
                   canvas_.setOverlay(surfOverlay);
                }
             });
-            
-           maxMinPixPerInterpPoint = Math.min(maxMinPixPerInterpPoint, surface.getMinPixelsPerInterpPoint());
+
+            maxMinPixPerInterpPoint = Math.min(maxMinPixPerInterpPoint, surface.getMinPixelsPerInterpPoint());
          }
          displayPixPerInterpPoint /= 2;
          if (displayPixPerInterpPoint == 1) {
             return; //All rendered at full res
          }
          if (displayPixPerInterpPoint * zoomableStack_.getDownsampleFactor() <= maxMinPixPerInterpPoint) {
-               //finished  
-               return;
-            }  
+            //finished  
+            return;
+         }
       }
 
    }
@@ -529,57 +574,56 @@ public class DisplayOverlayer {
       rect.setFillColor(color);
       base.add(rect);
    }
-   
+
    private void drawSurfaceInterpScaleBar(Overlay overlay) {
       ZoomableVirtualStack zStack = (ZoomableVirtualStack) display_.virtualStack_;
       double sliceZ = zStack.getZCoordinateOfDisplayedSlice(display_.getVisibleSliceIndex());
       double zStep = acq_.getZStep();
-      String label1 = String.format("%.1f", sliceZ - zStep/ 2) + " μm";
+      String label1 = String.format("%.1f", sliceZ - zStep / 2) + " μm";
       String label2 = String.format("%.1f", sliceZ) + " μm";
       String label3 = String.format("%.1f", sliceZ + zStep / 2) + " μm";
- 
+
       int fontSize = 12;
       Font font = new Font("Arial", Font.BOLD, fontSize);
       float textHeight = canvas_.getGraphics().getFontMetrics(font).getLineMetrics(label1, canvas_.getGraphics()).getHeight();
       float textWidth = Math.max(Math.max(canvas_.getGraphics().getFontMetrics().stringWidth(label1),
               canvas_.getGraphics().getFontMetrics().stringWidth(label2)),
               canvas_.getGraphics().getFontMetrics().stringWidth(label3));
-      
+
       double scalePixelWidth = 10;
       double scalePixelHeight = 100;
       double borderSize = 2 + textHeight / 2;
       double scalePosXBuffer = 50;
       double offsetY = 10;
-      
+
       //10 pixel border outside of scale
-      Roi backgroundRect = new Roi(zoomableStack_.width_ - scalePosXBuffer - textWidth - borderSize, offsetY, 
-              scalePixelWidth + 2*borderSize + textWidth, scalePixelHeight + 2*borderSize);
+      Roi backgroundRect = new Roi(zoomableStack_.width_ - scalePosXBuffer - textWidth - borderSize, offsetY,
+              scalePixelWidth + 2 * borderSize + textWidth, scalePixelHeight + 2 * borderSize);
       backgroundRect.setFillColor(new Color(230, 230, 230)); //magenta      
       overlay.add(backgroundRect);
 
       for (double y = 0; y < scalePixelHeight; y++) {
          Roi line = new Roi(zoomableStack_.width_ - scalePosXBuffer, offsetY + borderSize + y, scalePixelWidth, 1);
-         double colorScale = y/scalePixelHeight;
+         double colorScale = y / scalePixelHeight;
          line.setFillColor(new Color(VIRIDIS_RED[(int) (colorScale * VIRIDIS_RED.length)],
-                       VIRIDIS_GREEN[(int) (colorScale * VIRIDIS_GREEN.length)], VIRIDIS_BLUE[(int) (colorScale * VIRIDIS_BLUE.length)]));
+                 VIRIDIS_GREEN[(int) (colorScale * VIRIDIS_GREEN.length)], VIRIDIS_BLUE[(int) (colorScale * VIRIDIS_BLUE.length)]));
          overlay.add(line);
       }
-      
-      
+
       //outline rectange
       Roi outline = new Roi(zoomableStack_.width_ - scalePosXBuffer, offsetY + borderSize, scalePixelWidth, scalePixelHeight);
       outline.setStrokeColor(Color.black);
       overlay.add(outline);
       //add three labels
-      Roi labelTop = new TextRoi(zoomableStack_.width_ - scalePosXBuffer - textWidth, offsetY + borderSize - textHeight/2, label1, font);
+      Roi labelTop = new TextRoi(zoomableStack_.width_ - scalePosXBuffer - textWidth, offsetY + borderSize - textHeight / 2, label1, font);
       labelTop.setStrokeColor(Color.black);
       overlay.add(labelTop);
-      
-      Roi labelMid = new TextRoi(zoomableStack_.width_ - scalePosXBuffer - textWidth, offsetY + borderSize + scalePixelHeight/2 - textHeight/2, label2, font);
+
+      Roi labelMid = new TextRoi(zoomableStack_.width_ - scalePosXBuffer - textWidth, offsetY + borderSize + scalePixelHeight / 2 - textHeight / 2, label2, font);
       labelMid.setStrokeColor(Color.black);
       overlay.add(labelMid);
-      
-      Roi labelBot = new TextRoi(zoomableStack_.width_ - scalePosXBuffer - textWidth, offsetY + borderSize + scalePixelHeight - textHeight/2, label3, font);
+
+      Roi labelBot = new TextRoi(zoomableStack_.width_ - scalePosXBuffer - textWidth, offsetY + borderSize + scalePixelHeight - textHeight / 2, label3, font);
       labelBot.setStrokeColor(Color.black);
       overlay.add(labelBot);
    }
@@ -608,15 +652,15 @@ public class DisplayOverlayer {
       }
       canvas_.setOverlay(overlay);
    }
-   
+
    //put the active one last in the list so that it gets drawn on top
    private ArrayList<XYFootprint> getSurfacesAndGridsInDrawOrder() {
-      ArrayList<XYFootprint> list =  display_.getSurfacesAndGridsForDisplay();
+      ArrayList<XYFootprint> list = display_.getSurfacesAndGridsForDisplay();
       if (list.contains(display_.getCurrentEditableSurfaceOrGrid())) {
          list.remove(display_.getCurrentEditableSurfaceOrGrid());
          list.add(display_.getCurrentEditableSurfaceOrGrid());
       }
       return list;
    }
-   
+
 }

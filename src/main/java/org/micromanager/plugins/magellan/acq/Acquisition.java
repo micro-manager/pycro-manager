@@ -33,13 +33,7 @@ import java.util.concurrent.Future;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
-import java.util.function.Consumer;
 import java.util.function.Function;
-import java.util.function.Predicate;
-import java.util.function.Supplier;
-import java.util.logging.Level;
-import java.util.logging.Logger;
-import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import java.util.stream.StreamSupport;
 import main.java.org.micromanager.plugins.magellan.channels.ChannelSpec;
@@ -172,10 +166,11 @@ public abstract class Acquisition {
             try {
                return t.get();
             } catch (InterruptedException | ExecutionException ex) {
+               t.cancel(true); //interrupt current event, which is especially important if it is an acquisition waiting event
                throw new RuntimeException(ex);
             }
          });
-         //Iterate through and amke 
+         //Iterate through and make sure images get saved 
          imageSavedFutureStream.forEach((Future t) -> {
             try {
                t.get();
@@ -267,6 +262,38 @@ public abstract class Acquisition {
             }
          }
       }, "Aborting thread").start();
+   }
+   
+      public static void addImageMetadata(JSONObject tags, AcquisitionEvent event, int timeIndex,
+           int camChannelIndex, long elapsed_ms, double exposure) {
+      //add tags
+      try {
+         long gridRow = event.xyPosition_.getGridRow();
+         long gridCol = event.xyPosition_.getGridCol();
+         MD.setPositionName(tags, "Grid_" + gridRow+ "_" + gridCol);
+         MD.setPositionIndex(tags, event.positionIndex_);
+         MD.setSliceIndex(tags, event.sliceIndex_);
+         MD.setFrameIndex(tags, timeIndex);
+         MD.setChannelIndex(tags, event.channelIndex_ + camChannelIndex);
+         MD.setZPositionUm(tags, event.zPosition_);
+         MD.setElapsedTimeMs(tags, elapsed_ms);
+         MD.setImageTime(tags, (new SimpleDateFormat("yyyy-MM-dd HH:mm:ss -")).format(Calendar.getInstance().getTime()));
+         MD.setExposure(tags, exposure);
+         MD.setGridRow(tags, gridRow);
+         MD.setGridCol(tags, gridCol);
+         MD.setStageX(tags, event.xyPosition_.getCenter().x);
+         MD.setStageY(tags, event.xyPosition_.getCenter().y);
+         //add data about surface
+         //right now this only works for fixed distance from the surface
+         if ((event.acquisition_ instanceof MagellanGUIAcquisition)
+                 && ((MagellanGUIAcquisition) event.acquisition_).getSpaceMode() == MagellanGUIAcquisitionSettings.SURFACE_FIXED_DISTANCE_Z_STACK) {
+            //add metadata about surface
+            MD.setSurfacePoints(tags, ((MagellanGUIAcquisition) event.acquisition_).getFixedSurfacePoints());
+         }
+      } catch (Exception e) {
+         Log.log("Problem adding image metadata");
+         throw new RuntimeException();
+      }
    }
 
    private JSONObject makeSummaryMD(String prefix) {

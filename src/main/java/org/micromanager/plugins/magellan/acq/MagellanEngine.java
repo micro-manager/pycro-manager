@@ -34,9 +34,7 @@ import main.java.org.micromanager.plugins.magellan.channels.ChannelSetting;
 import main.java.org.micromanager.plugins.magellan.json.JSONException;
 import main.java.org.micromanager.plugins.magellan.json.JSONObject;
 import main.java.org.micromanager.plugins.magellan.main.Magellan;
-import main.java.org.micromanager.plugins.magellan.misc.GlobalSettings;
 import main.java.org.micromanager.plugins.magellan.misc.Log;
-import main.java.org.micromanager.plugins.magellan.misc.MD;
 import mmcorej.CMMCore;
 import mmcorej.TaggedImage;
 
@@ -55,11 +53,6 @@ import mmcorej.TaggedImage;
  */
 public class MagellanEngine {
 
-   private static final int DEMO_DELAY_Z = 0;
-   private static final int DEMO_DELAY_XY = 0;
-   private static final int DEMO_DELAY_IMAGE_CAPTURE = 0;
-
-   private static final int MAX_ACQUIRED_IMAGES_WAITING_TO_SAVE = 40;
 
    private static final int HARDWARE_ERROR_RETRIES = 6;
    private static final int DELAY_BETWEEN_RETRIES_MS = 5;
@@ -173,7 +166,7 @@ public class MagellanEngine {
             throw new HardwareControlException(ex.getMessage());
          }
          MagellanTaggedImage img = convertTaggedImage(ti);
-         MagellanEngine.addImageMetadata(img.tags, event, event.timeIndex_, c, currentTime - event.acquisition_.getStartTime_ms(),
+         event.acquisition_.addImageMetadata(img.tags, event, event.timeIndex_, c, currentTime - event.acquisition_.getStartTime_ms(),
                  event.acquisition_.channels_.getActiveChannelSetting(event.channelIndex_).exposure_);
          images.add(img);
       }
@@ -273,10 +266,6 @@ public class MagellanEngine {
             public void run() {
                try {
                   core_.setXYPosition(xyStage, event.xyPosition_.getCenter().x, event.xyPosition_.getCenter().y);
-                  //delay in demo mode to simulate movement
-                  if (GlobalSettings.getInstance().getDemoMode()) {
-                     Thread.sleep(DEMO_DELAY_XY);
-                  }
                } catch (Exception ex) {
                   throw new HardwareControlException(ex.getMessage());
                }
@@ -356,38 +345,6 @@ public class MagellanEngine {
       DateFormat df = new SimpleDateFormat("yyyy/MM/dd HH:mm:ss");
       Calendar calobj = Calendar.getInstance();
       return df.format(calobj.getTime());
-   }
-
-   private static void addImageMetadata(JSONObject tags, AcquisitionEvent event, int timeIndex,
-           int camChannelIndex, long elapsed_ms, double exposure) {
-      //add tags
-      try {
-         long gridRow = event.xyPosition_.getGridRow();
-         long gridCol = event.xyPosition_.getGridCol();
-         MD.setPositionName(tags, "Grid_" + gridRow+ "_" + gridCol);
-         MD.setPositionIndex(tags, event.positionIndex_);
-         MD.setSliceIndex(tags, event.sliceIndex_);
-         MD.setFrameIndex(tags, timeIndex);
-         MD.setChannelIndex(tags, event.channelIndex_ + camChannelIndex);
-         MD.setZPositionUm(tags, event.zPosition_);
-         MD.setElapsedTimeMs(tags, elapsed_ms);
-         MD.setImageTime(tags, (new SimpleDateFormat("yyyy-MM-dd HH:mm:ss -")).format(Calendar.getInstance().getTime()));
-         MD.setExposure(tags, exposure);
-         MD.setGridRow(tags, gridRow);
-         MD.setGridCol(tags, gridCol);
-         MD.setStageX(tags, event.xyPosition_.getCenter().x);
-         MD.setStageY(tags, event.xyPosition_.getCenter().y);
-         //add data about surface
-         //right now this only works for fixed distance from the surface
-         if ((event.acquisition_ instanceof MagellanGUIAcquisition)
-                 && ((MagellanGUIAcquisition) event.acquisition_).getSpaceMode() == MagellanGUIAcquisitionSettings.SURFACE_FIXED_DISTANCE_Z_STACK) {
-            //add metadata about surface
-            MD.setSurfacePoints(tags, ((MagellanGUIAcquisition) event.acquisition_).getFixedSurfacePoints());
-         }
-      } catch (Exception e) {
-         Log.log("Problem adding image metadata");
-         throw new RuntimeException();
-      }
    }
 
    private static MagellanTaggedImage convertTaggedImage(TaggedImage img) {
