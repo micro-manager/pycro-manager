@@ -39,6 +39,7 @@ import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.Callable;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Future;
@@ -98,7 +99,7 @@ public class MultipageTiffWriter {
    private long indexMapFirstEntry_; // mark position of first entry so that number of entries can be written at end
    private int bufferPosition_;
    private int numChannels_ = 1;
-   private HashMap<String, Long> indexMap_;
+   private ConcurrentHashMap<String, Long> indexMap_;
    private long nextIFDOffsetLocation_ = -1;
    private boolean rgb_ = false;
    private int byteDepth_, imageWidth_, imageHeight_, bytesPerImagePixels_;
@@ -147,7 +148,7 @@ public class MultipageTiffWriter {
       }
       fileChannel_ = raFile_.getChannel();
       writingExecutor_ = writingExecutor;
-      indexMap_ = new HashMap<String, Long>();
+      indexMap_ = new ConcurrentHashMap<String, Long>();
       reader_.setFileChannel(fileChannel_);
       reader_.setIndexMap(indexMap_);
       buffers_ = new LinkedList<ByteBuffer>();
@@ -221,7 +222,7 @@ public class MultipageTiffWriter {
       return reader_;
    }
 
-   public HashMap<String, Long> getIndexMap() {
+   public ConcurrentHashMap<String, Long> getIndexMap() {
       return indexMap_;
    }
 

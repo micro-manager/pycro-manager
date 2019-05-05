@@ -31,6 +31,7 @@ import java.nio.ByteOrder;
 import java.nio.channels.FileChannel;
 import java.util.HashMap;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 import main.java.org.micromanager.plugins.magellan.json.JSONArray;
 import main.java.org.micromanager.plugins.magellan.json.JSONException;
 import main.java.org.micromanager.plugins.magellan.json.JSONObject;
@@ -61,7 +62,7 @@ public class MultipageTiffReader {
    private int byteDepth_ = 0;
    private boolean rgb_;
    
-   private HashMap<String,Long> indexMap_;
+   private ConcurrentHashMap<String,Long> indexMap_;
    
    /**
     * This constructor is used for a file that is currently being written
@@ -73,7 +74,7 @@ public class MultipageTiffReader {
       getRGBAndByteDepth(summaryMD);
    }
    
-   public void setIndexMap(HashMap<String,Long> indexMap) {
+   public void setIndexMap(ConcurrentHashMap<String,Long> indexMap) {
       indexMap_ = indexMap;
    }
    
@@ -295,7 +296,7 @@ public class MultipageTiffReader {
          throw new RuntimeException("Error reading index map header");
       }
       int numMappings = header.getInt(4);
-      indexMap_ = new HashMap<String, Long>();
+      indexMap_ = new ConcurrentHashMap<String, Long>();
       ByteBuffer mapBuffer = readIntoBuffer(offset+8, 20*numMappings);     
       for (int i = 0; i < numMappings; i++) {
          int channel = mapBuffer.getInt(i*20);
