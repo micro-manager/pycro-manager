@@ -495,18 +495,22 @@ public class MultiResMultipageTiffStorage {
          //nothing to downsample
          return false;
       }
-      //create a null pointer in lower res storages to signal addToLoResStorage function
-      //to continue downsampling to this level
-      lowResStorages_.put(1 + lowResStorages_.keySet().size(), null);
-      //update position manager to reflect addition of new resolution level
-      posManager_.updateLowerResolutionNodes(lowResStorages_.keySet().size());
-      String aLabel = fullResStorage_.imageKeys().iterator().next();
-      int[] indices = MD.getIndices(aLabel);
-      MagellanTaggedImage anImage = fullResStorage_.getImage(indices[0], indices[1], indices[2], indices[3]);
-      addToLowResStorage(anImage, 0, indices[3]);
-      return true;
-
-   }
+      writingExecutor_.submit(new Runnable() {
+            @Override
+            public void run() {
+                //create a null pointer in lower res storages to signal addToLoResStorage function
+                //to continue downsampling to this level
+                lowResStorages_.put(1 + lowResStorages_.keySet().size(), null);
+                //update position manager to reflect addition of new resolution level
+                posManager_.updateLowerResolutionNodes(lowResStorages_.keySet().size());
+                String aLabel = fullResStorage_.imageKeys().iterator().next();
+                int[] indices = MD.getIndices(aLabel);
+                MagellanTaggedImage anImage = fullResStorage_.getImage(indices[0], indices[1], indices[2], indices[3]);
+                addToLowResStorage(anImage, 0, indices[3]);
+            }
+        });
+        return true;
+    }
 
    private List<Future> addToLowResStorage(MagellanTaggedImage img, int previousResIndex, int fullResPositionIndex) {
       List<Future> writeFinishedList = new ArrayList<Future>();

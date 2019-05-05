@@ -33,11 +33,13 @@ import java.io.UnsupportedEncodingException;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.nio.CharBuffer;
+import java.nio.channels.ClosedChannelException;
 import java.nio.channels.FileChannel;
 import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.Callable;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Future;
 import java.util.concurrent.LinkedBlockingQueue;
@@ -186,9 +188,11 @@ public class MultipageTiffWriter {
                if (buffer.limit() == currentImageByteBufferCapacity_) {
                   currentImageByteBuffers_.offer(buffer);
                }
-            } catch (IOException e) {
+            } catch (ClosedChannelException e) {
                Log.log(e);
-            }
+            } catch (IOException e ) {
+               Log.log(e);
+            } 
          }
       });
    }
@@ -292,7 +296,7 @@ public class MultipageTiffWriter {
     * should have everything it needs to be properly reopened in MM or by a
     * basic TIFF reader
     */
-   public void finishedWriting() throws IOException {
+   public void finishedWriting() throws IOException, ExecutionException, InterruptedException {
       writeNullOffsetAfterLastImage();
       //go back to the index map header and change the number of entries from the max
       //value allotted early to the actual number written
@@ -302,7 +306,8 @@ public class MultipageTiffWriter {
       int numImages = (int) ((indexMapPosition_ - indexMapFirstEntry_) / 20);
       ByteBuffer indexMapNumEntries = allocateByteBuffer(4);
       indexMapNumEntries.putInt(0, numImages);
-      fileChannelWrite(indexMapNumEntries, indexMapFirstEntry_ - 4);
+      Future finished = fileChannelWrite(indexMapNumEntries, indexMapFirstEntry_ - 4);
+      finished.get();
       try {
          //extra byte of space, just to make sure nothing gets cut off
          raFile_.setLength(filePosition_ + 8);
@@ -315,7 +320,7 @@ public class MultipageTiffWriter {
     * Called when entire set of files (i.e. acquisition) is finished. returns a
     * future that returns when its done, if you care
     */
-   public Future close() throws IOException {
+   public Future close() throws IOException, InterruptedException, ExecutionException {
       String summaryComment = "";
       try {
          JSONObject comments = masterMPTiffStorage_.getDisplayAndComments().getJSONObject("Comments");
@@ -329,7 +334,7 @@ public class MultipageTiffWriter {
 
 //      writeImageDescription(getIJDescriptionString(), ijDescriptionTagPosition_); 
       writeDisplaySettings();
-      writeComments();
+  //    writeComments();
 
       Future f = executeWritingTask(new Runnable() {
          @Override
@@ -797,10 +802,11 @@ public class MultipageTiffWriter {
       }
    }
 
-   private void writeNullOffsetAfterLastImage() throws IOException {
+   private void writeNullOffsetAfterLastImage() throws IOException, InterruptedException, ExecutionException {
       ByteBuffer buffer = allocateByteBuffer(4);
       buffer.putInt(0, 0);
-      fileChannelWrite(buffer, nextIFDOffsetLocation_);
+      Future finished = fileChannelWrite(buffer, nextIFDOffsetLocation_);
+      finished.get();
    }
 
    private void writeComments() throws IOException {
@@ -821,7 +827,7 @@ public class MultipageTiffWriter {
       filePosition_ += 8 + commentsBytes.length;
    }
 
-   private void writeDisplaySettings() throws IOException {
+   private void writeDisplaySettings() throws IOException, InterruptedException, ExecutionException {
       JSONArray displaySettings;
       try {
          displaySettings = masterMPTiffStorage_.getDisplayAndComments().getJSONArray("Channels");
@@ -839,8 +845,9 @@ public class MultipageTiffWriter {
       ByteBuffer offsetHeader = allocateByteBuffer(8);
       offsetHeader.putInt(0, DISPLAY_SETTINGS_OFFSET_HEADER);
       offsetHeader.putInt(4, (int) filePosition_);
-      fileChannelWrite(offsetHeader, 16);
+      Future done = fileChannelWrite(offsetHeader, 16);
       filePosition_ += numReservedBytes + 8;
+      done.get();
    }
 
    public static LUT makeLUT(Color color, double gamma) {
