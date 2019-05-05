@@ -277,16 +277,14 @@ public class DisplayOverlayer {
 
             String[] text = {"Explore mode controls:", "", "Left click or left click and drag to select tiles",
                "Left click again to confirm", "Right click and drag to pan", "+/- keys or mouse wheel to zoom in/out"};
-
             addTextBox(text, overlay);
-
-            //always draw tiles waiting to be acquired
-            LinkedBlockingQueue<ExploreAcquisition.ExploreTileWaitingToAcquire> tiles
-                    = expAcq.getTilesWaitingToAcquireAtSlice(display_.getVisibleSliceIndex() + expAcq.getMinSliceIndex());
-            if (tiles != null) {
-               for (ExploreAcquisition.ExploreTileWaitingToAcquire t : tiles) {
-                  highlightTilesOnOverlay(overlay, t.row, t.row, t.col, t.col, TRANSPARENT_GREEN);
-               }
+         }
+         //always draw tiles waiting to be acquired
+         LinkedBlockingQueue<ExploreAcquisition.ExploreTileWaitingToAcquire> tiles
+                 = expAcq.getTilesWaitingToAcquireAtSlice(display_.getVisibleSliceIndex() + expAcq.getMinSliceIndex());
+         if (tiles != null) {
+            for (ExploreAcquisition.ExploreTileWaitingToAcquire t : tiles) {
+               highlightTilesOnOverlay(overlay, t.row, t.row, t.col, t.col, TRANSPARENT_GREEN);
             }
          }
       }
