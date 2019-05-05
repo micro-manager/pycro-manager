@@ -495,22 +495,27 @@ public class MultiResMultipageTiffStorage {
          //nothing to downsample
          return false;
       }
-      writingExecutor_.submit(new Runnable() {
-            @Override
-            public void run() {
-                //create a null pointer in lower res storages to signal addToLoResStorage function
-                //to continue downsampling to this level
-                lowResStorages_.put(1 + lowResStorages_.keySet().size(), null);
-                //update position manager to reflect addition of new resolution level
-                posManager_.updateLowerResolutionNodes(lowResStorages_.keySet().size());
-                String aLabel = fullResStorage_.imageKeys().iterator().next();
-                int[] indices = MD.getIndices(aLabel);
-                MagellanTaggedImage anImage = fullResStorage_.getImage(indices[0], indices[1], indices[2], indices[3]);
-                addToLowResStorage(anImage, 0, indices[3]);
-            }
-        });
-        return true;
-    }
+      Future added = writingExecutor_.submit(new Runnable() {
+         @Override
+         public void run() {
+            //create a null pointer in lower res storages to signal addToLoResStorage function
+            //to continue downsampling to this level
+            lowResStorages_.put(1 + lowResStorages_.keySet().size(), null);
+            //update position manager to reflect addition of new resolution level
+            posManager_.updateLowerResolutionNodes(lowResStorages_.keySet().size());
+            String aLabel = fullResStorage_.imageKeys().iterator().next();
+            int[] indices = MD.getIndices(aLabel);
+            MagellanTaggedImage anImage = fullResStorage_.getImage(indices[0], indices[1], indices[2], indices[3]);
+            addToLowResStorage(anImage, 0, indices[3]);
+         }
+      });
+      try {
+         added.get();
+      } catch (InterruptedException | ExecutionException ex) {
+         Log.log("Problem adding lower resolution");
+      }
+      return true;
+   }
 
    private List<Future> addToLowResStorage(MagellanTaggedImage img, int previousResIndex, int fullResPositionIndex) {
       List<Future> writeFinishedList = new ArrayList<Future>();
@@ -542,8 +547,8 @@ public class MultiResMultipageTiffStorage {
                String[] indices = key.split("_");
                MagellanTaggedImage ti = previousLevelStorage.getImage(Integer.parseInt(indices[0]), Integer.parseInt(indices[1]),
                        Integer.parseInt(indices[2]), Integer.parseInt(indices[3]));
-               writeFinishedList.addAll(addToLowResStorage(ti, resolutionIndex - 1, 
-                       posManager_.getFullResPositionIndex(Integer.parseInt(indices[3]), resolutionIndex - 1)) );
+               writeFinishedList.addAll(addToLowResStorage(ti, resolutionIndex - 1,
+                       posManager_.getFullResPositionIndex(Integer.parseInt(indices[3]), resolutionIndex - 1)));
             }
             return writeFinishedList; //this will include the higher res tile intially added, so can return here and
             //not worry about having to add it again
@@ -703,18 +708,18 @@ public class MultiResMultipageTiffStorage {
    }
 
    /**
-    * Don't return until all iamges have been written to disk 
+    * Don't return until all iamges have been written to disk
     */
    public void putImage(MagellanTaggedImage MagellanTaggedImage) {
       try {
-         List<Future> writeFinishedList =  new ArrayList<Future>();
+         List<Future> writeFinishedList = new ArrayList<Future>();
          //write to full res storage as normal (i.e. with overlap pixels present)
          writeFinishedList.add(fullResStorage_.putImage(MagellanTaggedImage));
          writeFinishedList.addAll(addToLowResStorage(MagellanTaggedImage, 0, MD.getPositionIndex(MagellanTaggedImage.tags)));
-         for (Future f: writeFinishedList) {
+         for (Future f : writeFinishedList) {
             f.get();
          }
-      } catch (IOException | ExecutionException | InterruptedException ex ) {
+      } catch (IOException | ExecutionException | InterruptedException ex) {
          Log.log(ex.toString());
          throw new RuntimeException(ex);
       }
@@ -742,9 +747,9 @@ public class MultiResMultipageTiffStorage {
    }
 
    public void finishedWriting() {
-     if (finished_) {
-        return;
-     }
+      if (finished_) {
+         return;
+      }
       fullResStorage_.finished();
       for (TaggedImageStorageMultipageTiff s : lowResStorages_.values()) {
          if (s != null) {
