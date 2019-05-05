@@ -518,8 +518,7 @@ public class MultiResMultipageTiffStorage {
         return true;
     }
 
-    private void whatisthis() {
-        
+    private void downsample(Object currentLevelPix, Object previousLevelPix, int fullResPositionIndex, int resolutionIndex) {
         //Determine which position in 2x2 this tile sits in
         int xPos = (int) Math.abs((posManager_.getGridCol(fullResPositionIndex, resolutionIndex - 1) % 2));
         int yPos = (int) Math.abs((posManager_.getGridRow(fullResPositionIndex, resolutionIndex - 1) % 2));
@@ -599,7 +598,7 @@ public class MultiResMultipageTiffStorage {
                     } catch (Exception e) {
                         Log.log("Couldn't copy pixels to lower resolution");
                         e.printStackTrace();
-                        return null;
+                        throw new RuntimeException(e);
                     }
 
                 }
@@ -659,7 +658,9 @@ public class MultiResMultipageTiffStorage {
             } else {
                 currentLevelPix = existingImage.pix;
             }
-
+            
+            downsample(currentLevelPix, previousLevelPix, fullResPositionIndex, resolutionIndex);
+            
             //store this tile in the storage class correspondign to this resolution
             try {
                 if (existingImage == null) {     //Image doesn't yet exist at this level, so add it
@@ -682,6 +683,7 @@ public class MultiResMultipageTiffStorage {
             } catch (Exception e) {
                 e.printStackTrace();
                 Log.log("Couldnt modify tags for lower resolution level");
+                throw new RuntimeException(e);
             }
 
             //go on to next level of downsampling

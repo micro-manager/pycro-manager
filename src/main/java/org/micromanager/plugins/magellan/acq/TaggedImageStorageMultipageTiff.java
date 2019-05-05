@@ -223,8 +223,6 @@ public final class TaggedImageStorageMultipageTiff {
     /*
     * Method that allows overwrting of pixels but not MD or TIFF tags
     * so that low res stitched images can be written tile by tile
-    * Not used by the MagellanTaggedImageStorage API, but can be useful for special applicaitons
-    * of this class (e.g. Navigator plugin)
      */
     public void overwritePixels(Object pix, int channel, int slice, int frame, int position) throws IOException {
         //asumes only one position
