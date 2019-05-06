@@ -441,7 +441,6 @@ public class ZoomableVirtualStack extends AcquisitionVirtualStack {
       } else if (acquisition_ == null) {
          slice += disp_.getStorage().getMinSliceIndexOpenedDataset();
       }
-
       MagellanTaggedImage img = multiResStorage_.getImageForDisplay(channel, slice, frame, resolutionIndex_,
               xView_, yView_, displayImageWidth_, displayImageHeight_);
       latestMetadata_ = img.tags;

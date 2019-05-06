@@ -385,22 +385,9 @@ public class SubImageControls extends Panel {
          sliceIndex_ = slice - 1;
          display_.getHyperImage().setPosition(channel, slice, frame);
       }
-      try {
-         display_.setCurrentMetadata(((ZoomableVirtualStack) display_.getHyperImage().getStack()).getLatestMetadata());
-      } catch (Exception e) {
-         //This is a hack inside a hack inside a hack so if it fails whatever
-      }
       
-      display_.drawOverlay();
-      if (acq_ instanceof ExploreAcquisition) {
-         //convert slice index to explore scrollbar index       
-         ((ColorableScrollbarUI) zTopScrollbar_.getUI()).setHighlightedIndices(sliceIndex_ + ((ExploreAcquisition) acq_).getMinSliceIndex(),
-                 ((ExploreAcquisition) acq_).getMinSliceIndex(), ((ExploreAcquisition) acq_).getMaxSliceIndex());
-         ((ColorableScrollbarUI) zBottomScrollbar_.getUI()).setHighlightedIndices(sliceIndex_ + ((ExploreAcquisition) acq_).getMinSliceIndex(),
-                 ((ExploreAcquisition) acq_).getMinSliceIndex(), ((ExploreAcquisition) acq_).getMaxSliceIndex());
-         this.repaint();
-      }
-
+      //now that new scroll bar position have been set, tell display to update itself
+      display_.updateDisplay(true);
    }
 
    public int getDisplayedSlice() {

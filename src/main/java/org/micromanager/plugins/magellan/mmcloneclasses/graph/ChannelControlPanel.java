@@ -580,10 +580,6 @@ public class ChannelControlPanel extends JPanel implements CursorListener {
 
          @Override
          public void run() {
-            if (!cache_.getIsOpen()) {
-               // Cache has been closed; give up.
-               return;
-            }
             Color color = cache_.getChannelColor(channelIndex_);
 
             LUT lut = makeLUT(color, gamma_);

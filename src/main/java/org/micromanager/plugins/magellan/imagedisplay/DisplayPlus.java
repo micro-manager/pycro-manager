@@ -707,7 +707,7 @@ public class DisplayPlus extends VirtualAcquisitionDisplay implements SurfaceGri
                //always draw overlay when pixels need to be updated. This call will interrupt itself if need be     
                drawOverlay();
 
-               if (cancel_) {
+               if (cancel_) {                            
                   done_ = true;
                   return;
                }
