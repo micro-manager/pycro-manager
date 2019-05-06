@@ -45,6 +45,8 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Future;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.ThreadPoolExecutor;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 import main.java.org.micromanager.plugins.magellan.json.JSONArray;
 import main.java.org.micromanager.plugins.magellan.json.JSONException;
 import main.java.org.micromanager.plugins.magellan.json.JSONObject;
@@ -428,42 +430,48 @@ public class MultipageTiffWriter {
       return val;
    }
 
-   public void overwritePixels(Object pixels, int channel, int slice, int frame, int position) throws IOException {
-      long byteOffset = indexMap_.get(MD.generateLabel(channel, slice, frame, position));
-      ByteBuffer buffer = ByteBuffer.allocate(2).order(BYTE_ORDER);
-      fileChannel_.read(buffer, byteOffset);
-      int numEntries = buffer.getChar(0);
-      ByteBuffer entries = ByteBuffer.allocate(numEntries * 12 + 4).order(BYTE_ORDER);
-      fileChannel_.read(entries, byteOffset + 2);
+    public Future overwritePixels(Object pixels, int channel, int slice, int frame, int position) throws IOException {
+        return writingExecutor_.submit(new Runnable() {
+            @Override
+            public void run() {
+                try {
+                    long byteOffset = indexMap_.get(MD.generateLabel(channel, slice, frame, position));
+                    ByteBuffer buffer = ByteBuffer.allocate(2).order(BYTE_ORDER);
+                    fileChannel_.read(buffer, byteOffset);
+                    int numEntries = buffer.getChar(0);
+                    ByteBuffer entries = ByteBuffer.allocate(numEntries * 12 + 4).order(BYTE_ORDER);
+                    fileChannel_.read(entries, byteOffset + 2);
+                    long pixelOffset = -1, bytesPerImage = -1;
+                    //read Tiff tags to find pixel offset
+                    for (int i = 0; i < numEntries; i++) {
+                        char tag = entries.getChar(i * 12);
+                        char type = entries.getChar(i * 12 + 2);
+                        long count = unsignInt(entries.getInt(i * 12 + 4));
+                        long value;
+                        if (type == 3 && count == 1) {
+                            value = -entries.getChar(i * 12 + 8);
+                        } else {
+                            value = unsignInt(entries.getInt(i * 12 + 8));
+                        }
+                        if (tag == STRIP_OFFSETS) {
+                            pixelOffset = value;
+                        } else if (tag == STRIP_BYTE_COUNTS) {
+                            bytesPerImage = value;
+                        }
+                    }
+                    if (pixelOffset == -1 || bytesPerImage == -1) {
+                        IJ.log("Problem writing downsampled display data\n But full resolution data is unaffected");
+                        throw new RuntimeException();
+                    }
+                    ByteBuffer pixBuff = getPixelBuffer(pixels);
+                    fileChannelWrite(pixBuff, pixelOffset);
+                } catch (IOException ex) {
+                    throw new RuntimeException(ex);
+                }
+            }
+        });
 
-      long pixelOffset = -1, bytesPerImage = -1;
-      //read Tiff tags to find pixel offset
-      for (int i = 0; i < numEntries; i++) {
-         char tag = entries.getChar(i * 12);
-         char type = entries.getChar(i * 12 + 2);
-         long count = unsignInt(entries.getInt(i * 12 + 4));
-         long value;
-         if (type == 3 && count == 1) {
-            value = entries.getChar(i * 12 + 8);
-         } else {
-            value = unsignInt(entries.getInt(i * 12 + 8));
-         }
-         if (tag == STRIP_OFFSETS) {
-            pixelOffset = value;
-         } else if (tag == STRIP_BYTE_COUNTS) {
-            bytesPerImage = value;
-         }
-      }
-      if (pixelOffset == -1 || bytesPerImage == -1) {
-         IJ.log("Problem writing downsampled display data\n But full resolution data is unaffected");
-//         IJ.log("pixel offset " + pixelOffset);
-//         IJ.log("bytes per image " + bytesPerImage);
-         return;
-      }
-
-      ByteBuffer pixBuff = getPixelBuffer(pixels);
-      fileChannelWrite(pixBuff, pixelOffset);
-   }
+    }
 
    private boolean writeIFD(MagellanTaggedImage img) throws IOException {
       char numEntries = ((firstIFD_ ? ENTRIES_PER_IFD + 4 : ENTRIES_PER_IFD));

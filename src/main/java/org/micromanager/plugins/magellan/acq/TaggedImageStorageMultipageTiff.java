@@ -25,10 +25,12 @@ import main.java.org.micromanager.plugins.magellan.imagedisplay.DisplaySettings;
 import java.io.File;
 import java.io.FileWriter;
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedList;
+import java.util.List;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
@@ -224,13 +226,13 @@ public final class TaggedImageStorageMultipageTiff {
     * Method that allows overwrting of pixels but not MD or TIFF tags
     * so that low res stitched images can be written tile by tile
      */
-    public void overwritePixels(Object pix, int channel, int slice, int frame, int position) throws IOException {
+    public List<Future> overwritePixels(Object pix, int channel, int slice, int frame, int position) throws IOException {
         //asumes only one position
         int fileSetIndex = 0;
         if (splitByXYPosition_) {
             fileSetIndex = position;
         }
-        fileSets_.get(fileSetIndex).overwritePixels(pix, channel, slice, frame, position);
+        return fileSets_.get(fileSetIndex).overwritePixels(pix, channel, slice, frame, position);
     }
 
     public Future putImage(MagellanTaggedImage MagellanTaggedImage) throws IOException {
@@ -498,12 +500,14 @@ public final class TaggedImageStorageMultipageTiff {
             return tiffWriters_.getLast().getReader();
         }
 
-        public void overwritePixels(Object pixels, int channel, int slice, int frame, int position) throws IOException {
+        public List<Future> overwritePixels(Object pixels, int channel, int slice, int frame, int position) throws IOException {
+            ArrayList<Future> list = new ArrayList<Future>();
             for (MultipageTiffWriter w : tiffWriters_) {
                 if (w.getIndexMap().containsKey(MD.generateLabel(channel, slice, frame, position))) {
-                    w.overwritePixels(pixels, channel, slice, frame, position);
+                    list.add(w.overwritePixels(pixels, channel, slice, frame, position));
                 }
             }
+            return list;
         }
 
         public int getCurrentFrame() {
