@@ -75,6 +75,8 @@ public abstract class Acquisition {
    protected PositionManager posManager_;
    private MagellanEngine eng_;
    protected volatile boolean aborted_ = false;
+   private MultiResMultipageTiffStorage storage_;
+   private DisplayPlus display_;
 
    public Acquisition(double zStep, ChannelSpec channels) {
       eng_ = MagellanEngine.getInstance();
@@ -102,13 +104,13 @@ public abstract class Acquisition {
       overlapX_ = (int) (Magellan.getCore().getImageWidth() * overlapPercent / 100);
       overlapY_ = (int) (Magellan.getCore().getImageHeight() * overlapPercent / 100);
       summaryMetadata_ = makeSummaryMD(name);
-      MultiResMultipageTiffStorage imageStorage = new MultiResMultipageTiffStorage(dir, summaryMetadata_);
-      posManager_ = imageStorage.getPosManager();
+      storage_ = new MultiResMultipageTiffStorage(dir, summaryMetadata_);
+      posManager_ = storage_.getPosManager();
       //storage class has determined unique acq name, so it can now be stored
-      name_ = imageStorage.getUniqueAcqName();
-      imageCache_ = new MMImageCache(imageStorage);
+      name_ = storage_.getUniqueAcqName();
+      imageCache_ = new MMImageCache(storage_);
       imageCache_.setSummaryMetadata(summaryMetadata_);
-      new DisplayPlus(imageCache_, this, summaryMetadata_, imageStorage);
+      display_ = new DisplayPlus(imageCache_, this, summaryMetadata_, storage_);
       savingExecutor_ = new ThreadPoolExecutor(1, 1, 0L, TimeUnit.MILLISECONDS, new LinkedBlockingQueue<Runnable>(),
               (Runnable r) -> new Thread(r, name_ + ": Saving executor"));
       eventGenerator_ = Executors.newSingleThreadExecutor((Runnable r) -> new Thread(r, name_ + ": Event generator"));
@@ -566,5 +568,23 @@ public abstract class Acquisition {
    public JSONObject getSummaryMetadata() {
       return summaryMetadata_;
    }
+   
+   public boolean anythingAcquired() {
+      return !storage_.imageKeys().isEmpty();
+   }
 
+   public void addResolutionsUpTo(int index) {
+      savingExecutor_.submit(new Runnable() {
+         @Override
+         public void run() {
+            try {
+               storage_.addResolutionsUpTo(index);
+            } catch (InterruptedException | ExecutionException ex) {
+               ex.printStackTrace();
+               Log.log(ex);
+            }
+            display_.updateAndDraw(true);
+         }
+      });
+   }
 }

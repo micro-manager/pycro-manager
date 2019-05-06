@@ -36,8 +36,6 @@ import java.util.ArrayList;
 import java.util.concurrent.ThreadFactory;
 import javax.swing.JOptionPane;
 import javax.swing.SwingUtilities;
-import javax.swing.event.ListDataEvent;
-import javax.swing.event.ListDataListener;
 import main.java.org.micromanager.plugins.magellan.acq.MMImageCache;
 import ij.measure.Calibration;
 import java.io.File;
@@ -53,7 +51,6 @@ import main.java.org.micromanager.plugins.magellan.misc.JavaUtils;
 import main.java.org.micromanager.plugins.magellan.misc.Log;
 import main.java.org.micromanager.plugins.magellan.misc.LongPoint;
 import main.java.org.micromanager.plugins.magellan.misc.MD;
-import main.java.org.micromanager.plugins.magellan.misc.ProgressBar;
 import main.java.org.micromanager.plugins.magellan.surfacesandregions.MultiPosGrid;
 import main.java.org.micromanager.plugins.magellan.surfacesandregions.SurfaceGridListener;
 import main.java.org.micromanager.plugins.magellan.surfacesandregions.SurfaceGridManager;
@@ -382,7 +379,7 @@ public class DisplayPlus extends VirtualAcquisitionDisplay implements SurfaceGri
       }
       if (mouseDragging_ && SwingUtilities.isRightMouseButton(e)) {
          //drag event finished, make sure pixels updated
-         redrawPixels(true);
+         updateDisplay(true);
       }
       mouseDragging_ = false;
    }
@@ -393,7 +390,7 @@ public class DisplayPlus extends VirtualAcquisitionDisplay implements SurfaceGri
       if (SwingUtilities.isRightMouseButton(e)) {
          //pan
          zoomableStack_.pan(mouseDragStartPointRight_.x - currentPoint.x, mouseDragStartPointRight_.y - currentPoint.y);
-         redrawPixels(false);
+         updateDisplay(false);
          mouseDragStartPointRight_ = currentPoint;
       } else if (SwingUtilities.isLeftMouseButton(e)) {
          //only move grid
@@ -433,7 +430,7 @@ public class DisplayPlus extends VirtualAcquisitionDisplay implements SurfaceGri
     */
    public void zoom(int numLevels) {
       zoomableStack_.zoom(currentMouseLocation_ != null ? canvas_.getCursorLoc() : null, numLevels);
-      redrawPixels(true);
+      updateDisplay(true);
    }
 
    public void setMode(int mode) {
@@ -602,12 +599,12 @@ public class DisplayPlus extends VirtualAcquisitionDisplay implements SurfaceGri
       return acq_.isFinished();
    }
 
-   private synchronized void redrawPixels(final boolean forcePaint) {
+   public synchronized void updateDisplay(final boolean forcePaint) {
       if (previousPixelDrawTask_ != null && !previousPixelDrawTask_.isDone()) {
          previousPixelDrawTask_.cancel(true);
       }
 
-      previousPixelDrawTask_ = new RedrawPixelsRunnable(forcePaint);
+      previousPixelDrawTask_ = new UpdatePixelsAndOverlayRunnable(forcePaint);
       redrawPixelsExecutor_.submit((Runnable)previousPixelDrawTask_);
    }
 
@@ -654,13 +651,13 @@ public class DisplayPlus extends VirtualAcquisitionDisplay implements SurfaceGri
       return currentMetadata_;
    }
 
-   private class RedrawPixelsRunnable implements RunnableFuture {
+   private class UpdatePixelsAndOverlayRunnable implements RunnableFuture {
 
       private volatile boolean cancel_ = false;
       private final boolean forcePaint_;
       private volatile boolean done_ = false;
 
-      public RedrawPixelsRunnable(boolean forcePaint) {
+      public UpdatePixelsAndOverlayRunnable(boolean forcePaint) {
          forcePaint_ = forcePaint;
       }
 
@@ -707,7 +704,7 @@ public class DisplayPlus extends VirtualAcquisitionDisplay implements SurfaceGri
                }
                //update window title
                DisplayPlus.this.getHyperImage().getWindow().repaint();
-               //always draw overlay when pixels need to be updated, because this call will interrupt itself if need be     
+               //always draw overlay when pixels need to be updated. This call will interrupt itself if need be     
                drawOverlay();
 
                if (cancel_) {

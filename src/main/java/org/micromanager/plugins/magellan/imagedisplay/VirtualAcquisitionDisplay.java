@@ -69,8 +69,6 @@ public abstract class VirtualAcquisitionDisplay{
 
    private static final int ANIMATION_AND_LOCK_RESTART_DELAY = 800;
    final MMImageCache imageCache_;
-   private boolean isAcquisitionFinished_ = false;
-   private boolean promptToSave_ = true;
    private boolean amClosing_ = false;
    // First component of text displayed in our title bar.
    protected String title_;
@@ -81,12 +79,7 @@ public abstract class VirtualAcquisitionDisplay{
    private Thread displayThread_;
    // This boolean is used to tell the display thread to stop what it's doing.
    private final AtomicBoolean shouldStopDisplayThread_ = new AtomicBoolean(false);
-   // We need to track how many images we've received and how many images we've
-   // displayed, for FPS display purposes.
-   private long lastImageIndex_ = 0;
-   private int imagesDisplayed_ = 0;
-   // Tracks when we last sent an FPS update.
-   private long lastFPSUpdateTimestamp_ = -1;
+
    private ImagePlus hyperImage_;
    protected SubImageControls subImageControls_;
    public AcquisitionVirtualStack virtualStack_;
@@ -208,7 +201,6 @@ public abstract class VirtualAcquisitionDisplay{
                   CanvasPaintPending.setPaintPending(hyperImage_.getCanvas(), imageReceivedObject_);
                }
                showImage(tags, true);
-               imagesDisplayed_++;
             } // End while loop
          }
       });
@@ -280,14 +272,6 @@ public abstract class VirtualAcquisitionDisplay{
    }
 
    
-   /**
-    * Allows bypassing the prompt to Save
-    * @param promptToSave boolean flag
-    */
-   public void promptToSave(boolean promptToSave) {
-      promptToSave_ = promptToSave;
-   }
-
    /**
     * required by ImageCacheListener
     * @param MagellanTaggedImage 
@@ -380,11 +364,6 @@ public abstract class VirtualAcquisitionDisplay{
             hyperImage_.updateAndDraw();
          }
       }
-   }
-
-   @Subscribe
-   public void onUpdateTitleEvent(UpdateTitleEvent event) {
-      updateWindowTitleAndStatus();
    }
 
    protected abstract void updateWindowTitleAndStatus();
@@ -546,10 +525,6 @@ public abstract class VirtualAcquisitionDisplay{
 //      bus_.post(new Scroll);
    }
 
-
-
-
-
    
    final public MMImagePlus createMMImagePlus(AcquisitionVirtualStack virtualStack) {
       MMImagePlus img = new MMImagePlus(imageCache_.getDiskLocation(), 
@@ -673,7 +648,7 @@ public abstract class VirtualAcquisitionDisplay{
    // so that plugins can utilize virtual acqusition display with a custom virtual stack
    //allowing manipulation of displayed images without changing underlying data
    //should probably be reconfigured to work through some sort of interface in the future
-   public void show(final AcquisitionVirtualStack virtualStack) {
+   protected void show(final AcquisitionVirtualStack virtualStack) {
       if (hyperImage_ == null) {
          startup(null, virtualStack);
       }
