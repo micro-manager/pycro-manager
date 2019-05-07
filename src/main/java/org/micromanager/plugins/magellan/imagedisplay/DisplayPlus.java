@@ -430,7 +430,6 @@ public class DisplayPlus extends VirtualAcquisitionDisplay implements SurfaceGri
     */
    public void zoom(int numLevels) {
       zoomableStack_.zoom(currentMouseLocation_ != null ? canvas_.getCursorLoc() : null, numLevels);
-      updateDisplay(true);
    }
 
    public void setMode(int mode) {

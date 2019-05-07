@@ -583,7 +583,7 @@ public abstract class Acquisition {
                ex.printStackTrace();
                Log.log(ex);
             }
-            display_.updateAndDraw(true);
+            display_.updateDisplay(true);
          }
       });
    }

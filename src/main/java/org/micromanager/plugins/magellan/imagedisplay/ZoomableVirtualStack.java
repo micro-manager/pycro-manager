@@ -234,8 +234,6 @@ public class ZoomableVirtualStack extends AcquisitionVirtualStack {
                @Override
                public void run() {
                   zoom(loc, levels);
-                  //make sure it gets redrawn once new data appears
-                  disp_.updateAndDraw(true);
                }
             });
             return;
@@ -251,6 +249,8 @@ public class ZoomableVirtualStack extends AcquisitionVirtualStack {
          //change the canvas size, and shrink canvas only if moving out
          ((DisplayWindow) vad_.getHyperImage().getWindow()).resizeCanvas(numLevels > 0, previousDSFactor, true);
       }
+      //make sure it gets redrawn once new data appears
+      disp_.updateDisplay(true);
    }
 
    private void moveViewToVisibleArea() {

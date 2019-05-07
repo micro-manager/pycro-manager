@@ -431,46 +431,38 @@ public class MultipageTiffWriter {
    }
 
     public Future overwritePixels(Object pixels, int channel, int slice, int frame, int position) throws IOException {
-        return writingExecutor_.submit(new Runnable() {
-            @Override
-            public void run() {
-                try {
-                    long byteOffset = indexMap_.get(MD.generateLabel(channel, slice, frame, position));
-                    ByteBuffer buffer = ByteBuffer.allocate(2).order(BYTE_ORDER);
-                    fileChannel_.read(buffer, byteOffset);
-                    int numEntries = buffer.getChar(0);
-                    ByteBuffer entries = ByteBuffer.allocate(numEntries * 12 + 4).order(BYTE_ORDER);
-                    fileChannel_.read(entries, byteOffset + 2);
-                    long pixelOffset = -1, bytesPerImage = -1;
-                    //read Tiff tags to find pixel offset
-                    for (int i = 0; i < numEntries; i++) {
-                        char tag = entries.getChar(i * 12);
-                        char type = entries.getChar(i * 12 + 2);
-                        long count = unsignInt(entries.getInt(i * 12 + 4));
-                        long value;
-                        if (type == 3 && count == 1) {
-                            value = -entries.getChar(i * 12 + 8);
-                        } else {
-                            value = unsignInt(entries.getInt(i * 12 + 8));
-                        }
-                        if (tag == STRIP_OFFSETS) {
-                            pixelOffset = value;
-                        } else if (tag == STRIP_BYTE_COUNTS) {
-                            bytesPerImage = value;
-                        }
-                    }
-                    if (pixelOffset == -1 || bytesPerImage == -1) {
-                        IJ.log("Problem writing downsampled display data\n But full resolution data is unaffected");
-                        throw new RuntimeException();
-                    }
-                    ByteBuffer pixBuff = getPixelBuffer(pixels);
-                    fileChannelWrite(pixBuff, pixelOffset);
-                } catch (IOException ex) {
-                    throw new RuntimeException(ex);
-                }
-            }
-        });
 
+        long byteOffset = indexMap_.get(MD.generateLabel(channel, slice, frame, position));
+        ByteBuffer buffer = ByteBuffer.allocate(2).order(BYTE_ORDER);
+        fileChannel_.read(buffer, byteOffset);
+        int numEntries = buffer.getChar(0);
+        ByteBuffer entries = ByteBuffer.allocate(numEntries * 12 + 4).order(BYTE_ORDER);
+        fileChannel_.read(entries, byteOffset + 2);
+        long pixelOffset = -1, bytesPerImage = -1;
+        //read Tiff tags to find pixel offset
+        for (int i = 0; i < numEntries; i++) {
+            char tag = entries.getChar(i * 12);
+            char type = entries.getChar(i * 12 + 2);
+            long count = unsignInt(entries.getInt(i * 12 + 4));
+            long value;
+            if (type == 3 && count == 1) {
+                value = -entries.getChar(i * 12 + 8);
+            } else {
+                value = unsignInt(entries.getInt(i * 12 + 8));
+            }
+            if (tag == STRIP_OFFSETS) {
+                pixelOffset = value;
+            } else if (tag == STRIP_BYTE_COUNTS) {
+                bytesPerImage = value;
+            }
+        }
+        if (pixelOffset == -1 || bytesPerImage == -1) {
+            IJ.log("Problem writing downsampled display data\n But full resolution data is unaffected");
+            throw new RuntimeException();
+        }
+        ByteBuffer pixBuff = getPixelBuffer(pixels);
+        Future writingDone = fileChannelWrite(pixBuff, pixelOffset);
+        return writingDone;
     }
 
    private boolean writeIFD(MagellanTaggedImage img) throws IOException {
