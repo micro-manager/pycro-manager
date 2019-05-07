@@ -166,7 +166,6 @@ public class MagellanGUIAcquisition extends Acquisition {
 
             @Override
             public AcquisitionEvent next() {
-               System.out.println(frameIndex_);
                double interval_ms = settings_.timePointInterval_ * (settings_.timeIntervalUnit_ == 1 ? 1000 : (settings_.timeIntervalUnit_ == 2 ? 60000 : 1));
                AcquisitionEvent timePointEvent = event.copy();
 

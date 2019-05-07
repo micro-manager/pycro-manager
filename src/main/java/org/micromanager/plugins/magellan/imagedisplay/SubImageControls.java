@@ -413,7 +413,7 @@ public class SubImageControls extends Panel {
 
          @Override
          public void run() {
-            ((DisplayWindow) display_.getHyperImage().getWindow()).fitExploreCanvasToWindow();
+            ((DisplayWindow) display_.getHyperImage().getWindow()).fitExploreCanvasToWindow();           
          }
       });
    }

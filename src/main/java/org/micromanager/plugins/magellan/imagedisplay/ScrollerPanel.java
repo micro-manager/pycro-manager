@@ -135,7 +135,7 @@ public class ScrollerPanel extends Panel {
    private void checkForImagePositionChanged() {
       boolean shouldPostEvent = false;
       if (lastImagePosition_ == null) {
-         lastImagePosition_ = new HashMap<String, Integer>();
+         lastImagePosition_ = new HashMap<String, Integer>(); 
       }
       for (AxisScroller scroller : scrollers_) {
          String axis = scroller.getAxis();
@@ -148,7 +148,7 @@ public class ScrollerPanel extends Panel {
          lastImagePosition_.put(axis, position);
       }
       if (shouldPostEvent) {
-         bus_.post(new SetImageEvent(lastImagePosition_));
+         bus_.post(new SetImageEvent(lastImagePosition_));  
       }
    }
 
@@ -261,7 +261,6 @@ public class ScrollerPanel extends Panel {
             break;
          }
       }
-      int height = 0;
       for (AxisScroller scroller : scrollers_) {
          int imagePosition = event.getPositionForAxis(scroller.getAxis());
          if (scroller.getMaximum() <= imagePosition) {
@@ -278,9 +277,7 @@ public class ScrollerPanel extends Panel {
          if (canShowNewImage) {
             scroller.forcePosition(imagePosition);
          }
-         if (scroller.isVisible()) {
-            height += scroller.getPreferredSize().height;
-         }
+
       }
       if (didShowNewScrollers) {
          // Post an event informing our masters that our layout has changed.
@@ -313,17 +310,6 @@ public class ScrollerPanel extends Panel {
       resetAnimationTimer();
    }
 
-   /**
-    * Set the scroller with the given axis to the specified position.
-    */
-   public void setPosition(String axis, int position) {
-      for (AxisScroller scroller : scrollers_) {
-         if (scroller.getAxis().equals(axis)) {
-            scroller.setPosition(position);
-            break;
-         }
-      }
-   }
 
    /**
     * Return the position of the scroller for the specified axis, or 0 if 
