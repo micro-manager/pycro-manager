@@ -20,16 +20,9 @@ import java.util.ArrayList;
 import java.util.List;
 import java.awt.geom.Point2D;
 import java.util.Iterator;
-import java.util.Spliterator;
-import java.util.Spliterators;
-import java.util.concurrent.Future;
 import java.util.function.Function;
-import java.util.logging.Level;
-import java.util.logging.Logger;
-import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
-import java.util.stream.StreamSupport;
 import main.java.org.micromanager.plugins.magellan.coordinates.AffineUtils;
 import main.java.org.micromanager.plugins.magellan.coordinates.XYStagePosition;
 import main.java.org.micromanager.plugins.magellan.json.JSONArray;
@@ -46,7 +39,7 @@ public class MagellanGUIAcquisition extends Acquisition {
    final private MagellanGUIAcquisitionSettings settings_;
    //executor service to wait for next execution
    private final boolean towardsSampleIsPositive_;
-   private long lastTimePointEvent_ = -1;
+   private long lastTPEventStartTime_ = -1;
    private List<XYStagePosition> positions_;
 
    /**
@@ -173,12 +166,19 @@ public class MagellanGUIAcquisition extends Acquisition {
 
             @Override
             public AcquisitionEvent next() {
-               frameIndex_++;
+               System.out.println(frameIndex_);
                double interval_ms = settings_.timePointInterval_ * (settings_.timeIntervalUnit_ == 1 ? 1000 : (settings_.timeIntervalUnit_ == 2 ? 60000 : 1));
                AcquisitionEvent timePointEvent = event.copy();
-               timePointEvent.miniumumStartTime_ = lastTimePointEvent_ + (long) interval_ms;
-               timePointEvent.timeIndex_ = frameIndex_ - 1;
-               lastTimePointEvent_ = System.currentTimeMillis();
+
+               timePointEvent.miniumumStartTime_ = lastTPEventStartTime_ + (long) interval_ms;
+               timePointEvent.timeIndex_ = frameIndex_;
+               if (frameIndex_ == 0) {
+                  lastTPEventStartTime_ = System.currentTimeMillis();
+               } else {
+                  lastTPEventStartTime_ = timePointEvent.miniumumStartTime_;
+               }
+               frameIndex_++;
+
                return timePointEvent;
             }
          };

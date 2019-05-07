@@ -423,21 +423,6 @@ public abstract class Acquisition {
       };
    }
 
-//   protected Function<AcquisitionEvent, Stream<AcquisitionEvent>> zStack(double start, double stop) {
-//      return (AcquisitionEvent event) -> {
-//         Stream.Builder<AcquisitionEvent> builder = Stream.builder();
-//         for (double zPos=start; zPos < stop; zPos += zStep_) {
-//            int sliceIndex = (int) Math.round((start - zOrigin_) / zStep_);
-//            AcquisitionEvent sliceEvent = event.copy();
-//            sliceEvent.sliceIndex_ = sliceIndex;
-//            //Do plus equals here in case z positions have been modified by another function (e.g. channel specific focal offsets)
-//            sliceEvent.zPosition_ += zPos;
-//            builder.accept(sliceEvent);
-//            sliceIndex++;
-//         }//slice loop finish
-//         return builder.build();
-//      };
-//   }
    protected Function<AcquisitionEvent, Iterator<AcquisitionEvent>> positions(
            int[] positionIndices, List<XYStagePosition> positions) {
       return (AcquisitionEvent event) -> {
@@ -573,6 +558,11 @@ public abstract class Acquisition {
       return !storage_.imageKeys().isEmpty();
    }
 
+   /**
+    * Used to tell the multiresoltuion storage to create more downsampled levels for higher zoom
+    * Explore acquisitions use this
+    * @param index 
+    */
    public void addResolutionsUpTo(int index) {
       savingExecutor_.submit(new Runnable() {
          @Override

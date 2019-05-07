@@ -216,7 +216,6 @@ public class MMCompositeImage extends CompositeImage implements IMMImagePlus {
          } catch (IllegalArgumentException ex) {
          } catch (InvocationTargetException ex) {
          }
-         System.out.println("Drawing");
          superDraw();
       } else {
          SwingUtilities.invokeLater(new Runnable() {
