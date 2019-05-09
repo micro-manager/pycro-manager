@@ -22,7 +22,7 @@ package main.java.org.micromanager.plugins.magellan.imagedisplay;
  */
 import main.java.org.micromanager.plugins.magellan.acq.Acquisition;
 import main.java.org.micromanager.plugins.magellan.acq.ExploreAcquisition;
-import main.java.org.micromanager.plugins.magellan.acq.FixedAreaAcquisition;
+import main.java.org.micromanager.plugins.magellan.acq.MagellanGUIAcquisition;
 import main.java.org.micromanager.plugins.magellan.acq.MMImageCache;
 import main.java.org.micromanager.plugins.magellan.acq.MagellanTaggedImage;
 import main.java.org.micromanager.plugins.magellan.acq.MultiResMultipageTiffStorage;
@@ -30,6 +30,11 @@ import java.awt.Dimension;
 import java.awt.Point;
 import java.awt.Rectangle;
 import java.util.Set;
+import java.util.concurrent.ExecutionException;
+import java.util.logging.Level;
+import java.util.logging.Logger;
+import javax.swing.SwingUtilities;
+import main.java.org.micromanager.plugins.magellan.json.JSONObject;
 import main.java.org.micromanager.plugins.magellan.misc.LongPoint;
 
 /**
@@ -42,17 +47,18 @@ import main.java.org.micromanager.plugins.magellan.misc.LongPoint;
  */
 public class ZoomableVirtualStack extends AcquisitionVirtualStack {
 
-   private int nSlices_;
-   private MMImageCache imageCache_;
+   final private int nSlices_;
+   final private MMImageCache imageCache_;
    private volatile int resolutionIndex_ = 0;
    private volatile int displayImageWidth_, displayImageHeight_;
    private volatile long xView_ = 0, yView_ = 0;  //top left pixel of view in current res
-   private MultiResMultipageTiffStorage multiResStorage_;
+   final private MultiResMultipageTiffStorage multiResStorage_;
    private final int tileWidth_, tileHeight_;
-   private Acquisition acquisition_;
+   final private Acquisition acquisition_;
    private final boolean boundedImage_;
    private final long xMax_, yMax_, xMin_, yMin_;
-   private DisplayPlus disp_;
+   final private DisplayPlus disp_;
+   private volatile JSONObject latestMetadata_;
 
    public ZoomableVirtualStack(int type, int width, int height, MMImageCache imageCache,
            int nSlices, VirtualAcquisitionDisplay vad, MultiResMultipageTiffStorage multiResStorage,
@@ -63,24 +69,27 @@ public class ZoomableVirtualStack extends AcquisitionVirtualStack {
       disp_ = (DisplayPlus) vad;
       multiResStorage_ = multiResStorage;
       //display image could conceivably be bigger than a single FOV, but not smaller
+      if (width < 1 || height < 1) {
+         throw new RuntimeException();
+      }
       displayImageWidth_ = width;
       displayImageHeight_ = height;
       tileHeight_ = multiResStorage.getTileHeight();
       tileWidth_ = multiResStorage.getTileWidth();
       acquisition_ = acq;
-      if (acq instanceof FixedAreaAcquisition) {
+      if (acq instanceof MagellanGUIAcquisition) {
          boundedImage_ = true;
          xMax_ = disp_.getStorage().getNumCols() * tileWidth_;
          yMax_ = disp_.getStorage().getNumRows() * tileHeight_;
          xMin_ = 0;
          yMin_ = 0;
       } else if (acq == null) {
-         boundedImage_ = true; 
+         boundedImage_ = true;
          LongPoint topLeft = getDisplayedPixel(multiResStorage.getMinRow(), multiResStorage.getMinCol());
          yMin_ = topLeft.y_;
          xMin_ = topLeft.x_;
          xMax_ = disp_.getStorage().getNumCols() * tileWidth_ + xMin_;
-         yMax_ = disp_.getStorage().getNumRows() * tileHeight_ + yMin_;     
+         yMax_ = disp_.getStorage().getNumRows() * tileHeight_ + yMin_;
       } else {
          boundedImage_ = false;
          xView_ = (multiResStorage.getTileWidth() - displayImageWidth_) / 2;
@@ -89,7 +98,7 @@ public class ZoomableVirtualStack extends AcquisitionVirtualStack {
          xMin_ = 0;
          xMax_ = 0;
          yMin_ = 0;
-         yMax_ = 0; 
+         yMax_ = 0;
       }
    }
 
@@ -115,7 +124,7 @@ public class ZoomableVirtualStack extends AcquisitionVirtualStack {
       acquisition_ = oldStack.acquisition_;
       xView_ = oldStack.xView_;
       yView_ = oldStack.yView_;
-      if (acquisition_ instanceof FixedAreaAcquisition || acquisition_ == null) {
+      if (acquisition_ instanceof MagellanGUIAcquisition || acquisition_ == null) {
          boundedImage_ = true;
          xMax_ = oldStack.xMax_;
          yMax_ = oldStack.yMax_;
@@ -128,21 +137,23 @@ public class ZoomableVirtualStack extends AcquisitionVirtualStack {
       } else {
          boundedImage_ = false;
          resolutionIndex_ = oldStack.resolutionIndex_;
-          //these dont maatter in explore mode
+         //these dont maatter in explore mode
          xMin_ = 0;
          xMax_ = 0;
          yMin_ = 0;
-         yMax_ = 0; 
+         yMax_ = 0;
       }
    }
-   
+
    public boolean equalDisplaySize(ZoomableVirtualStack otherStack) {
       return displayImageHeight_ == otherStack.displayImageHeight_ && displayImageWidth_ == otherStack.displayImageWidth_;
    }
-   
+
    /**
-    * Called to initialize fixed area acquisitions, so that they can start fully zoomed out
-    * @param resIndex 
+    * Called to initialize fixed area acquisitions, so that they can start fully
+    * zoomed out
+    *
+    * @param resIndex
     */
    public void initializeUpToRes(int viewStartResIndex, int maxResIndex) {
       resolutionIndex_ = viewStartResIndex;
@@ -151,23 +162,24 @@ public class ZoomableVirtualStack extends AcquisitionVirtualStack {
 
    /**
     * called when opening explore acqs on disk
-    * @param resIndex 
+    *
+    * @param resIndex
     */
    public void setInitialResolutionIndex(int resIndex) {
       resolutionIndex_ = resIndex;
    }
-   
+
    public int getResolutionIndex() {
       return resolutionIndex_;
    }
 
    public int getDownsampleFactor() {
-       int dsFactor = (int) Math.pow(2, resolutionIndex_);
-      return dsFactor ;
+      int dsFactor = (int) Math.pow(2, resolutionIndex_);
+      return dsFactor;
    }
 
    /**
-    * 
+    *
     * @param mouseLocation
     * @param numLevels
     */
@@ -183,37 +195,48 @@ public class ZoomableVirtualStack extends AcquisitionVirtualStack {
          }
       }
 
-
       if (mouseLocation == null) {
          //if mouse not over image zoom to center
          mouseLocation = new Point(displayImageWidth_ / 2, displayImageHeight_ / 2);
       }
 
-      //If we haven't already gotten to this low of a resolution, create it
-      while (resolutionIndex_ + numLevels >= multiResStorage_.getNumResLevels()) {
-         //returns false when no images to downsample so no zooming takes place
-         boolean success = multiResStorage_.addLowerResolution();
-         if (!success) {
-            return;
-         }
+      if (!acquisition_.anythingAcquired()) {
+         return; //dont want to zoom when theres not reference
       }
+      
+      //If we haven't already gotten to this low of a resolution, create it
+      acquisition_.addResolutionsUpTo(resolutionIndex_ + numLevels);
+
 
       int previousDSFactor = (int) Math.pow(2, resolutionIndex_);
       //keep cursor in same location relative to full res data for fast zooming/unzooming
-      if (resolutionIndex_ + numLevels >= 0 && resolutionIndex_ + numLevels < multiResStorage_.getNumResLevels()) {
-         //get pixel location in full res image
-         int dsFactor = (int) Math.pow(2, resolutionIndex_);
-         int fullResX = (int) (dsFactor * (mouseLocation.x + xView_));
-         int fullResY = (int) (dsFactor * (mouseLocation.y + yView_));
-         //do actual zooming
-         resolutionIndex_ += numLevels;
-         dsFactor = (int) Math.pow(2, resolutionIndex_);
-         xView_ = (fullResX / dsFactor - mouseLocation.x);
-         yView_ = (fullResY / dsFactor - mouseLocation.y);
-         //make sure view doesn't go outside image bounds
-         if (boundedImage_) {
-            xView_ = (int) Math.max(xMin_ / Math.pow(2, resolutionIndex_), Math.min(xView_, xMax_ / Math.pow(2, resolutionIndex_) - displayImageWidth_));
-            yView_ = (int) Math.max(yMin_ / Math.pow(2, resolutionIndex_), Math.min(yView_, yMax_ / Math.pow(2, resolutionIndex_) - displayImageHeight_));
+      if (resolutionIndex_ + numLevels >= 0) {
+         if (resolutionIndex_ + numLevels < multiResStorage_.getNumResLevels()) {
+            //get pixel location in full res image
+            int dsFactor = (int) Math.pow(2, resolutionIndex_);
+            int fullResX = (int) (dsFactor * (mouseLocation.x + xView_));
+            int fullResY = (int) (dsFactor * (mouseLocation.y + yView_));
+            //do actual zooming
+            resolutionIndex_ += numLevels;
+            dsFactor = (int) Math.pow(2, resolutionIndex_);
+            xView_ = (fullResX / dsFactor - mouseLocation.x);
+            yView_ = (fullResY / dsFactor - mouseLocation.y);
+            //make sure view doesn't go outside image bounds
+            if (boundedImage_) {
+               xView_ = (int) Math.max(xMin_ / Math.pow(2, resolutionIndex_), Math.min(xView_, xMax_ / Math.pow(2, resolutionIndex_) - displayImageWidth_));
+               yView_ = (int) Math.max(yMin_ / Math.pow(2, resolutionIndex_), Math.min(yView_, yMax_ / Math.pow(2, resolutionIndex_) - displayImageHeight_));
+            }
+         } else {
+            final int levels = numLevels;
+            final Point loc =  mouseLocation;
+            //Its not ready yet, try again later
+            SwingUtilities.invokeLater(new Runnable() {
+               @Override
+               public void run() {
+                  zoom(loc, levels);
+               }
+            });
+            return;
          }
       }
 
@@ -222,18 +245,19 @@ public class ZoomableVirtualStack extends AcquisitionVirtualStack {
          moveViewToVisibleArea();
       }
 
-
-      if (acquisition_ instanceof FixedAreaAcquisition || acquisition_ == null) {
+      if (acquisition_ instanceof MagellanGUIAcquisition || acquisition_ == null) {
          //change the canvas size, and shrink canvas only if moving out
          ((DisplayWindow) vad_.getHyperImage().getWindow()).resizeCanvas(numLevels > 0, previousDSFactor, true);
       }
+      //make sure it gets redrawn once new data appears
+      disp_.updateDisplay(true);
    }
 
    private void moveViewToVisibleArea() {
       //compensate for the possibility of negative slice indices 
       int slice = disp_.getVisibleSliceIndex() + ((ExploreAcquisition) acquisition_).getMinSliceIndex();
       //check for valid tiles (at lowest res) at this slice        
-      Set<Point> tiles = multiResStorage_.getExploredTilesAtSlice(slice);
+      Set<Point> tiles = multiResStorage_.getTileIndicesWithDataAt(slice);
       if (tiles.size() == 0) {
          return;
       }
@@ -242,21 +266,21 @@ public class ZoomableVirtualStack extends AcquisitionVirtualStack {
       //do all calculations at full resolution
       long newXView = xView_ * getDownsampleFactor();
       long newYView = yView_ * getDownsampleFactor();
-      
+
       for (Point p : tiles) {
          //calclcate limits on margin of tile that must remain in view
          long tileX1 = (long) ((0.1 + p.x) * tileWidth_);
          long tileX2 = (long) ((0.9 + p.x) * tileWidth_);
          long tileY1 = (long) ((0.1 + p.y) * tileHeight_);
-         long tileY2 = (long) ((0.9 + p.y) * tileHeight_);     
+         long tileY2 = (long) ((0.9 + p.y) * tileHeight_);
          long visibleWidth = (long) (0.8 * tileWidth_);
-         long visibleHeight = (long) (0.8 *tileHeight_);
+         long visibleHeight = (long) (0.8 * tileHeight_);
          //get bounds of viewing area
          long fovX1 = getAbsoluteFullResPixelCoordinate(0, 0).x_;
          long fovY1 = getAbsoluteFullResPixelCoordinate(0, 0).y_;
          long fovX2 = fovX1 + displayImageWidth_ * getDownsampleFactor();
          long fovY2 = fovY1 + displayImageHeight_ * getDownsampleFactor();
-         
+
          //check if tile and fov intersect
          boolean xInView = fovX1 < tileX2 && fovX2 > tileX1;
          boolean yInView = fovY1 < tileY2 && fovY2 > tileY1;
@@ -270,7 +294,7 @@ public class ZoomableVirtualStack extends AcquisitionVirtualStack {
          double tr = ((tileX2 - fovX1) * (tileX2 - fovX1) + (tileY1 - fovY2) * (tileY1 - fovY2)); // top right tile, bottom left fov
          double bl = ((tileX1 - fovX2) * (tileX1 - fovX2) + (tileY2 - fovY1) * (tileY2 - fovY1)); // bottom left tile, top right fov
          double br = ((tileX1 - fovX1) * (tileX1 - fovX1) + (tileY2 - fovY1) * (tileY2 - fovY1)); //bottom right tile, top left fov
-         
+
          double closestCornerDistance = Math.min(Math.min(tl, tr), Math.min(bl, br));
          if (closestCornerDistance < minDistance) {
             minDistance = closestCornerDistance;
@@ -284,8 +308,8 @@ public class ZoomableVirtualStack extends AcquisitionVirtualStack {
                newXView = xInView ? newXView : tileX1 - displayImageWidth_ * getDownsampleFactor();
                newYView = yInView ? newYView : tileY2;
             } else { //bottom right tile, top left fov
-               newXView = xInView ? newXView : tileX2 ;
-               newYView = yInView ? newYView : tileY2 ;
+               newXView = xInView ? newXView : tileX2;
+               newYView = yInView ? newYView : tileY2;
             }
          }
       }
@@ -293,7 +317,7 @@ public class ZoomableVirtualStack extends AcquisitionVirtualStack {
       xView_ = newXView / getDownsampleFactor();
       yView_ = newYView / getDownsampleFactor();
    }
-   
+
    public void pan(int dx, int dy) {
       if (boundedImage_) {
          xView_ = (int) Math.max(xMin_ / Math.pow(2, resolutionIndex_), Math.min(xView_ + dx, xMax_ / Math.pow(2, resolutionIndex_) - displayImageWidth_));
@@ -316,9 +340,15 @@ public class ZoomableVirtualStack extends AcquisitionVirtualStack {
     */
    public LongPoint getAbsoluteFullResPixelCoordinate(long x, long y) {
       //add view offsets and convert to full resolution to get pixel location in full res image
-      long fullResX =  (long) ((x + xView_) * Math.pow(2, resolutionIndex_));
-      long fullResY =  (long) ((y + yView_) * Math.pow(2, resolutionIndex_));
+      long fullResX = (long) ((x + xView_) * Math.pow(2, resolutionIndex_));
+      long fullResY = (long) ((y + yView_) * Math.pow(2, resolutionIndex_));
       return new LongPoint(fullResX, fullResY);
+   }
+
+   public LongPoint getFullResPixelCoordsOfDisplayedCenter() {
+      long x = (long) ((xView_ + displayImageWidth_ / 2) * Math.pow(2, resolutionIndex_));
+      long y = (long) ((yView_ + displayImageHeight_ / 2) * Math.pow(2, resolutionIndex_));
+      return new LongPoint(x, y);
    }
 
    /**
@@ -328,7 +358,7 @@ public class ZoomableVirtualStack extends AcquisitionVirtualStack {
     * @param y y pixel coordinate at current res level
     * @return
     */
-   public Point getTileIndicesFromDisplayedPixel(int x, int y) {   
+   public Point getTileIndicesFromDisplayedPixel(int x, int y) {
       //add view offsets and convert to full resolution to get pixel location in full res image
       int fullResX = (int) ((x + xView_) * Math.pow(2, resolutionIndex_));
       int fullResY = (int) ((y + yView_) * Math.pow(2, resolutionIndex_));
@@ -336,15 +366,15 @@ public class ZoomableVirtualStack extends AcquisitionVirtualStack {
       int yTileIndex = fullResY / tileHeight_ - (fullResY >= 0 ? 0 : 1);
       return new Point(xTileIndex, yTileIndex);
    }
-   
+
    public LongPoint getZoomLocation() {
       return new LongPoint(xView_, yView_);
    }
-   
+
    public LongPoint getTopLeftPixel() {
-      return new LongPoint(xMin_,yMin_);
+      return new LongPoint(xMin_, yMin_);
    }
-   
+
    public Dimension getDisplayImageSize() {
       return new Dimension(displayImageWidth_, displayImageHeight_);
    }
@@ -358,8 +388,8 @@ public class ZoomableVirtualStack extends AcquisitionVirtualStack {
     * @return
     */
    public LongPoint getDisplayedPixel(long row, long col) {
-      long x = Math.round((col * tileWidth_) / (double)getDownsampleFactor()) - xView_;
-      long y = Math.round((row * tileHeight_) / (double)getDownsampleFactor()) - yView_;
+      long x = Math.round((col * tileWidth_) / (double) getDownsampleFactor()) - xView_;
+      long y = Math.round((row * tileHeight_) / (double) getDownsampleFactor()) - yView_;
       return new LongPoint(x, y);
    }
 
@@ -375,23 +405,27 @@ public class ZoomableVirtualStack extends AcquisitionVirtualStack {
    }
 
    /**
-    * 
+    *
     * @param displayedSliceIndex - 0 based
     * @param displayedFrameIndex - 0 based
-    * @return 
+    * @return
     */
    public double getZCoordinateOfDisplayedSlice(int displayedSliceIndex) {
       return acquisition_.getZCoordinateOfDisplaySlice(displayedSliceIndex);
    }
-   
+
    /**
-    * 
+    *
     * @param zPos
     * @param displayedFrameIndex - 0 based
-    * @return 
+    * @return
     */
    public int getSliceIndexFromZCoordinate(double zPos) {
       return acquisition_.getDisplaySliceIndexFromZCoordinate(zPos);
+   }
+
+   public JSONObject getLatestMetadata() {
+      return latestMetadata_;
    }
 
    //this method is called to get the tagged image for display purposes only
@@ -400,17 +434,17 @@ public class ZoomableVirtualStack extends AcquisitionVirtualStack {
    protected MagellanTaggedImage getMagellanTaggedImage(int channel, int slice, int frame) {
       //tags and images ultimately get split apart from this function, so it is okay
       //to alter image size and not change tags to reflect that
-      
+
       //compensate for the possibility of negative slice indices in explore acquisition
       if (acquisition_ != null) {
-         slice +=  acquisition_.getMinSliceIndex();
+         slice += acquisition_.getMinSliceIndex();
       } else if (acquisition_ == null) {
          slice += disp_.getStorage().getMinSliceIndexOpenedDataset();
       }
-
-      return multiResStorage_.getImageForDisplay(channel, slice, frame, resolutionIndex_,
+      MagellanTaggedImage img = multiResStorage_.getImageForDisplay(channel, slice, frame, resolutionIndex_,
               xView_, yView_, displayImageWidth_, displayImageHeight_);
+      latestMetadata_ = img.tags;
+      return img;
    }
-   
-}
 
+}

@@ -17,7 +17,6 @@
 //               IN NO EVENT SHALL THE COPYRIGHT OWNER OR
 //               CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT,
 //               INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES.
-
 package main.java.org.micromanager.plugins.magellan.acq;
 
 import ij.CompositeImage;
@@ -34,19 +33,16 @@ import main.java.org.micromanager.plugins.magellan.misc.Log;
 import main.java.org.micromanager.plugins.magellan.misc.MD;
 
 /**
- * MMImageCache: central repository of Images
- * Holds pixels and metadata to be used for display or save on disk
- * 
- * 
+ * MMImageCache: central repository of Images Holds pixels and metadata to be
+ * used for display or save on disk
+ *
+ *
  * @author arthur
  */
 public class MMImageCache {
+
    private DisplayPlus display_;
    private MultiResMultipageTiffStorage imageStorage_;
-   private Set<String> changingKeys_;
-   private JSONObject firstTags_;
-   private int lastFrame_ = -1;
-   private JSONObject lastTags_;
    private final ExecutorService listenerExecutor_;
 
    public void setDisplay(DisplayPlus d) {
@@ -55,12 +51,11 @@ public class MMImageCache {
 
    public MMImageCache(MultiResMultipageTiffStorage imageStorage) {
       imageStorage_ = imageStorage;
-      changingKeys_ = new HashSet<String>();
       listenerExecutor_ = Executors.newFixedThreadPool(1);
    }
 
    public void finished() {
-      imageStorage_.finished();
+      imageStorage_.finishedWriting();
       String path = getDiskLocation();
       display_.imagingFinished(path);
       listenerExecutor_.shutdown();
@@ -81,7 +76,7 @@ public class MMImageCache {
    public JSONObject getDisplayAndComments() {
       return imageStorage_.getDisplayAndComments();
    }
-   
+
    public void writeDisplaySettings() {
       imageStorage_.writeDisplaySettings();
    }
@@ -92,91 +87,27 @@ public class MMImageCache {
    }
 
    public void putImage(final MagellanTaggedImage taggedImg) {
-      try {
-         
-         checkForChangingTags(taggedImg);
-         imageStorage_.putImage(taggedImg);
-         
-           synchronized (this) {
-            lastFrame_ = Math.max(lastFrame_, MD.getFrameIndex(taggedImg.tags));
-            lastTags_ = taggedImg.tags;
+      imageStorage_.putImage(taggedImg);
+      //let the display know theres a new image in town
+      listenerExecutor_.submit(new Runnable() {
+         @Override
+         public void run() {
+            display_.imageReceived(taggedImg);
          }
-         JSONObject displayAndComments = imageStorage_.getDisplayAndComments();
-         if (displayAndComments.length() > 0) {
-            JSONArray channelSettings = imageStorage_.getDisplayAndComments().getJSONArray("Channels");
-            JSONObject imageTags = taggedImg.tags;
-//            int chanIndex = MD.getChannelIndex(imageTags);
-//            if (chanIndex >= channelSettings.length()) {
-//               JSONObject newChanObject = new JSONObject();
-//               MD.setChannelName(newChanObject, MD.getChannelName(imageTags));
-//               MD.setChannelColor(newChanObject, MD.getChannelColor(imageTags));
-//               channelSettings.put(chanIndex, newChanObject);
-//            }
-         }
+      });
 
-         listenerExecutor_.submit(
-                 new Runnable() {
-
-                    @Override
-                    public void run() {
-                       display_.imageReceived(taggedImg);
-                    }
-                 });
-      } catch (Exception ex) {
-         Log.log(ex, true);
-      }
-   }
-
-   public JSONObject getLastImageTags() {
-      synchronized (this) {
-         return lastTags_;
-      }
    }
 
    public MagellanTaggedImage getImage(int channel, int slice, int frame, int position) {
-      MagellanTaggedImage taggedImg = null;
-      if (taggedImg == null) {
-         taggedImg = imageStorage_.getImage(channel, slice, frame, position);
-         if (taggedImg != null) {
-            checkForChangingTags(taggedImg);
-         }
-      }
-      return taggedImg;
+      return imageStorage_.getImage(channel, slice, frame, position);
    }
 
    public JSONObject getImageTags(int channel, int slice, int frame, int position) {
-      String label = MD.generateLabel(channel, slice, frame, position);
       JSONObject tags = null;
       if (tags == null) {
          tags = imageStorage_.getImageTags(channel, slice, frame, position);
       }
       return tags;
-   }
-
-   private void checkForChangingTags(MagellanTaggedImage taggedImg) {
-      if (firstTags_ == null) {
-         firstTags_ = taggedImg.tags;
-      } else {
-         Iterator<String> keys = taggedImg.tags.keys();
-         while (keys.hasNext()) {
-            String key = keys.next();
-            try {
-               if (!taggedImg.tags.isNull(key)) {
-                  if (!firstTags_.has(key) || firstTags_.isNull(key)) {
-                     changingKeys_.add(key);
-                  } else if (!taggedImg.tags.getString(key).contentEquals(firstTags_.getString(key))) {
-                     changingKeys_.add(key);
-                  }
-               }
-            } catch (Exception e) {
-               Log.log(e);
-            }
-         }
-      }
-   }
-
-   public boolean getIsOpen() {
-      return (getDisplayAndComments() != null);
    }
 
    public JSONObject getSummaryMetadata() {
@@ -195,12 +126,8 @@ public class MMImageCache {
       imageStorage_.setSummaryMetadata(tags);
    }
 
-   public Set<String> getChangingKeys() {
-      return changingKeys_;
-   }
-
    public Set<String> imageKeys() {
-     return imageStorage_.imageKeys();
+      return imageStorage_.imageKeys();
    }
 
    private boolean isRGB() throws JSONException {
@@ -220,7 +147,7 @@ public class MMImageCache {
    /*
     * this function gets called whenever contrast settings are changed 
     */
-   public void storeChannelDisplaySettings(int channelIndex, int min, int max, 
+   public void storeChannelDisplaySettings(int channelIndex, int min, int max,
            double gamma, int histMax, int displayMode) {
       try {
          JSONObject settings = getChannelSetting(channelIndex);
@@ -228,12 +155,12 @@ public class MMImageCache {
          settings.put("Min", min);
          settings.put("Gamma", gamma);
          settings.put("HistogramMax", histMax);
-         settings.put("DisplayMode", displayMode);         
+         settings.put("DisplayMode", displayMode);
       } catch (Exception ex) {
          Log.log(ex);
       }
    }
-  
+
    public JSONObject getChannelSetting(int channel) {
       try {
          JSONArray array = getDisplayAndComments().getJSONArray("Channels");
@@ -321,7 +248,7 @@ public class MMImageCache {
       }
 
    }
-   
+
    public int getDisplayMode() {
       try {
          return getChannelSetting(0).getInt("DisplayMode");
@@ -333,7 +260,7 @@ public class MMImageCache {
    public int getChannelMin(int channelIndex) {
       try {
          JSONObject channelSetting = getChannelSetting(channelIndex);
-         return channelSetting != null ? channelSetting.getInt("Min") : 0 ;
+         return channelSetting != null ? channelSetting.getInt("Min") : 0;
       } catch (Exception ex) {
          return 0;
       }
@@ -342,7 +269,7 @@ public class MMImageCache {
    public int getChannelMax(int channelIndex) {
       try {
          JSONObject channelSetting = getChannelSetting(channelIndex);
-         return channelSetting != null ? channelSetting.getInt("Max") : 1 << (8*Magellan.getCore().getBytesPerPixel()) - 1 ;
+         return channelSetting != null ? channelSetting.getInt("Max") : 1 << (8 * Magellan.getCore().getBytesPerPixel()) - 1;
       } catch (Exception ex) {
          return -1;
       }
@@ -350,13 +277,13 @@ public class MMImageCache {
 
    public double getChannelGamma(int channelIndex) {
       try {
-        JSONObject channelSetting = getChannelSetting(channelIndex);
-        return channelSetting != null ? channelSetting.getInt("Gamma") : 1.0 ;
+         JSONObject channelSetting = getChannelSetting(channelIndex);
+         return channelSetting != null ? channelSetting.getInt("Gamma") : 1.0;
       } catch (Exception ex) {
          return 1.0;
       }
    }
-   
+
    public int getChannelHistogramMax(int channelIndex) {
       try {
          return getChannelSetting(channelIndex).getInt("HistogramMax");

@@ -36,8 +36,6 @@ import java.util.ArrayList;
 import java.util.concurrent.ThreadFactory;
 import javax.swing.JOptionPane;
 import javax.swing.SwingUtilities;
-import javax.swing.event.ListDataEvent;
-import javax.swing.event.ListDataListener;
 import main.java.org.micromanager.plugins.magellan.acq.MMImageCache;
 import ij.measure.Calibration;
 import java.io.File;
@@ -53,16 +51,17 @@ import main.java.org.micromanager.plugins.magellan.misc.JavaUtils;
 import main.java.org.micromanager.plugins.magellan.misc.Log;
 import main.java.org.micromanager.plugins.magellan.misc.LongPoint;
 import main.java.org.micromanager.plugins.magellan.misc.MD;
-import main.java.org.micromanager.plugins.magellan.misc.ProgressBar;
-import main.java.org.micromanager.plugins.magellan.surfacesandregions.MultiPosRegion;
+import main.java.org.micromanager.plugins.magellan.surfacesandregions.MultiPosGrid;
+import main.java.org.micromanager.plugins.magellan.surfacesandregions.SurfaceGridListener;
+import main.java.org.micromanager.plugins.magellan.surfacesandregions.SurfaceGridManager;
 import main.java.org.micromanager.plugins.magellan.surfacesandregions.SurfaceInterpolator;
+import main.java.org.micromanager.plugins.magellan.surfacesandregions.XYFootprint;
 
-public class DisplayPlus extends VirtualAcquisitionDisplay implements ListDataListener {
+public class DisplayPlus extends VirtualAcquisitionDisplay implements SurfaceGridListener {
 
    private static final int MOUSE_WHEEL_ZOOM_INTERVAL_MS = 100;
    private static final int DELETE_SURF_POINT_PIXEL_TOLERANCE = 10;
-   public static final int NONE = 0, EXPLORE = 1, NEWGRID = 2, SURFACE = 3;
-   private static ArrayList<DisplayPlus> activeDisplays_ = new ArrayList<DisplayPlus>();
+   public static final int NONE = 0, EXPLORE = 1, SURFACE_AND_GRID = 2;
    private Acquisition acq_;
    //all these are volatile because they are accessed by overlayer
    private volatile Point mouseDragStartPointLeft_, mouseDragStartPointRight_, currentMouseLocation_;
@@ -73,17 +72,17 @@ public class DisplayPlus extends VirtualAcquisitionDisplay implements ListDataLi
    private volatile int mode_ = NONE;
    private boolean mouseDragging_ = false;
    private DisplayOverlayer overlayer_;
-   private volatile SurfaceInterpolator currentSurface_;
-   private volatile MultiPosRegion currentRegion_;
    private ExecutorService redrawPixelsExecutor_;
    private Future previousPixelDrawTask_;
    private long fullResPixelWidth_ = -1, fullResPixelHeight_ = -1; //used for scaling in fixed area acqs
    private int tileWidth_, tileHeight_;
    private MultiResMultipageTiffStorage multiResStorage_;
-
+   private DisplayWindowControls dwc_;
+   private volatile JSONObject currentMetadata_;
+   
    public DisplayPlus(final MMImageCache stitchedCache, final Acquisition acq, JSONObject summaryMD,
            MultiResMultipageTiffStorage multiResStorage) {
-      super(stitchedCache, acq != null ? acq.getName() : new File(multiResStorage.getDiskLocation()).getName(), summaryMD);
+      super(stitchedCache, acq != null ? acq.getName() : new File(multiResStorage.getDiskLocation()).getName(), summaryMD);      
       tileWidth_ = multiResStorage.getTileWidth();
       tileHeight_ = multiResStorage.getTileHeight();
       multiResStorage_ = multiResStorage;
@@ -103,6 +102,7 @@ public class DisplayPlus extends VirtualAcquisitionDisplay implements ListDataLi
       acq_ = acq;
 
       this.getEventBus().register(this);
+      SurfaceGridManager.getInstance().registerSurfaceGridListener(this);
 
 
       //add in customized zoomable acquisition virtual stack
@@ -138,7 +138,6 @@ public class DisplayPlus extends VirtualAcquisitionDisplay implements ListDataLi
       IJ.setTool(Toolbar.SPARE6);
       stitchedCache.setDisplay(this);
       canvas_.requestFocus();
-      activeDisplays_.add(this);
       SwingUtilities.invokeLater(new Runnable() {
          @Override
          public void run() {
@@ -148,8 +147,22 @@ public class DisplayPlus extends VirtualAcquisitionDisplay implements ListDataLi
 
    }
    
+   public DisplayWindowControls getDisplayWindowControls() {
+      return dwc_;
+   }
+   
    public MultiResMultipageTiffStorage getStorage() {
       return multiResStorage_;
+   }
+   
+   /**
+    * Get the current stage coordinate at the center of the display
+    * @return 
+    */
+   public Point2D.Double getCurrentDisplayedCoordinate() {
+      long xFullPixel = zoomableStack_.getFullResPixelCoordsOfDisplayedCenter().x_;
+      long yFullPixel = zoomableStack_.getFullResPixelCoordsOfDisplayedCenter().y_;
+      return multiResStorage_.getStageCoordsFromPixelCoords(xFullPixel, yFullPixel);
    }
 
    //Thread safe calls for getting displayed indices
@@ -276,22 +289,19 @@ public class DisplayPlus extends VirtualAcquisitionDisplay implements ListDataLi
             return;
          }
       }
-      ProgressBar bar = new ProgressBar("Closing dataset", 0, 1);
-      bar.setVisible(true);
-      
+      this.getEventBus().unregister(this);
+      SurfaceGridManager.getInstance().removeSurfaceGridListener(this);
       overlayer_.shutdown();
-      activeDisplays_.remove(this);
       redrawPixelsExecutor_.shutdownNow();
       //make sure acquisition is done before allowing imagestorage to close
       if (acq_ != null){ 
          acq_.waitUntilClosed();
       } 
       super.onWindowClose(event);
-      bar.setVisible(false);
    }
 
-   public void setSurfaceDisplaySettings(boolean convexHull, boolean stagePosAbove, boolean stagePosBelow, boolean surf) {
-      overlayer_.setSurfaceDisplayParams(convexHull, stagePosAbove, stagePosBelow, surf);
+   public void setSurfaceDisplaySettings(boolean surf, boolean footprint) {
+      overlayer_.setSurfaceDisplayParams(surf, footprint);
       overlayer_.redrawOverlay();
    }
 
@@ -310,43 +320,9 @@ public class DisplayPlus extends VirtualAcquisitionDisplay implements ListDataLi
    public void setAnimateFPS(double fps) {
       subImageControls_.setAnimateFPS(fps);
    }
-   
-   public static void redrawRegionOverlay(MultiPosRegion region) {
-      for (DisplayPlus display : activeDisplays_) {
-         if (display.getCurrentRegion() == region) {
-            display.drawOverlay();
-         }
-      }
-   }
 
-   public static void redrawSurfaceOverlay(SurfaceInterpolator surface) {
-      for (DisplayPlus display : activeDisplays_) {
-         if (display.getCurrentSurface() == surface) {
-            display.drawOverlay();
-         }
-      }
-   }
-
-   public void setCurrentSurface(SurfaceInterpolator surf) {
-      currentSurface_ = surf;
-      if (surf != null) {
-         drawOverlay();
-      }
-   }
-
-   public void setCurrentRegion(MultiPosRegion region) {
-      currentRegion_ = region;
-      if (currentRegion_ != null) {
-         drawOverlay();
-      }
-   }
-
-   public SurfaceInterpolator getCurrentSurface() {
-      return currentSurface_;
-   }
-
-   public MultiPosRegion getCurrentRegion() {
-      return currentRegion_;
+   public XYFootprint getCurrentEditableSurfaceOrGrid() {
+      return dwc_.getCurrentSurfaceOrGrid();
    }
 
    public void drawOverlay() {
@@ -369,12 +345,15 @@ public class DisplayPlus extends VirtualAcquisitionDisplay implements ListDataLi
             exploreEndTile_ = zoomableStack_.getTileIndicesFromDisplayedPixel(p2.x, p2.y);
          }
          overlayer_.redrawOverlay();
-      } else if (mode_ == SURFACE) {
+      } else if (mode_ == SURFACE_AND_GRID && this.getCurrentEditableSurfaceOrGrid() != null && 
+              this.getCurrentEditableSurfaceOrGrid() instanceof SurfaceInterpolator && 
+              dwc_.isCurrentlyEditableSurfaceGridVisible()) {
+         SurfaceInterpolator currentSurface = (SurfaceInterpolator) this.getCurrentEditableSurfaceOrGrid();
          if (SwingUtilities.isRightMouseButton(e) && !mouseDragging_) {
             double z = zoomableStack_.getZCoordinateOfDisplayedSlice(DisplayPlus.this.getVisibleSliceIndex());
             if (e.isShiftDown()) {
                //delete all points at slice
-               currentSurface_.deletePointsWithinZRange(Math.min(z - acq_.getZStep()/2, z + acq_.getZStep()/2),
+               currentSurface.deletePointsWithinZRange(Math.min(z - acq_.getZStep()/2, z + acq_.getZStep()/2),
                        Math.max(z - acq_.getZStep()/2, z + acq_.getZStep()/2));
             } else {
                  //delete point if one is nearby
@@ -383,7 +362,7 @@ public class DisplayPlus extends VirtualAcquisitionDisplay implements ListDataLi
                Point2D.Double toleranceStagePos = stageCoordFromImageCoords(e.getPoint().x + DELETE_SURF_POINT_PIXEL_TOLERANCE, e.getPoint().y + DELETE_SURF_POINT_PIXEL_TOLERANCE);
                double stageDistanceTolerance = Math.sqrt((toleranceStagePos.x - stagePos.x) * (toleranceStagePos.x - stagePos.x)
                        + (toleranceStagePos.y - stagePos.y) * (toleranceStagePos.y - stagePos.y));
-               currentSurface_.deleteClosestPoint(stagePos.x, stagePos.y, stageDistanceTolerance, Math.min(z - acq_.getZStep()/2, z + acq_.getZStep()/2),
+               currentSurface.deleteClosestPoint(stagePos.x, stagePos.y, stageDistanceTolerance, Math.min(z - acq_.getZStep()/2, z + acq_.getZStep()/2),
                        Math.max(z - acq_.getZStep()/2, z + acq_.getZStep()/2));
             }
          } else if (SwingUtilities.isLeftMouseButton(e)) {
@@ -391,16 +370,16 @@ public class DisplayPlus extends VirtualAcquisitionDisplay implements ListDataLi
             //Click point --> full res pixel point --> stage coordinate
             Point2D.Double stagePos = stageCoordFromImageCoords(e.getPoint().x, e.getPoint().y);
             double z = zoomableStack_.getZCoordinateOfDisplayedSlice(this.getVisibleSliceIndex());
-            if (currentSurface_ == null) {
+            if (currentSurface == null) {
                Log.log("Can't add point--No surface selected", true);
             } else {
-               currentSurface_.addPoint(stagePos.x, stagePos.y, z);
+               currentSurface.addPoint(stagePos.x, stagePos.y, z);
             }
          }
       }
       if (mouseDragging_ && SwingUtilities.isRightMouseButton(e)) {
          //drag event finished, make sure pixels updated
-         redrawPixels(true);
+         updateDisplay(true);
       }
       mouseDragging_ = false;
    }
@@ -411,17 +390,20 @@ public class DisplayPlus extends VirtualAcquisitionDisplay implements ListDataLi
       if (SwingUtilities.isRightMouseButton(e)) {
          //pan
          zoomableStack_.pan(mouseDragStartPointRight_.x - currentPoint.x, mouseDragStartPointRight_.y - currentPoint.y);
-         redrawPixels(false);
+         updateDisplay(false);
          mouseDragStartPointRight_ = currentPoint;
       } else if (SwingUtilities.isLeftMouseButton(e)) {
          //only move grid
-         if (mode_ == NEWGRID) {
+         if (mode_ == SURFACE_AND_GRID && this.getCurrentEditableSurfaceOrGrid() != null && 
+              this.getCurrentEditableSurfaceOrGrid() instanceof MultiPosGrid && 
+                 dwc_.isCurrentlyEditableSurfaceGridVisible()) {
+            MultiPosGrid currentGrid = (MultiPosGrid) this.getCurrentEditableSurfaceOrGrid();
             int dx = (currentPoint.x - mouseDragStartPointLeft_.x);
             int dy = (currentPoint.y - mouseDragStartPointLeft_.y);
             //convert pixel dx dy to stage dx dy
             Point2D.Double p0 = stageCoordFromImageCoords(0, 0);
             Point2D.Double p1 = stageCoordFromImageCoords(dx, dy);
-            currentRegion_.translate(p1.x - p0.x, p1.y - p0.y);
+            currentGrid.translate(p1.x - p0.x, p1.y - p0.y);
             mouseDragStartPointLeft_ = currentPoint;
          } else if (mode_ == EXPLORE) {
             overlayer_.redrawOverlay();
@@ -448,7 +430,6 @@ public class DisplayPlus extends VirtualAcquisitionDisplay implements ListDataLi
     */
    public void zoom(int numLevels) {
       zoomableStack_.zoom(currentMouseLocation_ != null ? canvas_.getCursorLoc() : null, numLevels);
-      redrawPixels(true);
    }
 
    public void setMode(int mode) {
@@ -617,43 +598,65 @@ public class DisplayPlus extends VirtualAcquisitionDisplay implements ListDataLi
       return acq_.isFinished();
    }
 
-   @Override
-   public void intervalAdded(ListDataEvent e) {
-      if (mode_ == SURFACE || mode_ == NEWGRID) {
-         drawOverlay();
-      }
-   }
-
-   @Override
-   public void intervalRemoved(ListDataEvent e) {
-      if (mode_ == SURFACE || mode_ == NEWGRID) {
-         drawOverlay();
-      }
-   }
-
-   @Override
-   public void contentsChanged(ListDataEvent e) {
-      if (mode_ == SURFACE || mode_ == NEWGRID) {
-         drawOverlay();
-      }
-   }
-
-   private synchronized void redrawPixels(final boolean forcePaint) {
+   public synchronized void updateDisplay(final boolean forcePaint) {
       if (previousPixelDrawTask_ != null && !previousPixelDrawTask_.isDone()) {
          previousPixelDrawTask_.cancel(true);
       }
 
-      previousPixelDrawTask_ = new RedrawPixelsRunnable(forcePaint);
+      previousPixelDrawTask_ = new UpdatePixelsAndOverlayRunnable(forcePaint);
       redrawPixelsExecutor_.submit((Runnable)previousPixelDrawTask_);
    }
 
-   private class RedrawPixelsRunnable implements RunnableFuture {
+   @Override
+   public void SurfaceOrGridChanged(XYFootprint f) {
+      this.drawOverlay();
+   }
+
+   @Override
+   public void SurfaceOrGridDeleted(XYFootprint f) {
+      this.drawOverlay();
+   }
+
+   @Override
+   public void SurfaceOrGridCreated(XYFootprint f) {
+      this.drawOverlay();
+   }
+
+   @Override
+   public void SurfaceOrGridRenamed(XYFootprint f) {
+      //nothing to do
+   }
+   
+   @Override
+   public void SurfaceInterpolationUpdated(SurfaceInterpolator s) {
+      if(dwc_.getSurfacesAndGridsForDisplay().contains(s)) {
+         drawOverlay();
+      }
+   }
+
+   void registerControls(DisplayWindowControls dwc) {
+      dwc_ = dwc;
+   }
+
+   public ArrayList<XYFootprint> getSurfacesAndGridsForDisplay() {
+      return dwc_.getSurfacesAndGridsForDisplay();
+   }
+   
+   public void setCurrentMetadata(JSONObject md) {
+      currentMetadata_ = md;
+   }
+   
+   JSONObject getCurrentMetadata() {
+      return currentMetadata_;
+   }
+
+   private class UpdatePixelsAndOverlayRunnable implements RunnableFuture {
 
       private volatile boolean cancel_ = false;
       private final boolean forcePaint_;
       private volatile boolean done_ = false;
 
-      public RedrawPixelsRunnable(boolean forcePaint) {
+      public UpdatePixelsAndOverlayRunnable(boolean forcePaint) {
          forcePaint_ = forcePaint;
       }
 
@@ -700,10 +703,10 @@ public class DisplayPlus extends VirtualAcquisitionDisplay implements ListDataLi
                }
                //update window title
                DisplayPlus.this.getHyperImage().getWindow().repaint();
-               //always draw overlay when pixels need to be updated, because this call will interrupt itself if need be     
+               //always draw overlay when pixels need to be updated. This call will interrupt itself if need be     
                drawOverlay();
 
-               if (cancel_) {
+               if (cancel_) {                            
                   done_ = true;
                   return;
                }

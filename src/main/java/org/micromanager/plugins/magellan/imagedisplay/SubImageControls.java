@@ -18,7 +18,7 @@ package main.java.org.micromanager.plugins.magellan.imagedisplay;
 
 import main.java.org.micromanager.plugins.magellan.acq.Acquisition;
 import main.java.org.micromanager.plugins.magellan.acq.ExploreAcquisition;
-import main.java.org.micromanager.plugins.magellan.acq.FixedAreaAcquisition;
+import main.java.org.micromanager.plugins.magellan.acq.MagellanGUIAcquisition;
 import com.google.common.eventbus.EventBus;
 import com.google.common.eventbus.Subscribe;
 import ij.gui.StackWindow;
@@ -294,7 +294,7 @@ public class SubImageControls extends Panel {
          public void componentResized(ComponentEvent e) {
             Dimension curSize = getSize(); //size of subimage controls
             //expand window when new scrollbars shown for fixed acq
-            if (display_.getAcquisition() instanceof FixedAreaAcquisition) {
+            if (display_.getAcquisition() instanceof MagellanGUIAcquisition) {
                if (displayHeight_ == -1) {
                   displayHeight_ = curSize.height;
                } else if (curSize.height != displayHeight_) {
@@ -385,17 +385,9 @@ public class SubImageControls extends Panel {
          sliceIndex_ = slice - 1;
          display_.getHyperImage().setPosition(channel, slice, frame);
       }
-
-      display_.drawOverlay();
-      if (acq_ instanceof ExploreAcquisition) {
-         //convert slice index to explore scrollbar index       
-         ((ColorableScrollbarUI) zTopScrollbar_.getUI()).setHighlightedIndices(sliceIndex_ + ((ExploreAcquisition) acq_).getMinSliceIndex(),
-                 ((ExploreAcquisition) acq_).getMinSliceIndex(), ((ExploreAcquisition) acq_).getMaxSliceIndex());
-         ((ColorableScrollbarUI) zBottomScrollbar_.getUI()).setHighlightedIndices(sliceIndex_ + ((ExploreAcquisition) acq_).getMinSliceIndex(),
-                 ((ExploreAcquisition) acq_).getMinSliceIndex(), ((ExploreAcquisition) acq_).getMaxSliceIndex());
-         this.repaint();
-      }
-
+      
+      //now that new scroll bar position have been set, tell display to update itself
+      display_.updateDisplay(true);
    }
 
    public int getDisplayedSlice() {
@@ -421,7 +413,7 @@ public class SubImageControls extends Panel {
 
          @Override
          public void run() {
-            ((DisplayWindow) display_.getHyperImage().getWindow()).fitExploreCanvasToWindow();
+            ((DisplayWindow) display_.getHyperImage().getWindow()).fitExploreCanvasToWindow();           
          }
       });
    }

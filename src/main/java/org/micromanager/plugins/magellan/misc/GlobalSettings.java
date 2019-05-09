@@ -47,16 +47,13 @@ public class GlobalSettings {
    
    private static GlobalSettings singleton_;
    Preferences prefs_;
-   private GUI gui_;
    private boolean demoMode_ = false;
    private boolean afBetweenAcqs_ = false;
    private int[] chOffsets_ = new int[8];
-   private boolean bidc2P_ = false;
 
-   public GlobalSettings(Preferences prefs, GUI gui) {
-       singleton_ = this;
+   public GlobalSettings(Preferences prefs) {
+      singleton_ = this;
       prefs_ = prefs;
-      gui_ = gui;
 
       //Demo mode 
       try {
@@ -71,11 +68,9 @@ public class GlobalSettings {
             demoMode_ = true;
             new DemoModeImageData();
          }
-         bidc2P_ = Magellan.getCore().getCameraDevice().equals("BitFlowCamera") || Magellan.getCore().getCameraDevice().equals("BitFlowCameraX2");
       } catch (Exception e) {
           Log.log("Couldn't initialize Demo mode");
       }
-      
       
       //load channel offsets
         try {
@@ -217,7 +212,4 @@ public class GlobalSettings {
         }
     }
     
-   public boolean isBIDCTwoPhoton() {
-      return bidc2P_;
-   }
 }

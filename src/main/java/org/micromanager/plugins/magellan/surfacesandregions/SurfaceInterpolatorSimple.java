@@ -49,6 +49,9 @@ public class SurfaceInterpolatorSimple extends SurfaceInterpolator {
    protected void interpolateSurface(LinkedList<Point3d> points) throws InterruptedException {
 
       double pixSize = Magellan.getCore().getPixelSizeUm();
+      if (pixSize == 0) {
+          throw new RuntimeException("Pixel size is 0");
+      }
       //provide interpolator with current list of data points
       Point_dt triangulationPoints[] = new Point_dt[points.size()];
       for (int i = 0; i < points.size(); i++) {
@@ -66,7 +69,13 @@ public class SurfaceInterpolatorSimple extends SurfaceInterpolator {
          throw new InterruptedException();
       }
 
-      while (pixelsPerInterpPoint >= MIN_PIXELS_PER_INTERP_POINT) {
+      double pixelWidth = boundXMax_ - boundXPixelMin_;
+      double pixelHeight = boundYMax_ - boundYPixelMin_;
+      double pixelRes = pixelWidth * pixelHeight;
+      double maxPixels = 0.2 * 1024 * 1024 * 1024 / 4.0; //200 MB worth of floats
+      minPixelsPerInterpPoint_ = Math.max(2, (int)(pixelRes / maxPixels));
+      
+      while (pixelsPerInterpPoint >= minPixelsPerInterpPoint_) {
          int numInterpPointsX = (int) (((boundXMax_ - boundXMin_) / pixSize) / pixelsPerInterpPoint);
          int numInterpPointsY = (int) (((boundYMax_ - boundYMin_) / pixSize) / pixelsPerInterpPoint);
          double dx = (boundXMax_ - boundXMin_) / (numInterpPointsX - 1);
@@ -110,6 +119,7 @@ public class SurfaceInterpolatorSimple extends SurfaceInterpolator {
                     boundXMin_, boundXMax_, boundYMin_, boundYMax_,
                     convexHullRegion_, convexHullVertices_, getPoints());
             interpolationLock_.notifyAll();
+            manager_.SurfaceInterpolationUpdated(this);
          }
 //         System.gc();
          pixelsPerInterpPoint /= 2;

@@ -14,18 +14,17 @@
 //               CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT,
 //               INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES.
 //
-
 package main.java.org.micromanager.plugins.magellan.acq;
 
-import main.java.org.micromanager.plugins.magellan.channels.ChannelSetting;
-import main.java.org.micromanager.plugins.magellan.gui.GUI;
 import java.util.ArrayList;
+import java.util.Iterator;
+import java.util.List;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
 import java.util.concurrent.LinkedBlockingQueue;
-import java.util.concurrent.TimeUnit;
-import main.java.org.micromanager.plugins.magellan.channels.ChannelSpec;
+import java.util.function.Function;
+import java.util.function.Predicate;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 import main.java.org.micromanager.plugins.magellan.imagedisplay.SubImageControls;
 import main.java.org.micromanager.plugins.magellan.json.JSONArray;
 import main.java.org.micromanager.plugins.magellan.main.Magellan;
@@ -39,337 +38,212 @@ import mmcorej.CMMCore;
  */
 public class ExploreAcquisition extends Acquisition {
 
-    private static final int EXPLORE_EVENT_QUEUE_CAP = 2000; //big so you can see a lot of tiles waiting to be acquired
+   private volatile double zTop_, zBottom_;
+   //Map with slice index as keys used to get rid of duplicate events
+   private ConcurrentHashMap<Integer, LinkedBlockingQueue<ExploreTileWaitingToAcquire>> queuedTileEvents_ = new ConcurrentHashMap<Integer, LinkedBlockingQueue<ExploreTileWaitingToAcquire>>();
 
-    private volatile double zTop_, zBottom_;
-    private volatile int minSliceIndex_ = 0, maxSliceIndex_ = 0;
-    private ExecutorService eventAdderExecutor_ = Executors.newSingleThreadExecutor();
-    private ConcurrentHashMap<Integer, LinkedBlockingQueue<ExploreTileWaitingToAcquire>> queuedTileEvents_ = new ConcurrentHashMap<Integer, LinkedBlockingQueue<ExploreTileWaitingToAcquire>>();
-    private double zOrigin_;
-    private ChannelSpec channels_;
+   public ExploreAcquisition(ExploreAcqSettings settings) {
+      super(settings.zStep_, settings.channels_);
+      try {
+         //start at current z position
+         zTop_ = Magellan.getCore().getPosition(zStage_);
+         zOrigin_ = zTop_;
+         zBottom_ = Magellan.getCore().getPosition(zStage_);
+      } catch (Exception ex) {
+         Log.log("Couldn't get focus device position", true);
+         throw new RuntimeException();
+      }
+      initialize(settings.dir_, settings.name_, settings.tileOverlap_);
 
-    public ExploreAcquisition(ExploreAcqSettings settings) throws Exception {
-        super(settings.zStep_, settings.channels_);
-        channels_ = settings.channels_;
-        try {
-            //start at current z position
-            zTop_ = Magellan.getCore().getPosition(zStage_);
-            zOrigin_ = zTop_;
-            zBottom_ = Magellan.getCore().getPosition(zStage_);
-        } catch (Exception ex) {
-            Log.log("Couldn't get focus device position", true);
-            throw new RuntimeException();
-        }
-        initialize(settings.dir_, settings.name_, settings.tileOverlap_);
-    }
+   }
 
-    public void clearEventQueue() {
-        events_.clear();
-        queuedTileEvents_.clear();
-    }
+   /**
+    *
+    * @param sliceIndex 0 based slice index
+    * @return
+    */
+   public LinkedBlockingQueue<ExploreTileWaitingToAcquire> getTilesWaitingToAcquireAtSlice(int sliceIndex) {
+      return queuedTileEvents_.get(sliceIndex);
+   }
 
-    public void abort() {
-        if (this.isPaused()) {
-            this.togglePaused();
-        }
-        eventAdderExecutor_.shutdownNow();
-        //wait for shutdown
-        try {
-            //wait for it to exit
-            while (!eventAdderExecutor_.awaitTermination(5, TimeUnit.MILLISECONDS)) {
+   @Override
+   public void abort() {
+      queuedTileEvents_.clear();
+      super.abort();
+   }
+
+   public void acquireTileAtCurrentLocation(final SubImageControls controls) {
+      double xPos, yPos, zPos;
+
+      try {
+         //get current XY and Z Positions
+         zPos = Magellan.getCore().getPosition(Magellan.getCore().getFocusDevice());
+         xPos = Magellan.getCore().getXPosition();
+         yPos = Magellan.getCore().getYPosition();
+      } catch (Exception ex) {
+         Log.log("Couldnt get device positions from core");
+         return;
+      }
+
+      int sliceIndex = (int) Math.round((zPos - zOrigin_) / zStep_);
+      int posIndex = posManager_.getFullResPositionIndexFromStageCoords(xPos, yPos);
+      controls.setZLimitSliderValues(sliceIndex);
+
+      submitEvents(new int[]{(int)posManager_.getXYPosition(posIndex).getGridRow()}, 
+              new int[]{(int)posManager_.getXYPosition(posIndex).getGridCol()}, sliceIndex, sliceIndex);
+   }
+
+   public void acquireTiles(final int r1, final int c1, final int r2, final int c2) {
+      //So it doesnt slow down GUI
+      new Thread(() -> {
+         int minZIndex = getZLimitMinSliceIndex();
+         int maxZIndex = getZLimitMaxSliceIndex();
+
+         //order tile indices properly
+         int row1 = Math.min(r1, r2);
+         int row2 = Math.max(r1, r2);
+         int col1 = Math.min(c1, c2);
+         int col2 = Math.max(c1, c2);
+         //Get position Indices from manager based on row and column
+         //it will create new metadata as needed
+         int[] newPositionRows = new int[(row2 - row1 + 1) * (col2 - col1 + 1)];
+         int[] newPositionCols = new int[(row2 - row1 + 1) * (col2 - col1 + 1)];
+         for (int r = row1; r <= row2; r++) {
+            for (int c = col1; c <= col2; c++) {
+               int i = (r - row1) + (1 + row2 - row1) * (c - col1);
+               newPositionRows[i] = r;
+               newPositionCols[i] = c;
             }
-        } catch (InterruptedException ex) {
-            Log.log("Unexpected interrupt while trying to abort acquisition", true);
-            //shouldn't happen
-        }
-        //abort all pending events
-        events_.clear();
-        queuedTileEvents_.clear();
-        //signal acquisition engine to start finishigng process
-        try {
-            events_.put(AcquisitionEvent.createAcquisitionFinishedEvent(this));
-            events_.put(AcquisitionEvent.createEngineTaskFinishedEvent());
-        } catch (InterruptedException ex) {
-            Log.log("Unexpected interrupted exception while trying to abort", true); //shouldnt happen
-        }
-        imageSink_.waitToDie();
-        //image sink will call finish when it completes
-    }
+         }
+         submitEvents(newPositionRows, newPositionCols, minZIndex, maxZIndex);
 
-    /**
-     *
-     * @param sliceIndex 0 based slice index
-     * @return
-     */
-    public LinkedBlockingQueue<ExploreTileWaitingToAcquire> getTilesWaitingToAcquireAtSlice(int sliceIndex) {
-        return queuedTileEvents_.get(sliceIndex);
-    }
+      }).start();
 
-    //called by acq engine
-    public void eventAcquired(AcquisitionEvent e) {
-        //remove from tile queue for overlay drawing purposes
-        queuedTileEvents_.get(e.sliceIndex_).remove(new ExploreTileWaitingToAcquire(e.xyPosition_.getGridRow(), e.xyPosition_.getGridCol(),
-                e.sliceIndex_, e.channelIndex_));
-    }
+   }
 
-    public void acquireTileAtCurrentLocation(final SubImageControls controls) {
-        eventAdderExecutor_.submit(new Runnable() {
+   private void submitEvents(int[] newPositionRows, int[] newPositionCols, int minZIndex, int maxZIndex) {
+      int[] posIndices = posManager_.getPositionIndices(newPositionRows, newPositionCols);
+      ArrayList<Function<AcquisitionEvent, Iterator<AcquisitionEvent>>> acqFunctions
+              = new ArrayList<Function<AcquisitionEvent, Iterator<AcquisitionEvent>>>();
+      acqFunctions.add(positions(posIndices, posManager_.getPositionList()));
+      acqFunctions.add(zStack(minZIndex, maxZIndex + 1));
+      acqFunctions.add(channels(channels_));
 
-            @Override
-            public void run() {
-                double xPos, yPos, zPos;
-                try {
-                    //get current XY and Z Positions
-                    zPos = Magellan.getCore().getPosition(Magellan.getCore().getFocusDevice());
-                    xPos = Magellan.getCore().getXPosition();
-                    yPos = Magellan.getCore().getYPosition();
-                } catch (Exception ex) {
-                    Log.log("Couldnt get device positions from core");
-                    return;
-                }
-                int sliceIndex = (int) Math.round((zPos - zOrigin_) / zStep_);
-                int posIndex = imageStorage_.getPositionIndexFromStageCoords(xPos, yPos);
+      Stream<AcquisitionEvent> eventStream = makeEventStream(acqFunctions);
+      eventStream = eventStream.map(monitorSliceIndices());
+     
+      //Get rid of duplicates, send to acquisition engine 
+      eventStream = eventStream.filter(filterExistingEventsAndDisplayQueuedTiles());
+      //Do a terminal operation now, so that tiles explore tiles waiting to collect can be shown
+      List<AcquisitionEvent> eventList = eventStream.collect(Collectors.toList());
+      Stream<AcquisitionEvent> newStream = eventList.stream();
+      //Add a function that removes from queue of waiting tiles after each one is done
+      newStream = newStream.map((AcquisitionEvent e) -> {
+         queuedTileEvents_.get(e.sliceIndex_).remove(new ExploreTileWaitingToAcquire(e.xyPosition_.getGridRow(), e.xyPosition_.getGridCol(),
+                 e.sliceIndex_, e.channelIndex_));
+         return e;
+      });
 
-                for (int channelIndex = 0; channelIndex < Math.max(1, channels_.getNumActiveChannels()); channelIndex++) {
-                    if (channels_ != null) {
-                        if (!channels_.getActiveChannelSetting(channelIndex).uniqueEvent_) {
-                            continue;
-                        }
-                    }
-                    //add tile tile to list waiting to acquire for drawing purposes
+      submitEventStream(newStream);
+   }
 
-                    if (!queuedTileEvents_.containsKey(sliceIndex)) {
-                        queuedTileEvents_.put(sliceIndex, new LinkedBlockingQueue<ExploreTileWaitingToAcquire>());
-                    }
-
-                    ExploreTileWaitingToAcquire tile = new ExploreTileWaitingToAcquire(imageStorage_.getXYPosition(posIndex).getGridRow(),
-                            imageStorage_.getXYPosition(posIndex).getGridCol(), sliceIndex, channelIndex);
-                    if (queuedTileEvents_.get(sliceIndex).contains(tile)) {
-                        continue; //ignor commands for duplicates
-                    }
-                    try {
-                        queuedTileEvents_.get(sliceIndex).put(tile);
-                        //update so taht z scroll bar appears properly
-                         minSliceIndex_ = Math.min(minSliceIndex_, sliceIndex);
-                         maxSliceIndex_ = Math.max(maxSliceIndex_, sliceIndex);
-                         //update so that z limit sliders make sense
-                        controls.setZLimitSliderValues(sliceIndex);
-                        events_.put(new AcquisitionEvent(ExploreAcquisition.this, 0, channelIndex, sliceIndex, posIndex, 
-                                getZCoordinate(sliceIndex) + channels_.getActiveChannelSetting(channelIndex).offset_,
-                                imageStorage_.getXYPosition(posIndex), null));
-                    } catch (InterruptedException e) {
-                        //aborted acquisition
-                        Log.log("Interrupted while trying to add acquire evenet");
-                    }
-                }
+   private Predicate<AcquisitionEvent> filterExistingEventsAndDisplayQueuedTiles() {
+      return (AcquisitionEvent event) -> {
+         try {
+            //add tile tile to list waiting to acquire for drawing purposes
+            if (!queuedTileEvents_.containsKey(event.sliceIndex_)) {
+               queuedTileEvents_.put(event.sliceIndex_, new LinkedBlockingQueue<ExploreTileWaitingToAcquire>());
             }
-        });
-    }
 
-    public void acquireTiles(final int r1, final int c1, final int r2, final int c2) {
-        eventAdderExecutor_.submit(new Runnable() {
-
-            @Override
-            public void run() {
-                //update positionList and get index
-                int[] posIndices = null;
-                try {
-                    int row1, row2, col1, col2;
-                    //order tile indices properly
-                    if (r1 > r2) {
-                        row1 = r2;
-                        row2 = r1;
-                    } else {
-                        row1 = r1;
-                        row2 = r2;
-                    }
-                    if (c1 > c2) {
-                        col1 = c2;
-                        col2 = c1;
-                    } else {
-                        col1 = c1;
-                        col2 = c2;
-                    }
-
-                    //Get position Indices from manager based on row and column
-                    //it will create new metadata as needed
-                    int[] newPositionRows = new int[(row2 - row1 + 1) * (col2 - col1 + 1)];
-                    int[] newPositionCols = new int[(row2 - row1 + 1) * (col2 - col1 + 1)];
-                    for (int r = row1; r <= row2; r++) {
-                        for (int c = col1; c <= col2; c++) {
-                            int i = (r - row1) + (1 + row2 - row1) * (c - col1);
-                            newPositionRows[i] = r;
-                            newPositionCols[i] = c;
-                        }
-                    }
-                    posIndices = imageStorage_.getPositionIndices(newPositionRows, newPositionCols);
-                } catch (Exception e) {
-                    e.printStackTrace();
-                    Log.log("Problem with position metadata: couldn't add tile", true);
-                    return;
-                }
-
-                //create set of hardware instructions for an acquisition event
-                for (int i = 0; i < posIndices.length; i++) {
-                    //update lowest slice for the benefit of the zScrollbar in the viewer
-                    updateLowestAndHighestSlices();
-                    //Add events for each channel, slice            
-                    for (int sliceIndex = getZLimitMinSliceIndex(); sliceIndex <= getZLimitMaxSliceIndex(); sliceIndex++) {
-                        for (int channelIndex = 0; channelIndex < Math.max(1, channels_.getNumActiveChannels()); channelIndex++) {
-                            if (channels_ != null ) {
-                                if (!channels_.getActiveChannelSetting(channelIndex).uniqueEvent_) {
-                                    continue;
-                                }
-                            }
-                            try {
-                                //in case interupt occurs in between blocking calls of a really big loop
-                                if (Thread.interrupted()) {
-                                    throw new InterruptedException();
-                                }
-                                //add tile tile to list waiting to acquire for drawing purposes
-                                if (!queuedTileEvents_.containsKey(sliceIndex)) {
-                                    queuedTileEvents_.put(sliceIndex, new LinkedBlockingQueue<ExploreTileWaitingToAcquire>());
-                                }
-
-                                ExploreTileWaitingToAcquire tile = new ExploreTileWaitingToAcquire(imageStorage_.getXYPosition(posIndices[i]).getGridRow(),
-                                        imageStorage_.getXYPosition(posIndices[i]).getGridCol(), sliceIndex, channelIndex);
-                                if (queuedTileEvents_.get(sliceIndex).contains(tile)) {
-                                    continue; //ignor commands for duplicates
-                                }
-                                queuedTileEvents_.get(sliceIndex).put(tile);
-
-                                events_.put(new AcquisitionEvent(ExploreAcquisition.this, 0, channelIndex, sliceIndex, posIndices[i], 
-                                        getZCoordinate(sliceIndex) + channels_.getActiveChannelSetting(channelIndex).offset_,
-                                        imageStorage_.getXYPosition(posIndices[i]), null));
-                            } catch (InterruptedException ex) {
-                                //aborted acqusition
-                                return;
-                            }
-                        }
-                    }
-                }
+            ExploreTileWaitingToAcquire tile = new ExploreTileWaitingToAcquire(event.xyPosition_.getGridRow(),
+                    event.xyPosition_.getGridCol(), event.sliceIndex_, event.channelIndex_);
+            if (queuedTileEvents_.get(event.sliceIndex_).contains(tile)) {
+               return false; //This tile is already waiting to be acquired
             }
-        });
-    }
+            queuedTileEvents_.get(event.sliceIndex_).put(tile);
+            return true;
+         } catch (InterruptedException ex) {
+            throw new RuntimeException(ex);
+         }
+      };
 
-    @Override
-    public double getZCoordinateOfDisplaySlice(int displaySliceIndex) {
-        //No frames in explorer acquisition
-        displaySliceIndex += minSliceIndex_;
-        return zOrigin_ + zStep_ * displaySliceIndex;
-    }
+   }
 
-    @Override
-    public int getDisplaySliceIndexFromZCoordinate(double z) {
-        return (int) Math.round((z - zOrigin_) / zStep_) - minSliceIndex_;
-    }
+   private Function<AcquisitionEvent, AcquisitionEvent> monitorSliceIndices() {
+      return (AcquisitionEvent event) -> {
+         minSliceIndex_ = Math.min(minSliceIndex_, getZLimitMinSliceIndex());
+         maxSliceIndex_ = Math.max(maxSliceIndex_, getZLimitMaxSliceIndex());
+         return event;
+      };
+   }
 
-    /**
-     * return the slice index of the lowest slice seen in this acquisition
-     *
-     * @return
-     */
-    public int getMinSliceIndex() {
-        return minSliceIndex_;
-    }
+   /**
+    * get min slice index for according to z limit sliders
+    *
+    * @return
+    */
+   private int getZLimitMinSliceIndex() {
+      return (int) Math.round((zTop_ - zOrigin_) / zStep_);
+   }
 
-    public int getMaxSliceIndex() {
-        return maxSliceIndex_;
-    }
+   /**
+    * get max slice index for current settings in explore acquisition
+    */
+   private int getZLimitMaxSliceIndex() {
+      return (int) Math.round((zBottom_ - zOrigin_) / zStep_);
+   }
 
-    public void updateLowestAndHighestSlices() {
-        //keep track of this for the purposes of the viewer
-        minSliceIndex_ = Math.min(minSliceIndex_, getZLimitMinSliceIndex());
-        maxSliceIndex_ = Math.max(maxSliceIndex_, getZLimitMaxSliceIndex());
-    }
+   /**
+    * get z coordinate for slice position
+    */
+   private double getZCoordinate(int sliceIndex) {
+      return zOrigin_ + zStep_ * sliceIndex;
+   }
 
-    /**
-     * get min slice index for according to z limit sliders
-     *
-     * @return
-     */
-    private int getZLimitMinSliceIndex() {
-        return (int) Math.round((zTop_ - zOrigin_) / zStep_);
-    }
+   public void setZLimits(double zTop, double zBottom) {
+      //Convention: z top should always be lower than zBottom
+      zBottom_ = Math.max(zTop, zBottom);
+      zTop_ = Math.min(zTop, zBottom);
+   }
 
-    /**
-     * get max slice index for current settings in explore acquisition
-     *
-     * @return
-     */
-    private int getZLimitMaxSliceIndex() {
-        return (int) Math.round((zBottom_ - zOrigin_) / zStep_);
-    }
+   public double getZTop() {
+      return zTop_;
+   }
 
-    /**
-     * get z coordinate for slice position
-     *
-     * @return
-     */
-    public double getZCoordinate(int sliceIndex) {
-        return zOrigin_ + zStep_ * sliceIndex;
-    }
+   public double getZBottom() {
+      return zBottom_;
+   }
 
-    public void setZLimits(double zTop, double zBottom) {
-        //Convention: z top should always be lower than zBottom
-        zBottom_ = Math.max(zTop, zBottom);
-        zTop_ = Math.min(zTop, zBottom);
-    }
+   @Override
+   protected JSONArray createInitialPositionList() {
+      try {
+         //create empty position list that gets filled in as tiles are explored
+         CMMCore core = Magellan.getCore();
+         JSONArray pList = new JSONArray();
+         return pList;
+      } catch (Exception e) {
+         Log.log("Couldn't create initial position list", true);
+         return null;
+      }
+   }
 
-    public double getZTop() {
-        return zTop_;
-    }
+   //slice and row/col index of an acquisition event in the queue
+   public class ExploreTileWaitingToAcquire {
 
-    public double getZBottom() {
-        return zBottom_;
-    }
+      public long row, col, sliceIndex, channelIndex;
 
-    @Override
-    protected JSONArray createInitialPositionList() {
-        try {
-            //create empty position list that gets filled in as tiles are explored
-            CMMCore core = Magellan.getCore();
-            JSONArray pList = new JSONArray();
-            return pList;
-        } catch (Exception e) {
-            Log.log("Couldn't create initial position list", true);
-            return null;
-        }
-    }
+      public ExploreTileWaitingToAcquire(long r, long c, int z, int ch) {
+         row = r;
+         col = c;
+         sliceIndex = z;
+         channelIndex = ch;
+      }
 
-    @Override
-    public int getAcqEventQueueCap() {
-        return EXPLORE_EVENT_QUEUE_CAP;
-    }
+      @Override
+      public boolean equals(Object other) {
+         return ((ExploreTileWaitingToAcquire) other).col == col && ((ExploreTileWaitingToAcquire) other).row == row
+                 && ((ExploreTileWaitingToAcquire) other).sliceIndex == sliceIndex && ((ExploreTileWaitingToAcquire) other).channelIndex == channelIndex;
+      }
 
-    @Override
-    public int getInitialNumFrames() {
-        return 1;
-    }
-
-    @Override
-    public int getInitialNumSlicesEstimate() {
-        //Who knows??
-        return 1;
-    }
-
-    //slice and row/col index of an acquisition event in the queue
-    public class ExploreTileWaitingToAcquire {
-
-        public long row, col, sliceIndex, channelIndex;
-
-        public ExploreTileWaitingToAcquire(long r, long c, int z, int ch) {
-            row = r;
-            col = c;
-            sliceIndex = z;
-            channelIndex = ch;
-        }
-
-        @Override
-        public boolean equals(Object other) {
-            return ((ExploreTileWaitingToAcquire) other).col == col && ((ExploreTileWaitingToAcquire) other).row == row
-                    && ((ExploreTileWaitingToAcquire) other).sliceIndex == sliceIndex && ((ExploreTileWaitingToAcquire) other).channelIndex == channelIndex;
-        }
-
-    }
+   }
 }

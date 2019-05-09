@@ -24,7 +24,7 @@
 package main.java.org.micromanager.plugins.magellan.channels;
 import java.awt.Color; 
 import java.util.Random;
-import main.java.org.micromanager.plugins.magellan.acq.FixedAreaAcquisitionSettings;
+import main.java.org.micromanager.plugins.magellan.acq.MagellanGUIAcquisitionSettings;
 import main.java.org.micromanager.plugins.magellan.main.Magellan;
 import main.java.org.micromanager.plugins.magellan.misc.GlobalSettings;
 import main.java.org.micromanager.plugins.magellan.misc.Log;
@@ -54,7 +54,7 @@ public class ChannelSetting {
       /**
        * Automatically load channel settings in preferences
        */
-       String prefix = FixedAreaAcquisitionSettings.PREF_PREFIX + "CHANNELGROUP" + group + "CHANNELNAME" + name;
+       String prefix = MagellanGUIAcquisitionSettings.PREF_PREFIX + "CHANNELGROUP" + group + "CHANNELNAME" + name;
       group_ = group;
       color_ = new Color(GlobalSettings.getInstance().getIntInPrefs(prefix + PREF_COLOR, DEFAULT_COLORS[new Random().nextInt(DEFAULT_COLORS.length)].getRGB()));
       config_ = config;
@@ -68,18 +68,9 @@ public class ChannelSetting {
       use_ = GlobalSettings.getInstance().getBooleanInPrefs(prefix + PREF_USE, true);
       uniqueEvent_ = uniqueEvent; // true for only first on multichannel camera
    }
-
-    public ChannelSetting copy() {
-        ChannelSetting s = new ChannelSetting(group_, config_, name_, uniqueEvent_);
-        s.exposure_ = exposure_;
-        s.color_ = new Color(color_.getRGB());
-        s.use_ = use_;
-        s.offset_ = offset_;
-        return s;
-    }
-
+   
     public void storeChannelInfoInPrefs() {
-        String prefix = FixedAreaAcquisitionSettings.PREF_PREFIX + "CHANNELGROUP" + group_ + "CHANNELNAME" + name_;
+        String prefix = MagellanGUIAcquisitionSettings.PREF_PREFIX + "CHANNELGROUP" + group_ + "CHANNELNAME" + name_;
         GlobalSettings.getInstance().storeBooleanInPrefs(prefix + PREF_USE, use_);
         GlobalSettings.getInstance().storeDoubleInPrefs(prefix + PREF_EXPOSURE, exposure_);
         GlobalSettings.getInstance().storeIntInPrefs(prefix + PREF_COLOR, color_.getRGB());

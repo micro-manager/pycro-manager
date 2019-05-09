@@ -20,6 +20,8 @@ package main.java.org.micromanager.plugins.magellan.coordinates;
 import java.awt.geom.AffineTransform;
 import java.awt.geom.NoninvertibleTransformException;
 import java.awt.geom.Point2D;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.TreeMap;
 import java.util.TreeSet;
 import main.java.org.micromanager.plugins.magellan.json.JSONArray;
@@ -98,6 +100,14 @@ public class PositionManager {
       fullTileHeight_ = fullTileHeight;
       overlapX_ = overlapX; 
       overlapY_ = overlapY;
+   }
+   
+   public List<XYStagePosition> getPositionList() {
+      ArrayList<XYStagePosition> list = new ArrayList<XYStagePosition>();
+      for (int i =0; i < positionList_.length(); i++) {
+          list.add(getXYPosition(i));
+      }
+      return list;
    }
    
    public synchronized String getSerializedPositionList() {
@@ -447,7 +457,7 @@ public class PositionManager {
          return null;
       }
    }
-
+   
    /**
     * 
     * @param xAbsolute x coordinate in the full Res stitched image
@@ -456,6 +466,9 @@ public class PositionManager {
     */
    public synchronized Point2D.Double getStageCoordsFromPixelCoords(long xAbsolute, long yAbsolute) {
       try {
+         if (positionList_.length() == 0) {
+            throw new NoPositionsDefinedYetException();
+         } 
          JSONObject existingPosition = positionList_.getJSONObject(0);
          double exisitngX = existingPosition.getJSONObject(COORDINATES_KEY).getJSONArray(xyStageName_).getDouble(0);
          double exisitngY = existingPosition.getJSONObject(COORDINATES_KEY).getJSONArray(xyStageName_).getDouble(1);        

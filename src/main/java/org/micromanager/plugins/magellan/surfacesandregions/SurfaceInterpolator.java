@@ -17,14 +17,13 @@
 
 package main.java.org.micromanager.plugins.magellan.surfacesandregions;
 
-import main.java.org.micromanager.plugins.magellan.acq.FixedAreaAcquisitionSettings;
+import main.java.org.micromanager.plugins.magellan.acq.MagellanGUIAcquisitionSettings;
 import main.java.org.micromanager.plugins.magellan.coordinates.AffineUtils;
 import main.java.org.micromanager.plugins.magellan.coordinates.XYStagePosition;
 import java.awt.geom.AffineTransform;
 import java.awt.geom.NoninvertibleTransformException;
 import java.awt.geom.Point2D;
 import java.util.ArrayList;
-import java.util.Collection;
 import java.util.Comparator;
 import java.util.LinkedList;
 import java.util.List;
@@ -42,25 +41,20 @@ import org.apache.commons.math3.geometry.euclidean.twod.hull.ConvexHull2D;
 import org.apache.commons.math3.geometry.euclidean.twod.hull.MonotoneChain;
 import org.apache.commons.math3.geometry.partitioning.Region;
 import org.apache.commons.math3.geometry.partitioning.RegionFactory;
-import main.java.org.micromanager.plugins.magellan.propsandcovariants.CovariantPairingsManager;
-import main.java.org.micromanager.plugins.magellan.propsandcovariants.SurfaceData;
 
 /**
  *
  * @author Henry
  */
-public abstract class SurfaceInterpolator implements XYFootprint {
+public abstract class SurfaceInterpolator extends XYFootprint {
    
-   public static final int MIN_PIXELS_PER_INTERP_POINT = 32;
    public static final int NUM_XY_TEST_POINTS = 8;
   
    private static final int ABOVE_SURFACE = 0;
    private static final int BELOW_SURFACE = 1; 
-   private static final int ON_SURFACE = 1;
    
-   private String name_;
    //surface coordinates are neccessarily associated with the coordinate space of particular xy and z devices
-   private final  String xyDeviceName_, zDeviceName_;
+   private final String zDeviceName_;
    private final boolean towardsSampleIsPositive_;
    protected volatile TreeSet<Point3d> points_;
    private MonotoneChain mChain_;
@@ -69,21 +63,19 @@ public abstract class SurfaceInterpolator implements XYFootprint {
    protected volatile Region<Euclidean2D> convexHullRegion_;
    private volatile int numRows_, numCols_;
    private volatile List<XYStagePosition> xyPositions_;
-   private volatile double xyPadding_um_ = 0;
    protected volatile double boundXMin_, boundXMax_, boundYMin_, boundYMax_;
-   private volatile int boundXPixelMin_,boundXPixelMax_,boundYPixelMin_,boundYPixelMax_;
+   protected volatile int boundXPixelMin_,boundXPixelMax_,boundYPixelMin_,boundYPixelMax_;
+   protected volatile int minPixelsPerInterpPoint_ = 1;
    private ExecutorService executor_; 
    protected volatile SingleResolutionInterpolation currentInterpolation_;
-   private SurfaceManager manager_;
-   private Future currentInterpolationTask_;
+   private volatile Future currentInterpolationTask_;
    //Objects for wait/notify sync of calcualtions
    protected Object xyPositionLock_ = new Object(), interpolationLock_ = new Object(), convexHullLock_ = new Object();
  
    
    public SurfaceInterpolator(String xyDevice, String zDevice) {    
-      manager_ = SurfaceManager.getInstance();
-      name_ = manager_.getNewName();
-      xyDeviceName_ = xyDevice;
+      super(xyDevice);
+      name_ = manager_.getNewSurfaceName();
       zDeviceName_ = zDevice;
       //store points sorted by z coordinate to easily find the top, for generating slice index 0 position
       points_ = new TreeSet<Point3d>(new Comparator<Point3d>() {
@@ -133,9 +125,8 @@ public abstract class SurfaceInterpolator implements XYFootprint {
 
    }
    
-   @Override
-   public String getXYDevice() {
-      return xyDeviceName_;
+   public int getMinPixelsPerInterpPoint() {
+      return minPixelsPerInterpPoint_;
    }
    
    public String getZDevice() {
@@ -153,20 +144,15 @@ public abstract class SurfaceInterpolator implements XYFootprint {
    
    public void delete() {
       executor_.shutdownNow();
-      CovariantPairingsManager.getInstance().deletePairsReferencingSurface(this);
-   }
-   
-   @Override
-   public String toString() {
-      return name_;
-   }
-   
-   public String getName() {
-      return name_;
-   }
-   
-   public void rename(String newName) {
-      name_ = newName;
+      synchronized(convexHullLock_){
+         convexHullLock_.notifyAll();
+      }
+      synchronized (interpolationLock_) {
+         interpolationLock_.notifyAll();
+      }
+      synchronized (xyPositionLock_) {
+         xyPositionLock_.notifyAll();
+      }
    }
    
    /**
@@ -178,18 +164,6 @@ public abstract class SurfaceInterpolator implements XYFootprint {
          return -1;
       }
       return xyPositions_.size();
-   }
-   
-   public double getXYPadding() {
-      return xyPadding_um_;
-   }
-   
-   public void setXYPadding(double pad) {
-      xyPadding_um_ = pad;
-      synchronized (xyPositionLock_) {
-         xyPositions_ = null;
-      }
-      updateXYPositionsOnly(FixedAreaAcquisitionSettings.getStoredTileOverlapPercentage());
    }
 
    /**
@@ -224,6 +198,10 @@ public abstract class SurfaceInterpolator implements XYFootprint {
       }
    }
    
+   public SingleResolutionInterpolation getCurentInterpolation() {
+      return currentInterpolation_;
+   }
+    
    public SingleResolutionInterpolation waitForCurentInterpolation() throws InterruptedException {
       synchronized (interpolationLock_) {
          if (currentInterpolation_ == null) {
@@ -253,7 +231,7 @@ public abstract class SurfaceInterpolator implements XYFootprint {
     * 
     * @return true if every part of position is above surface, false otherwise
     */
-   public boolean isPositionCompletelyAboveSurface(XYStagePosition pos, SurfaceInterpolator surface, double zPos, boolean extrapolate) throws InterruptedException {
+   public boolean isPositionCompletelyAboveSurface(XYStagePosition pos, SurfaceInterpolator surface, double zPos, boolean extrapolate) {
       return testPositionRelativeToSurface(pos, surface, zPos, ABOVE_SURFACE, extrapolate);
    }
   
@@ -262,7 +240,7 @@ public abstract class SurfaceInterpolator implements XYFootprint {
     *
     * @return true if every part of position is above surface, false otherwise
     */
-   public boolean isPositionCompletelyBelowSurface(XYStagePosition pos, SurfaceInterpolator surface, double zPos, boolean extrapolate ) throws InterruptedException {
+   public boolean isPositionCompletelyBelowSurface(XYStagePosition pos, SurfaceInterpolator surface, double zPos, boolean extrapolate ) {
       return testPositionRelativeToSurface(pos, surface, zPos, BELOW_SURFACE, extrapolate);
    }
    
@@ -271,20 +249,20 @@ public abstract class SurfaceInterpolator implements XYFootprint {
     * @throws InterruptedException 
     */
    public boolean testPositionRelativeToSurface(XYStagePosition pos, SurfaceInterpolator surface, double zPos, 
-           int mode, boolean extrapolate) throws InterruptedException {
+           int mode, boolean extrapolate) {
       //get the corners with padding added in
-      Point2D.Double[] corners = getPositionCornersWithPadding(pos, surface.xyPadding_um_);
+      Point2D.Double[] corners = pos.getDisplayedTileCorners();
       //First check position corners before going into a more detailed set of test points
       for (Point2D.Double point : corners) {
          float interpVal;
-         if (!surface.waitForCurentInterpolation().isInterpDefined(point.x, point.y)) {
+         if (!surface.getCurentInterpolation().isInterpDefined(point.x, point.y)) {
             if (extrapolate) {
                interpVal = surface.getExtrapolatedValue(point.x, point.y);
             } else {
                continue;
             }
          } else {
-            interpVal = surface.waitForCurentInterpolation().getInterpolatedValue(point.x, point.y);
+            interpVal = surface.getCurentInterpolation().getInterpolatedValue(point.x, point.y);
          }
          if ((towardsSampleIsPositive_ && mode == ABOVE_SURFACE && zPos >= interpVal)
                  || (towardsSampleIsPositive_ && mode == BELOW_SURFACE && zPos <= interpVal)
@@ -319,14 +297,14 @@ public abstract class SurfaceInterpolator implements XYFootprint {
             transform.transform(new Point2D.Double(x, y), stageCoords);
             //test point for inclusion of position
             float interpVal;
-            if (!surface.waitForCurentInterpolation().isInterpDefined(stageCoords.x, stageCoords.y)) {
+            if (!surface.getCurentInterpolation().isInterpDefined(stageCoords.x, stageCoords.y)) {
                if (extrapolate) {
                   interpVal = surface.getExtrapolatedValue(stageCoords.x, stageCoords.y);
                } else {
                   continue;
                }
             } else {
-               interpVal = surface.waitForCurentInterpolation().getInterpolatedValue(stageCoords.x, stageCoords.y);
+               interpVal = surface.getCurentInterpolation().getInterpolatedValue(stageCoords.x, stageCoords.y);
             }
             if ((towardsSampleIsPositive_ && mode == ABOVE_SURFACE && zPos >= interpVal)
                     || (towardsSampleIsPositive_ && mode == BELOW_SURFACE && zPos <= interpVal)
@@ -338,65 +316,6 @@ public abstract class SurfaceInterpolator implements XYFootprint {
       }
       return true;
    }
-
-
-   
-   /**
-    * figure out which of the positions need to be collected at a given slice
-    * Assumes positions_ contains list of all possible positions for fitting  
-    * block until interpolation is detailed enough to calculate stage positions
-    * @param zPos 
-    */
-   public ArrayList<XYStagePosition> getXYPositonsAtSlice(double zPos, boolean above) throws InterruptedException {
-      SingleResolutionInterpolation interp = waitForCurentInterpolation();
-      double overlapPercent = FixedAreaAcquisitionSettings.getStoredTileOverlapPercentage() / 100;
-      int overlapX = (int) (Magellan.getCore().getImageWidth() * overlapPercent);
-      int overlapY = (int) (Magellan.getCore().getImageHeight() * overlapPercent);
-      int tileWidth = (int) (Magellan.getCore().getImageWidth() - overlapX);
-      int tileHeight = (int) (Magellan.getCore().getImageHeight() - overlapY);
-      while (interp.getPixelsPerInterpPoint() >= Math.max(tileWidth,tileHeight) / NUM_XY_TEST_POINTS ) {
-         synchronized (interpolationLock_) {
-            interpolationLock_.wait();
-         }
-         interp = waitForCurentInterpolation();
-      }
-      ArrayList<XYStagePosition> positionsAtSlice = new ArrayList<XYStagePosition>();
-      for (XYStagePosition pos : xyPositions_) {
-         if (!above) {
-            if (!isPositionCompletelyAboveSurface(pos, this, zPos, false)) { //not completely above = below
-               positionsAtSlice.add(pos);
-            }
-         } else {
-            if (!isPositionCompletelyBelowSurface(pos, this, zPos, false)) { // not completely below = above
-               positionsAtSlice.add(pos);
-            }
-         }
-      }
-
-      return positionsAtSlice;
-   }
-
-   private static Point2D.Double[] getPositionCornersWithPadding(XYStagePosition pos, double xyPadding) {
-      if (xyPadding == 0) {
-         return pos.getDisplayedTileCorners();
-      } else {
-         //expand to bigger square to acount for padding
-         //make two lines that criss cross the smaller square
-         Point2D.Double[] corners = pos.getDisplayedTileCorners();
-         double diagonalLength = new Vector2D(corners[0].x, corners[0].y).distance(new Vector2D(corners[2].x, corners[2].y));
-         Vector2D center = new Vector2D(pos.getCenter().x, pos.getCenter().y);
-         Point2D.Double[] paddedCorners = new Point2D.Double[4];
-         Vector2D c0 = center.add(xyPadding + 0.5 * diagonalLength, new Vector2D(corners[0].x - corners[2].x, corners[0].y - corners[2].y).normalize());
-         Vector2D c1 = center.add(xyPadding + 0.5 * diagonalLength, new Vector2D(corners[1].x - corners[3].x, corners[1].y - corners[3].y).normalize());
-         Vector2D c2 = center.add(xyPadding + 0.5 * diagonalLength, new Vector2D(corners[2].x - corners[0].x, corners[2].y - corners[0].y).normalize());
-         Vector2D c3 = center.add(xyPadding + 0.5 * diagonalLength, new Vector2D(corners[3].x - corners[1].x, corners[3].y - corners[1].y).normalize());
-         paddedCorners[0] = new Point2D.Double(c0.getX(), c0.getY());
-         paddedCorners[1] = new Point2D.Double(c1.getX(), c1.getY());
-         paddedCorners[2] = new Point2D.Double(c2.getX(), c2.getY());
-         paddedCorners[3] = new Point2D.Double(c3.getX(), c3.getY());
-         return paddedCorners;
-      }           
-   }
    
    /**
     * Create a 2D square region corresponding to the the stage position + any extra padding
@@ -406,22 +325,12 @@ public abstract class SurfaceInterpolator implements XYFootprint {
    private Region<Euclidean2D> getStagePositionRegion(XYStagePosition pos) {
        Region<Euclidean2D> square;
        Point2D.Double[] corners = pos.getDisplayedTileCorners();
-      if (xyPadding_um_ == 0) {
-         square = new PolygonsSet(0.0001, new Vector2D[]{
-                    new Vector2D(corners[0].x, corners[0].y),
-                    new Vector2D(corners[1].x, corners[1].y),
-                    new Vector2D(corners[2].x, corners[2].y),
-                    new Vector2D(corners[3].x, corners[3].y)});
-      } else { //expand to bigger square to acount for padding
-         //make two lines that criss cross the smaller square
-         double diagonalLength = new Vector2D(corners[0].x, corners[0].y).distance(new Vector2D(corners[2].x, corners[2].y));
-         Vector2D center = new Vector2D(pos.getCenter().x, pos.getCenter().y);
-         square = new PolygonsSet(0.0001, new Vector2D[]{
-                    center.add(xyPadding_um_ + 0.5 * diagonalLength, new Vector2D(corners[0].x - corners[2].x, corners[0].y - corners[2].y).normalize()),
-                    center.add(xyPadding_um_ + 0.5 * diagonalLength, new Vector2D(corners[1].x - corners[3].x, corners[1].y - corners[3].y).normalize()),
-                    center.add(xyPadding_um_ + 0.5 * diagonalLength, new Vector2D(corners[2].x - corners[0].x, corners[2].y - corners[0].y).normalize()),
-                    center.add(xyPadding_um_ + 0.5 * diagonalLength, new Vector2D(corners[3].x - corners[1].x, corners[3].y - corners[1].y).normalize())});
-      }
+      square = new PolygonsSet(0.0001, new Vector2D[]{
+         new Vector2D(corners[0].x, corners[0].y),
+         new Vector2D(corners[1].x, corners[1].y),
+         new Vector2D(corners[2].x, corners[2].y),
+         new Vector2D(corners[3].x, corners[3].y)});
+
       return square.checkPoint(new Vector2D(pos.getCenter().x, pos.getCenter().y)) == Region.Location.OUTSIDE ? regionFacotry_.getComplement(square) : square;
    }
 
@@ -473,9 +382,8 @@ public abstract class SurfaceInterpolator implements XYFootprint {
       int overlapY = (int) (Magellan.getCore().getImageHeight() * overlap / 100);
       int tileWidthMinusOverlap = fullTileWidth - overlapX;
       int tileHeightMinusOverlap =  fullTileHeight - overlapY;
-      int pixelPadding = (int) (xyPadding_um_ / Magellan.getCore().getPixelSizeUm());
-      numRows_ = (int) Math.ceil( (boundYPixelMax_ - boundYPixelMin_ + pixelPadding) / (double) tileHeightMinusOverlap );
-      numCols_ = (int) Math.ceil( (boundXPixelMax_ - boundXPixelMin_ + pixelPadding) / (double) tileWidthMinusOverlap );    
+      numRows_ = (int) Math.ceil( (boundYPixelMax_ - boundYPixelMin_ ) / (double) tileHeightMinusOverlap );
+      numCols_ = (int) Math.ceil( (boundXPixelMax_ - boundXPixelMin_ ) / (double) tileWidthMinusOverlap );    
       
       //take center of bounding box and create grid
       int pixelCenterX = boundXPixelMin_ + (boundXPixelMax_ - boundXPixelMin_) / 2;
@@ -550,7 +458,7 @@ public abstract class SurfaceInterpolator implements XYFootprint {
       }
          
       //let manger know new parmas caluclated
-      manager_.updateSurfaceTableAndCombos();
+      manager_.surfaceOrGridUpdated(this);
    }
 
       
@@ -570,7 +478,7 @@ public abstract class SurfaceInterpolator implements XYFootprint {
       }
 
       updateConvexHullAndInterpolate();
-      manager_.drawSurfaceOverlay(this);
+      manager_.surfaceOrGridUpdated(this);
    }
 
    /**
@@ -595,16 +503,14 @@ public abstract class SurfaceInterpolator implements XYFootprint {
       }
 
       updateConvexHullAndInterpolate(); 
-      manager_.drawSurfaceOverlay(this);
+      manager_.surfaceOrGridUpdated(this);
    }
    
    public synchronized void addPoint(double x, double y, double z) {
       points_.add(new Point3d(x,y,z)); //for interpolation
       updateConvexHullAndInterpolate(); 
-      manager_.drawSurfaceOverlay(this);
-     
+      manager_.surfaceOrGridUpdated(this);
    }
-   
    
    //redo XY position fitting, but dont need to reinterpolate
    private void updateXYPositionsOnly(final double overlap) {
@@ -620,7 +526,7 @@ public abstract class SurfaceInterpolator implements XYFootprint {
                //this won't happen
                return;
             }
-            manager_.drawSurfaceOverlay(SurfaceInterpolator.this);
+            manager_.surfaceOrGridUpdated(SurfaceInterpolator.this);
          }         
       });
    }
@@ -647,7 +553,7 @@ public abstract class SurfaceInterpolator implements XYFootprint {
       numCols_ = 0;
 
 
-      currentInterpolationTask_ = executor_.submit( new Runnable() {
+      currentInterpolationTask_ = executor_.submit(new Runnable() {
          @Override
          public void run() {
             if (points.size() > 2) {
@@ -679,11 +585,11 @@ public abstract class SurfaceInterpolator implements XYFootprint {
                   }
                   //use the most recently set overlap value for display purposes. When it comes time to calc the real thing, 
                   //get it from the acquisition settings
-                  fitXYPositionsToConvexHull(FixedAreaAcquisitionSettings.getStoredTileOverlapPercentage());
+                  fitXYPositionsToConvexHull(MagellanGUIAcquisitionSettings.getStoredTileOverlapPercentage());
                   //Interpolate surface as specified by the subclass method
                   interpolateSurface(points);
                   //let manager handle event firing to acquisitions using surface
-                  manager_.surfaceUpdated(SurfaceInterpolator.this);
+                  manager_.surfaceOrGridUpdated(SurfaceInterpolator.this);
                } catch (InterruptedException e) {
                   return;
                }
@@ -706,22 +612,6 @@ public abstract class SurfaceInterpolator implements XYFootprint {
       return points_.toArray(new Point3d[0]);
    }
 
-   /**
-    * return list of surface Data.
-    * @return 
-    */
-   Collection<SurfaceData> getData() {
-      ArrayList<SurfaceData> list = new ArrayList<SurfaceData>();
-      for (String datumName : SurfaceData.enumerateDataTypes()) {
-         try {
-            list.add(new SurfaceData(this, datumName));
-         } catch (Exception e) {
-             e.printStackTrace();
-            //this will never happen
-         }
-      }
-      return list;
-   }
 
    
 }

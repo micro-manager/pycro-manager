@@ -19,9 +19,17 @@ package main.java.org.micromanager.plugins.magellan.surfacesandregions;
 import main.java.org.micromanager.plugins.magellan.surfacesandregions.SurfaceInterpolator;
 
 
-public interface SurfaceChangedListener {
+public interface SurfaceGridListener {
    
-   public void SurfaceChanged(SurfaceInterpolator surface);
+   //Data changed or name changed
+   public void SurfaceOrGridChanged(XYFootprint f);
    
+   public void SurfaceOrGridDeleted(XYFootprint f);
+   
+   public void SurfaceOrGridCreated(XYFootprint f);
+
+   public void SurfaceOrGridRenamed(XYFootprint f);
+   
+   public void SurfaceInterpolationUpdated(SurfaceInterpolator s);
    
 }

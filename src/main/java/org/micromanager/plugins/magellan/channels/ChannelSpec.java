@@ -20,12 +20,12 @@ public class ChannelSpec {
     }
     
     public void updateChannelGroup(String channelGroup) {
-        if (channels_ != null && channels_.size() != 0 && channels_.get(0).equals(channelGroup) ) {
+        if (channels_ != null && !channels_.isEmpty() && channels_.get(0).group_.equals(channelGroup) ) {
             //nothing to update
             return;
         } 
         //The channel group for this object has been 
-        int numCamChannels = (int) (GlobalSettings.getInstance().getDemoMode() ? DemoModeImageData.getNumChannels() : Magellan.getCore().getNumberOfCameraChannels());
+        int numCamChannels = (int) Magellan.getCore().getNumberOfCameraChannels();
         channels_ = new ArrayList<ChannelSetting>();
         if (numCamChannels <= 1) {
             for (String config : getChannelConfigs(channelGroup)) {
@@ -47,7 +47,7 @@ public class ChannelSpec {
     
     public void setUseOnAll(boolean use) {
         for (ChannelSetting c : channels_) {
-         c.use_ = use;
+           c.use_ = use;
         }
     }
 

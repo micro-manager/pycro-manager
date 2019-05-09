@@ -3,7 +3,7 @@
  * To change this template file, choose Tools | Templates
  * and open the template in the editor.
  */
-package main.java.org.micromanager.plugins.magellan.channels;
+package main.java.org.micromanager.plugins.magellan.gui;
 
 import java.util.ArrayList;
 import javax.swing.DefaultComboBoxModel;

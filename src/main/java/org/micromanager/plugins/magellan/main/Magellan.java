@@ -32,10 +32,10 @@ import org.scijava.plugin.SciJavaPlugin;
 @Plugin(type = MenuPlugin.class)
 public class Magellan implements MenuPlugin, SciJavaPlugin{
 
-   private static final String VERSION = "1.02";
+   private static final String VERSION = "2.0.0";
            
    public static final String menuName = "Micro-Magellan";
-   public static final String tooltipDescription = "High throughout, automated micrscopy for spatiotemporal exploration";
+   public static final String tooltipDescription = "High throughout, automated micrscopy for slidescanning or volumetric imaging";
 
    private static Preferences prefs_;
    private static Studio mmAPI_;

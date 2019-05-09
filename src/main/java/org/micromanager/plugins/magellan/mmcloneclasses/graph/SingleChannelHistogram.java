@@ -664,27 +664,13 @@ public class SingleChannelHistogram extends JPanel implements Histograms, Cursor
 
    @Override
    public void imageChanged() {
-      boolean update = true;
-      if (!((DisplayPlus) display_).getAcquisition().isFinished()
-              && !((DisplayPlus) display_).getAcquisition().isPaused()) {
-         if (cp_.getHistogramControlsState().slowHist) {
-            long time = System.currentTimeMillis();
-            if (time - lastUpdateTime_ < SLOW_HIST_UPDATE_INTERVAL_MS) {
-               update = false;
-                } else {
-                    lastUpdateTime_ = time;
-                }
-            }
-        }
+      calcAndDisplayHistAndStats(true);
+      if (cp_.getHistogramControlsState().autostretch) {
+         autostretch();
+      }
+      applyLUTToImage();
 
-        if (update) {
-            calcAndDisplayHistAndStats(true);
-            if (cp_.getHistogramControlsState().autostretch) {
-                autostretch();
-            }
-            applyLUTToImage();
-        }
-    }
+   }
 
    @Override
    public void calcAndDisplayHistAndStats(boolean drawHist) {

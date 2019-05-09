@@ -16,15 +16,9 @@
 //
 package main.java.org.micromanager.plugins.magellan.acq;
 
-import java.awt.Color;
-import java.util.ArrayList;
 import java.util.prefs.Preferences;
-import main.java.org.micromanager.plugins.magellan.channels.ChannelSetting;
 import main.java.org.micromanager.plugins.magellan.channels.ChannelSpec;
 import main.java.org.micromanager.plugins.magellan.main.Magellan;
-import main.java.org.micromanager.plugins.magellan.misc.Log;
-import main.java.org.micromanager.plugins.magellan.propsandcovariants.CovariantPairing;
-import main.java.org.micromanager.plugins.magellan.propsandcovariants.CovariantPairingsManager;
 import main.java.org.micromanager.plugins.magellan.surfacesandregions.SurfaceInterpolator;
 import main.java.org.micromanager.plugins.magellan.surfacesandregions.XYFootprint;
 
@@ -32,12 +26,12 @@ import main.java.org.micromanager.plugins.magellan.surfacesandregions.XYFootprin
  *
  * @author Henry
  */
-public class FixedAreaAcquisitionSettings  {
+public class MagellanGUIAcquisitionSettings  {
    
    public static final String PREF_PREFIX = "Fixed area acquisition ";
 
    public static final int NO_SPACE = 0;
-   public static final int SIMPLE_Z_STACK = 1;
+   public static final int CUBOID_Z_STACK = 1;
    public static final int SURFACE_FIXED_DISTANCE_Z_STACK = 2;
    public static final int VOLUME_BETWEEN_SURFACES_Z_STACK = 3;
    public static final int REGION_2D = 4;
@@ -49,42 +43,27 @@ public class FixedAreaAcquisitionSettings  {
    //saving
    public String dir_, name_;
    //time
-   public boolean timeEnabled_;
-   public double timePointInterval_;
-   public int numTimePoints_;
-   public int timeIntervalUnit_; 
+   public volatile boolean timeEnabled_;
+   public volatile double timePointInterval_;
+   public volatile int numTimePoints_;
+   public volatile int timeIntervalUnit_; 
 
    //space
-   public double zStep_, zStart_, zEnd_, distanceBelowFixedSurface_, distanceAboveFixedSurface_,
+   public volatile double zStep_, zStart_, zEnd_, distanceBelowFixedSurface_, distanceAboveFixedSurface_,
            distanceAboveTopSurface_, distanceBelowBottomSurface_;
-   public int spaceMode_;
-   public SurfaceInterpolator topSurface_, bottomSurface_, fixedSurface_, collectionPlane_;
-   public XYFootprint footprint_;
-   public int useTopOrBottomFootprint_;
-   public double tileOverlap_; //stored as percent * 100, i.e. 55 => 55%
-   public boolean channelsAtEverySlice_;
+   public volatile int spaceMode_;
+   public volatile boolean useCollectionPlane_ = false;
+   public volatile SurfaceInterpolator topSurface_, bottomSurface_, fixedSurface_, collectionPlane_;
+   public volatile XYFootprint footprint_;
+   public volatile int useTopOrBottomFootprint_;
+   public volatile double tileOverlap_; //stored as percent * 100, i.e. 55 => 55%
+   public volatile boolean channelsAtEverySlice_;
    
    //channels
-   public String channelGroup_;
-   public ChannelSpec channels_ ;
-   
-   //Covarying props
-   public ArrayList<CovariantPairing> covariantPairings_ = new ArrayList<CovariantPairing>();
-   
-   //autofocus
-   public boolean autofocusEnabled_;
-   public String autoFocusZDevice_;
-   public String autofocusChannelName_;
-   public double autofocusMaxDisplacemnet_um_;
-   public boolean setInitialAutofocusPosition_;
-   public double initialAutofocusPosition_;
-   
-   //2photon
-   public int imageFilterType_;
-   public double rank_;
-   
-   
-   public FixedAreaAcquisitionSettings() {
+   public volatile String channelGroup_;
+   public volatile ChannelSpec channels_ ;
+
+   public MagellanGUIAcquisitionSettings() {
       Preferences prefs = Magellan.getPrefs();
       name_ = prefs.get(PREF_PREFIX + "NAME", "Untitled");
       timeEnabled_ = prefs.getBoolean(PREF_PREFIX + "TE", false);
@@ -92,6 +71,7 @@ public class FixedAreaAcquisitionSettings  {
       numTimePoints_ = prefs.getInt(PREF_PREFIX + "NTP", 1);
       timeIntervalUnit_ = prefs.getInt(PREF_PREFIX + "TPIU", 0);
       //space
+      useCollectionPlane_ = prefs.getBoolean(PREF_PREFIX +"USECOLLECTIONPLANE", false);
       channelsAtEverySlice_ = prefs.getBoolean(PREF_PREFIX +"ACQORDER", true);
       zStep_ = prefs.getDouble(PREF_PREFIX + "ZSTEP", 1);
       zStart_ = prefs.getDouble(PREF_PREFIX + "ZSTART", 0);
@@ -106,60 +86,10 @@ public class FixedAreaAcquisitionSettings  {
       channelGroup_ = prefs.get(PREF_PREFIX + "CHANNELGROUP", "");
       //This creates a new Object of channelSpecs that is "Owned" by the accquisition
       channels_ = new ChannelSpec(channelGroup_); 
-      //autofocus
-      autofocusMaxDisplacemnet_um_ =  prefs.getDouble(PREF_PREFIX + "AFMAXDISP", 0.0);
-      autofocusChannelName_ = prefs.get(PREF_PREFIX + "AFCHANNELNAME", null);
-      autoFocusZDevice_ = prefs.get(PREF_PREFIX + "AFZNAME", null);      
-      //add all pairings currently present
-      CovariantPairingsManager pairManager = CovariantPairingsManager.getInstance();
-      //null on startup, but no pairings to add anyway  
-      if (pairManager != null) {
-         for (int i = 0; i < pairManager.getNumPairings(); i++) {
-            CovariantPairing potentialPair = pairManager.getPair(i);
-            if (!checkForRedundantPairing(potentialPair)) {
-               covariantPairings_.add(potentialPair);
-            }
-         }
-      }
-      //image filtering
-      //dont load so defaults to frame average for now
-//      imageFilterType_ = prefs.getInt(PREF_PREFIX + "IMAGE_FILTER", FrameIntegrationMethod.FRAME_AVERAGE);   
-      rank_ = prefs.getDouble(PREF_PREFIX + "RANK", 0.95);
-   }
-   
-   public boolean hasPairing(CovariantPairing pair) {
-      return covariantPairings_.contains(pair);
-   }
-   
-   public void removePropPairing(CovariantPairing pair) {
-      covariantPairings_.remove(pair);
-   }
-   
-   public void addPropPairing(CovariantPairing pair) {
-      if (covariantPairings_.contains(pair)) {
-         Log.log("Tried to add property pair that was already present", true);
-         return;
-      }
-      if (checkForRedundantPairing(pair)) {
-         Log.log("Must delete existing pairing between same two properties first before a new"
-                 + "one can be added");
-         return;
-      }
-      covariantPairings_.add(pair);
-      
    }
    
    public static double getStoredTileOverlapPercentage() {
       return Magellan.getPrefs().getDouble(PREF_PREFIX + "TILEOVERLAP", 5);
-   }
-   
-   private boolean checkForRedundantPairing(CovariantPairing pair) {
-      for (CovariantPairing p : covariantPairings_) {
-         if (p.getIndependentName(false).equals(pair.getIndependentName(false)) && p.getDependentName(false).equals(pair.getDependentName(false))) {
-            return true;
-         }
-      }
-      return false;
    }
    
    public void storePreferedValues() {
@@ -170,6 +100,7 @@ public class FixedAreaAcquisitionSettings  {
       prefs.putInt(PREF_PREFIX + "NTP", numTimePoints_);
       prefs.putInt(PREF_PREFIX + "TPIU", timeIntervalUnit_);
       //space
+      prefs.putBoolean(PREF_PREFIX +"USECOLLECTIONPLANE", useCollectionPlane_);
       prefs.putDouble(PREF_PREFIX + "ZSTEP", zStep_);
       prefs.putDouble(PREF_PREFIX + "ZSTART", zStart_);
       prefs.putDouble(PREF_PREFIX + "ZEND", zEnd_);
@@ -183,19 +114,29 @@ public class FixedAreaAcquisitionSettings  {
       //channels
       prefs.put(PREF_PREFIX + "CHANNELGROUP", channelGroup_);
       //Individual channel settings sotred in ChannelUtils
-
-      
-      //autofocus
-      prefs.putDouble(PREF_PREFIX + "AFMAXDISP", autofocusMaxDisplacemnet_um_);
-      if (autofocusChannelName_ != null) {
-         prefs.put(PREF_PREFIX + "AFCHANNELNAME", autofocusChannelName_);
+   }
+   
+   public String toString() {
+      String s = "";
+      if (spaceMode_ == CUBOID_Z_STACK) {
+         s += "Cuboid volume";
+      } else if (spaceMode_ == SURFACE_FIXED_DISTANCE_Z_STACK) {
+         s += "Volume within distance from surface";
+      } else if (spaceMode_ == VOLUME_BETWEEN_SURFACES_Z_STACK) {
+         s += "Volume bounded by surfaces";
+      } else if (spaceMode_ == REGION_2D && collectionPlane_ == null) {
+         s += "2D plane";
+      } else {
+         s += "2D along surface";
       }
-      if (autoFocusZDevice_ != null) {
-         prefs.put(PREF_PREFIX + "AFZNAME", autoFocusZDevice_);
+      int numC = channels_.getNumActiveChannels();
+      if (numC > 1) {
+         s += " " + numC + " channels";
       }
-      //image filtering
-      prefs.putInt(PREF_PREFIX + "IMAGE_FILTER", imageFilterType_);
-      prefs.putDouble(PREF_PREFIX + "RANK", rank_);
+      if (timeEnabled_) {
+         s += " " + numTimePoints_ + " time points";
+      }
+      return s;
    }
 
 }
