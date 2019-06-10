@@ -1,3 +1,5 @@
 Icon
 
 *.pyc
+
+__pycache__/
