@@ -1,2 +1,0 @@
-*.jar filter=lfs diff=lfs merge=lfs
-*.class filter=lfs diff=lfs merge=lfs
