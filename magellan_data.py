@@ -9,7 +9,7 @@ import json
 import platform
 
 
-class MagellanMultipageTiffReader:
+class _MagellanMultipageTiffReader:
     # Class corresponsing to a single multipage tiff file in a Micro-Magellan dataset. Pass the full path of the TIFF to
     # instantiate and call close() when finished
     # TIFF constants
@@ -184,7 +184,7 @@ class MagellanMultipageTiffReader:
         except:
             return False
 
-class MagellanResolutionLevel:
+class _MagellanResolutionLevel:
 
     def __init__(self, path):
         """
@@ -196,7 +196,7 @@ class MagellanResolutionLevel:
         self.reader_tree = {}
         #populate list of readers and tree mapping indices to readers
         for tiff in tiff_names:
-            reader = MagellanMultipageTiffReader(tiff)
+            reader = _MagellanMultipageTiffReader(tiff)
             self.reader_list.append(reader)
             it = reader.index_tree
             for c in it.keys():
@@ -246,7 +246,7 @@ class MagellanDataset:
             if full_res_only and res_dir != 'Full resolution':
                 continue
             res_dir_path = os.path.join(dataset_path, res_dir)
-            res_level = MagellanResolutionLevel(res_dir_path)
+            res_level = _MagellanResolutionLevel(res_dir_path)
             if res_dir == 'Full resolution':
                 self.res_levels[1] = res_level
                 # get summary metadata and index tree from full resolution image
