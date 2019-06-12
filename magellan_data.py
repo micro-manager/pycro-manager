@@ -34,8 +34,8 @@ class _MagellanMultipageTiffReader:
     SUMMARY_MD_HEADER = 2355492
 
     def __init__(self, tiff_path):
+        self.tiff_path = tiff_path
         self.file = open(tiff_path, 'rb')
-        # memory map the entire file
         if platform.system() == 'Windows':
             self.mmap_file = mmap.mmap(self.file.fileno(), 0, access=mmap.ACCESS_READ)
         else:
@@ -152,14 +152,20 @@ class _MagellanMultipageTiffReader:
             raise Exception('Missing tags in IFD entry, file may be corrupted')
         return info
 
-    def _read_pixels(self, offset, length):
+    def _read_pixels(self, offset, length, memmapped):
         if self.width * self.height * 2 == length:
-            pixels = np.frombuffer(self._read(offset, offset + length), dtype=np.uint16)
+            pixel_type = np.uint16
         elif self.width * self.height == length:
-            pixels = np.frombuffer(self._read(offset, offset + length), dtype=np.uint8)
+            pixel_type = np.uint8
         else:
             raise Exception('Unknown pixel type')
-        return np.reshape(pixels, [self.height, self.width])
+
+        if memmapped:
+            return np.memmap(open(self.tiff_path, 'rb'),
+                             dtype=pixel_type, mode='r', offset=offset, shape=(self.height, self.width))
+        else:
+            pixels = np.frombuffer(self._read(offset, offset + length), dtype=pixel_type)
+            return np.reshape(pixels, [self.height, self.width])
 
     def read_metadata(self, channel_index, z_index, t_index, pos_index):
         ifd_offset = self.index_tree[channel_index][z_index][t_index][pos_index]
@@ -167,10 +173,10 @@ class _MagellanMultipageTiffReader:
         metadata = json.loads(self._read(ifd_data['md_offset'], ifd_data['md_offset'] + ifd_data['md_length']))
         return metadata
 
-    def read_image(self, channel_index, z_index, t_index, pos_index, read_metadata=False):
+    def read_image(self, channel_index, z_index, t_index, pos_index, read_metadata=False, memmapped=False):
         ifd_offset = self.index_tree[channel_index][z_index][t_index][pos_index]
         ifd_data = self._read_ifd(ifd_offset)
-        image = self._read_pixels(ifd_data['pixel_offset'], ifd_data['bytes_per_image'])
+        image = self._read_pixels(ifd_data['pixel_offset'], ifd_data['bytes_per_image'], memmapped)
         if read_metadata:
             metadata = json.loads(self._read(ifd_data['md_offset'], ifd_data['md_offset'] + ifd_data['md_length']))
             return image, metadata
@@ -211,10 +217,10 @@ class _MagellanResolutionLevel:
                         for p in it[c][z][t].keys():
                             self.reader_tree[c][z][t][p] = reader
 
-    def read_image(self, channel_index=0, z_index=0, t_index=0, pos_index=0, read_metadata=False):
+    def read_image(self, channel_index=0, z_index=0, t_index=0, pos_index=0, read_metadata=False, memmapped=False):
         # determine which reader contains the image
         reader = self.reader_tree[channel_index][z_index][t_index][pos_index]
-        return reader.read_image(channel_index, z_index, t_index, pos_index, read_metadata)
+        return reader.read_image(channel_index, z_index, t_index, pos_index, read_metadata, memmapped)
 
     def read_metadata(self, channel_index=0, z_index=0, t_index=0, pos_index=0):
         # determine which reader contains the image
@@ -259,23 +265,23 @@ class MagellanDataset:
                 self.channel_names = self.summary_metadata['ChNames']
                 self.c_z_t_p_tree = res_level.reader_tree
                 # index tree is in c - z - t - p hierarchy, get all used indices to calcualte other orderings
-                channels = set(self.c_z_t_p_tree.keys())
-                slices = set()
-                frames = set()
-                positions = set()
+                self.channel_indices = set(self.c_z_t_p_tree.keys())
+                self.z_indices = set()
+                self.frame_indices = set()
+                self.position_indices = set()
                 for c in self.c_z_t_p_tree.keys():
                     for z in self.c_z_t_p_tree[c]:
-                        slices.add(z)
+                        self.z_indices.add(z)
                         for t in self.c_z_t_p_tree[c][z]:
-                            frames.add(t)
+                            self.frame_indices.add(t)
                             for p in self.c_z_t_p_tree[c][z][t]:
-                                positions.add(p)
+                                self.position_indices.add(p)
                 # populate tree in a different ordering
                 self.p_t_z_c_tree = {}
-                for p in positions:
-                    for t in frames:
-                        for z in slices:
-                            for c in channels:
+                for p in self.position_indices:
+                    for t in  self.frame_indices:
+                        for z in self.z_indices :
+                            for c in self.channel_indices:
                                 if z in self.c_z_t_p_tree[c] and t in self.c_z_t_p_tree[c][z] and p in \
                                         self.c_z_t_p_tree[c][z][t]:
                                     if p not in self.p_t_z_c_tree:
@@ -295,6 +301,38 @@ class MagellanDataset:
         if channel_name not in self.channel_names:
             raise Exception('Invalid channel name')
         return self.channel_names.index(channel_name)
+
+    def as_array(self):
+        """
+        Get array representing all the data in the dataset, but mempry map it so as to not overlaod RAM
+        T-P-C-Z
+        :return:
+        """
+        #TODO: improve documentation
+
+        #TODO: move to top
+        import dask.array as da
+
+        tpcz_list = []
+        for t in self.frame_indices:
+            pcz_list = []
+            for p in self.position_indices:
+                cz_list = []
+                for c in self.channel_indices:
+                    z_list = []
+                    for z in self.z_indices:
+                        img = self.read_image(channel_index=c, z_index=z, t_index=t, pos_index=p, memmapped=True)
+                        z_list.append(img)
+                    z_stack = da.stack(z_list)
+                    cz_list.append(z_stack)
+                cz_stack = da.stack(cz_list)
+                pcz_list.append(cz_stack)
+            pcz_stack = da.stack(pcz_list)
+            tpcz_list.append(pcz_stack)
+        tpcz_stack = da.stack(tpcz_list)
+        #TODO: memory mapped 0s for missing slices?
+
+        return tpcz_stack
 
     def has_image(self, channel_name=None, channel_index=0, z_index=0, t_index=0, pos_index=0, downsample_factor=1):
         """
@@ -317,7 +355,7 @@ class MagellanDataset:
         return False
 
     def read_image(self, channel_name=None, channel_index=0, z_index=0, t_index=0, pos_index=0, read_metadata=False,
-                   downsample_factor=1):
+                   downsample_factor=1, memmapped=False):
         """
         Read image data as numpy array
         :param channel_name: Overrides channel index if supplied
@@ -332,10 +370,9 @@ class MagellanDataset:
         if channel_name is not None:
             channel_index = self._channel_name_to_index(channel_name)
         res_level = self.res_levels[downsample_factor]
-        return res_level.read_image(channel_index, z_index, t_index, pos_index, read_metadata)
+        return res_level.read_image(channel_index, z_index, t_index, pos_index, read_metadata, memmapped)
 
-    def read_metadata(self, channel_name=None, channel_index=0, z_index=0, t_index=0, pos_index=0, read_metadata=False,
-                   downsample_factor=1):
+    def read_metadata(self, channel_name=None, channel_index=0, z_index=0, t_index=0, pos_index=0, downsample_factor=1):
         """
         Read metadata only. Faster than using read_image to retireve metadata
         :param channel_name: Overrides channel index if supplied
