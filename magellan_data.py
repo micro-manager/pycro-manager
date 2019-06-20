@@ -7,6 +7,7 @@ import numpy as np
 import sys
 import json
 import platform
+import dask.array as da
 
 
 class _MagellanMultipageTiffReader:
@@ -243,6 +244,7 @@ class MagellanDataset:
     """
 
     def __init__(self, dataset_path, full_res_only=True):
+        self.path = dataset_path
         res_dirs = [dI for dI in os.listdir(dataset_path) if os.path.isdir(os.path.join(dataset_path, dI))]
         # map from downsample factor to datset
         self.res_levels = {}
@@ -258,11 +260,13 @@ class MagellanDataset:
                 # get summary metadata and index tree from full resolution image
                 self.summary_metadata = res_level.reader_list[0].summary_md
                 # store some fields explicitly for easy access
+                self.pixel_type = np.uint16 if self.summary_metadata['PixelType'] == 'GRAY16' else np.uint8
                 self.pixel_size_xy_um = self.summary_metadata['PixelSize_um']
                 self.pixel_size_z_um = self.summary_metadata['z-step_um']
                 self.image_width = res_level.reader_list[0].width
                 self.image_height = res_level.reader_list[0].height
                 self.channel_names = self.summary_metadata['ChNames']
+                self.overlap = np.array([self.summary_metadata['GridPixelOverlapY'], self.summary_metadata['GridPixelOverlapX']])
                 self.c_z_t_p_tree = res_level.reader_tree
                 # index tree is in c - z - t - p hierarchy, get all used indices to calcualte other orderings
                 self.channel_indices = set(self.c_z_t_p_tree.keys())
@@ -279,7 +283,7 @@ class MagellanDataset:
                 # populate tree in a different ordering
                 self.p_t_z_c_tree = {}
                 for p in self.position_indices:
-                    for t in  self.frame_indices:
+                    for t in self.frame_indices:
                         for z in self.z_indices :
                             for c in self.channel_indices:
                                 if z in self.c_z_t_p_tree[c] and t in self.c_z_t_p_tree[c][z] and p in \
@@ -294,6 +298,8 @@ class MagellanDataset:
                 #get row, col as a function of position index
                 self.row_col_tuples = [(pos['GridRowIndex'], pos['GridColumnIndex']) for pos in
                                   self.summary_metadata['InitialPositionList']]
+                self.row_col_array = np.array([(pos['GridRowIndex'], pos['GridColumnIndex']) for pos in
+                                       self.summary_metadata['InitialPositionList']])
             else:
                 self.res_levels[int(res_dir.split('x')[1])] = res_level
 
@@ -302,37 +308,75 @@ class MagellanDataset:
             raise Exception('Invalid channel name')
         return self.channel_names.index(channel_name)
 
-    def as_array(self):
+    def as_stitched_array(self, channel_index=0, channel_name=None, t_index=0, verbose=True):
+        if channel_name is not None:
+            channel_index = self._channel_name_to_index(channel_name)
+        z_list = []
+        for z in self.z_indices:
+            # this doesn't work with explore acquisitions and would need to be updated
+            rows, cols = self.get_num_rows_and_cols()
+            empty_tile = np.zeros((self.image_height, self.image_width), self.pixel_type)
+            row_list = []
+            for row in range(rows):
+                if verbose:
+                    print('stitching row {} of {}'.format(row + 1, rows))
+                col_list = []
+                for col in range(cols):
+                    pos_index_array = np.nonzero(np.logical_and(self.row_col_array[:, 0] == row,
+                                                                self.row_col_array[:, 1] == col))[0]
+                    pos_index = None if pos_index_array.size == 0 else pos_index_array[0]
+                    if pos_index is not None and self.has_image(
+                            channel_index=channel_index, z_index=z, t_index=t_index, pos_index=pos_index):
+                        img = self.read_image(channel_index=channel_index, z_index=z, t_index=t_index, pos_index=pos_index,
+                                              memmapped=True)
+                    else:
+                        img = empty_tile
+                    # crop to center of tile
+                    col_list.append(img[self.overlap[0] // 2: -self.overlap[0] // 2,
+                                    self.overlap[1] // 2: -self.overlap[1] // 2])
+                stitched_col = da.concatenate(col_list, axis=1)
+                row_list.append(stitched_col)
+            stitched = da.concatenate(row_list, axis=0)
+            z_list.append(stitched)
+        return da.stack(z_list)
+
+    def as_array(self, p_axis=True, verbose=True):
         """
         Get array representing all the data in the dataset, but mempry map it so as to not overlaod RAM
         T-P-C-Z
+        :param p_axis: if True, make xy positions it's own axis. If false, stitch together different positions
+        and make x and y axes bigger
         :return:
         """
         #TODO: improve documentation
+        #TODO: should singleton axes be collapsed?
 
-        #TODO: move to top
-        import dask.array as da
-
-        tpcz_list = []
-        for t in self.frame_indices:
-            pcz_list = []
-            for p in self.position_indices:
+        if not p_axis: #return
+            tcz_list = []
+            for t in self.frame_indices:
                 cz_list = []
                 for c in self.channel_indices:
-                    z_list = []
-                    for z in self.z_indices:
-                        img = self.read_image(channel_index=c, z_index=z, t_index=t, pos_index=p, memmapped=True)
-                        z_list.append(img)
-                    z_stack = da.stack(z_list)
-                    cz_list.append(z_stack)
-                cz_stack = da.stack(cz_list)
-                pcz_list.append(cz_stack)
-            pcz_stack = da.stack(pcz_list)
-            tpcz_list.append(pcz_stack)
-        tpcz_stack = da.stack(tpcz_list)
-        #TODO: memory mapped 0s for missing slices?
-
-        return tpcz_stack
+                    cz_list.append(self.as_stitched_array(channel_index=c, t_index=t, verbose=verbose))
+                tcz_list.append(da.stack(cz_list))
+            return da.stack(tcz_list)
+        else: #return tiles stacked on a position axis
+            ptcz_list = []
+            for p in self.position_indices:
+                tcz_list = []
+                for t in self.frame_indices:
+                    cz_list = []
+                    for c in self.channel_indices:
+                        z_list = []
+                        for z in self.z_indices:
+                            if self.has_image(channel_index=c, z_index=z, t_index=t, pos_index=p):
+                                z_list.append(self.read_image(
+                                    channel_index=c, z_index=z, t_index=t, pos_index=p, memmapped=True))
+                            else:
+                                z_list.append(np.zeros((self.image_height, self.image_width), self.pixel_type))
+                        cz_list.append(da.stack(z_list))
+                    tcz_list.append(da.stack(cz_list))
+                ptcz_list.append(da.stack(tcz_list))
+            return da.stack(ptcz_list)
 
     def has_image(self, channel_name=None, channel_index=0, z_index=0, t_index=0, pos_index=0, downsample_factor=1):
         """
