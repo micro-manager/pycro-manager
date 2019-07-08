@@ -2,7 +2,7 @@ import zmq
 import json
 import numpy as np
 from base64 import standard_b64decode, standard_b64encode
-from types import MethodType
+from types import MethodType #dont delete this gets called in an exec
 
 class MagellanBridge:
 
