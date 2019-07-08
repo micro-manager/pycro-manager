@@ -8,7 +8,7 @@ magellan = bridge.get_magellan()
 acquistions = magellan.getAcquisitions()
 acq = acquistions[0]
 acq.start()
-
+# acq.abort()
 acq.waitForCompletion()
 pass
 
