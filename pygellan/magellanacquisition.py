@@ -1,9 +1,8 @@
-from magellanclient import MagellanClient
+from acquire import MagellanBridge
 
 class AcquisitionManager:
 
-    def __init__(self):
-        self.bridge = MagellanClient()
+    def __init__(self, ):
         self._synchronize()
 
     def _synchronize(self):
