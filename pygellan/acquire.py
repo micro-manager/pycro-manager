@@ -6,12 +6,13 @@ from types import MethodType #dont delete this gets called in an exec
 
 class MagellanBridge:
 
-    PORTS = {'master': 4827, 'core': 4828, 'magellan': 4829, 'magellan_acq': 4830}
+    _DEFAULT_PORTS = {'master': 4827, 'core': 4828, 'magellan': 4829, 'magellan_acq': 4830}
+    _EXPECTED_MAGELLAN_VERSION = '2.1.0'
 
     """
     Master class for communicating with Magellan API
     """
-    def __init__(self, port=PORTS['master']):
+    def __init__(self, port=_DEFAULT_PORTS['master']):
         self.context = zmq.Context()
         # request reply socket
         self.socket = self.context.socket(zmq.REQ)
@@ -20,6 +21,12 @@ class MagellanBridge:
         reply_json = self.recieve()
         if reply_json['reply'] != 'success':
             raise Exception(reply_json['message'])
+        if 'version' not in reply_json:
+            reply_json['version'] = '2.0.0'#before version was added
+        if reply_json['version'] != self._EXPECTED_MAGELLAN_VERSION:
+            raise Exception('Version mistmatch between Magellan and Pygellan. '
+                            '\nMagellan version: {}\nPygellan expected version: {}'.format(reply_json['version'],
+                                                                                    self._EXPECTED_MAGELLAN_VERSION))
         self.core = None
         self.magellan = None
 
@@ -30,7 +37,7 @@ class MagellanBridge:
         reply = self.socket.recv()
         return json.loads(reply.decode('utf-8'))
 
-    def get_magellan(self, port=PORTS['magellan'], acq_port=PORTS['magellan_acq']):
+    def get_magellan(self, port=_DEFAULT_PORTS['magellan'], acq_port=_DEFAULT_PORTS['magellan_acq']):
         """
         Create or get pointer to exisiting magellan object
         :return:
@@ -49,7 +56,7 @@ class MagellanBridge:
             self.magellan = MMJavaClass(socket, 'MagellanAPI', magellan_acq_socket=acq_socket)
         return self.magellan
 
-    def get_core(self, port=PORTS['core']):
+    def get_core(self, port=_DEFAULT_PORTS['core']):
         """
         Connect to CMMCore and return object that has its methods
         :return:

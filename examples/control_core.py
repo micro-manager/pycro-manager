@@ -6,7 +6,7 @@ bridge = MagellanBridge()
 core = bridge.get_core()
 
 
-# core.snapImage()
+core.snapImage()
 # ti = core.getTaggedImage()
 
 # core.setSLMImage('SLM', 65539 * np.ones((1024), dtype=np.uint32))
