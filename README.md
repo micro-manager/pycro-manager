@@ -21,7 +21,7 @@ If the bridge object is created successfully, you are connected to Micro-Magella
 ### Controlling the Micro-manager core
 The micro-manager core provides low-level functionality like capturing images and controlling individual devices. An example can be seen [here](https://github.com/henrypinkard/Pygellan/blob/master/examples/micromanager_core.py).
 
-The core API is discovered dynamically at runtime, though not every method is implemented. Typing `core.` and using autocomplete with IPython is the best way to discover which functions are available. Documentation on for the Java version of the core API (which Pygellan ultimately calls) can be found [here](https://valelab4.ucsf.edu/~MM/doc-2.0.0-gamma/mmcorej/mmcorej/CMMCore.html)).
+The core API is discovered dynamically at runtime, though not every method is implemented. Typing `core.` and using autocomplete with IPython is the best way to discover which functions are available. Documentation on for the Java version of the core API (which Pygellan ultimately calls) can be found [here](https://valelab4.ucsf.edu/~MM/doc-2.0.0-gamma/mmcorej/mmcorej/CMMCore.html).
 
 ### Controlling Micro-magellan acquisitions
 (Under active development)
