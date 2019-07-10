@@ -4,6 +4,7 @@ the setup section, each following section can be run independently
 """
 from pygellan.acquire import MagellanBridge
 import numpy as np
+import matplotlib.pyplot as plt
 
 #### Setup ####
 #establish communication with Magellan
@@ -34,3 +35,6 @@ pixels_flat = tagged_image[0]
 metadata = tagged_image[1]
 #pixels by default come out as a 1D array. We can reshape them into an image
 pixels = np.reshape(pixels_flat, newshape=[metadata['Height'], metadata['Width']])
+#plot it
+plt.imshow(pixels,cmap='gray')
+plt.show()
