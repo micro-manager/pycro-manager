@@ -16,7 +16,7 @@ from pygellan.acquire import MagellanBridge
 
 bridge = MagellanBridge() #establish communication with Magellan
 ````
-If the bridge object is created successfully, you are connected to Micro-Magellan and can use teh rest of the `pygellan.acquire` API.
+If the bridge object is created successfully, you are connected to Micro-Magellan and can use the rest of the `pygellan.acquire` API.
 
 ### Controlling the Micro-manager core
 The micro-manager core provides low-level functionality like capturing images and controlling individual devices. An example can be seen [here](https://github.com/henrypinkard/Pygellan/blob/master/examples/micromanager_core.py).
