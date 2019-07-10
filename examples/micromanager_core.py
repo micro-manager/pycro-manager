@@ -1,6 +1,6 @@
 """
 This example shows how to use pygellan to interact with the micro-manager core. Aside from
-the setup section, each following section can be run independently. The
+the setup section, each following section can be run independently
 """
 from pygellan.acquire import MagellanBridge
 import numpy as np
