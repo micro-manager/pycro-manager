@@ -3,6 +3,7 @@ import json
 import numpy as np
 from base64 import standard_b64decode, standard_b64encode
 from types import MethodType #dont delete this gets called in an exec
+import warnings
 
 class MagellanBridge:
 
@@ -24,7 +25,7 @@ class MagellanBridge:
         if 'version' not in reply_json:
             reply_json['version'] = '2.0.0'#before version was added
         if reply_json['version'] != self._EXPECTED_MAGELLAN_VERSION:
-            raise Exception('Version mistmatch between Magellan and Pygellan. '
+            warnings.warn('Version mistmatch between Magellan and Pygellan. '
                             '\nMagellan version: {}\nPygellan expected version: {}'.format(reply_json['version'],
                                                                                     self._EXPECTED_MAGELLAN_VERSION))
         self.core = None
