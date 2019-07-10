@@ -14,8 +14,7 @@ To use Pygellan for acqusition control, simply open the micro-manager2.0gamma GU
 ````
 from pygellan.acquire import MagellanBridge
 
-#establish communication with Magellan
-bridge = MagellanBridge()
+bridge = MagellanBridge() #establish communication with Magellan
 ````
 If the bridge object is created successfully, you are connected to Micro-Magellan and can use teh rest of the `pygellan.acquire` API.
 
