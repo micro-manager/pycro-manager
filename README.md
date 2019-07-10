@@ -13,6 +13,7 @@ To use Pygellan for acqusition control, simply open the micro-manager2.0gamma GU
 
 ````
 from pygellan.acquire import MagellanBridge
+
 #establish communication with Magellan
 bridge = MagellanBridge()
 ````
