@@ -14,20 +14,20 @@ core = bridge.get_core()
 
 
 #### Calling core functions ###
-exposure = core.getExposure()
+exposure = core.get_exposure()
 
 
 #### Setting and getting properties ####
 #Here we set a property of the core itself, but same code works for device properties
-auto_shutter = core.getProperty('Core', 'AutoShutter')
-core.setProperty('Core', 'AutoShutter', 0)
+auto_shutter = core.get_property('Core', 'AutoShutter')
+core.set_property('Core', 'AutoShutter', 0)
 
 
 #### Acquiring images ####
 #The micro-manager core exposes several mechanisms foor acquiring images. In order to not interfere
 #with other pygellan functionality, this is the one that should be used
-core.snapImage()
-tagged_image = core.getTaggedImage()
+core.snap_image()
+tagged_image = core.get_tagged_image()
 #If using micro-manager multi-camera adapter, use core.getTaggedImage(i), where i is the camera index
 
 #tagged_image is a tuple containing the raw pixel data (as a numpy array) and the image metadata (as a python dictionary)

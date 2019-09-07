@@ -4,6 +4,7 @@ import numpy as np
 from base64 import standard_b64decode, standard_b64encode
 from types import MethodType #dont delete this gets called in an exec
 import warnings
+import re
 
 class MagellanBridge:
 
@@ -18,12 +19,12 @@ class MagellanBridge:
         # request reply socket
         self.socket = self.context.socket(zmq.REQ)
         self.socket.connect("tcp://127.0.0.1:{}".format(port))
-        self.send({'command': 'connect-master'})
+        self.send({'command': 'connect', 'server': 'master'})
         reply_json = self.recieve()
         if reply_json['reply'] != 'success':
             raise Exception(reply_json['message'])
         if 'version' not in reply_json:
-            reply_json['version'] = '2.0.0'#before version was added
+            reply_json['version'] = '2.0.0' #before version was added
         if reply_json['version'] != self._EXPECTED_MAGELLAN_VERSION:
             warnings.warn('Version mistmatch between Magellan and Pygellan. '
                             '\nMagellan version: {}\nPygellan expected version: {}'.format(reply_json['version'],
@@ -45,16 +46,16 @@ class MagellanBridge:
         """
         if self.magellan is None:
             # request reply socket
-            self.send({'command': 'start-magellan'})
+            self.send({'command': 'connect', 'server': 'magellan'})
             response = self.recieve()
             if response['reply'] != 'success':
                 raise Exception()
-            # dyanmically get the API from Java server
+
+            # connect to the dedicated socket for the magellan API
             socket = self.context.socket(zmq.REQ)
             socket.connect("tcp://127.0.0.1:{}".format(port))
-            acq_socket = self.context.socket(zmq.REQ)
-            acq_socket.connect("tcp://127.0.0.1:{}".format(acq_port))
-            self.magellan = MMJavaClass(socket, 'MagellanAPI', magellan_acq_socket=acq_socket)
+
+            self.magellan = MMJavaClass(socket, response)
         return self.magellan
 
     def get_core(self, port=_DEFAULT_PORTS['core']):
@@ -64,14 +65,14 @@ class MagellanBridge:
         """
         if self.core is None:
             # request reply socket
-            self.send({'command': 'start-core'})
+            self.send({'command': 'connect', 'server': 'core'})
             response = self.recieve()
             if response['reply'] != 'success':
                 raise Exception()
             # dyanmically get the API from Java server
             socket = self.context.socket(zmq.REQ)
             socket.connect("tcp://127.0.0.1:{}".format(port))
-            self.core = MMJavaClass(socket, 'CMMCore')
+            self.core = MMJavaClass(socket, response)
         return self.core
 
 class MMJavaClass:
@@ -79,41 +80,35 @@ class MMJavaClass:
     Generic class for serving as a pyhton interface for a micromanager class using a zmq server backend
     """
 
-    CLASS_NAME_MAPPING = {'boolean': 'boolean', 'byte[]': 'uint8array',
+    _CLASS_NAME_MAPPING = {'boolean': 'boolean', 'byte[]': 'uint8array',
                 'double': 'float',   'double[]': 'float64_array', 'float': 'float',
                 'int': 'int', 'int[]': 'uint32_array', 'java.lang.String': 'string',
                 'long': 'int', 'mmcorej.TaggedImage': 'tagged_image', 'short': 'int', 'void': 'void',
                           'java.util.List': 'list'}
 
-    CLASS_DTYPE_MAPPING = {'byte[]': np.uint8, 'double[]': np.float64, 'int[]': np.int32}
+    _CLASS_DTYPE_MAPPING = {'byte[]': np.uint8, 'double[]': np.float64, 'int[]': np.int32}
 
     #TODO: may want to replace Tagged image with a function that does conversion if passing one in as an arg
-    CLASS_TYPE_MAPPING = {'boolean': bool, 'byte[]': np.ndarray,
+    _CLASS_TYPE_MAPPING = {'boolean': bool, 'byte[]': np.ndarray,
                           'double': float, 'double[]': np.ndarray, 'float': float,
                           'int': int, 'int[]': np.ndarray, 'java.lang.String': str,
                           'long': int, 'mmcorej.TaggedImage': None, 'short': int, 'void': None}
 
-    def __init__(self, socket, class_name, **kwargs):
-        if 'magellan_acq_socket' in kwargs:
-            self.magellan_acq_socket = kwargs['magellan_acq_socket']
-        if 'UUID' in kwargs:
-            self.UUID = kwargs['UUID']
-        self.class_name = class_name
+    def __init__(self, socket, response, **kwargs):
         self.socket = socket
-        #dyanmically get the API from Java server
-        self.socket.send(bytes(json.dumps({'command': 'send-{}-api'.format(self.class_name)}), 'utf-8'))
-        reply = self.socket.recv()
-        methods = json.loads(reply.decode('utf-8'))
+        self.hash_code = response['hash-code']
+        methods = response['api']
 
         method_names = set([m['name'] for m in methods])
         #parse method descriptions to make python stand ins
         for method_name in method_names:
+            method_name_underscores = _camel_case_2_snake_case(method_name)
             #all methods with this name and different argument lists
             methods_with_name = [m for m in methods if m['name'] == method_name]
             min_required_args = 0 if len(methods_with_name) == 1 and len(methods_with_name[0]['arguments']) == 0 else \
                                 min([len(m['arguments']) for m in methods_with_name])
             for method in methods_with_name:
-                arg_type_hints = [self.CLASS_NAME_MAPPING[t] for t in method['arguments']]
+                arg_type_hints = [self._CLASS_NAME_MAPPING[t] for t in method['arguments']]
                 lambda_arg_names = []
                 class_arg_names = []
                 unique_argument_names = []
@@ -138,8 +133,11 @@ class MMJavaClass:
             exec('fn = lambda {}: MMJavaClass._translate_call(self, {}, {})'.format(','.join(['self'] + lambda_arg_names),
                                                         eval('methods_with_name'),  ','.join(unique_argument_names)))
             #do this one as exec so fn beign undefiend doesnt complain
-            exec('setattr(self, method_name, MethodType(fn, self))')
+            exec('setattr(self, method_name_underscores, MethodType(fn, self))')
 
+    def __del__(self):
+        #TODO: delete python object from cache
+        pass
 
     def _translate_call(self, *args):
         """
@@ -158,23 +156,22 @@ class MMJavaClass:
                 continue
             valid_method_spec = method_spec
             for arg_type, arg_val in zip(method_spec['arguments'], fn_args):
-                 correct_type = type(self.CLASS_TYPE_MAPPING[arg_type])
+                 correct_type = type(self._CLASS_TYPE_MAPPING[arg_type])
                  if not isinstance(type(arg_val), correct_type):
                      valid_method_spec = None
                  elif type(arg_val) == np.ndarray:
                      #make sure dtypes match
-                     if self.CLASS_DTYPE_MAPPING[arg_type] != arg_val.dtype:
+                     if self._CLASS_DTYPE_MAPPING[arg_type] != arg_val.dtype:
                          valid_method_spec = None
             if valid_method_spec is None:
                 break
         if valid_method_spec is None:
             raise Exception('Incorrect arguments. \nExpected {} \nGot {}'.format(
                      ' or '.join([','.join(method_spec['arguments']) for method_spec in method_specs]),
-                ','.join([type(a) for a in fn_args]) ))
+                ','.join([type(a) for a in fn_args])))
         #args are good, make call through socket
-        message = {'command': 'run-method', 'name': valid_method_spec['name'], 'arguments': [self._serialize_arg(a) for a in fn_args]}
-        if hasattr(self, 'UUID'):
-            message['UUID'] = self.__getattribute__('UUID')
+        message = {'command': 'run-method', 'hash-code': self.hash_code, 'name': valid_method_spec['name'],
+                                'arguments': [self._serialize_arg(a) for a in fn_args]}
         self.socket.send(bytes(json.dumps(message), 'utf-8'))
         reply = self.socket.recv()
         return self._deserialize_return(reply)
@@ -207,18 +204,18 @@ class MMJavaClass:
                 if 'width' in tags and 'height' in tags:
                     pix = np.reshape(pix, [tags['height'], tags['width']])
                 return pix, tags
-            elif json_return['class'] == 'MagellanAcquisitionAPI':
-                return MMJavaClass(self.magellan_acq_socket, 'MagellanAcquisitionAPI', UUID=json_return['value']['UUID'])
             else:
                 raise Exception('Unrecognized return class')
+        elif json_return['type'] == 'unserialized-object':
+            return MMJavaClass(self.socket, json_return)
         elif json_return['type'] == 'byte-array':
-            return np.frombuffer(standard_b64decode(json_return['value']['pix']), dtype='>u1')
+            return np.frombuffer(standard_b64decode(json_return['value']), dtype='>u1')
         elif json_return['type'] == 'double-array':
-            return np.frombuffer(standard_b64decode(json_return['value']['pix']), dtype='>f8')
+            return np.frombuffer(standard_b64decode(json_return['value']), dtype='>f8')
         elif json_return['type'] == 'int-array':
-            return np.frombuffer(standard_b64decode(json_return['value']['pix']), dtype='>i4')
+            return np.frombuffer(standard_b64decode(json_return['value']), dtype='>i4')
         elif json_return['type'] == 'float-array':
-            return np.frombuffer(standard_b64decode(json_return['value']['pix']), dtype='>f4')
+            return np.frombuffer(standard_b64decode(json_return['value']), dtype='>f4')
 
     def _serialize_arg(self, arg):
         if type(arg) in [bool, str, int, float]:
@@ -226,3 +223,6 @@ class MMJavaClass:
         elif type(arg) == np.ndarray:
             return standard_b64encode(arg.tobytes())
 
+def _camel_case_2_snake_case(name):
+    s1 = re.sub('(.)([A-Z][a-z]+)', r'\1_\2', name)
+    return re.sub('([a-z0-9])([A-Z])', r'\1_\2', s1).lower()

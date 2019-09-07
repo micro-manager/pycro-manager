@@ -6,10 +6,10 @@ bridge = MagellanBridge()
 magellan = bridge.get_magellan()
 
 #get this list of acquisitions in the magellan GUI
-acquistions = magellan.getAcquisitions()
+acquistions = magellan.get_acquisitions()
 #grab the first acquisition in the list
 acq = acquistions[0]
 acq.start()
 
 # block until the acquisition is complete
-acq.waitForCompletion()
+acq.wait_for_completion()

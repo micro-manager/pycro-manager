@@ -162,8 +162,8 @@ class _MagellanMultipageTiffReader:
             raise Exception('Unknown pixel type')
 
         if memmapped:
-            return np.memmap(open(self.tiff_path, 'rb'),
-                             dtype=pixel_type, mode='r', offset=offset, shape=(self.height, self.width))
+            print('numpy memmapped file {}   offset {}'.format(self.file, offset))
+            return np.memmap(self.file, dtype=pixel_type, mode='r', offset=offset, shape=(self.height, self.width))
         else:
             pixels = np.frombuffer(self._read(offset, offset + length), dtype=pixel_type)
             return np.reshape(pixels, [self.height, self.width])
