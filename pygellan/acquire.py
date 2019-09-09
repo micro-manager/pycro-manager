@@ -39,11 +39,12 @@ class MagellanBridge:
         reply = self.socket.recv()
         return json.loads(reply.decode('utf-8'))
 
-    def get_magellan(self, port=_DEFAULT_PORTS['magellan'], acq_port=_DEFAULT_PORTS['magellan_acq']):
+    def get_magellan(self):
         """
         Create or get pointer to exisiting magellan object
         :return:
         """
+        port = self._DEFAULT_PORTS['magellan']
         if self.magellan is None:
             # request reply socket
             self.send({'command': 'connect', 'server': 'magellan'})
