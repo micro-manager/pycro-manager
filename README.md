@@ -28,5 +28,7 @@ The core API is discovered dynamically at runtime, though not every method is im
 
 See [this example](https://github.com/henrypinkard/Pygellan/blob/master/examples/run_acquisition.py) for how to start and stop Micro-magellan acquisitions through Python.
 
+[This example](https://github.com/henrypinkard/Pygellan/blob/master/examples/control_magellan_gui.py) shows how to call the various acquisition settings on the Micro-magellan GUI to automatically setup experiments
+
 ## Reading data in Python
 (Example coming soon...)
