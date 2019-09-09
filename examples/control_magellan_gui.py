@@ -29,7 +29,7 @@ acq_settings.set_num_time_points(20)
 acq_settings.set_channel_group('Channel')
 acq_settings.set_use_channel('DAPI', False) #channel_name, use
 acq_settings.set_channel_exposure('DAPI', 5.0) #channel_name, exposure in ms
-acq_settings.set_channel_z_offset('DAPI', -0.5) #channel_name, exposure in um
+acq_settings.set_channel_z_offset('DAPI', -0.5) #channel_name, offset in um
 
 #space settings
 # '3d_cuboid', '3d_between_surfaces', '3d_distance_from_surface', '2d_flat', '2d_surface'
