@@ -9,7 +9,7 @@ import re
 class MagellanBridge:
 
     _DEFAULT_PORTS = {'master': 4827, 'core': 4828, 'magellan': 4829, 'magellan_acq': 4830}
-    _EXPECTED_MAGELLAN_VERSION = '2.1.0'
+    _EXPECTED_MAGELLAN_VERSION = '2.2.0'
 
     """
     Master class for communicating with Magellan API
@@ -95,8 +95,8 @@ class MMJavaClass:
                           'long': int, 'mmcorej.TaggedImage': None, 'short': int, 'void': None}
 
     def __init__(self, socket, response, **kwargs):
-        self.socket = socket
-        self.hash_code = response['hash-code']
+        self._socket = socket
+        self._hash_code = response['hash-code']
         methods = response['api']
 
         method_names = set([m['name'] for m in methods])
@@ -136,8 +136,15 @@ class MMJavaClass:
             exec('setattr(self, method_name_underscores, MethodType(fn, self))')
 
     def __del__(self):
-        #TODO: delete python object from cache
-        pass
+        """
+        Tell java side this object is garbage collected so it can do the same if needed
+        :return:
+        """
+        message = {'command': 'destructor', 'hash-code': self._hash_code}
+        self._socket.send(bytes(json.dumps(message), 'utf-8'))
+        reply = self._socket.recv()
+        self._deserialize_return(reply) #chck for exception
+
 
     def _translate_call(self, *args):
         """
@@ -169,11 +176,13 @@ class MMJavaClass:
             raise Exception('Incorrect arguments. \nExpected {} \nGot {}'.format(
                      ' or '.join([','.join(method_spec['arguments']) for method_spec in method_specs]),
                 ','.join([type(a) for a in fn_args])))
-        #args are good, make call through socket
-        message = {'command': 'run-method', 'hash-code': self.hash_code, 'name': valid_method_spec['name'],
-                                'arguments': [self._serialize_arg(a) for a in fn_args]}
-        self.socket.send(bytes(json.dumps(message), 'utf-8'))
-        reply = self.socket.recv()
+        #args are good, make call through socket, casting the correct type if needed (e.g. int to float)
+        message = {'command': 'run-method', 'hash-code': self._hash_code, 'name': valid_method_spec['name'],
+                                'arguments': [self._serialize_arg(
+                                self._CLASS_TYPE_MAPPING[arg_type](arg_val)) for
+                        arg_type, arg_val in zip(method_spec['arguments'], fn_args)]}
+        self._socket.send(bytes(json.dumps(message), 'utf-8'))
+        reply = self._socket.recv()
         return self._deserialize_return(reply)
 
     def _deserialize_return(self, reply):
@@ -207,7 +216,8 @@ class MMJavaClass:
             else:
                 raise Exception('Unrecognized return class')
         elif json_return['type'] == 'unserialized-object':
-            return MMJavaClass(self.socket, json_return)
+            #inherit socket from parent object
+            return MMJavaClass(self._socket, json_return)
         elif json_return['type'] == 'byte-array':
             return np.frombuffer(standard_b64decode(json_return['value']), dtype='>u1')
         elif json_return['type'] == 'double-array':
