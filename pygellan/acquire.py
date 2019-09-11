@@ -17,8 +17,8 @@ class MagellanBridge:
     def __init__(self, port=_DEFAULT_PORTS['master']):
         self.context = zmq.Context()
         # request reply socket
-        self.socket = self.context.socket(zmq.REQ)
-        self.socket.connect("tcp://127.0.0.1:{}".format(port))
+        self._socket = self.context.socket(zmq.REQ)
+        self._socket.connect("tcp://127.0.0.1:{}".format(port))
         self.send({'command': 'connect', 'server': 'master'})
         reply_json = self.recieve()
         if reply_json['reply'] != 'success':
@@ -33,10 +33,10 @@ class MagellanBridge:
         self.magellan = None
 
     def send(self, message):
-        self.socket.send(bytes(json.dumps(message), 'utf-8'))
+        self._socket.send(bytes(json.dumps(message), 'utf-8'))
 
     def recieve(self):
-        reply = self.socket.recv()
+        reply = self._socket.recv()
         return json.loads(reply.decode('utf-8'))
 
     def get_magellan(self):
@@ -144,7 +144,9 @@ class MMJavaClass:
         message = {'command': 'destructor', 'hash-code': self._hash_code}
         self._socket.send(bytes(json.dumps(message), 'utf-8'))
         reply = self._socket.recv()
-        self._deserialize_return(reply) #chck for exception
+        reply_json = json.loads(reply.decode('utf-8'))
+        if reply_json['type'] == 'exception':
+            raise Exception(reply_json['value'])
 
 
     def _translate_call(self, *args):
