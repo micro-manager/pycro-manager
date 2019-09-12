@@ -162,7 +162,6 @@ class _MagellanMultipageTiffReader:
             raise Exception('Unknown pixel type')
 
         if memmapped:
-            print('numpy memmapped file {}   offset {}'.format(self.file, offset))
             return np.memmap(self.file, dtype=pixel_type, mode='r', offset=offset, shape=(self.height, self.width))
         else:
             pixels = np.frombuffer(self._read(offset, offset + length), dtype=pixel_type)
@@ -265,7 +264,7 @@ class MagellanDataset:
                 self.pixel_size_z_um = self.summary_metadata['z-step_um']
                 self.image_width = res_level.reader_list[0].width
                 self.image_height = res_level.reader_list[0].height
-                self.channel_names = self.summary_metadata['ChNames']
+                self.channel_names = {}
                 self.overlap = np.array([self.summary_metadata['GridPixelOverlapY'], self.summary_metadata['GridPixelOverlapX']])
                 self.c_z_t_p_tree = res_level.reader_tree
                 # index tree is in c - z - t - p hierarchy, get all used indices to calcualte other orderings
@@ -280,6 +279,8 @@ class MagellanDataset:
                             self.frame_indices.add(t)
                             for p in self.c_z_t_p_tree[c][z][t]:
                                 self.position_indices.add(p)
+                                if c not in self.channel_names:
+                                    self.channel_names[c] = self.read_metadata(channel_index=c, z_index=z, t_index=t, pos_index=p)['Channel']
                 # populate tree in a different ordering
                 self.p_t_z_c_tree = {}
                 for p in self.position_indices:
@@ -306,7 +307,7 @@ class MagellanDataset:
     def _channel_name_to_index(self, channel_name):
         if channel_name not in self.channel_names:
             raise Exception('Invalid channel name')
-        return self.channel_names.index(channel_name)
+        return list(self.channel_names.keys()).index(channel_name)
 
     def as_stitched_array(self, channel_index=0, channel_name=None, t_index=0, verbose=True):
         if channel_name is not None:
