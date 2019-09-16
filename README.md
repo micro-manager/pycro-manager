@@ -31,4 +31,4 @@ See [this example](https://github.com/henrypinkard/Pygellan/blob/master/examples
 [This example](https://github.com/henrypinkard/Pygellan/blob/master/examples/control_magellan_gui.py) shows how to call the various acquisition settings on the Micro-magellan GUI to automatically setup experiments
 
 ## Reading data in Python
-(Example coming soon...)
+The `pygellan.magellan_data` API enables reading of data acquired with pygellan/Micro-magellan directly in python. Tiles can be loaded individually, or all data can be loaded simulataneously into a memory-mapped [Dask](https://dask.org/) array, which allows scalable processing of large datasets and viewing data in [Napari](https://github.com/napari/napari). More information can be seen in [this example](https://github.com/henrypinkard/Pygellan/blob/master/examples/read_and_visualize_magellan_data.py)
