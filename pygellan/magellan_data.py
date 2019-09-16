@@ -8,6 +8,7 @@ import sys
 import json
 import platform
 import dask.array as da
+import dask
 
 
 class _MagellanMultipageTiffReader:
@@ -42,12 +43,15 @@ class _MagellanMultipageTiffReader:
         else:
             self.mmap_file = mmap.mmap(self.file.fileno(), 0, prot=mmap.PROT_READ)
         self.summary_md, self.index_tree, self.first_ifd_offset = self._read_header()
+        self.mmap_file.close()
+        self.np_memmap = np.memmap(self.file, dtype=np.uint8, mode='r')
+
         # get important metadata fields
         self.width = self.summary_md['Width']
         self.height = self.summary_md['Height']
+        self.dtype = np.uint8 if self.summary_md['PixelType'] == 'GRAY8' else np.uint16
 
     def close(self):
-        self.mmap_file.close()
         self.file.close()
 
     def _read_header(self):
@@ -85,22 +89,24 @@ class _MagellanMultipageTiffReader:
         if index_map_header != self.INDEX_MAP_HEADER:
             raise Exception('Index map header incorrect')
         # get index map as nested list of ints
-        index_map_keys = np.array([[int(cztp) for i, cztp in enumerate(entry) if i < 4]
-                                   for entry in np.reshape(np.frombuffer(self.mmap_file[48 + summary_md_length:48 +
-                                    summary_md_length + index_map_length * 20], dtype=np.int32), [-1, 5])])
-        index_map_byte_offsets = np.array([[int(offset) for i, offset in enumerate(entry) if i == 4] for entry in
-            np.reshape(np.frombuffer(self.mmap_file[48 + summary_md_length:48 + summary_md_length + index_map_length *
-                            20], dtype=np.uint32), [-1, 5])])
-        index_map = np.concatenate((index_map_keys, index_map_byte_offsets), axis=1)
-        string_key_index_map = {'_'.join([str(ind) for ind in entry[:4]]): entry[4] for entry in index_map}
+        index_map_raw = np.reshape(np.frombuffer(self.mmap_file[48 + summary_md_length:48 +
+                                    summary_md_length + index_map_length * 20], dtype=np.int32), [-1, 5])
+        index_map_keys = index_map_raw[:, :4].view(np.int32)
+        index_map_byte_offsets = index_map_raw[:, 4].view(np.uint32)
+        #for super fast reading of pixels: skip IFDs alltogether
+        entries_per_ifd = 13
+        num_entries = np.ones(index_map_byte_offsets.shape) * entries_per_ifd
+        num_entries[0] += 4 #first one has 4 extra IFDs
+        index_map_pixel_byte_offsets = 2 + num_entries * 12 + 4 + index_map_byte_offsets
         # unpack into a tree (i.e. nested dicts)
         index_tree = {}
-        for c_index in set([line[0] for line in index_map]):
-            for z_index in set([line[1] for line in index_map]):
-                for t_index in set([line[2] for line in index_map]):
-                    for p_index in set([line[3] for line in index_map]):
-                        if '_'.join([str(c_index), str(z_index), str(t_index),
-                                     str(p_index)]) in string_key_index_map.keys():
+        c_indices, z_indices, t_indices, p_indices = [np.unique(index_map_keys[:, i]) for i in range(4)]
+        for c_index in c_indices:
+            for z_index in z_indices:
+                for t_index in t_indices:
+                    for p_index in p_indices:
+                        entry_index = np.flatnonzero((index_map_keys == np.array([c_index, z_index, t_index, p_index])).all(-1))
+                        if entry_index.size != 0:
                             # fill out tree as needed
                             if c_index not in index_tree.keys():
                                 index_tree[c_index] = {}
@@ -108,15 +114,15 @@ class _MagellanMultipageTiffReader:
                                 index_tree[c_index][z_index] = {}
                             if t_index not in index_tree[c_index][z_index].keys():
                                 index_tree[c_index][z_index][t_index] = {}
-                            index_tree[c_index][z_index][t_index][p_index] = string_key_index_map[
-                                '_'.join([str(c_index), str(z_index), str(t_index), str(p_index)])]
+                            index_tree[c_index][z_index][t_index][p_index] = \
+                                            (int(index_map_byte_offsets[entry_index[-1]]), int(index_map_pixel_byte_offsets[entry_index[-1]]))
         return summary_md, index_tree, first_ifd_offset
 
     def _read(self, start, end):
         """
         Convert to python ints
         """
-        return self.mmap_file[int(start):int(end)]
+        return self.np_memmap[int(start):int(end)].tobytes()
 
     def _read_ifd(self, byte_offset):
         """
@@ -162,28 +168,33 @@ class _MagellanMultipageTiffReader:
             raise Exception('Unknown pixel type')
 
         if memmapped:
-            return np.memmap(self.file, dtype=pixel_type, mode='r', offset=offset, shape=(self.height, self.width))
+            return np.reshape(self.np_memmap[offset:offset + self.height * self.width * (2 if \
+                                pixel_type == np.uint16 else 1)].view(pixel_type), (self.height, self.width))
         else:
             pixels = np.frombuffer(self._read(offset, offset + length), dtype=pixel_type)
             return np.reshape(pixels, [self.height, self.width])
 
     def read_metadata(self, channel_index, z_index, t_index, pos_index):
-        ifd_offset = self.index_tree[channel_index][z_index][t_index][pos_index]
+        ifd_offset, pixels_offset = self.index_tree[channel_index][z_index][t_index][pos_index]
         ifd_data = self._read_ifd(ifd_offset)
         metadata = json.loads(self._read(ifd_data['md_offset'], ifd_data['md_offset'] + ifd_data['md_length']))
         return metadata
 
     def read_image(self, channel_index, z_index, t_index, pos_index, read_metadata=False, memmapped=False):
-        ifd_offset = self.index_tree[channel_index][z_index][t_index][pos_index]
-        ifd_data = self._read_ifd(ifd_offset)
-        image = self._read_pixels(ifd_data['pixel_offset'], ifd_data['bytes_per_image'], memmapped)
+        ifd_offset, pixels_offset = self.index_tree[channel_index][z_index][t_index][pos_index]
+        image = np.reshape(self.np_memmap[pixels_offset: pixels_offset + self.width * self.height *
+                                    (2 if self.dtype == np.uint16 else 1)].view(self.dtype), [self.height, self.width])
+        if not memmapped:
+            image = np.copy(image)
+        # image = self._read_pixels(ifd_data['pixel_offset'], ifd_data['bytes_per_image'], memmapped)
         if read_metadata:
+            ifd_data = self._read_ifd(ifd_offset)
             metadata = json.loads(self._read(ifd_data['md_offset'], ifd_data['md_offset'] + ifd_data['md_length']))
             return image, metadata
         return image
 
     def check_ifd(self, channel_index, z_index, t_index, pos_index):
-        ifd_offset = self.index_tree[channel_index][z_index][t_index][pos_index]
+        ifd_offset, pixels_offset = self.index_tree[channel_index][z_index][t_index][pos_index]
         try:
             ifd_data = self._read_ifd(ifd_offset)
             return True
@@ -192,7 +203,7 @@ class _MagellanMultipageTiffReader:
 
 class _MagellanResolutionLevel:
 
-    def __init__(self, path):
+    def __init__(self, path, count, max_count):
         """
         open all tiff files in directory, keep them in a list, and a tree based on image indices
         :param path:
@@ -202,6 +213,8 @@ class _MagellanResolutionLevel:
         self.reader_tree = {}
         #populate list of readers and tree mapping indices to readers
         for tiff in tiff_names:
+            print('\rOpening file {} of {}'.format(count+1, max_count), end='')
+            count += 1
             reader = _MagellanMultipageTiffReader(tiff)
             self.reader_list.append(reader)
             it = reader.index_tree
@@ -249,17 +262,24 @@ class MagellanDataset:
         self.res_levels = {}
         if 'Full resolution' not in res_dirs:
             raise Exception('Couldn\'t find full resolution directory. Is this the correct path to a Magellan dataset?')
+        num_tiffs = 0
+        count = 0
+        for res_dir in res_dirs:
+            for file in os.listdir(os.path.join(dataset_path, res_dir)):
+                if file.endswith('.tif'):
+                    num_tiffs += 1
         for res_dir in res_dirs:
             if full_res_only and res_dir != 'Full resolution':
                 continue
             res_dir_path = os.path.join(dataset_path, res_dir)
-            res_level = _MagellanResolutionLevel(res_dir_path)
+            res_level = _MagellanResolutionLevel(res_dir_path, count, num_tiffs)
             if res_dir == 'Full resolution':
+                #TODO: might want to move this within the resolution level class to facilitate loading pyramids
                 self.res_levels[1] = res_level
                 # get summary metadata and index tree from full resolution image
                 self.summary_metadata = res_level.reader_list[0].summary_md
                 # store some fields explicitly for easy access
-                self.pixel_type = np.uint16 if self.summary_metadata['PixelType'] == 'GRAY16' else np.uint8
+                self.dtype = np.uint16 if self.summary_metadata['PixelType'] == 'GRAY16' else np.uint8
                 self.pixel_size_xy_um = self.summary_metadata['PixelSize_um']
                 self.pixel_size_z_um = self.summary_metadata['z-step_um']
                 self.image_width = res_level.reader_list[0].width
@@ -268,23 +288,30 @@ class MagellanDataset:
                 self.overlap = np.array([self.summary_metadata['GridPixelOverlapY'], self.summary_metadata['GridPixelOverlapX']])
                 self.c_z_t_p_tree = res_level.reader_tree
                 # index tree is in c - z - t - p hierarchy, get all used indices to calcualte other orderings
-                self.channel_indices = set(self.c_z_t_p_tree.keys())
-                self.z_indices = set()
-                self.frame_indices = set()
-                self.position_indices = set()
+                channel_indices = set(self.c_z_t_p_tree.keys())
+                z_indices = set()
+                time_indices = set()
+                position_indices = set()
                 for c in self.c_z_t_p_tree.keys():
                     for z in self.c_z_t_p_tree[c]:
-                        self.z_indices.add(z)
+                        z_indices.add(z)
                         for t in self.c_z_t_p_tree[c][z]:
-                            self.frame_indices.add(t)
+                            time_indices.add(t)
                             for p in self.c_z_t_p_tree[c][z][t]:
-                                self.position_indices.add(p)
+                                position_indices.add(p)
                                 if c not in self.channel_names:
                                     self.channel_names[c] = self.read_metadata(channel_index=c, z_index=z, t_index=t, pos_index=p)['Channel']
+
+                #convert to numpy arrays for speed
+                self.z_indices = np.array(sorted(z_indices))
+                self.channel_indices = np.array(sorted(channel_indices))
+                self.time_indices = np.array(sorted(time_indices))
+                self.position_indices = np.array(sorted(position_indices))
+
                 # populate tree in a different ordering
                 self.p_t_z_c_tree = {}
                 for p in self.position_indices:
-                    for t in self.frame_indices:
+                    for t in self.time_indices:
                         for z in self.z_indices :
                             for c in self.channel_indices:
                                 if z in self.c_z_t_p_tree[c] and t in self.c_z_t_p_tree[c][z] and p in \
@@ -296,88 +323,117 @@ class MagellanDataset:
                                     if z not in self.p_t_z_c_tree[p][t]:
                                         self.p_t_z_c_tree[p][t][z] = {}
                                     self.p_t_z_c_tree[p][t][z][c] = self.c_z_t_p_tree[c][z][t][p]
-                #get row, col as a function of position index
-                self.row_col_tuples = [(pos['GridRowIndex'], pos['GridColumnIndex']) for pos in
-                                  self.summary_metadata['InitialPositionList']]
-                self.row_col_array = np.array([(pos['GridRowIndex'], pos['GridColumnIndex']) for pos in
-                                       self.summary_metadata['InitialPositionList']])
+
+                #Make an n x 2 array with nan's where no positions actually exist
+                row_cols = []
+                for p_index in range(np.max(self.position_indices) + 1):
+                    if p_index in self.p_t_z_c_tree.keys():
+                        t_index = list(self.p_t_z_c_tree[p_index].keys())[0]
+                        z_index = list(self.p_t_z_c_tree[p_index][t_index].keys())[0]
+                        c_index = list(self.p_t_z_c_tree[p_index][t_index][z_index].keys())[0]
+                        md = self.read_metadata(channel_index=c_index, pos_index=p_index, t_index=t_index, z_index=z_index)
+                        row_cols.append(np.array([md['GridRowIndex'], md['GridColumnIndex']]))
+                    else:
+                        row_cols.append(np.array([np.nan, np.nan]))
+                self.row_col_array = np.stack(row_cols)
             else:
                 self.res_levels[int(res_dir.split('x')[1])] = res_level
+        print('\rDataset opened')
 
     def _channel_name_to_index(self, channel_name):
         if channel_name not in self.channel_names:
             raise Exception('Invalid channel name')
         return list(self.channel_names.keys()).index(channel_name)
 
-    def as_stitched_array(self, channel_index=0, channel_name=None, t_index=0, verbose=True):
-        if channel_name is not None:
-            channel_index = self._channel_name_to_index(channel_name)
-        z_list = []
-        for z in self.z_indices:
-            # this doesn't work with explore acquisitions and would need to be updated
-            rows, cols = self.get_num_rows_and_cols()
-            empty_tile = np.zeros((self.image_height, self.image_width), self.pixel_type)
-            row_list = []
-            for row in range(rows):
-                if verbose:
-                    print('stitching row {} of {}'.format(row + 1, rows))
-                col_list = []
-                for col in range(cols):
-                    pos_index_array = np.nonzero(np.logical_and(self.row_col_array[:, 0] == row,
-                                                                self.row_col_array[:, 1] == col))[0]
-                    pos_index = None if pos_index_array.size == 0 else pos_index_array[0]
-                    if pos_index is not None and self.has_image(
-                            channel_index=channel_index, z_index=z, t_index=t_index, pos_index=pos_index):
-                        img = self.read_image(channel_index=channel_index, z_index=z, t_index=t_index, pos_index=pos_index,
-                                              memmapped=True)
-                    else:
-                        img = empty_tile
-                    # crop to center of tile
-                    col_list.append(img[self.overlap[0] // 2: -self.overlap[0] // 2,
-                                    self.overlap[1] // 2: -self.overlap[1] // 2])
-                stitched_col = da.concatenate(col_list, axis=1)
-                row_list.append(stitched_col)
-            stitched = da.concatenate(row_list, axis=0)
-            z_list.append(stitched)
-        return da.stack(z_list)
+    def as_stitched_array(self):
 
-    def as_array(self, p_axis=True, verbose=True):
+        def read_tile(channel_index, t_index, pos_index, z_index):
+            if not np.isnan(pos_index) and channel_index in self.c_z_t_p_tree and \
+                    z_index in self.c_z_t_p_tree[channel_index] and \
+                    t_index in self.c_z_t_p_tree[channel_index][z_index] and \
+                    pos_index in self.c_z_t_p_tree[channel_index][z_index][t_index]:
+                img = self.read_image(channel_index=channel_index, z_index=z_index, t_index=t_index,
+                                      pos_index=pos_index, memmapped=True)
+            else:
+                img = self._empty_tile
+            # crop to center of tile for stitching
+            return img[self.half_overlap:-self.half_overlap, self.half_overlap:-self.half_overlap]
+
+        def z_stack(c_index, t_index, p_index):
+            if np.isnan(p_index):
+                return da.stack(self.z_indices.size * [self._empty_tile[self.half_overlap:-self.half_overlap,
+                                  self.half_overlap:-self.half_overlap]])
+            else:
+                z_list = []
+                for z_index in self.z_indices:
+                    z_list.append(read_tile(c_index, t_index, p_index, z_index))
+                return da.stack(z_list)
+
+        self.half_overlap = self.overlap[0] // 2
+
+        #get spatial layout of position indices
+        zero_min_row_col = (self.row_col_array - np.nanmin(self.row_col_array, axis=0)).astype(np.int)
+        row_col_mat = np.nan * np.ones([int(np.nanmax(zero_min_row_col[:, 0])) + 1, int(np.nanmax(zero_min_row_col[:, 1])) + 1])
+        row_col_mat[zero_min_row_col[self.position_indices][:, 0], zero_min_row_col[self.position_indices][:, 1]] = self.position_indices
+
+        total = self.time_indices.size * self.channel_indices.size * row_col_mat.shape[0] * row_col_mat.shape[1]
+        count = 1
+        stacks = []
+        for t_index in self.time_indices:
+            stacks.append([])
+            for c_index in self.channel_indices:
+                blocks = []
+                for row in row_col_mat:
+                    blocks.append([])
+                    for p_index in row:
+                        print('\rAdding data chunk {} of {}'.format(count, total), end='')
+                        count += 1
+                        blocks[-1].append(z_stack(c_index, t_index, p_index))
+
+                stacks[-1].append(da.block(blocks))
+
+        print('\rDask array opened')
+        return da.stack(stacks)
+
+    def as_array(self, stitched=False):
         """
-        Get array representing all the data in the dataset, but mempry map it so as to not overlaod RAM
-        T-P-C-Z
-        :param p_axis: if True, make xy positions it's own axis. If false, stitch together different positions
-        and make x and y axes bigger
+        Read all data image data as one big Dask array with dimensions (p, t, c, z, y, x) (default) or (t, c, z, y, x)
+        (if stitched argument is set to True). The dask array is made up of memory-mapped numpy arrays, so the dataset
+        does not need to be able to fit into RAM. If the data doesn't fully fill out the array (e.g. not every z-slice
+        collected at every time point), zeros will be added automatically.
+
+        To convert data into a numpy array, call np.asarray() on the returned result. However, doing so will bring the
+        data into RAM, so it may be better to do this on only a slice of the array at a time.
+
+        :param stitched: If true, lay out adjacent tiles next to one another
         :return:
         """
-        #TODO: improve documentation
-        #TODO: should singleton axes be collapsed?
-
-        if not p_axis: #return
-            tcz_list = []
-            for t in self.frame_indices:
-                cz_list = []
-                for c in self.channel_indices:
-                    cz_list.append(self.as_stitched_array(channel_index=c, t_index=t, verbose=verbose))
-                tcz_list.append(da.stack(cz_list))
-            return da.stack(tcz_list)
+        self._empty_tile = np.zeros((self.image_height, self.image_width), self.dtype)
+        if stitched:
+            return self.as_stitched_array()
         else: #return tiles stacked on a position axis
-            ptcz_list = []
+            blocks = []
+            total = self.time_indices.size * self.channel_indices.size * self.z_indices.size * self.position_indices.size
+            count = 1
             for p in self.position_indices:
-                tcz_list = []
-                for t in self.frame_indices:
-                    cz_list = []
+                blocks.append([])
+                for t in self.time_indices:
+                    blocks[-1].append([])
                     for c in self.channel_indices:
-                        z_list = []
+                        blocks[-1][-1].append([])
                         for z in self.z_indices:
-                            if self.has_image(channel_index=c, z_index=z, t_index=t, pos_index=p):
-                                z_list.append(self.read_image(
+                            print('\rAdding data chunk {} of {}'.format(count, total), end='')
+                            count += 1
+                            if not np.isnan(p) and c in self.c_z_t_p_tree and z in self.c_z_t_p_tree[c] and \
+                                    t in self.c_z_t_p_tree[c][z] and p in self.c_z_t_p_tree[c][z][t]:
+                                blocks[-1][-1][-1].append(self.read_image(
                                     channel_index=c, z_index=z, t_index=t, pos_index=p, memmapped=True))
                             else:
-                                z_list.append(np.zeros((self.image_height, self.image_width), self.pixel_type))
-                        cz_list.append(da.stack(z_list))
-                    tcz_list.append(da.stack(cz_list))
-                ptcz_list.append(da.stack(tcz_list))
-            return da.stack(ptcz_list)
+                                blocks[-1][-1][-1].append(np.zeros((self.image_height, self.image_width), self.dtype))
+            print('Stacking tiles')
+            array = da.stack(blocks)
+            print('\rDask array opened')
+            return array
 
     def has_image(self, channel_name=None, channel_index=0, z_index=0, t_index=0, pos_index=0, downsample_factor=1):
         """
