@@ -5,7 +5,7 @@ with open("README.md", "r") as fh:
 
 setuptools.setup(
     name="pygellan",
-    version="0.0.6",
+    version="0.1.0",
     author="Henry Pinkard",
     author_email="henry.pinkard@gmail.com",
     description="Open source microscope control using python",
@@ -13,7 +13,7 @@ setuptools.setup(
     long_description_content_type="text/markdown",
     url="https://github.com/henrypinkard/Pygellan",
     packages=setuptools.find_packages(),
-    install_requires=['numpy', 'dask[array]>=2.1.0', 'zmq'],
+    install_requires=['numpy', 'dask[array]>=2.4.0', 'zmq'],
 
     classifiers=[
         "Programming Language :: Python :: 3",
