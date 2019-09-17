@@ -278,13 +278,18 @@ class MagellanDataset:
                 self.res_levels[1] = res_level
                 # get summary metadata and index tree from full resolution image
                 self.summary_metadata = res_level.reader_list[0].summary_md
+                if 'ChNames' in self.summary_metadata:
+                    #Legacy magellan files--load channel names here
+                    self._channel_names = {i: ch for i, ch in enumerate(self.summary_metadata['ChNames'])}
+                else:
+                    self._channel_names = {} #read them from image metadata
+
                 # store some fields explicitly for easy access
                 self.dtype = np.uint16 if self.summary_metadata['PixelType'] == 'GRAY16' else np.uint8
                 self.pixel_size_xy_um = self.summary_metadata['PixelSize_um']
                 self.pixel_size_z_um = self.summary_metadata['z-step_um']
                 self.image_width = res_level.reader_list[0].width
                 self.image_height = res_level.reader_list[0].height
-                self.channel_names = {}
                 self.overlap = np.array([self.summary_metadata['GridPixelOverlapY'], self.summary_metadata['GridPixelOverlapX']])
                 self.c_z_t_p_tree = res_level.reader_tree
                 # index tree is in c - z - t - p hierarchy, get all used indices to calcualte other orderings
@@ -299,8 +304,8 @@ class MagellanDataset:
                             time_indices.add(t)
                             for p in self.c_z_t_p_tree[c][z][t]:
                                 position_indices.add(p)
-                                if c not in self.channel_names:
-                                    self.channel_names[c] = self.read_metadata(channel_index=c, z_index=z, t_index=t, pos_index=p)['Channel']
+                                if c not in self._channel_names:
+                                    self._channel_names[c] = self.read_metadata(channel_index=c, z_index=z, t_index=t, pos_index=p)['Channel']
 
                 #convert to numpy arrays for speed
                 self.z_indices = np.array(sorted(z_indices))
@@ -341,9 +346,9 @@ class MagellanDataset:
         print('\rDataset opened')
 
     def _channel_name_to_index(self, channel_name):
-        if channel_name not in self.channel_names:
+        if channel_name not in self._channel_names.values():
             raise Exception('Invalid channel name')
-        return list(self.channel_names.keys()).index(channel_name)
+        return list(self._channel_names.values()).index(channel_name)
 
     def as_stitched_array(self):
 
@@ -520,6 +525,8 @@ class MagellanDataset:
         """
         return len(list(self.p_t_z_c_tree.keys()))
 
+    def get_channel_names(self):
+        return list(self._channel_names.values())
 
     def get_num_rows_and_cols(self):
         """
