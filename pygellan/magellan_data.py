@@ -280,7 +280,7 @@ class MagellanDataset:
                 self.summary_metadata = res_level.reader_list[0].summary_md
                 if 'ChNames' in self.summary_metadata:
                     #Legacy magellan files--load channel names here
-                    self._channel_names = {i: ch for i, ch in enumerate(self.summary_metadata['ChNames'])}
+                    self._channel_names = {ch: i for i, ch in enumerate(self.summary_metadata['ChNames'])}
                 else:
                     self._channel_names = {} #read them from image metadata
 
@@ -305,7 +305,7 @@ class MagellanDataset:
                             for p in self.c_z_t_p_tree[c][z][t]:
                                 position_indices.add(p)
                                 if c not in self._channel_names:
-                                    self._channel_names[c] = self.read_metadata(channel_index=c, z_index=z, t_index=t, pos_index=p)['Channel']
+                                    self._channel_names[self.read_metadata(channel_index=c, z_index=z, t_index=t, pos_index=p)['Channel']] = c
 
                 #convert to numpy arrays for speed
                 self.z_indices = np.array(sorted(z_indices))
@@ -345,10 +345,10 @@ class MagellanDataset:
                 self.res_levels[int(res_dir.split('x')[1])] = res_level
         print('\rDataset opened')
 
-    def _channel_name_to_index(self, channel_name):
-        if channel_name not in self._channel_names.values():
+    def channel_name_to_index(self, channel_name):
+        if channel_name not in self._channel_names.keys():
             raise Exception('Invalid channel name')
-        return list(self._channel_names.values()).index(channel_name)
+        return self._channel_names[channel_name]
 
     def as_stitched_array(self):
 
@@ -452,7 +452,7 @@ class MagellanDataset:
         :return:
         """
         if channel_name is not None:
-            channel_index = self._channel_name_to_index(channel_name)
+            channel_index = self.channel_name_to_index(channel_name)
         if channel_index in self.c_z_t_p_tree and z_index in self.c_z_t_p_tree[channel_index] and \
                 t_index in self.c_z_t_p_tree[channel_index][z_index] and pos_index in \
                 self.c_z_t_p_tree[channel_index][z_index][t_index]:
@@ -474,7 +474,7 @@ class MagellanDataset:
         :return: image as 2D numpy array, or tuple with image and image metadata as dict
         """
         if channel_name is not None:
-            channel_index = self._channel_name_to_index(channel_name)
+            channel_index = self.channel_name_to_index(channel_name)
         res_level = self.res_levels[downsample_factor]
         return res_level.read_image(channel_index, z_index, t_index, pos_index, read_metadata, memmapped)
 
@@ -490,7 +490,7 @@ class MagellanDataset:
         :return: metadata as dict
         """
         if channel_name is not None:
-            channel_index = self._channel_name_to_index(channel_name)
+            channel_index = self.channel_name_to_index(channel_name)
         res_level = self.res_levels[downsample_factor]
         return res_level.read_metadata(channel_index, z_index, t_index, pos_index)
 
@@ -526,7 +526,7 @@ class MagellanDataset:
         return len(list(self.p_t_z_c_tree.keys()))
 
     def get_channel_names(self):
-        return list(self._channel_names.values())
+        return list(self._channel_names.keys())
 
     def get_num_rows_and_cols(self):
         """
