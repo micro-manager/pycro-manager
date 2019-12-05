@@ -9,6 +9,7 @@ import json
 import platform
 import dask.array as da
 import dask
+import warnings
 
 
 class _MagellanMultipageTiffReader:
@@ -338,8 +339,12 @@ class MagellanDataset:
                         t_index = list(self.p_t_z_c_tree[p_index].keys())[0]
                         z_index = list(self.p_t_z_c_tree[p_index][t_index].keys())[0]
                         c_index = list(self.p_t_z_c_tree[p_index][t_index][z_index].keys())[0]
-                        md = self.read_metadata(channel_index=c_index, pos_index=p_index, t_index=t_index, z_index=z_index)
-                        row_cols.append(np.array([md['GridRowIndex'], md['GridColumnIndex']]))
+                        if not self.has_image(channel_index=c_index, pos_index=p_index, t_index=t_index, z_index=z_index):
+                            row_cols.append(np.array([np.nan, np.nan])) #this position is corrupted
+                            warnings.warn('Corrupted image p: {} c: {} t: {} z: {}'.format(p_index, c_index, t_index, z_index))
+                        else:
+                            md = self.read_metadata(channel_index=c_index, pos_index=p_index, t_index=t_index, z_index=z_index)
+                            row_cols.append(np.array([md['GridRowIndex'], md['GridColumnIndex']]))
                     else:
                         row_cols.append(np.array([np.nan, np.nan]))
                 self.row_col_array = np.stack(row_cols)
