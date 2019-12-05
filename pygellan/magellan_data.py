@@ -384,9 +384,13 @@ class MagellanDataset:
         self.half_overlap = self.overlap[0] // 2
 
         #get spatial layout of position indices
-        zero_min_row_col = (self.row_col_array - np.nanmin(self.row_col_array, axis=0)).astype(np.int)
+        zero_min_row_col = (self.row_col_array - np.nanmin(self.row_col_array, axis=0))
         row_col_mat = np.nan * np.ones([int(np.nanmax(zero_min_row_col[:, 0])) + 1, int(np.nanmax(zero_min_row_col[:, 1])) + 1])
-        row_col_mat[zero_min_row_col[self.position_indices][:, 0], zero_min_row_col[self.position_indices][:, 1]] = self.position_indices
+        rows = zero_min_row_col[self.position_indices][:, 0]
+        cols = zero_min_row_col[self.position_indices][:, 1]
+        #mask in case some positions were corrupted
+        mask = np.logical_not(np.isnan(rows))
+        row_col_mat[rows[mask].astype(np.int), cols[mask].astype(np.int)] = self.position_indices[mask]
 
         total = self.time_indices.size * self.channel_indices.size * row_col_mat.shape[0] * row_col_mat.shape[1]
         count = 1
