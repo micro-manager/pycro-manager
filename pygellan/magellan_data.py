@@ -280,8 +280,10 @@ class MagellanDataset:
                 self.summary_metadata = res_level.reader_list[0].summary_md
                 if 'ChNames' in self.summary_metadata:
                     #Legacy magellan files--load channel names here
+                    legacy_channel_names = True
                     self._channel_names = {ch: i for i, ch in enumerate(self.summary_metadata['ChNames'])}
                 else:
+                    legacy_channel_names = False
                     self._channel_names = {} #read them from image metadata
 
                 # store some fields explicitly for easy access
@@ -304,7 +306,7 @@ class MagellanDataset:
                             time_indices.add(t)
                             for p in self.c_z_t_p_tree[c][z][t]:
                                 position_indices.add(p)
-                                if c not in self._channel_names:
+                                if c not in self._channel_names and not legacy_channel_names:
                                     self._channel_names[self.read_metadata(channel_index=c, z_index=z, t_index=t, pos_index=p)['Channel']] = c
 
                 #convert to numpy arrays for speed
