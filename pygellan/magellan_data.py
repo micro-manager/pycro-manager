@@ -463,6 +463,8 @@ class MagellanDataset:
         :return:
         """
         if channel_name is not None:
+            if channel_name not in self.get_channel_names():
+                return False
             channel_index = self.channel_name_to_index(channel_name)
         if channel_index in self.c_z_t_p_tree and z_index in self.c_z_t_p_tree[channel_index] and \
                 t_index in self.c_z_t_p_tree[channel_index][z_index] and pos_index in \

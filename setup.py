@@ -5,7 +5,7 @@ with open("README.md", "r") as fh:
 
 setuptools.setup(
     name="pygellan",
-    version="0.1.4",
+    version="0.1.6",
     author="Henry Pinkard",
     author_email="henry.pinkard@gmail.com",
     description="Open source microscope control using python",
