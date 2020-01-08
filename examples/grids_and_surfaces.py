@@ -10,4 +10,5 @@ magellan = bridge.get_magellan()
 #create 3x3 grid centered at 0.0 stage coordinates
 magellan.create_grid('New_grid', 3, 3, 0.0, 0.0)
 
-#TODO: add delete grids and surface funcitons to API
+#delete it (and anything else)
+magellan.delete_all_grids_and_surfaces()

@@ -1,5 +1,9 @@
 Icon
 
+build/
+dist/
+pygellan.egg-info/
+
 *.pyc
 
 __pycache__/
