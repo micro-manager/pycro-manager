@@ -31,10 +31,6 @@ class PygellanBridge:
                             '\nMagellan version: {}\nPygellan expected version: {}'.format(reply_json['version'],
                                                                                            self._EXPECTED_ZMQ_SERVER_VERSION))
         self._next_port = port
-        #possible objects
-        self.core = None
-        self.magellan = None
-        self.studio = None
 
     def _send(self, message):
         self._socket.send(bytes(json.dumps(message), 'utf-8'))
@@ -43,20 +39,15 @@ class PygellanBridge:
         reply = self._socket.recv()
         return json.loads(reply.decode('utf-8'))
 
-    def _get_top_level_object(self, name):
+    def construct_java_object_from_classpath(self, classpath):
         """
         Get a python object that shadows Java object with its own server
         :return:
         """
         self._next_port += 1
-        if getattr(self, name) is None:
+        name = classpath.lower().replace('.', '_')
+        if not hasattr(self, name):
             # request reply socket
-            if name == 'core':
-                classpath = 'mmcorej.CMMCore'
-            elif name == 'magellan':
-                classpath = 'org.micromanager.magellan.api.MagellanAPI'
-            elif name == 'studio':
-                classpath = 'org.micromanager.Studio'
             self._send({'command': 'connect', 'classpath': classpath, 'port': self._next_port})
             response = self._recieve()
             if ('type' in response and response['type'] == 'exception'):
@@ -69,29 +60,26 @@ class PygellanBridge:
             setattr(self, name, JavaObjectShadow(socket, response, self._convert_camel_case))
         return getattr(self, name)
 
-
     def get_magellan(self):
         """
         Create or get pointer to exisiting magellan object
         :return:
         """
-        return self._get_top_level_object('magellan')
+        return self.construct_java_object_from_classpath('org.micromanager.magellan.api.MagellanAPI')
 
     def get_core(self):
         """
         Connect to CMMCore and return object that has its methods
         :return:
         """
-        return self._get_top_level_object('core')
+        return self.construct_java_object_from_classpath('mmcorej.CMMCore')
 
     def get_studio(self):
         """
         Connect to CMMCore and return object that has its methods
         :return:
         """
-        return self._get_top_level_object('studio')
-
-
+        return self.construct_java_object_from_classpath('org.micromanager.Studio')
 
 class JavaObjectShadow:
     """
