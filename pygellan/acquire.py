@@ -8,75 +8,92 @@ import re
 
 class MagellanBridge:
 
-    _DEFAULT_PORTS = {'master': 4827, 'core': 4828, 'magellan': 4829, 'magellan_acq': 4830}
-    _EXPECTED_MAGELLAN_VERSION = '2.2.0'
+    _DEFAULT_PORT = 4827
+    _EXPECTED_ZMQ_SERVER_VERSION = '2.3.0'
 
     """
     Master class for communicating with Magellan API
     """
-    def __init__(self, port=_DEFAULT_PORTS['master']):
-        self.context = zmq.Context()
+    def __init__(self, port=_DEFAULT_PORT, convert_camel_case=True):
+        self._convert_camel_case = convert_camel_case
+        self._context = zmq.Context()
         # request reply socket
-        self._socket = self.context.socket(zmq.REQ)
+        self._socket = self._context.socket(zmq.REQ)
         self._socket.connect("tcp://127.0.0.1:{}".format(port))
-        self.send({'command': 'connect', 'server': 'master'})
-        reply_json = self.recieve()
+        self._send({'command': 'connect', 'classpath': 'master'})
+        reply_json = self._recieve()
         if reply_json['reply'] != 'success':
             raise Exception(reply_json['message'])
         if 'version' not in reply_json:
             reply_json['version'] = '2.0.0' #before version was added
-        if reply_json['version'] != self._EXPECTED_MAGELLAN_VERSION:
+        if reply_json['version'] != self._EXPECTED_ZMQ_SERVER_VERSION:
             warnings.warn('Version mistmatch between Magellan and Pygellan. '
                             '\nMagellan version: {}\nPygellan expected version: {}'.format(reply_json['version'],
-                                                                                    self._EXPECTED_MAGELLAN_VERSION))
+                                                                                           self._EXPECTED_ZMQ_SERVER_VERSION))
+        self._next_port = port
+        #possible objects
         self.core = None
         self.magellan = None
+        self.studio = None
 
-    def send(self, message):
+    def _send(self, message):
         self._socket.send(bytes(json.dumps(message), 'utf-8'))
 
-    def recieve(self):
+    def _recieve(self):
         reply = self._socket.recv()
         return json.loads(reply.decode('utf-8'))
+
+    def _get_top_level_object(self, name):
+        """
+        Get a python object that shadows Java object with its own server
+        :return:
+        """
+        self._next_port += 1
+        if getattr(self, name) is None:
+            # request reply socket
+            if name == 'core':
+                classpath = 'mmcorej.CMMCore'
+            elif name == 'magellan':
+                classpath = 'org.micromanager.magellan.api.MagellanAPI'
+            elif name == 'studio':
+                classpath = 'org.micromanager.Studio'
+            self._send({'command': 'connect', 'classpath': classpath, 'port': self._next_port})
+            response = self._recieve()
+            if ('type' in response and response['type'] == 'exception'):
+                raise Exception(response['value'])
+            if response['reply'] != 'success':
+                raise Exception()
+            # connect to the dedicated socket for the magellan API
+            socket = self._context.socket(zmq.REQ)
+            socket.connect("tcp://127.0.0.1:{}".format(self._next_port))
+            setattr(self, name, JavaObjectShadow(socket, response, self._convert_camel_case))
+        return getattr(self, name)
+
 
     def get_magellan(self):
         """
         Create or get pointer to exisiting magellan object
         :return:
         """
-        port = self._DEFAULT_PORTS['magellan']
-        if self.magellan is None:
-            # request reply socket
-            self.send({'command': 'connect', 'server': 'magellan'})
-            response = self.recieve()
-            if response['reply'] != 'success':
-                raise Exception()
+        return self._get_top_level_object('magellan')
 
-            # connect to the dedicated socket for the magellan API
-            socket = self.context.socket(zmq.REQ)
-            socket.connect("tcp://127.0.0.1:{}".format(port))
-
-            self.magellan = MMJavaClass(socket, response)
-        return self.magellan
-
-    def get_core(self, port=_DEFAULT_PORTS['core']):
+    def get_core(self):
         """
         Connect to CMMCore and return object that has its methods
         :return:
         """
-        if self.core is None:
-            # request reply socket
-            self.send({'command': 'connect', 'server': 'core'})
-            response = self.recieve()
-            if response['reply'] != 'success':
-                raise Exception()
-            # dyanmically get the API from Java server
-            socket = self.context.socket(zmq.REQ)
-            socket.connect("tcp://127.0.0.1:{}".format(port))
-            self.core = MMJavaClass(socket, response)
-        return self.core
+        return self._get_top_level_object('core')
 
-class MMJavaClass:
+    def get_studio(self):
+        """
+        Connect to CMMCore and return object that has its methods
+        :return:
+        """
+        return self._get_top_level_object('studio')
+
+
+
+class JavaObjectShadow:
     """
     Generic class for serving as a pyhton interface for a micromanager class using a zmq server backend
     """
@@ -95,15 +112,17 @@ class MMJavaClass:
                           'int': int, 'int[]': np.ndarray, 'java.lang.String': str,
                           'long': int, 'mmcorej.TaggedImage': None, 'short': int, 'void': None}
 
-    def __init__(self, socket, response, **kwargs):
+    def __init__(self, socket, response, convert_camel_case=True, **kwargs):
         self._socket = socket
         self._hash_code = response['hash-code']
+        self._convert_camel_case = convert_camel_case
         methods = response['api']
 
         method_names = set([m['name'] for m in methods])
         #parse method descriptions to make python stand ins
         for method_name in method_names:
-            method_name_underscores = _camel_case_2_snake_case(method_name)
+            #dont delete because this is used in the exec
+            method_name_modified = _camel_case_2_snake_case(method_name) if self._convert_camel_case else method_name
             #all methods with this name and different argument lists
             methods_with_name = [m for m in methods if m['name'] == method_name]
             min_required_args = 0 if len(methods_with_name) == 1 and len(methods_with_name[0]['arguments']) == 0 else \
@@ -131,10 +150,10 @@ class MMJavaClass:
                         lambda_arg_names.append(hint)
 
             #use exec so the arguments can have default names that indicate type hints
-            exec('fn = lambda {}: MMJavaClass._translate_call(self, {}, {})'.format(','.join(['self'] + lambda_arg_names),
+            exec('fn = lambda {}: JavaObjectShadow._translate_call(self, {}, {})'.format(','.join(['self'] + lambda_arg_names),
                                                         eval('methods_with_name'),  ','.join(unique_argument_names)))
             #do this one as exec so fn beign undefiend doesnt complain
-            exec('setattr(self, method_name_underscores, MethodType(fn, self))')
+            exec('setattr(self, method_name_modified, MethodType(fn, self))')
 
     def __del__(self):
         """
@@ -220,7 +239,7 @@ class MMJavaClass:
                 raise Exception('Unrecognized return class')
         elif json_return['type'] == 'unserialized-object':
             #inherit socket from parent object
-            return MMJavaClass(self._socket, json_return)
+            return JavaObjectShadow(self._socket, json_return, self._convert_camel_case)
         elif json_return['type'] == 'byte-array':
             return np.frombuffer(standard_b64decode(json_return['value']), dtype='>u1')
         elif json_return['type'] == 'double-array':
