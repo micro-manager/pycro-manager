@@ -6,7 +6,7 @@ from types import MethodType #dont delete this gets called in an exec
 import warnings
 import re
 
-class MagellanBridge:
+class PygellanBridge:
 
     _DEFAULT_PORT = 4827
     _EXPECTED_ZMQ_SERVER_VERSION = '2.3.0'

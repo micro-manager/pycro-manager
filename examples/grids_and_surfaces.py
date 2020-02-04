@@ -1,10 +1,10 @@
-from pygellan.acquire import MagellanBridge
+from pygellan.acquire import PygellanBridge
 import numpy as np
 import matplotlib.pyplot as plt
 
 #### Setup ####
 #establish communication with Magellan
-bridge = MagellanBridge()
+bridge = PygellanBridge()
 magellan = bridge.get_magellan()
 
 #create 3x3 grid centered at 0.0 stage coordinates

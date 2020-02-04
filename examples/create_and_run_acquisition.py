@@ -1,7 +1,7 @@
-from pygellan.acquire import MagellanBridge
+from pygellan.acquire import PygellanBridge
 
 #establish communication with Magellan
-bridge = MagellanBridge()
+bridge = PygellanBridge()
 #get object representing micro-magellan API
 magellan = bridge.get_magellan()
 

@@ -2,13 +2,13 @@
 This example shows how to use pygellan to interact with the micro-manager core. Aside from
 the setup section, each following section can be run independently
 """
-from pygellan.acquire import MagellanBridge
+from pygellan.acquire import PygellanBridge
 import numpy as np
 import matplotlib.pyplot as plt
 
 #### Setup ####
 #establish communication with Magellan
-bridge = MagellanBridge()
+bridge = PygellanBridge()
 #get object representing micro-manager core
 core = bridge.get_core()
 
