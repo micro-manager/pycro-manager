@@ -12,9 +12,9 @@ Pygellan is a Python library for enabling microscope acquisition control and dat
 To use Pygellan for acqusition control, simply open the micro-manager2.0gamma GUI as usual and launch the Micro-magellan plugin. Start a python process in a way of your choosing (e.g. terminal, IDE, Jupyter notebook). Type:
 
 ````
-from pygellan.acquire import MagellanBridge
+from pygellan.acquire import PygellanBridge
 
-bridge = MagellanBridge() #establish communication with Magellan
+bridge = PygellanBridge() #establish communication with Magellan
 ````
 If the bridge object is created successfully, you are connected to Micro-Magellan and can use the rest of the `pygellan.acquire` API.
 
