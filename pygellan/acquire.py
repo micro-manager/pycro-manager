@@ -22,7 +22,7 @@ class PygellanBridge:
         self._socket.connect("tcp://127.0.0.1:{}".format(port))
         self._send({'command': 'connect', 'classpath': 'master'})
         reply_json = self._recieve()
-        if reply_json['reply'] != 'success':
+        if reply_json['type'] == 'exception':
             raise Exception(reply_json['message'])
         if 'version' not in reply_json:
             reply_json['version'] = '2.0.0' #before version was added
@@ -39,7 +39,7 @@ class PygellanBridge:
         reply = self._socket.recv()
         return json.loads(reply.decode('utf-8'))
 
-    def construct_java_object_from_classpath(self, classpath):
+    def construct_java_object(self, classpath):
         """
         Get a python object that shadows Java object with its own server
         :return:
@@ -52,8 +52,8 @@ class PygellanBridge:
             response = self._recieve()
             if ('type' in response and response['type'] == 'exception'):
                 raise Exception(response['value'])
-            if response['reply'] != 'success':
-                raise Exception()
+            if response['type'] == 'exception':
+                raise Exception(response['message'])
             # connect to the dedicated socket for the magellan API
             socket = self._context.socket(zmq.REQ)
             socket.connect("tcp://127.0.0.1:{}".format(self._next_port))
@@ -65,21 +65,21 @@ class PygellanBridge:
         Create or get pointer to exisiting magellan object
         :return:
         """
-        return self.construct_java_object_from_classpath('org.micromanager.magellan.api.MagellanAPI')
+        return self.construct_java_object('org.micromanager.magellan.api.MagellanAPI')
 
     def get_core(self):
         """
         Connect to CMMCore and return object that has its methods
         :return:
         """
-        return self.construct_java_object_from_classpath('mmcorej.CMMCore')
+        return self.construct_java_object('mmcorej.CMMCore')
 
     def get_studio(self):
         """
         Connect to CMMCore and return object that has its methods
         :return:
         """
-        return self.construct_java_object_from_classpath('org.micromanager.Studio')
+        return self.construct_java_object('org.micromanager.Studio')
 
 class JavaObjectShadow:
     """
@@ -101,6 +101,7 @@ class JavaObjectShadow:
                           'long': int, 'mmcorej.TaggedImage': None, 'short': int, 'void': None}
 
     def __init__(self, socket, response, convert_camel_case=True, **kwargs):
+        self._java_class = response['class']
         self._socket = socket
         self._hash_code = response['hash-code']
         self._convert_camel_case = convert_camel_case
@@ -154,6 +155,9 @@ class JavaObjectShadow:
         reply_json = json.loads(reply.decode('utf-8'))
         if reply_json['type'] == 'exception':
             raise Exception(reply_json['value'])
+
+    def __repr__(self):
+        return 'JavaObjectShadow for : ' + self._java_class
 
 
     def _translate_call(self, *args):
