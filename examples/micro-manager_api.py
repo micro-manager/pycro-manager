@@ -20,10 +20,10 @@ import matplotlib.pyplot as plt
 
 from pygellan.acquire import PygellanBridge
 bridge = PygellanBridge()
-mm = bridge.get_studio()
+# mm = bridge.get_studio()
 mmc = bridge.get_core()
-mmc.set_exposure("Camera", 100)
 mmc.set_exposure(120)
+mmc.set_exposure("Camera", 100)
 pass
 
 # while True:

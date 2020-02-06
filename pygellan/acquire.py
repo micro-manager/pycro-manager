@@ -126,6 +126,8 @@ class JavaObjectShadow:
             methods_with_name = [m for m in methods if m['name'] == method_name]
             min_required_args = 0 if len(methods_with_name) == 1 and len(methods_with_name[0]['arguments']) == 0 else \
                                 min([len(m['arguments']) for m in methods_with_name])
+            #sort with largest number of args last so lambda at end gets max num args
+            methods_with_name.sort(key=lambda val: len(val['arguments']))
             for method in methods_with_name:
                 arg_type_hints = [self._CLASS_NAME_MAPPING[t] for t in method['arguments']]
                 lambda_arg_names = []
