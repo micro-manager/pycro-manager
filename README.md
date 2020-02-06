@@ -24,7 +24,9 @@ The micro-manager core provides low-level functionality like capturing images an
 The core API is discovered dynamically at runtime, though not every method is implemented. Typing `core.` and using autocomplete with IPython is the best way to discover which functions are available. Documentation on for the Java version of the core API (which Pygellan ultimately calls) can be found [here](https://valelab4.ucsf.edu/~MM/doc-2.0.0-gamma/mmcorej/mmcorej/CMMCore.html).
 
 ### Controlling Micro-magellan acquisitions
-(*Under active development*)
+*This area is still under active development*.  Future plans can be seen [on the issues tab](https://github.com/henrypinkard/Pygellan/issues) with the enhancement label. Comments/feedback./requests for different use cases are welcome.
+
+In the mean time, some basic functionality is already available:
 
 See [this example](https://github.com/henrypinkard/Pygellan/blob/master/examples/run_acquisition.py) for how to start and stop Micro-magellan acquisitions through Python.
 
