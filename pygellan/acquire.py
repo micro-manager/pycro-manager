@@ -21,7 +21,7 @@ class PygellanBridge:
         self._socket = self._context.socket(zmq.REQ)
         self._socket.connect("tcp://127.0.0.1:{}".format(port))
         self._send({'command': 'connect', 'classpath': 'master'})
-        reply_json = self._recieve()
+        reply_json = self._receive()
         if reply_json['type'] == 'exception':
             raise Exception(reply_json['message'])
         if 'version' not in reply_json:
@@ -35,7 +35,7 @@ class PygellanBridge:
     def _send(self, message):
         self._socket.send(bytes(json.dumps(message), 'utf-8'))
 
-    def _recieve(self):
+    def _receive(self):
         reply = self._socket.recv()
         return json.loads(reply.decode('utf-8'))
 
@@ -49,7 +49,7 @@ class PygellanBridge:
         if not hasattr(self, name):
             # request reply socket
             self._send({'command': 'connect', 'classpath': classpath, 'port': self._next_port})
-            response = self._recieve()
+            response = self._receive()
             if ('type' in response and response['type'] == 'exception'):
                 raise Exception(response['value'])
             if response['type'] == 'exception':
@@ -129,7 +129,7 @@ class JavaObjectShadow:
                             i += 1
                         hint += str(i)
                     unique_argument_names.append(hint)
-                    #this is how polymorphism is handled for now, by making default arguments as none, but
+                    #this is how overloading is handled for now, by making default arguments as none, but
                     #it might be better to explicitly compare argument types
                     if arg_index >= min_required_args:
                         class_arg_names.append(hint + '=' + hint)
@@ -194,7 +194,7 @@ class JavaObjectShadow:
         message = {'command': 'run-method', 'hash-code': self._hash_code, 'name': valid_method_spec['name'],
                                 'arguments': [self._serialize_arg(
                                 self._CLASS_TYPE_MAPPING[arg_type](arg_val)) for
-                        arg_type, arg_val in zip(method_spec['arguments'], fn_args)]}
+                        arg_type, arg_val in zip(valid_method_spec['arguments'], fn_args)]}
         self._socket.send(bytes(json.dumps(message), 'utf-8'))
         reply = self._socket.recv()
         return self._deserialize_return(reply)

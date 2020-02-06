@@ -22,7 +22,8 @@ from pygellan.acquire import PygellanBridge
 bridge = PygellanBridge()
 mm = bridge.get_studio()
 mmc = bridge.get_core()
-mmc.set_exposure(100)
-
-while True:
-    mm.live().snap(True)
+mmc.set_exposure("Camera", 100)
+mmc.set_exposure(120)
+pass
+# while True:
+#     mm.live().snap(True)
