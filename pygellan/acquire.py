@@ -18,8 +18,8 @@ class PygellanBridge:
         self._convert_camel_case = convert_camel_case
         self._context = zmq.Context()
         # request reply socket
-        self._socket = self._context.socket(zmq.REQ)
-        self._socket.connect("tcp://127.0.0.1:{}".format(port))
+        self._master_socket = self._context.socket(zmq.REQ)
+        self._master_socket.connect("tcp://127.0.0.1:{}".format(port))
         self._send({'command': 'connect', 'classpath': 'master'})
         reply_json = self._receive()
         if reply_json['type'] == 'exception':
@@ -32,11 +32,21 @@ class PygellanBridge:
                                                                                            self._EXPECTED_ZMQ_SERVER_VERSION))
         self._next_port = port
 
+    def __del__(self):
+        #close all sockets
+        for attr_name in dir(self):
+            if '_socket_' in attr_name:
+                shadow = getattr(self, attr_name)
+                del shadow
+        #close master socker
+        self._master_socket.close()
+        self._context.term()
+
     def _send(self, message):
-        self._socket.send(bytes(json.dumps(message), 'utf-8'))
+        self._master_socket.send(bytes(json.dumps(message), 'utf-8'))
 
     def _receive(self):
-        reply = self._socket.recv()
+        reply = self._master_socket.recv()
         return json.loads(reply.decode('utf-8'))
 
     def construct_java_object(self, classpath):
@@ -45,7 +55,7 @@ class PygellanBridge:
         :return:
         """
         self._next_port += 1
-        name = classpath.lower().replace('.', '_')
+        name = '_socket_' + classpath.lower().replace('.', '_')
         if not hasattr(self, name):
             # request reply socket
             self._send({'command': 'connect', 'classpath': classpath, 'port': self._next_port})
@@ -155,6 +165,7 @@ class JavaObjectShadow:
         reply_json = json.loads(reply.decode('utf-8'))
         if reply_json['type'] == 'exception':
             raise Exception(reply_json['value'])
+        self._socket.close()
 
     def __repr__(self):
         return 'JavaObjectShadow for : ' + self._java_class
