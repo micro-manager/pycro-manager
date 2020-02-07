@@ -4,7 +4,12 @@ Pygellan is a Python library for enabling microscope acquisition control and dat
 ## Setup
 1. Install pygellan using `pip install pygellan` (Pygellan is tested with Python 3.6 but should also work with other versions of Python3)
 
-2. (If using pygellan for acquisition control), download and install Nico Stuurman's 2.0gamma build of micro-manager. Latest nightly builds can be found [here](https://micro-manager.org/wiki/Version_2.0)
+If using pygellan for acquisition control with micro-manager, you also must:
+
+2. Download and install Nico Stuurman's 2.0gamma build of micro-manager. Latest nightly builds can be found [here](https://micro-manager.org/wiki/Version_2.0)
+
+3. Open Micro-manager, select tools-options, and check the box that says "Run server on port 4827"
+
 
 ## Acquisition control
 To use Pygellan for acqusition control, simply open the micro-manager2.0gamma GUI as usual and launch the Micro-magellan plugin. Start a python process in a way of your choosing (e.g. terminal, IDE, Jupyter notebook). Type:
