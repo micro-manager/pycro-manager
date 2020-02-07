@@ -20,7 +20,7 @@ class PygellanBridge:
         # request reply socket
         self._master_socket = self._context.socket(zmq.REQ)
         self._master_socket.connect("tcp://127.0.0.1:{}".format(port))
-        self._send({'command': 'connect', 'classpath': 'master'})
+        self._send({'command': 'connect'})
         reply_json = self._receive()
         if reply_json['type'] == 'exception':
             raise Exception(reply_json['message'])
@@ -49,25 +49,36 @@ class PygellanBridge:
         reply = self._master_socket.recv()
         return json.loads(reply.decode('utf-8'))
 
-    def construct_java_object(self, classpath):
+    def construct_java_object(self, classpath, new_socket=False):
         """
-        Get a python object that shadows Java object with its own server
+        Get a python object that shadows Java object, optionally with its own server
         :return:
         """
-        self._next_port += 1
-        name = '_socket_' + classpath.lower().replace('.', '_')
+        if not new_socket:
+            socket = self._master_socket
+        name = '_root_java_obj_' + classpath.lower().replace('.', '_')
         if not hasattr(self, name):
-            # request reply socket
-            self._send({'command': 'connect', 'classpath': classpath, 'port': self._next_port})
-            response = self._receive()
-            if ('type' in response and response['type'] == 'exception'):
-                raise Exception(response['value'])
-            if response['type'] == 'exception':
-                raise Exception(response['message'])
-            # connect to the dedicated socket for the magellan API
-            socket = self._context.socket(zmq.REQ)
-            socket.connect("tcp://127.0.0.1:{}".format(self._next_port))
-            setattr(self, name, JavaObjectShadow(socket, response, self._convert_camel_case))
+            if new_socket:
+                self._next_port += 1
+                # Create a new request reply socket with this class as the master
+                self._send({'command': 'constructor', 'classpath': classpath, 'port': self._next_port})
+                response = self._receive()
+                if ('type' in response and response['type'] == 'exception'):
+                    raise Exception(response['value'])
+                if response['type'] == 'exception':
+                    raise Exception(response['message'])
+                # connect to the dedicated socket for the magellan API
+                socket = self._context.socket(zmq.REQ)
+                socket.connect("tcp://127.0.0.1:{}".format(self._next_port))
+                setattr(self, name, JavaObjectShadow(socket, response, None, self._convert_camel_case))
+            else:
+                self._send({'command': 'constructor', 'classpath': classpath})
+                response = self._receive()
+                if ('type' in response and response['type'] == 'exception'):
+                    raise Exception(response['value'])
+                if response['type'] == 'exception':
+                    raise Exception(response['message'])
+                setattr(self, name, JavaObjectShadow(socket, response, None, self._convert_camel_case))
         return getattr(self, name)
 
     def get_magellan(self):
@@ -75,21 +86,21 @@ class PygellanBridge:
         Create or get pointer to exisiting magellan object
         :return:
         """
-        return self.construct_java_object('org.micromanager.magellan.api.MagellanAPI')
+        return self.construct_java_object('org.micromanager.magellan.api.MagellanAPI', new_socket=True)
 
     def get_core(self):
         """
         Connect to CMMCore and return object that has its methods
         :return:
         """
-        return self.construct_java_object('mmcorej.CMMCore')
+        return self.construct_java_object('mmcorej.CMMCore', new_socket=True)
 
     def get_studio(self):
         """
         Connect to CMMCore and return object that has its methods
         :return:
         """
-        return self.construct_java_object('org.micromanager.Studio')
+        return self.construct_java_object('org.micromanager.Studio', new_socket=True)
 
 class JavaObjectShadow:
     """
@@ -110,12 +121,13 @@ class JavaObjectShadow:
                           'int': int, 'int[]': np.ndarray, 'java.lang.String': str,
                           'long': int, 'mmcorej.TaggedImage': None, 'short': int, 'void': None}
 
-    def __init__(self, socket, response, convert_camel_case=True, **kwargs):
-        self._java_class = response['class']
+    def __init__(self, socket, serialized_object, parent, convert_camel_case=True, new_socket=False, **kwargs):
+        self._java_class = serialized_object['class']
         self._socket = socket
-        self._hash_code = response['hash-code']
+        self._parent = parent
+        self._hash_code = serialized_object['hash-code']
         self._convert_camel_case = convert_camel_case
-        methods = response['api']
+        methods = serialized_object['api']
 
         method_names = set([m['name'] for m in methods])
         #parse method descriptions to make python stand ins
@@ -167,9 +179,13 @@ class JavaObjectShadow:
         reply_json = json.loads(reply.decode('utf-8'))
         if reply_json['type'] == 'exception':
             raise Exception(reply_json['value'])
-        self._socket.close()
+        if self._parent is None:
+            #if root object destructor called, close the socket. Child objects maintain references to parent
+            #so parent shouldn't be garbage collected if references to child object remain
+            self._socket.close()
 
     def __repr__(self):
+        #convenience for debugging
         return 'JavaObjectShadow for : ' + self._java_class
 
 
@@ -244,7 +260,7 @@ class JavaObjectShadow:
                 raise Exception('Unrecognized return class')
         elif json_return['type'] == 'unserialized-object':
             #inherit socket from parent object
-            return JavaObjectShadow(self._socket, json_return, self._convert_camel_case)
+            return JavaObjectShadow(self._socket, json_return, self, self._convert_camel_case)
         elif json_return['type'] == 'byte-array':
             return np.frombuffer(standard_b64decode(json_return['value']), dtype='>u1')
         elif json_return['type'] == 'double-array':
