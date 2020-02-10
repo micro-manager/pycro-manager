@@ -127,6 +127,7 @@ class JavaObjectShadow:
         self._parent = parent
         self._hash_code = serialized_object['hash-code']
         self._convert_camel_case = convert_camel_case
+        self._interfaces = serialized_object['interfaces']
         methods = serialized_object['api']
 
         method_names = set([m['name'] for m in methods])
@@ -141,7 +142,9 @@ class JavaObjectShadow:
             #sort with largest number of args last so lambda at end gets max num args
             methods_with_name.sort(key=lambda val: len(val['arguments']))
             for method in methods_with_name:
-                arg_type_hints = [self._CLASS_NAME_MAPPING[t] for t in method['arguments']]
+                arg_type_hints = []
+                for typ in method['arguments']:
+                    arg_type_hints.append(self._CLASS_NAME_MAPPING[typ] if typ in self._CLASS_NAME_MAPPING else 'object')
                 lambda_arg_names = []
                 class_arg_names = []
                 unique_argument_names = []
@@ -206,11 +209,15 @@ class JavaObjectShadow:
                 continue
             valid_method_spec = method_spec
             for arg_type, arg_val in zip(method_spec['arguments'], fn_args):
-                 correct_type = type(self._CLASS_TYPE_MAPPING[arg_type])
-                 if not isinstance(type(arg_val), correct_type):
+                 if isinstance(arg_val, JavaObjectShadow):
+                     if arg_type not in arg_val._interfaces:
+                        #check that it shadows object of the correct type
+                        valid_method_spec = None
+                 elif not isinstance(type(arg_val), type(self._CLASS_TYPE_MAPPING[arg_type])):
+                     # if a type that gets converted
                      valid_method_spec = None
                  elif type(arg_val) == np.ndarray:
-                     #make sure dtypes match
+                     #For ND Arrays, need to make sure data types match
                      if self._CLASS_DTYPE_MAPPING[arg_type] != arg_val.dtype:
                          valid_method_spec = None
             if valid_method_spec is None:
@@ -220,10 +227,14 @@ class JavaObjectShadow:
                      ' or '.join([','.join(method_spec['arguments']) for method_spec in method_specs]),
                 ','.join([type(a) for a in fn_args])))
         #args are good, make call through socket, casting the correct type if needed (e.g. int to float)
-        message = {'command': 'run-method', 'hash-code': self._hash_code, 'name': valid_method_spec['name'],
-                                'arguments': [self._serialize_arg(
-                                self._CLASS_TYPE_MAPPING[arg_type](arg_val)) for
-                        arg_type, arg_val in zip(valid_method_spec['arguments'], fn_args)]}
+        message = {'command': 'run-method', 'hash-code': self._hash_code, 'name': valid_method_spec['name']}
+        message['arguments'] = []
+        for arg_type, arg_val in zip(valid_method_spec['arguments'], fn_args):
+            if isinstance(arg_val, JavaObjectShadow):
+                message['arguments'].append(self._serialize_arg(arg_val))
+            else:
+                message['arguments'].append(self._serialize_arg(self._CLASS_TYPE_MAPPING[arg_type](arg_val)))
+
         self._socket.send(bytes(json.dumps(message), 'utf-8'))
         reply = self._socket.recv()
         return self._deserialize_return(reply)
@@ -275,6 +286,10 @@ class JavaObjectShadow:
             return arg #json handles serialization
         elif type(arg) == np.ndarray:
             return standard_b64encode(arg.tobytes())
+        elif isinstance(arg, JavaObjectShadow):
+            return {'hash-code': arg._hash_code}
+        else:
+            raise Exception('Unknown argumetn type')
 
 def _camel_case_2_snake_case(name):
     s1 = re.sub('(.)([A-Z][a-z]+)', r'\1_\2', name)
