@@ -278,6 +278,8 @@ class JavaObjectShadow:
             return np.frombuffer(standard_b64decode(json_return['value']), dtype='>f8')
         elif json_return['type'] == 'int-array':
             return np.frombuffer(standard_b64decode(json_return['value']), dtype='>i4')
+        elif json_return['type'] == 'short-array':
+            return np.frombuffer(standard_b64decode(json_return['value']), dtype='>i2')
         elif json_return['type'] == 'float-array':
             return np.frombuffer(standard_b64decode(json_return['value']), dtype='>f4')
 

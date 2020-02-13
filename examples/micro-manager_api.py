@@ -4,9 +4,16 @@ This example shows how to use pygellan to interact with the micro-manager java A
 from pygellan.acquire import PygellanBridge
 bridge=PygellanBridge()
 mm=bridge.get_studio()
+mmc=bridge.get_core()
+mm.live().snap(True)
+dv=mm.displays()
+av=dv.get_active_data_viewer()
+dp=av.get_data_provider()
+img=dp.get_any_image()
+img.get_height()
+img.get_metadata()
+md=img.get_metadata()
+md.get_camera()
 
-d = mm.data()
-store = d.create_ram_datastore()
-disp = mm.displays()
-disp.create_display(store)
+image = img.get_raw_pixels_copy()
 pass
