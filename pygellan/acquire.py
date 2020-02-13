@@ -110,16 +110,13 @@ class JavaObjectShadow:
     _CLASS_NAME_MAPPING = {'boolean': 'boolean', 'byte[]': 'uint8array',
                 'double': 'float',   'double[]': 'float64_array', 'float': 'float',
                 'int': 'int', 'int[]': 'uint32_array', 'java.lang.String': 'string',
-                'long': 'int', 'mmcorej.TaggedImage': 'tagged_image', 'short': 'int', 'void': 'void',
+                'long': 'int', 'short': 'int', 'void': 'void',
                           'java.util.List': 'list'}
-
     _CLASS_DTYPE_MAPPING = {'byte[]': np.uint8, 'double[]': np.float64, 'int[]': np.int32}
-
-    #TODO: may want to replace Tagged image with a function that does conversion if passing one in as an arg
     _CLASS_TYPE_MAPPING = {'boolean': bool, 'byte[]': np.ndarray,
                           'double': float, 'double[]': np.ndarray, 'float': float,
                           'int': int, 'int[]': np.ndarray, 'java.lang.String': str,
-                          'long': int, 'mmcorej.TaggedImage': None, 'short': int, 'void': None}
+                          'long': int, 'short': int, 'void': None}
 
     def __init__(self, socket, serialized_object, parent, convert_camel_case=True, new_socket=False, **kwargs):
         self._java_class = serialized_object['class']
@@ -128,6 +125,8 @@ class JavaObjectShadow:
         self._hash_code = serialized_object['hash-code']
         self._convert_camel_case = convert_camel_case
         self._interfaces = serialized_object['interfaces']
+        for field in serialized_object['fields']:
+            exec('JavaObjectShadow.{} = property(lambda instance: instance._access_field(\'{}\'))'.format(field, field))
         methods = serialized_object['api']
 
         method_names = set([m['name'] for m in methods])
@@ -191,6 +190,15 @@ class JavaObjectShadow:
         #convenience for debugging
         return 'JavaObjectShadow for : ' + self._java_class
 
+    def _access_field(self, name, *args):
+        """
+        Return a python version of the field with a given name
+        :return:
+        """
+        message = {'command': 'get-field', 'hash-code': self._hash_code, 'name': name}
+        self._socket.send(bytes(json.dumps(message), 'utf-8'))
+        reply = self._socket.recv()
+        return self._deserialize_return(reply)
 
     def _translate_call(self, *args):
         """
@@ -260,13 +268,8 @@ class JavaObjectShadow:
         elif json_return['type'] == 'list':
             return [self._deserialize_return(obj) for obj in json_return['value']]
         elif json_return['type'] == 'object':
-            if json_return['class'] == 'TaggedImage':
-                tags = json_return['value']['tags']
-                pix = np.frombuffer(standard_b64decode(json_return['value']['pix']), dtype='>u2' if
-                        json_return['value']['pixel-type'] == 'uint16' else 'uint8')
-                if 'width' in tags and 'height' in tags:
-                    pix = np.reshape(pix, [tags['height'], tags['width']])
-                return pix, tags
+            if json_return['class'] == 'JSONObject':
+                return json.loads(json_return['value'])
             else:
                 raise Exception('Unrecognized return class')
         elif json_return['type'] == 'unserialized-object':

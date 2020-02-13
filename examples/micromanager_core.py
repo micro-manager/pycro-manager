@@ -30,11 +30,8 @@ core.snap_image()
 tagged_image = core.get_tagged_image()
 #If using micro-manager multi-camera adapter, use core.getTaggedImage(i), where i is the camera index
 
-#tagged_image is a tuple containing the raw pixel data (as a numpy array) and the image metadata (as a python dictionary)
-pixels_flat = tagged_image[0]
-metadata = tagged_image[1]
 #pixels by default come out as a 1D array. We can reshape them into an image
-pixels = np.reshape(pixels_flat, newshape=[metadata['Height'], metadata['Width']])
+pixels = np.reshape(tagged_image.pix, newshape=[tagged_image.tags['Height'], tagged_image.tags['Width']])
 #plot it
-plt.imshow(pixels,cmap='gray')
+plt.imshow(pixels, cmap='gray')
 plt.show()
