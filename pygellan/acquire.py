@@ -20,15 +20,15 @@ class PygellanBridge:
         # request reply socket
         self._master_socket = self._context.socket(zmq.REQ)
         self._master_socket.connect("tcp://127.0.0.1:{}".format(port))
-        self._send({'command': 'connect'})
+        self._send({'command': 'connect', })
         reply_json = self._receive()
         if reply_json['type'] == 'exception':
             raise Exception(reply_json['message'])
         if 'version' not in reply_json:
             reply_json['version'] = '2.0.0' #before version was added
         if reply_json['version'] != self._EXPECTED_ZMQ_SERVER_VERSION:
-            warnings.warn('Version mistmatch between Magellan and Pygellan. '
-                            '\nMagellan version: {}\nPygellan expected version: {}'.format(reply_json['version'],
+            warnings.warn('Version mistmatch between ZMQ server and Pygellan. '
+                            '\nZMQ server version: {}\nPygellan expected version: {}'.format(reply_json['version'],
                                                                                            self._EXPECTED_ZMQ_SERVER_VERSION))
         self._next_port = port
 
