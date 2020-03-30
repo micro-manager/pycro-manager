@@ -7,5 +7,3 @@ pygellan.egg-info/
 *.pyc
 
 __pycache__/
-
-docs/_build/
