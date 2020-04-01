@@ -1,1 +1,1 @@
-name = 'pygellan'
+name = 'pycromanager'

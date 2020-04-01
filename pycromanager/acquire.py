@@ -6,6 +6,12 @@ from types import MethodType #dont delete this gets called in an exec
 import warnings
 import re
 import time
+import json
+import multiprocessing
+import threading
+import queue
+from inspect import signature
+
 
 # for makign argument type hints. might be mergable with type mapping
 _CLASS_NAME_MAPPING = {'boolean': 'boolean', 'byte[]': 'uint8array',
@@ -74,15 +80,24 @@ class JavaSocket:
     def close(self):
         self._socket.close()
 
-class PygellanBridge:
-
+class Bridge:
+    """
+    Create an object which acts as a client to a corresponding server running within micro-manager.
+    This enables construction and interaction with arbitrary java objects
+    """
     _DEFAULT_PORT = 4827
     _EXPECTED_ZMQ_SERVER_VERSION = '2.3.0'
 
-    """
-    Master class for communicating with Magellan API
-    """
+
     def __init__(self, port=_DEFAULT_PORT, convert_camel_case=True):
+        """
+        :param port: The port on which the bridge operates
+        :type port: int
+        :param convert_camel_case: If true, methods for Java objects that are passed across the bridge
+            will have their names converted from camel case to underscores. i.e. class.methodName()
+            becomes class.method_name()
+        :type convert_camel_case: boolean
+        """
         self._context = zmq.Context()
         self._convert_camel_case = convert_camel_case
         self._master_socket = JavaSocket(self._context, port, zmq.REQ)
@@ -100,8 +115,17 @@ class PygellanBridge:
 
     def construct_java_object(self, classpath, new_socket=False, args=[]):
         """
-        Get a python object that shadows Java object, optionally with its own server
-        :return:
+        Create a new intstance of a an object on the Java side. Returns a Python "Shadow" of the object, which behaves
+        just like the object on the Java side (i.e. same methods, fields). Methods of the object can be inferred at
+        runtime using iPython autocomplete
+
+        :param classpath: Full classpath of the java object
+        :type classpath: string
+        :param new_socket: If true, will create new java object on a new port so that blocking calls will not interfere
+            with the bridges master port
+        :param args: list of arguments to the constructor, if applicable
+        :type args: list
+        :return: Python  "Shadow" to the Java object
         """
         methods_with_name = [m for m in self._constructors if m['name'] == classpath]
         valid_method_spec = _check_method_args(methods_with_name, args)
@@ -121,24 +145,34 @@ class PygellanBridge:
         return JavaObjectShadow(socket=socket, serialized_object=serialized_object,
                         convert_camel_case=self._convert_camel_case)
 
-    def connect_push(self, port):
+    def _connect_push(self, port):
+        """
+        Connect a push socket on the given port
+        :param port:
+        :return:
+        """
         return JavaSocket(self._context, port, zmq.PUSH)
 
-    def connect_pull(self, port):
+    def _connect_pull(self, port):
+        """
+        Connect to a pull socket on the given port
+        :param port:
+        :return:
+        """
         return JavaSocket(self._context, port, zmq.PULL)
 
 
     def get_magellan(self):
         """
-        Create or get pointer to exisiting magellan object
-        :return:
+        TODO
         """
         return self.construct_java_object('org.micromanager.magellan.api.MagellanAPI')
 
     def get_core(self):
         """
         Connect to CMMCore and return object that has its methods
-        :return:
+
+        :return: Python "shadow" object for micromanager core
         """
         if hasattr(self, 'core'):
             return getattr(self, 'core')
@@ -147,8 +181,7 @@ class PygellanBridge:
 
     def get_studio(self):
         """
-        Connect to CMMCore and return object that has its methods
-        :return:
+        TODO
         """
         return self.construct_java_object('org.micromanager.Studio')
 
@@ -383,3 +416,194 @@ def _camel_case_2_snake_case(name):
     s1 = re.sub('(.)([A-Z][a-z]+)', r'\1_\2', name)
     return re.sub('([a-z0-9])([A-Z])', r'\1_\2', s1).lower()
 
+
+class Acquisition():
+
+    def __init__(self, directory=None, name=None, image_process_fn=None,
+                 pre_hardware_hook_fn=None, post_hardware_hook_fn=None, process=False):
+        """
+        :param directory: saving directory for this acquisition. Required unless an image process function will be
+            implemented that diverts images from saving
+        :type directory: str
+        :param name: Saving name for the acquisition. Required unless an image process function will be
+            implemented that diverts images from saving
+        :type name: str
+        :param image_process_fn: image processing function that will be called on each image that gets acquired.
+            Can either take two arguments (image, metadata) where image is a numpy array and metadata is a dict
+            containing the corresponding iamge metadata. Or a 4 argument version is accepted, which accepts (image,
+            metadata, bridge, queue), where bridge and queue are an instance of the pycromanager.acquire.Bridge
+            object for the purposes of interacting with arbitrary code on the Java side (such as the micro-manager
+            core), and queue is a Queue objects that holds upcomning acquisition events. Both version must either
+            return
+        :param pre_hardware_hook_fn: hook function that will be run just before the hardware is updated before acquiring
+            a new image. Accepts either one argument (the current acquisition event) or three arguments (current event,
+            bridge, event Queue)
+        :param post_hardware_hook_fn: hook function that will be run just before the hardware is updated before acquiring
+            a new image. Accepts either one argument (the current acquisition event) or three arguments (current event,
+            bridge, event Queue)
+        :param process: if true, run image process functions and acquisition hooks in seperate processes, rather than
+            threads. This could be useful to maximize performance, but potentially will make sharing state across these
+            processes more complicated
+        :type process: boolean
+        """
+        self.bridge = Bridge()
+
+        # Create thread safe queue for events so they can be passed from multiple processes
+        self._event_queue = multiprocessing.Queue() if process else queue.Queue()
+
+        #TODO: call different constructor if direcotyr and name are None
+
+        core = self.bridge.get_core()
+        acq_manager = self.bridge.construct_java_object('org.micromanager.remote.RemoteAcquisitionFactory', args=[core])
+        self.acq = acq_manager.create_acquisition(directory, name)
+        if image_process_fn is not None:
+            processor = self.bridge.construct_java_object('org.micromanager.remote.RemoteImageProcessor')
+            self.acq.add_image_processor(processor)
+            self._start_processor(processor, image_process_fn, self._event_queue, process=process)
+
+        if pre_hardware_hook_fn is not None:
+            hook = self.bridge.construct_java_object('org.micromanager.remote.RemoteAcqHook')
+            self._start_hook(hook, pre_hardware_hook_fn, self._event_queue, process=process)
+            self.acq.add_hook(hook, self.acq.BEFORE_HARDWARE_HOOK, args=[self.acq])
+        if post_hardware_hook_fn is not None:
+            hook = self.bridge.construct_java_object('org.micromanager.remote.RemoteAcqHook', args=[self.acq])
+            self._start_hook(hook, post_hardware_hook_fn, self._event_queue, process=process)
+            self.acq.add_hook(hook, self.acq.AFTER_HARDWARE_HOOK)
+
+        self.acq.start()
+        event_port = self.acq.get_event_port()
+
+
+        def event_sending_fn():
+            bridge = Bridge()
+            event_socket = bridge._connect_push(event_port)
+            while True:
+                events = self._event_queue.get(block=True)
+                if events is None:
+                    #Poison, time to shut down
+                    event_socket.send({'events': [{'special': 'acquisition-end'}]})
+                    event_socket.close()
+                    return
+                event_socket.send({'events': events if type(events) == list else [events]})
+
+        self.event_process = multiprocessing.Process(target=event_sending_fn, args=(), name='Event sending') if \
+                    multiprocessing else threading.Thread(target=event_sending_fn, args=(), name='Event sending')
+        self.event_process.start()
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        self.close()
+
+    def close(self):
+        """
+        Finish the acquisition and release all resources related to remote connection
+        :return:
+        """
+        #this should shut down storage and viewer as apporpriate
+        self._event_queue.put(None)
+
+    def acquire(self, events):
+        """
+        Submit an event or a list of events for acquisition. Optimizations (i.e. taking advantage of
+        hardware synchronization, where available), will take place across this list of events, but not
+        over multiple calls of this method. A single event is a python dictionary with a specific structure
+
+        :param events: single event (i.e. a dictionary) or a list of events
+        """
+        self._event_queue.put(events)
+
+    def _start_hook(self, remote_hook, remote_hook_fn, event_queue, process):
+        hook_connected_evt = multiprocessing.Event() if process else threading.Event()
+
+        pull_port = remote_hook.get_pull_port()
+        push_port = remote_hook.get_push_port()
+
+        def other_thread_fn():
+            bridge = Bridge()
+            # setattr(remote_hook_fn, 'bridge', bridge)
+
+            push_socket = bridge._connect_push(pull_port)
+            pull_socket = bridge._connect_pull(push_port)
+            hook_connected_evt.set()
+
+            while True:
+                event_msg = pull_socket.receive()
+
+                if 'special' in event_msg and event_msg['special'] == 'acquisition-end':
+                    push_socket.send({})
+                    push_socket.close()
+                    pull_socket.close()
+                    return
+                else:
+                    params = signature(remote_hook_fn).parameters
+                    if len(params) == 1:
+                        new_event_msg = remote_hook_fn(event_msg)
+                    elif len(params) == 3:
+                        new_event_msg = remote_hook_fn(event_msg, bridge, event_queue)
+                    else:
+                        raise Exception('Incorrect number of arguments for hook function. Must be 2 or 4')
+
+                push_socket.send(new_event_msg)
+
+        hook_thread = multiprocessing.Process(target=other_thread_fn, args=(), name='AcquisitionHook') if process\
+            else threading.Thread(target=other_thread_fn, args=(), name='AcquisitionHook')
+        hook_thread.start()
+
+        hook_connected_evt.wait()  # wait for push/pull sockets to connect
+
+    def _start_processor(self, processor, process_fn, event_queue, process):
+        # this must start first
+        processor.start_pull()
+
+        sockets_connected_evt = multiprocessing.Event() if process else threading.Event()
+
+        pull_port = processor.get_pull_port()
+        push_port = processor.get_push_port()
+        def other_thread_fn():
+            bridge = Bridge()
+            # setattr(process_fn, 'bridge', bridge)
+            push_socket = bridge._connect_push(pull_port)
+            pull_socket = bridge._connect_pull(push_port)
+            sockets_connected_evt.set()
+
+            while True:
+                message = None
+                while message is None:
+                    message = pull_socket.receive(timeout=30) #check for new message
+
+                if 'special' in message and message['special'] == 'finished':
+                    push_socket.send(message) #Continue propagating the finihsed signal
+                    push_socket.close()
+                    pull_socket.close()
+                    return
+
+                metadata = message['metadata']
+                pixels = deserialize_array(message['pixels'])
+                image = np.reshape(pixels, [metadata['Width'], metadata['Height']])
+
+                params = signature(process_fn).parameters
+                if len(params) == 2:
+                    processed = process_fn(image, metadata)
+                elif len(params) == 4:
+                    processed = process_fn(image, metadata, bridge, event_queue)
+                else:
+                    raise Exception('Incorrect number of arguments for image processing function, must be 2 or 4')
+                if processed is None:
+                    continue
+                if len(processed) != 2:
+                    raise Exception('If image is returned, it must be of the form (pixel, metadata)')
+                if not processed[0].dtype == pixels.dtype:
+                    raise Exception('Processed image pixels must have same dtype as input image pixels, '
+                                    'but instead they were {} and {}'.format(processed[0].dtype, pixels.dtype))
+
+                processed_img = {'pixels': serialize_array(processed[0]), 'metadata': processed[1]}
+                push_socket.send(processed_img)
+
+        self.processor_thread = multiprocessing.Process(target=other_thread_fn, args=(),  name='ImageProcessor'
+                        ) if multiprocessing else threading.Thread(target=other_thread_fn, args=(),  name='ImageProcessor')
+        self.processor_thread.start()
+
+        sockets_connected_evt.wait()  # wait for push/pull sockets to connect
+        processor.start_push()

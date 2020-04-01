@@ -1,18 +1,30 @@
-.. pycro-manager documentation master file, created by
-   sphinx-quickstart on Mon Mar 30 09:37:02 2020.
-   You can adapt this file completely to your liking, but it should at least
-   contain the root `toctree` directive.
+*************
+Pycro-manager
+*************
 
-Welcome to pycromanager's documentation!
-=========================================
+
+``pycromanager`` is a python package for controlling different parts of `micro-manager <https://micro-manager.org/>`_ using Python. It is designed for maximum flexibility, in order to serve as a useful building block for "smart" microscopes that use feedback from data or external istrumentation to control the process of acquiring data. 
+
+``pycromanager`` is built on top of a high-performance data transfer layer that operates between Java (i.e. micro-manager) and Python. This enables both the execution of abitrary Java code as if it were written in Python, and the ability to control micro-manager over a network.
+
+:doc:`setup`
+#############
+
+:doc:`acquisition`
+##################
+
+:doc:`apis`
+###########
 
 .. toctree::
-	:maxdepth: 2
+	:maxdepth: 3
 	:caption: Contents:
+	:hidden:
 
-	intro
+	setup
+	acquisition
 	examples
-	modules
+	apis
 
 
 
