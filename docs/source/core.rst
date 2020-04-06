@@ -1,5 +1,7 @@
+.. _control_core:
+
 **********************************************
-Controlling micro-manager core
+Controlling Micro-Manager core
 **********************************************
 
 The example below shows how to call the Java bindings for the micro-manager core from Python. Because the core API is discorved at runtime and translated into Python, the easiest way to discover which functions are available is to type ``core.`` and use IPython autocomplete. Alternatively, the documentation for the Java version of the core API can be found `here <https://valelab4.ucsf.edu/~MM/doc-2.0.0-gamma/mmcorej/mmcorej/CMMCore.html>`_.
@@ -10,7 +12,7 @@ The example below shows how to call the Java bindings for the micro-manager core
 	This example shows how to use pycromanager to interact with the micro-manager core. 
 	Aside from the setup section, each following section can be run independently
 	"""
-	from pycromanager.acquire import Bridge
+	from pycromanager import Bridge
 	import numpy as np
 	import matplotlib.pyplot as plt
 

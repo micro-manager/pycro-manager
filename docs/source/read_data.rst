@@ -1,6 +1,10 @@
+.. _reading_data:
+
 ******************************************************
-Opening acquired data with ``pycromanager.data``
+Opening acquired data
 ******************************************************
+
+**Still under construction. everything below is out of date**
 
 TODO: update this
 
@@ -12,7 +16,7 @@ TODO: update this
 .. code-block:: python
 
 	import numpy as np
-	from pygellan.magellan_data import MagellanDataset
+	from pycromanager import MagellanDataset
 	import napari
 
 	#This path is to the top level of the magellan dataset (i.e. the one that contains the Full resolution folder)

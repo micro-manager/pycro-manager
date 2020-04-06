@@ -11,6 +11,8 @@ import multiprocessing
 import threading
 import queue
 from inspect import signature
+import copy
+import types
 
 
 # for makign argument type hints. might be mergable with type mapping
@@ -30,18 +32,47 @@ class JavaSocket:
     Wrapper for ZMQ socket that sends and recieves dictionaries
     """
 
-    def __init__(self, context, port, type):
+    def __init__(self, context, port, type, debug):
         # request reply socket
         self._socket = context.socket(type)
+        self._debug = debug
+        # try:
         if type == zmq.PUSH:
+            if debug:
+                print('binding {}'.format(port))
             self._socket.bind("tcp://127.0.0.1:{}".format(port))
         else:
+            if debug:
+                print('connecting {}'.format(port))
             self._socket.connect("tcp://127.0.0.1:{}".format(port))
+        # except Exception as e:
+        #     print(e.__traceback__)
+        # raise Exception('Couldnt connect or bind to port {}'.format(port))
 
+    def _convert_np_to_python(self, d):
+        """
+        recursive ply search dictionary and convert any values from numpy floats/ints to
+        python floats/ints so they can be hson serialized
+        :return:
+        """
+        if type(d) != dict:
+            return
+        for k, v in d.items():
+            if isinstance(v, dict):
+                self._convert_np_to_python(v)
+            elif type(v) == list:
+                for e in v:
+                    self._convert_np_to_python(e)
+            elif np.issubdtype(type(v), np.floating):
+                d[k] = float(v)
+            elif np.issubdtype(type(v), np.integer):
+                d[k] = int(v)
 
     def send(self, message, timeout=0):
         if message is None:
             message = {}
+        #make sure any np types convert to python types so they can be json serialized
+        self._convert_np_to_python(message)
         if timeout == 0:
             self._socket.send(bytes(json.dumps(message), 'utf-8'))
         else:
@@ -86,10 +117,10 @@ class Bridge:
     This enables construction and interaction with arbitrary java objects
     """
     _DEFAULT_PORT = 4827
-    _EXPECTED_ZMQ_SERVER_VERSION = '2.3.0'
+    _EXPECTED_ZMQ_SERVER_VERSION = '2.4.0'
 
 
-    def __init__(self, port=_DEFAULT_PORT, convert_camel_case=True):
+    def __init__(self, port=_DEFAULT_PORT, convert_camel_case=True, debug=False):
         """
         :param port: The port on which the bridge operates
         :type port: int
@@ -97,10 +128,13 @@ class Bridge:
             will have their names converted from camel case to underscores. i.e. class.methodName()
             becomes class.method_name()
         :type convert_camel_case: boolean
+        :param debug: print helpful stuff for debugging
+        :type debug: bool
         """
         self._context = zmq.Context()
         self._convert_camel_case = convert_camel_case
-        self._master_socket = JavaSocket(self._context, port, zmq.REQ)
+        self._debug = debug
+        self._master_socket = JavaSocket(self._context, port, zmq.REQ, debug=debug)
         self._master_socket.send({'command': 'connect', })
         reply_json = self._master_socket.receive()
         if reply_json['type'] == 'exception':
@@ -151,7 +185,7 @@ class Bridge:
         :param port:
         :return:
         """
-        return JavaSocket(self._context, port, zmq.PUSH)
+        return JavaSocket(self._context, port, zmq.PUSH, debug=self._debug)
 
     def _connect_pull(self, port):
         """
@@ -159,12 +193,12 @@ class Bridge:
         :param port:
         :return:
         """
-        return JavaSocket(self._context, port, zmq.PULL)
+        return JavaSocket(self._context, port, zmq.PULL, debug=self._debug)
 
 
     def get_magellan(self):
         """
-        TODO
+        return an instance of the Micro-Magellan API
         """
         return self.construct_java_object('org.micromanager.magellan.api.MagellanAPI')
 
@@ -181,7 +215,7 @@ class Bridge:
 
     def get_studio(self):
         """
-        TODO
+        return an instance of the Studio object that provides access to micro-manager Java APIs
         """
         return self.construct_java_object('org.micromanager.Studio')
 
@@ -420,7 +454,8 @@ def _camel_case_2_snake_case(name):
 class Acquisition():
 
     def __init__(self, directory=None, name=None, image_process_fn=None,
-                 pre_hardware_hook_fn=None, post_hardware_hook_fn=None, process=False):
+                 pre_hardware_hook_fn=None, post_hardware_hook_fn=None,
+                 magellan_acq_index=None, process=True, debug=False):
         """
         :param directory: saving directory for this acquisition. Required unless an image process function will be
             implemented that diverts images from saving
@@ -441,21 +476,31 @@ class Acquisition():
         :param post_hardware_hook_fn: hook function that will be run just before the hardware is updated before acquiring
             a new image. Accepts either one argument (the current acquisition event) or three arguments (current event,
             bridge, event Queue)
-        :param process: if true, run image process functions and acquisition hooks in seperate processes, rather than
-            threads. This could be useful to maximize performance, but potentially will make sharing state across these
-            processes more complicated
+        :param magellan_acq_index: run this acquisition using the settings specified at this position in the main
+            GUI of micro-magellan (micro-manager plugin). This index starts at 0
+        :type magellan_acq_index: int
+        :param process: (Experimental) use multiprocessing instead of multithreading for acquisition hooks and image
+            processors
         :type process: boolean
+        :param debug: print debugging stuff
+        :type debug: boolean
         """
-        self.bridge = Bridge()
+        self.bridge = Bridge(debug=debug)
+        self._debug = debug
 
-        # Create thread safe queue for events so they can be passed from multiple processes
-        self._event_queue = multiprocessing.Queue() if process else queue.Queue()
 
-        #TODO: call different constructor if direcotyr and name are None
+        if magellan_acq_index is not None:
+            magellan_api = self.bridge.get_magellan()
+            self.acq = magellan_api.create_acquisition(magellan_acq_index)
+            self._event_queue = None
+        else:
+            # TODO: call different constructor if direcotyr and name are None
+            # Create thread safe queue for events so they can be passed from multiple processes
+            self._event_queue = multiprocessing.Queue()
+            core = self.bridge.get_core()
+            acq_manager = self.bridge.construct_java_object('org.micromanager.remote.RemoteAcquisitionFactory', args=[core])
+            self.acq = acq_manager.create_acquisition(directory, name)
 
-        core = self.bridge.get_core()
-        acq_manager = self.bridge.construct_java_object('org.micromanager.remote.RemoteAcquisitionFactory', args=[core])
-        self.acq = acq_manager.create_acquisition(directory, name)
         if image_process_fn is not None:
             processor = self.bridge.construct_java_object('org.micromanager.remote.RemoteImageProcessor')
             self.acq.add_image_processor(processor)
@@ -471,38 +516,41 @@ class Acquisition():
             self.acq.add_hook(hook, self.acq.AFTER_HARDWARE_HOOK)
 
         self.acq.start()
-        event_port = self.acq.get_event_port()
 
+        if magellan_acq_index is None:
+            event_port = self.acq.get_event_port()
 
-        def event_sending_fn():
-            bridge = Bridge()
-            event_socket = bridge._connect_push(event_port)
-            while True:
-                events = self._event_queue.get(block=True)
-                if events is None:
-                    #Poison, time to shut down
-                    event_socket.send({'events': [{'special': 'acquisition-end'}]})
-                    event_socket.close()
-                    return
-                event_socket.send({'events': events if type(events) == list else [events]})
+            def event_sending_fn():
+                bridge = Bridge(debug=debug)
+                event_socket = bridge._connect_push(event_port)
+                while True:
+                    events = self._event_queue.get(block=True)
+                    if events is None:
+                        #Poison, time to shut down
+                        event_socket.send({'events': [{'special': 'acquisition-end'}]})
+                        event_socket.close()
+                        return
+                    event_socket.send({'events': events if type(events) == list else [events]})
 
-        self.event_process = multiprocessing.Process(target=event_sending_fn, args=(), name='Event sending') if \
-                    multiprocessing else threading.Thread(target=event_sending_fn, args=(), name='Event sending')
-        self.event_process.start()
+            self.event_process = multiprocessing.Process(target=event_sending_fn, args=(), name='Event sending')
+                    # if multiprocessing else threading.Thread(target=event_sending_fn, args=(), name='Event sending')
+            self.event_process.start()
 
     def __enter__(self):
         return self
 
     def __exit__(self, exc_type, exc_val, exc_tb):
-        self.close()
+        if self._event_queue is not None: #magellan acquisitions dont have this
+            # this should shut down storage and viewer as apporpriate
+            self._event_queue.put(None)
+        #now wait on it to finish
+        self.await_completion()
 
-    def close(self):
+    def await_completion(self):
         """
-        Finish the acquisition and release all resources related to remote connection
-        :return:
+        Wait for acquisition to finish and resources to be cleaned up
         """
-        #this should shut down storage and viewer as apporpriate
-        self._event_queue.put(None)
+        self.acq.close()
 
     def acquire(self, events):
         """
@@ -521,8 +569,7 @@ class Acquisition():
         push_port = remote_hook.get_push_port()
 
         def other_thread_fn():
-            bridge = Bridge()
-            # setattr(remote_hook_fn, 'bridge', bridge)
+            bridge = Bridge(debug=self._debug)
 
             push_socket = bridge._connect_push(pull_port)
             pull_socket = bridge._connect_pull(push_port)
@@ -562,10 +609,11 @@ class Acquisition():
         pull_port = processor.get_pull_port()
         push_port = processor.get_push_port()
         def other_thread_fn():
-            bridge = Bridge()
-            # setattr(process_fn, 'bridge', bridge)
+            bridge = Bridge(debug=self._debug)
             push_socket = bridge._connect_push(pull_port)
             pull_socket = bridge._connect_pull(push_port)
+            if self._debug:
+                print('image processing sockets connected')
             sockets_connected_evt.set()
 
             while True:
@@ -601,9 +649,98 @@ class Acquisition():
                 processed_img = {'pixels': serialize_array(processed[0]), 'metadata': processed[1]}
                 push_socket.send(processed_img)
 
-        self.processor_thread = multiprocessing.Process(target=other_thread_fn, args=(),  name='ImageProcessor'
+        self.processor_thread = multiprocessing.Process(target=other_thread_fn, args=(), name='ImageProcessor'
                         ) if multiprocessing else threading.Thread(target=other_thread_fn, args=(),  name='ImageProcessor')
         self.processor_thread.start()
 
         sockets_connected_evt.wait()  # wait for push/pull sockets to connect
         processor.start_push()
+
+
+def multi_d_acquisition_events(num_time_points=1, time_interval_s=0, z_start=None, z_end=None, z_step=None,
+                channel_group=None, channels=None, channel_exposures_ms=None, xy_positions=None, order='tpcz'):
+    """
+    Convenience function for generating the events of a typical multi-dimensional acquisition (i.e. an
+    acquisition with some combination of multiple timepoints, channels, z-slices, or xy positions)
+
+    :param num_time_points: How many time points if it is a timelapse
+    :type num_time_points: int
+    :param time_interval_s: the minimum interval between consecutive time points in seconds. Keep at 0 to go as
+        fast as possible
+    :type time_interval_s: float
+    :param z_start: z-stack starting position, in µm
+    :type z_start: float
+    :param z_end: z-stack ending position, in µm
+    :type z_end: float
+    :param z_step: step size of z-stack, in µm
+    :type z_step: float
+    :param channel_group: name of the channel group (which should correspond to a config group in micro-manager)
+    :type channel_group: str
+    :param channels: list of channel names, which correspond to possible settings of the config group (e.g. ['DAPI',
+        'FITC'])
+    :type channels: list of strings
+    :param channel_exposures_ms: list of camera exposure times corresponding to each channel. The length of this list
+        should be the same as the the length of the list of channels
+    :type channel_exposures_ms: list of floats or ints
+    :param xy_positions: N by 2 numpy array where N is the number of XY stage positions, and the 2 are the X and Y
+        coordinates
+    :type xy_positions: numpy array
+    :param order: string that specifies the order of different dimensions. Must have some ordering of the letters
+        c, t, p, and z. For example, 'tcz' would run a timelapse where z stacks would be acquired at each channel in
+        series. 'pt' would move to different xy stage positions and run a complete timelapse at each one before moving
+        to the next
+    :type order: str
+
+    :return: a list of acquisition events to run the specified acquisition
+    """
+
+
+    def generate_events(event, order):
+        if len(order) == 0:
+            yield event
+            return
+        elif order[0] == 't' and num_time_points != 1:
+            time_indices = np.arange(num_time_points)
+            for time_index in time_indices:
+                new_event = copy.deepcopy(event)
+                new_event['axes']['time'] = time_index
+                if time_interval_s != 0:
+                    new_event['min_start_time'] = time_index * time_interval_s
+                yield generate_events(new_event, order[1:])
+        elif order[0] == 'z' and z_start is not None and z_end is not None and z_step is not None:
+            z_positions = np.arange(z_start, z_end, z_step)
+            for z_index, z_position in enumerate(z_positions):
+                new_event = copy.deepcopy(event)
+                new_event['axes']['z'] = z_index
+                new_event['z'] = z_position
+                yield generate_events(new_event, order[1:])
+        elif order[0] == 'p' and xy_positions is not None:
+            for p_index, xy in enumerate(xy_positions):
+                new_event = copy.deepcopy(event)
+                new_event['axes']['position'] = p_index
+                new_event['x'] = xy[0]
+                new_event['y'] = xy[1]
+                yield generate_events(new_event, order[1:])
+        elif order[0] == 'c' and channel_group is not None and channels is not None:
+            for i in range(len(channels)):
+                new_event = copy.deepcopy(event)
+                new_event['channel'] = {'group': channel_group, 'config': channels[i]}
+                if channel_exposures_ms is not None:
+                    new_event['exposure'] = i
+                yield generate_events(new_event, order[1:])
+        else:
+            #this axis appears to be missing
+            yield generate_events(event, order[1:])
+
+    #collect all events into a single list
+    base_event = {'axes': {}}
+    events = []
+    def appender(next):
+        if isinstance(next, types.GeneratorType):
+            for n in next:
+                appender(n)
+        else:
+            events.append(next)
+
+    appender(generate_events(base_event, order))
+    return events

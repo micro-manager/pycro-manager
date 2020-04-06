@@ -2,22 +2,72 @@
 API Reference
 ==============
 
-High-level acquisition APIs (``pycromanager.acquire``)
+.. _acq_event_spec:
+
+Acquisition event specification
+###############################
+
+The following shows all possible fields in an acquisition event (not all of which are required)
+
+.. code-block:: python
+
+  event = {
+	#A dictionary with the positions along various axes (e.g. time point indez,
+	#z-slice index, etc) a 'channel' axis is not required as it is inferred 
+	#automatically
+	'axes': {'axis1_name': integer_value,
+			 'axis2_name': integer_value},
+
+	#The config of group and setting corresponding to this channel
+	'channel': {
+		'group': 'name_of_micro_manager_config_group',
+		'config': 'setting_of_micro_manager_config_group'
+	},
+
+	'exposure': exposure_time_in_ms,
+
+	#For z stacks
+	'z': z_position_in_µm,
+
+	#For timelapses: how long to wait before starting next time point in s
+	'min_start_time': time_in_s
+
+	#For XY stages
+	'x': x_position_in_µm,
+	'y': y_position_in_µm,
+	#Optional if xy stage positions are in a grid
+	'row': row_index_of_xy_position,
+	'col': col_index_of_xy_position,
+	'overlap_x': pixel_overlap_between_tiles,
+	'overlap_y': pixel_overlap_between_tiles,
+
+	#Other arbitrary hardware settings can be encoded in a list of strings with
+	#each entry containing the name of the device, the name of the property,
+	#and the value of the property seperated with '-'
+	'properties': [['DeviceName', 'PropertyName', 'PropertyValue'], 
+		['OtherDeviceName', 'OtherPropertyName', 'OtherPropertyValue']],
+	}
+    
+
+High-level acquisition APIs
 #######################################################
 
-.. currentmodule:: pycromanager.acquire
+.. currentmodule:: pycromanager
 .. autoclass:: Bridge
 	:members:
 .. autoclass:: Acquisition
 	:members:
+.. autofunction:: multi_d_acquisition_events
 
-Reading acquired data (``pycromanager.data``)
+Reading acquired data
 ##############################################
 
-.. currentmodule:: pycromanager.data
+.. currentmodule:: pycromanager
+
+TODO
 
 
 Low-level (micro-manager core) APIs
 ###################################
 
-The core API is discovered dynamically at runtime, though not every method is implemented. Typing ``core.`` and using autocomplete with ``IPython`` is the best way to discover which functions are available. Documentation on for the Java version of the core API (which ``pycro-manager`` calls) can be found `here <https://valelab4.ucsf.edu/~MM/doc-2.0.0-gamma/mmcorej/mmcorej/CMMCore.html>`_.
+The core API is discovered dynamically at runtime, though not every method is implemented. Typing ``core.`` and using autocomplete with ``IPython`` is the best way to discover which functions are available. Documentation on for the Java version of the core API (which ``pycromanager`` calls) can be found `here <https://valelab4.ucsf.edu/~MM/doc-2.0.0-gamma/mmcorej/mmcorej/CMMCore.html>`_.

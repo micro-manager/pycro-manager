@@ -10,7 +10,7 @@ Pycro-manager
 :doc:`setup`
 #############
 
-:doc:`acquisition`
+:doc:`tutorials`
 ##################
 
 :doc:`apis`
@@ -22,7 +22,7 @@ Pycro-manager
 	:hidden:
 
 	setup
-	acquisition
+	tutorials
 	examples
 	apis
 
