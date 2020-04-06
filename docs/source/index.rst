@@ -1,5 +1,5 @@
 *************
-Pycro-manager
+Pycro-Manager
 *************
 
 

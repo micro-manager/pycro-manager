@@ -1,0 +1,10 @@
+README.md
+setup.py
+pycromanager/__init__.py
+pycromanager/acquire.py
+pycromanager/data.py
+pycromanager.egg-info/PKG-INFO
+pycromanager.egg-info/SOURCES.txt
+pycromanager.egg-info/dependency_links.txt
+pycromanager.egg-info/requires.txt
+pycromanager.egg-info/top_level.txt
