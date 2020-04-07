@@ -11,6 +11,8 @@ For example, Magellan acquisitions can be created or removed, and have their set
 
 .. code-block:: python
 
+	from pycromanager import Bridge
+
 	bridge = Bridge()
 	#get object representing micro-magellan API
 	magellan = bridge.get_magellan()
@@ -60,7 +62,6 @@ It is also possible to create Grids for acquisition:
 
 .. code-block:: python
 
-	bridge = PygellanBridge()
 	magellan = bridge.get_magellan()
 
 	#create 3x3 grid centered at 0.0 stage coordinates
