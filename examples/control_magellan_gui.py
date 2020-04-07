@@ -1,15 +1,19 @@
-from pygellan.acquire import PygellanBridge
+from pycromanager import Bridge
 import os
 
-#establish communication with Magellan
-bridge = PygellanBridge()
+bridge = Bridge()
 #get object representing micro-magellan API
 magellan = bridge.get_magellan()
 
-acquistions = magellan.get_acquisitions()
-#grab the first acquisition in the list
-acq = acquistions[0]
-acq_settings = acq.get_acquisition_settings()
+#get the first acquisition appearing in the magellan acquisitions list
+acq_settings = magellan.get_acquisition_settings(0)
+
+#add a new one to the list
+magellan.create_acquisition_settings()
+#remove the one you just added
+magellan.remove_acquisition_settings(1)
+
+
 
 #Edit the acquisition's settings (i.e. same thing as the controls in the magellan GUI)
 #Below is a comprhensive list of all possible settings that be changed. In practice
@@ -41,8 +45,5 @@ acq_settings.set_bottom_surface('New Surface 1')
 acq_settings.set_top_surface('New Surface 1')
 acq_settings.set_z_start(4.1)
 acq_settings.set_z_end(10.1)
-
-
-acq.start()
 
 

@@ -102,9 +102,10 @@ For the values in provided in the micro-manager demo config, this would be:
 
 A description of all possible fields in an acquisition event can be found in the :ref:`acq_event_spec`
 
+.. _magellan_acq_launch:
 
-Micro-Magellan
-####################
+Micro-Magellan Acquisitions
+############################
 Another alternative is to launch `Micro-magellan <https://micro-manager.org/wiki/MicroMagellan>`_ acquisitions (which generate the acquisition events automatically). This is accomplished by passing in a value to the ``magellan_acq_index`` argument, which corresponds to the position of the acquisition to be launched in the **Acquisition(s)** section of the Micro-Magellan GUI. Passing in 0 corresponds to the default acquisition. Greater numbers can be used to programatically control multiple acquisitions.
 
 
