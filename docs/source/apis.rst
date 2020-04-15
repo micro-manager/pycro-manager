@@ -63,8 +63,8 @@ Reading acquired data
 ##############################################
 
 .. currentmodule:: pycromanager
-
-TODO
+.. autoclass:: Dataset
+	:members:
 
 
 Low-level (micro-manager core) APIs

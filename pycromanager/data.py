@@ -12,7 +12,7 @@ import dask
 import warnings
 
 
-class _MagellanMultipageTiffReader:
+class _MultipageTiffReader:
     # Class corresponsing to a single multipage tiff file in a Micro-Magellan dataset. Pass the full path of the TIFF to
     # instantiate and call close() when finished
     # TIFF constants
@@ -97,7 +97,7 @@ class _MagellanMultipageTiffReader:
         #for super fast reading of pixels: skip IFDs alltogether
         entries_per_ifd = 13
         num_entries = np.ones(index_map_byte_offsets.shape) * entries_per_ifd
-        num_entries[0] += 4 #first one has 4 extra IFDs
+        # num_entries[0] += 4 #first one has 4 extra IFDs----Not anymore
         index_map_pixel_byte_offsets = 2 + num_entries * 12 + 4 + index_map_byte_offsets
         # unpack into a tree (i.e. nested dicts)
         index_tree = {}
@@ -116,7 +116,8 @@ class _MagellanMultipageTiffReader:
                             if t_index not in index_tree[c_index][z_index].keys():
                                 index_tree[c_index][z_index][t_index] = {}
                             index_tree[c_index][z_index][t_index][p_index] = \
-                                            (int(index_map_byte_offsets[entry_index[-1]]), int(index_map_pixel_byte_offsets[entry_index[-1]]))
+                                            (int(index_map_byte_offsets[entry_index[-1]]),
+                                             int(index_map_pixel_byte_offsets[entry_index[-1]]))
         return summary_md, index_tree, first_ifd_offset
 
     def _read(self, start, end):
@@ -160,20 +161,20 @@ class _MagellanMultipageTiffReader:
             raise Exception('Missing tags in IFD entry, file may be corrupted')
         return info
 
-    def _read_pixels(self, offset, length, memmapped):
-        if self.width * self.height * 2 == length:
-            pixel_type = np.uint16
-        elif self.width * self.height == length:
-            pixel_type = np.uint8
-        else:
-            raise Exception('Unknown pixel type')
-
-        if memmapped:
-            return np.reshape(self.np_memmap[offset:offset + self.height * self.width * (2 if \
-                                pixel_type == np.uint16 else 1)].view(pixel_type), (self.height, self.width))
-        else:
-            pixels = np.frombuffer(self._read(offset, offset + length), dtype=pixel_type)
-            return np.reshape(pixels, [self.height, self.width])
+    # def _read_pixels(self, offset, length, memmapped):
+    #     if self.width * self.height * 2 == length:
+    #         pixel_type = np.uint16
+    #     elif self.width * self.height == length:
+    #         pixel_type = np.uint8
+    #     else:
+    #         raise Exception('Unknown pixel type')
+    #
+    #     if memmapped:
+    #         return np.reshape(self.np_memmap[offset:offset + self.height * self.width * (2 if \
+    #                             pixel_type == np.uint16 else 1)].view(pixel_type), (self.height, self.width))
+    #     else:
+    #         pixels = np.frombuffer(self._read(offset, offset + length), dtype=pixel_type)
+    #         return np.reshape(pixels, [self.height, self.width])
 
     def read_metadata(self, channel_index, z_index, t_index, pos_index):
         ifd_offset, pixels_offset = self.index_tree[channel_index][z_index][t_index][pos_index]
@@ -202,7 +203,7 @@ class _MagellanMultipageTiffReader:
         except:
             return False
 
-class _MagellanResolutionLevel:
+class _ResolutionLevel:
 
     def __init__(self, path, count, max_count):
         """
@@ -216,7 +217,7 @@ class _MagellanResolutionLevel:
         for tiff in tiff_names:
             print('\rOpening file {} of {}'.format(count+1, max_count), end='')
             count += 1
-            reader = _MagellanMultipageTiffReader(tiff)
+            reader = _MultipageTiffReader(tiff)
             self.reader_list.append(reader)
             it = reader.index_tree
             for c in it.keys():
@@ -251,10 +252,16 @@ class _MagellanResolutionLevel:
             reader.close()
 
 
-class MagellanDataset:
+class Dataset:
     """
-    Class that opens a Micro-Magellan dataset. Only works for regular acquisitions (i.e. not explore acquisitions)
+    Class that opens a single NDTiffStorage dataset
     """
+
+    _POSITION_AXIS = 'position'
+    _Z_AXIS = 'z'
+    _TIME_AXIS = 'time'
+    _CHANNEL_AXIS = 'channel'
+
 
     def __init__(self, dataset_path, full_res_only=True):
         self.path = dataset_path
@@ -262,7 +269,7 @@ class MagellanDataset:
         # map from downsample factor to datset
         self.res_levels = {}
         if 'Full resolution' not in res_dirs:
-            raise Exception('Couldn\'t find full resolution directory. Is this the correct path to a Magellan dataset?')
+            raise Exception('Couldn\'t find full resolution directory. Is this the correct path to a dataset?')
         num_tiffs = 0
         count = 0
         for res_dir in res_dirs:
@@ -273,289 +280,279 @@ class MagellanDataset:
             if full_res_only and res_dir != 'Full resolution':
                 continue
             res_dir_path = os.path.join(dataset_path, res_dir)
-            res_level = _MagellanResolutionLevel(res_dir_path, count, num_tiffs)
+            res_level = _ResolutionLevel(res_dir_path, count, num_tiffs)
             if res_dir == 'Full resolution':
                 #TODO: might want to move this within the resolution level class to facilitate loading pyramids
                 self.res_levels[1] = res_level
                 # get summary metadata and index tree from full resolution image
                 self.summary_metadata = res_level.reader_list[0].summary_md
-                if 'ChNames' in self.summary_metadata:
-                    #Legacy magellan files--load channel names here
-                    legacy_channel_names = True
-                    self._channel_names = {ch: i for i, ch in enumerate(self.summary_metadata['ChNames'])}
-                else:
-                    legacy_channel_names = False
-                    self._channel_names = {} #read them from image metadata
+                self._channel_names = {} #read them from image metadata
+                self._extra_axes_to_storage_channel = {}
 
                 # store some fields explicitly for easy access
                 self.dtype = np.uint16 if self.summary_metadata['PixelType'] == 'GRAY16' else np.uint8
                 self.pixel_size_xy_um = self.summary_metadata['PixelSize_um']
-                self.pixel_size_z_um = self.summary_metadata['z-step_um']
+                self.pixel_size_z_um = self.summary_metadata['z-step_um'] if 'z-step_um' in self.summary_metadata else None
                 self.image_width = res_level.reader_list[0].width
                 self.image_height = res_level.reader_list[0].height
-                self.overlap = np.array([self.summary_metadata['GridPixelOverlapY'], self.summary_metadata['GridPixelOverlapX']])
-                self.c_z_t_p_tree = res_level.reader_tree
-                # index tree is in c - z - t - p hierarchy, get all used indices to calcualte other orderings
-                channel_indices = set(self.c_z_t_p_tree.keys())
-                z_indices = set()
-                time_indices = set()
-                position_indices = set()
-                for c in self.c_z_t_p_tree.keys():
-                    for z in self.c_z_t_p_tree[c]:
-                        z_indices.add(z)
-                        for t in self.c_z_t_p_tree[c][z]:
-                            time_indices.add(t)
-                            for p in self.c_z_t_p_tree[c][z][t]:
-                                position_indices.add(p)
-                                if c not in self._channel_names and not legacy_channel_names:
-                                    self._channel_names[self.read_metadata(channel_index=c, z_index=z, t_index=t, pos_index=p)['Channel']] = c
+                self.overlap = np.array([self.summary_metadata['GridPixelOverlapY'],  self.summary_metadata[
+                    'GridPixelOverlapX']]) if 'GridPixelOverlapY' in self.summary_metadata else None
+                c_z_t_p_tree = res_level.reader_tree
+                #the c here refers to super channels, encompassing all non-tzp axes in addition to channels
+                # map of axis names to values where data exists
+                self.axes = {self._Z_AXIS: set(), self._TIME_AXIS: set(), self._POSITION_AXIS: set(), self._CHANNEL_AXIS: set()}
+                for c in c_z_t_p_tree.keys():
+                    for z in c_z_t_p_tree[c]:
+                        self.axes[self._Z_AXIS].add(z)
+                        for t in c_z_t_p_tree[c][z]:
+                            self.axes[self._TIME_AXIS].add(t)
+                            for p in c_z_t_p_tree[c][z][t]:
+                                self.axes[self._POSITION_AXIS].add(p)
+                                if c not in self.axes['channel']:
+                                    metadata = self.res_levels[1].read_metadata(channel_index=c, z_index=z,
+                                                                                t_index=t, pos_index=p)
+                                    current_axes = metadata['Axes']
+                                    non_zpt_axes = {}
+                                    for axis in current_axes:
+                                        if axis not in [self._Z_AXIS, self._TIME_AXIS, self._POSITION_AXIS]:
+                                            if axis not in self.axes:
+                                                self.axes[axis] = set()
+                                            self.axes[axis].add(current_axes[axis])
+                                            non_zpt_axes[axis] = current_axes[axis]
 
-                #convert to numpy arrays for speed
-                self.z_indices = np.array(sorted(z_indices))
-                self.channel_indices = np.array(sorted(channel_indices))
-                self.time_indices = np.array(sorted(time_indices))
-                self.position_indices = np.array(sorted(position_indices))
+                                    self._channel_names[metadata['Channel']] = non_zpt_axes[self._CHANNEL_AXIS]
+                                    self._extra_axes_to_storage_channel[frozenset(non_zpt_axes.items())] = c
 
-                # populate tree in a different ordering
-                self.p_t_z_c_tree = {}
-                for p in self.position_indices:
-                    for t in self.time_indices:
-                        for z in self.z_indices :
-                            for c in self.channel_indices:
-                                if z in self.c_z_t_p_tree[c] and t in self.c_z_t_p_tree[c][z] and p in \
-                                        self.c_z_t_p_tree[c][z][t]:
-                                    if p not in self.p_t_z_c_tree:
-                                        self.p_t_z_c_tree[p] = {}
-                                    if t not in self.p_t_z_c_tree[p]:
-                                        self.p_t_z_c_tree[p][t] = {}
-                                    if z not in self.p_t_z_c_tree[p][t]:
-                                        self.p_t_z_c_tree[p][t][z] = {}
-                                    self.p_t_z_c_tree[p][t][z][c] = self.c_z_t_p_tree[c][z][t][p]
+                #remove axes with no variation
+                single_axes = [axis for axis in self.axes if len(self.axes[axis]) == 1]
+                for axis in single_axes:
+                    del self.axes[axis]
 
-                #Make an n x 2 array with nan's where no positions actually exist
-                row_cols = []
-                for p_index in range(np.max(self.position_indices) + 1):
-                    if p_index in self.p_t_z_c_tree.keys():
-                        t_index = list(self.p_t_z_c_tree[p_index].keys())[0]
-                        z_index = list(self.p_t_z_c_tree[p_index][t_index].keys())[0]
-                        c_index = list(self.p_t_z_c_tree[p_index][t_index][z_index].keys())[0]
-                        if not self.has_image(channel_index=c_index, pos_index=p_index, t_index=t_index, z_index=z_index):
-                            row_cols.append(np.array([np.nan, np.nan])) #this position is corrupted
-                            warnings.warn('Corrupted image p: {} c: {} t: {} z: {}'.format(p_index, c_index, t_index, z_index))
-                        else:
-                            md = self.read_metadata(channel_index=c_index, pos_index=p_index, t_index=t_index, z_index=z_index)
-                            row_cols.append(np.array([md['GridRowIndex'], md['GridColumnIndex']]))
-                    else:
-                        row_cols.append(np.array([np.nan, np.nan]))
-                self.row_col_array = np.stack(row_cols)
+                if 'position' in self.axes and 'GridPixelOverlapX' in self.summary_metadata:
+                    #Make an n x 2 array with nan's where no positions actually exist
+                    row_cols = []
+                    positions_checked = []
+                    for c_index in c_z_t_p_tree.keys():
+                        for z_index in c_z_t_p_tree[c_index].keys():
+                            for t_index in c_z_t_p_tree[c_index][z_index].keys():
+                                p_indices = c_z_t_p_tree[c_index][z_index][t_index].keys()
+                                for p_index in range(max(p_indices) + 1):
+                                    if p_index in positions_checked:
+                                        continue
+                                    if p_index not in p_indices:
+                                        row_cols.append(np.array([np.nan, np.nan]))
+                                    elif not res_level.check_ifd(channel_index=c_index, z_index=z_index, t_index=t_index, pos_index=p_index):
+                                        row_cols.append(np.array([np.nan, np.nan])) #this position is corrupted
+                                        warnings.warn('Corrupted image p: {} c: {} t: {} z: {}'.format(p_index, c_index, t_index, z_index))
+                                        row_cols.append(np.array([np.nan, np.nan]))
+                                    else:
+                                        md = res_level.read_metadata(channel_index=c_index, pos_index=p_index, t_index=t_index, z_index=z_index)
+                                        row_cols.append(np.array([md['GridRowIndex'], md['GridColumnIndex']]))
+                                    positions_checked.append(p_index)
+                    self.row_col_array = np.stack(row_cols)
+
             else:
                 self.res_levels[int(res_dir.split('x')[1])] = res_level
         print('\rDataset opened')
 
-    def channel_name_to_index(self, channel_name):
-        if channel_name not in self._channel_names.keys():
-            raise Exception('Invalid channel name')
-        return self._channel_names[channel_name]
-
-    def as_stitched_array(self):
-
-        def read_tile(channel_index, t_index, pos_index, z_index):
-            if not np.isnan(pos_index) and channel_index in self.c_z_t_p_tree and \
-                    z_index in self.c_z_t_p_tree[channel_index] and \
-                    t_index in self.c_z_t_p_tree[channel_index][z_index] and \
-                    pos_index in self.c_z_t_p_tree[channel_index][z_index][t_index]:
-                img = self.read_image(channel_index=channel_index, z_index=z_index, t_index=t_index,
-                                      pos_index=pos_index, memmapped=True)
-            else:
-                img = self._empty_tile
-            # crop to center of tile for stitching
-            return img[self.half_overlap:-self.half_overlap, self.half_overlap:-self.half_overlap]
-
-        def z_stack(c_index, t_index, p_index):
-            if np.isnan(p_index):
-                return da.stack(self.z_indices.size * [self._empty_tile[self.half_overlap:-self.half_overlap,
-                                  self.half_overlap:-self.half_overlap]])
-            else:
-                z_list = []
-                for z_index in self.z_indices:
-                    z_list.append(read_tile(c_index, t_index, p_index, z_index))
-                return da.stack(z_list)
-
-        self.half_overlap = self.overlap[0] // 2
-
-        #get spatial layout of position indices
-        zero_min_row_col = (self.row_col_array - np.nanmin(self.row_col_array, axis=0))
-        row_col_mat = np.nan * np.ones([int(np.nanmax(zero_min_row_col[:, 0])) + 1, int(np.nanmax(zero_min_row_col[:, 1])) + 1])
-        rows = zero_min_row_col[self.position_indices][:, 0]
-        cols = zero_min_row_col[self.position_indices][:, 1]
-        #mask in case some positions were corrupted
-        mask = np.logical_not(np.isnan(rows))
-        row_col_mat[rows[mask].astype(np.int), cols[mask].astype(np.int)] = self.position_indices[mask]
-
-        total = self.time_indices.size * self.channel_indices.size * row_col_mat.shape[0] * row_col_mat.shape[1]
-        count = 1
-        stacks = []
-        for t_index in self.time_indices:
-            stacks.append([])
-            for c_index in self.channel_indices:
-                blocks = []
-                for row in row_col_mat:
-                    blocks.append([])
-                    for p_index in row:
-                        print('\rAdding data chunk {} of {}'.format(count, total), end='')
-                        count += 1
-                        blocks[-1].append(z_stack(c_index, t_index, p_index))
-
-                stacks[-1].append(da.block(blocks))
-
-        print('\rDask array opened')
-        return da.stack(stacks)
-
     def as_array(self, stitched=False):
         """
-        Read all data image data as one big Dask array with dimensions (p, t, c, z, y, x) (default) or (t, c, z, y, x)
-        (if stitched argument is set to True). The dask array is made up of memory-mapped numpy arrays, so the dataset
-        does not need to be able to fit into RAM. If the data doesn't fully fill out the array (e.g. not every z-slice
-        collected at every time point), zeros will be added automatically.
+        Read all data image data as one big Dask array with last two axes as y, x and preceeding axes depending on data.
+        The dask array is made up of memory-mapped numpy arrays, so the dataset does not need to be able to fit into RAM.
+        If the data doesn't fully fill out the array (e.g. not every z-slice collected at every time point), zeros will
+        be added automatically.
 
         To convert data into a numpy array, call np.asarray() on the returned result. However, doing so will bring the
         data into RAM, so it may be better to do this on only a slice of the array at a time.
 
-        :param stitched: If true, lay out adjacent tiles next to one another
+        :param stitched: If true and tiles were acquired in a grid, lay out adjacent tiles next to one another
+        :type stitched: boolean
         :return:
         """
         self._empty_tile = np.zeros((self.image_height, self.image_width), self.dtype)
-        if stitched:
-            return self.as_stitched_array()
-        else: #return tiles stacked on a position axis
-            blocks = []
-            total = self.time_indices.size * self.channel_indices.size * self.z_indices.size * self.position_indices.size
-            count = 1
-            for p in self.position_indices:
-                blocks.append([])
-                for t in self.time_indices:
-                    blocks[-1].append([])
-                    for c in self.channel_indices:
-                        blocks[-1][-1].append([])
-                        for z in self.z_indices:
-                            print('\rAdding data chunk {} of {}'.format(count, total), end='')
-                            count += 1
-                            if not np.isnan(p) and c in self.c_z_t_p_tree and z in self.c_z_t_p_tree[c] and \
-                                    t in self.c_z_t_p_tree[c][z] and p in self.c_z_t_p_tree[c][z][t]:
-                                blocks[-1][-1][-1].append(self.read_image(
-                                    channel_index=c, z_index=z, t_index=t, pos_index=p, memmapped=True))
-                            else:
-                                blocks[-1][-1][-1].append(np.zeros((self.image_height, self.image_width), self.dtype))
-            print('Stacking tiles')
-            array = da.stack(blocks)
-            print('\rDask array opened')
-            return array
+        self._count = 1
+        total = np.prod([len(v) for v in self.axes.values()])
 
-    def has_image(self, channel_name=None, channel_index=0, z_index=0, t_index=0, pos_index=0, downsample_factor=1):
+        def recurse_axes(loop_axes, point_axes):
+            if len(loop_axes.values()) == 0:
+                print('\rAdding data chunk {} of {}'.format(self._count, total), end='')
+                self._count += 1
+                if None not in point_axes.values() and self.has_image(**point_axes):
+                    return self.read_image(**point_axes, memmapped=True)
+                else:
+                    # return np.zeros((self.image_height, self.image_width), self.dtype)
+                    return self._empty_tile
+            else:
+                #do position first because it makes stitching faster
+                axis = 'position' if 'position' in loop_axes.keys() and stitched else list(loop_axes.keys())[0]
+                remaining_axes = loop_axes.copy()
+                del remaining_axes[axis]
+                if axis == 'position' and stitched:
+                    #Stitch tiles acquired in a grid
+                    self.half_overlap = self.overlap[0] // 2
+
+                    # get spatial layout of position indices
+                    zero_min_row_col = (self.row_col_array - np.nanmin(self.row_col_array, axis=0))
+                    row_col_mat = np.nan * np.ones(
+                        [int(np.nanmax(zero_min_row_col[:, 0])) + 1, int(np.nanmax(zero_min_row_col[:, 1])) + 1])
+                    positions_indices = np.array(list(loop_axes['position']))
+                    rows = zero_min_row_col[positions_indices][:, 0]
+                    cols = zero_min_row_col[positions_indices][:, 1]
+                    # mask in case some positions were corrupted
+                    mask = np.logical_not(np.isnan(rows))
+                    row_col_mat[rows[mask].astype(np.int), cols[mask].astype(np.int)] = positions_indices[mask]
+
+                    blocks = []
+                    for row in row_col_mat:
+                        blocks.append([])
+                        for p_index in row:
+                            print('\rAdding data chunk {} of {}'.format(self._count, total), end='')
+                            valed_axes = point_axes.copy()
+                            valed_axes[axis] = int(p_index) if not np.isnan(p_index) else None
+                            blocks[-1].append(da.stack(recurse_axes(remaining_axes, valed_axes)))
+
+                    stitched_array = da.block(blocks)
+                    return stitched_array
+                else:
+                    blocks = []
+                    for val in loop_axes[axis]:
+                        valed_axes = point_axes.copy()
+                        valed_axes[axis] = val
+                        blocks.append(recurse_axes(remaining_axes, valed_axes))
+                    return blocks
+        blocks = recurse_axes(self.axes, {})
+
+        print('Stacking tiles')
+        array = da.stack(blocks)
+        print('\rDask array opened')
+        return array
+
+    def _convert_to_storage_axes(self, axes, channel_name=None):
         """
-        Check if this image is present in the dataset
-        :param channel_name: Overrides channel index if supplied
-        :param channel_index:
-        :param z_index:
-        :param t_index:
-        :param pos_index:
-        :param downsample_factor:
+        Convert an abitrary set of axes to cztp axes as in the underlying storage
+
+        :param axes:
         :return:
         """
         if channel_name is not None:
-            if channel_name not in self.get_channel_names():
-                return False
-            channel_index = self.channel_name_to_index(channel_name)
-        if channel_index in self.c_z_t_p_tree and z_index in self.c_z_t_p_tree[channel_index] and \
-                t_index in self.c_z_t_p_tree[channel_index][z_index] and pos_index in \
-                self.c_z_t_p_tree[channel_index][z_index][t_index]:
+            if channel_name not in self._channel_names.keys():
+                raise Exception('Channel name {} not found'.format(channel_name))
+            axes[self._CHANNEL_AXIS] = self._channel_names[channel_name]
+        if self._CHANNEL_AXIS not in axes:
+            axes[self._CHANNEL_AXIS] = 0
+
+        z_index = axes[self._Z_AXIS] if self._Z_AXIS in axes else 0
+        t_index = axes[self._TIME_AXIS] if self._TIME_AXIS in axes else 0
+        p_index = axes[self._POSITION_AXIS] if self._POSITION_AXIS in axes else 0
+
+        non_zpt_axes = {key: axes[key] for key in axes.keys() if key not in
+                        [self._TIME_AXIS, self._POSITION_AXIS, self._Z_AXIS]}
+        for axis in non_zpt_axes.keys():
+            if axis not in self.axes.keys() and axis != 'channel':
+                raise Exception('Unknown axis: {}'.format(axis))
+        c_index = self._extra_axes_to_storage_channel[frozenset(non_zpt_axes.items())]
+        return c_index, t_index, p_index, z_index
+
+    def has_image(self, channel=None, z=None, time=None, position=None,
+                  channel_name=None, downsample_factor=1, **kwargs):
+        """
+        Check if this image is present in the dataset
+
+        :param channel: index of the channel, if applicable
+        :type channel: int
+        :param z: index of z slice, if applicable
+        :type z: int
+        :param time: index of the time point, if applicable
+        :type time: int
+        :param position: index of the XY position, if applicable
+        :type position: int
+        :param channel_name: Name of the channel. Overrides channel index if supplied
+        :param downsample_factor: 1 is full resolution, lower resolutions are powers of 2 if available
+        :param kwargs: names and integer positions of any other axes
+        :return: boolean indicating whether image present
+        """
+        if channel is not None:
+            kwargs['channel'] = channel
+        if z is not None:
+            kwargs['z'] = z
+        if time is not None:
+            kwargs['time'] = time
+        if position is not None:
+            kwargs['position'] = position
+
+        storage_c_index, t_index, p_index, z_index = self._convert_to_storage_axes(kwargs, channel_name=channel_name)
+        c_z_t_p_tree = self.res_levels[downsample_factor].reader_tree
+        if storage_c_index in c_z_t_p_tree and z_index in c_z_t_p_tree[storage_c_index] and  t_index in \
+                c_z_t_p_tree[storage_c_index][z_index] and p_index in c_z_t_p_tree[storage_c_index][z_index][t_index]:
             res_level = self.res_levels[downsample_factor]
-            return res_level.check_ifd(channel_index=channel_index, z_index=z_index, t_index=t_index, pos_index=pos_index)
+            return res_level.check_ifd(channel_index=storage_c_index, z_index=z_index, t_index=t_index, pos_index=p_index)
         return False
 
-    def read_image(self, channel_name=None, channel_index=0, z_index=0, t_index=0, pos_index=0, read_metadata=False,
-                   downsample_factor=1, memmapped=False):
+    def read_image(self, channel=None, z=None, time=None, position=None,
+                   channel_name=None, read_metadata=False, downsample_factor=1, memmapped=False, **kwargs):
         """
         Read image data as numpy array
-        :param channel_name: Overrides channel index if supplied
-        :param channel_index:
-        :param z_index:
-        :param t_index:
-        :param pos_index:
-        :param read_metadata: if True, return a tuple with dict of image metadata as second element
+
+        :param channel: index of the channel, if applicable
+        :type channel: int
+        :param z: index of z slice, if applicable
+        :type z: int
+        :param time: index of the time point, if applicable
+        :type time: int
+        :param position: index of the XY position, if applicable
+        :type position: int
+        :param channel_name: Name of the channel. Overrides channel index if supplied
         :param downsample_factor: 1 is full resolution, lower resolutions are powers of 2 if available
+        :param kwargs: names and integer positions of any other axes
         :return: image as 2D numpy array, or tuple with image and image metadata as dict
         """
-        if channel_name is not None:
-            channel_index = self.channel_name_to_index(channel_name)
-        res_level = self.res_levels[downsample_factor]
-        return res_level.read_image(channel_index, z_index, t_index, pos_index, read_metadata, memmapped)
+        if channel is not None:
+            kwargs['channel'] = channel
+        if z is not None:
+            kwargs['z'] = z
+        if time is not None:
+            kwargs['time'] = time
+        if position is not None:
+            kwargs['position'] = position
 
-    def read_metadata(self, channel_name=None, channel_index=0, z_index=0, t_index=0, pos_index=0, downsample_factor=1):
+        storage_c_index, t_index, p_index, z_index = self._convert_to_storage_axes(kwargs, channel_name=channel_name)
+        res_level = self.res_levels[downsample_factor]
+        return res_level.read_image(storage_c_index, z_index, t_index, p_index, read_metadata, memmapped)
+
+    def read_metadata(self, channel=None, z=None, time=None, position=None,
+                        channel_name=None, downsample_factor=1, **kwargs):
         """
         Read metadata only. Faster than using read_image to retireve metadata
-        :param channel_name: Overrides channel index if supplied
-        :param channel_index:
-        :param z_index:
-        :param t_index:
-        :param pos_index:
+
+        :param channel: index of the channel, if applicable
+        :type channel: int
+        :param z: index of z slice, if applicable
+        :type z: int
+        :param time: index of the time point, if applicable
+        :type time: int
+        :param position: index of the XY position, if applicable
+        :type position: int
+        :param channel_name: Name of the channel. Overrides channel index if supplied
         :param downsample_factor: 1 is full resolution, lower resolutions are powers of 2 if available
-        :return: metadata as dict
+        :param kwargs: names and integer positions of any other axes
+        :return: image metadata as dict
         """
-        if channel_name is not None:
-            channel_index = self.channel_name_to_index(channel_name)
+        if channel is not None:
+            kwargs['channel'] = channel
+        if z is not None:
+            kwargs['z'] = z
+        if time is not None:
+            kwargs['time'] = time
+        if position is not None:
+            kwargs['position'] = position
+
+        storage_c_index, t_index, p_index, z_index = self._convert_to_storage_axes(kwargs, channel_name=channel_name)
         res_level = self.res_levels[downsample_factor]
-        return res_level.read_metadata(channel_index, z_index, t_index, pos_index)
+        return res_level.read_metadata(storage_c_index, z_index, t_index, p_index)
 
     def close(self):
         for res_level in self.res_levels:
             res_level.close()
 
-    def get_z_slices_at(self, position_index, time_index=0):
-        """
-        return list of z slice indices (i.e. focal planes) at the given XY position
-        :param position_index:
-        :return:
-        """
-        return list(self.p_t_z_c_tree[position_index][time_index].keys())
-
-    def get_min_max_z_index(self):
-        """
-        get min and max z indices over all positions
-        """
-        min_z = 1e100
-        max_z = -1e000
-        for p_index in self.p_t_z_c_tree.keys():
-            for t_index in self.p_t_z_c_tree[p_index].keys():
-                new_zs = list(self.p_t_z_c_tree[p_index][t_index].keys())
-                min_z = min(min_z, *new_zs)
-                max_z = max(max_z, *new_zs)
-        return min_z, max_z
-
-    def get_num_xy_positions(self):
-        """
-        :return: total number of xy positons in data set
-        """
-        return len(list(self.p_t_z_c_tree.keys()))
-
     def get_channel_names(self):
-        return list(self._channel_names.keys())
-
-    def get_num_rows_and_cols(self):
-        """
-        Note doesn't  work with explore acquisitions because initial position list isn't populated here
-        :return: tuple with total number of rows, total number of cols in dataset
-        """
-        row_col_tuples = [(pos['GridRowIndex'], pos['GridColumnIndex']) for pos in
-                          self.summary_metadata['InitialPositionList']]
-        row_indices = list(set(row for row, col in row_col_tuples))
-        col_indices = list(set(col for row, col in row_col_tuples))
-        num_rows = max(row_indices) + 1
-        num_cols = max(col_indices) + 1
-        return num_rows, num_cols
-
-    def get_num_frames(self):
-        frames = set()
-        for t_tree in self.p_t_z_c_tree.values():
-            frames.update(t_tree.keys())
-        return max(frames) + 1
+        return self._channel_names.keys()

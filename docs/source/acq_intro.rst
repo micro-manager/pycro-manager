@@ -30,7 +30,7 @@ In addition to z-stacks, this function can also be used to do timelapses, differ
 
     with Acquisition(directory='/path/to/saving/dir', name='acquisition_name') as acq:
         events = multi_d_acquisition_events(
-    					num_time_points=1, time_interval_s=0, 
+    					num_time_points=4, time_interval_s=0, 
     					channel_group='channel', channels=['DAPI', 'FITC'], 
     					z_start=0, z_end=6, z_step=0.4, 
     					order='tcz')

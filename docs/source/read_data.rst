@@ -4,43 +4,56 @@
 Opening acquired data
 ******************************************************
 
-**Still under construction. everything below is out of date**
+This section describes how to read image data nd metadata from multidimensional datasets saved in the default NDTiff format of ``pycromanager``. Tiles can be loaded individually, or all data can be loaded simulataneously into a memory-mapped `dask <https://dask.org/>`_ array, which works like a numpy array and also allows scalable processing of large datasets and viewing data in `napari <https://github.com/napari/napari>`_. 
 
-TODO: update this
-
-The `pygellan.magellan_data` API enables reading of data acquired with pygellan/Micro-magellan directly in python. Tiles can be loaded individually, or all data can be loaded simulataneously into a memory-mapped [Dask](https://dask.org/) array, which works like a numpy array and also allows scalable processing of large datasets and viewing data in [Napari](https://github.com/napari/napari). More information can be seen in [this example](https://github.com/henrypinkard/Pygellan/blob/master/examples/read_and_visualize_magellan_data.py)
-
-
-TODO: update this
+To open a dataset:
 
 .. code-block:: python
 
-	import numpy as np
-	from pycromanager import MagellanDataset
-	import napari
+	from pycromanager import Dataset
 
-	#This path is to the top level of the magellan dataset (i.e. the one that contains the Full resolution folder)
+	#This path is to the top level of the dataset 
 	data_path = '/path/to/data'
 
 	#open the dataset
-	magellan = MagellanDataset(data_path)
+	dataset = Dataset(data_path)
 
-	#read tiles or tiles + metadata by channel, slice, time, and position indices
-	#img is a numpy array and md is a python dictionary
-	img, img_metadata = magellan.read_image(channel_index=0, z_index=30, pos_index=20, read_metadata=True)
+Once opened, individual tiles can be accessed using :meth:`read_image<pycromanager.Dataset.read_image>`. This method accepts positions along different dimensions as argument. For example, to get the first image in a z stack, pass in `z=0` as an argument.
 
-	#Alternatively, all data can be opened at once in a single dask array. Using dask arrays enables all_data to be
-	#held in a single memory-mapped array (i.e. the data are not loaded in RAM until they are used, enabing a convenient
-	#way to work with data larger than the computer's memory. Dask arrays also enable visulization in Napari (see below),
-	#and allow for code to be prototyped on a small computers and scaled up to clusters without having to rewrite code.
-	#More information can be found at https://dask.org/
-	all_data = magellan.as_array(stitched=True) #returns an array with 5 dimensions corresponding to time-channel-z-y-x
-	# all_data = magellan.as_array(stitched=False) #this version has a leading axis for position
+.. code-block:: python
+
+	img, img_metadata = dataset.read_image(z=0, read_metadata=True)
+
+	#img is a numpy array, img_metadata is a dict
+
+To determine which axes are available, access the ``Dataset.axes`` attribute, which contains a dict with axis names as keys and a list of available indices as values.
+
+
+Alternatively, all data can be opened at once in a single dask array. Using dask arrays enables all_data to be held in a single memory-mapped array (i.e. the data are not loaded in RAM until they are used, enabing a convenient way to work with data larger than the computer's memory. Dask arrays also enable `https://napari.org/tutorials/applications/dask <visulization in napari>`_ and allow for code to be prototyped on a small computers and scaled up to clusters without having to rewrite code.
+
+.. code-block:: python
+
+	dask_array = dataset.as_array() 
 
 	#dask array can be used just like numpy array
-	#take max intenisty z projection of z stack at time point 0 in channel 0
+	#take max intenisty projection along axis 0
 	max_intensity = np.max(all_data[0, 0], axis=0)
 
-	#visualize data using napari--this example will likely updated as the napari API changes and improves
+	#visualize data using napari
 	with napari.gui_qt():
-	    napari.view(all_data, clim_range=[0, 255])
+	    v = napari.Viewer()
+	    v.add_image(dask_array)
+
+
+If the data was acquired in an XY grid of position (such as Micro-Magellan datasets are), the array can be automatically stitched:
+
+.. code-block:: python
+
+	dask_array = dataset.as_array(stitched=True) 
+
+	with napari.gui_qt():
+	    v = napari.Viewer()
+	    v.add_image(dask_array)
+
+
+
