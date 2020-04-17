@@ -16,7 +16,7 @@ The simplest image processor function takes two arguments: the pixel data (a num
 		metadata['a_new_metadata_key'] = 'a new value'
 
 		#modify the pixels by setting a 100 pixel square at the top left to 0
-		pixels[:100, :100] = 0
+		image[:100, :100] = 0
 
 		#propogate the image and metadata to the default viewer and saving classes
 		return image, metadata
