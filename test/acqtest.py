@@ -50,10 +50,10 @@ def img_process_fn(image, metadata):
 # acq.await_completion()
 
 # #magellan example
-# with Acquisition(magellan_acq_index=0, post_hardware_hook_fn=hook_fn,
-#                   image_process_fn=img_process_fn, debug=True) as acq:
-#     pass
-# acq.await_completion()
+with Acquisition(magellan_acq_index=0, post_hardware_hook_fn=hook_fn,
+                  image_process_fn=img_process_fn, debug=True) as acq:
+    pass
+acq.await_completion()
 
 
 
