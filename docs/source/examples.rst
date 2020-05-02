@@ -7,7 +7,7 @@ Still under construction
 
 This page will show full/advanced examples of using ``pycro-manager`` interesting applications.
 
-If you have an application you'd like to figure out how to enable, please reach out!
+If you have an application you'd like to figure out how to enable, please `reach out <https://github.com/micro-manager/pycro-manager/issues/new>`_!
 
 Potential applications to add
 - specifying acquisition based on feedback from images
