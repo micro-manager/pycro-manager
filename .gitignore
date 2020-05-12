@@ -7,3 +7,7 @@ pygellan.egg-info/
 *.pyc
 
 __pycache__/
+
+# intelliJ
+java/src/main/java/.idea/
+java/src/main/java/pycromanager.iml
