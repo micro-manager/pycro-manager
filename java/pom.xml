@@ -1,34 +1,116 @@
 <project>
     <modelVersion>4.0.0</modelVersion>
-    <groupId>org.micromanager</groupId>
-    <artifactId>Pycro-manager-java</artifactId>
-    <version>1.0</version>
+    <groupId>org.micro-manager.pycro-manager</groupId>
+    <artifactId>PycroManagerJava</artifactId>
+    <version>0.1.0</version>
     <packaging>jar</packaging>
     <properties>
         <maven.compiler.source>1.8</maven.compiler.source>
         <maven.compiler.target>1.8</maven.compiler.target>
+        <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
     </properties>
 
+    <developers>
+       <developer>
+          <id>henrypinkard</id>
+          <name>Henry Pinkard</name>
+          <organization>UC Berkeley</organization>
+       </developer>
+       <developer>
+          <id>nicost</id>
+          <name>Nico Stuurman</name>
+          <organization>UCSF/HHMI</organization>
+       </developer>
+    </developers>
 
-  <dependency>
-    <groupId>org.zeromq</groupId>
-    <artifactId>jeromq</artifactId>
-    <version>0.5.1</version>
-</dependency>
+    <build>
+       <plugins>
+          <plugin>
+            <groupId>org.apache.maven.plugins</groupId>
+            <artifactId>maven-source-plugin</artifactId>
+            <version>3.2.1</version>
+            <executions>
+              <execution>
+                <id>attach-sources</id>
+                <goals>
+                  <goal>jar-no-fork</goal>
+                </goals>
+              </execution>
+            </executions>
+         </plugin>
+         <plugin>
+            <groupId>org.apache.maven.plugins</groupId>
+            <artifactId>maven-javadoc-plugin</artifactId>
+            <version>3.2.0</version>
+            <executions>
+              <execution>
+                <id>attach-javadocs</id>
+                <goals>
+                  <goal>jar</goal>
+                </goals>
+              </execution>
+            </executions>
+          </plugin>
+       </plugins>
+    </build>
 
+    <repositories>
+       <repository>
+           <snapshots>
+               <enabled>false</enabled>
+           </snapshots>
+           <id>bintray-micro-manager</id>
+           <name>bintray</name>
+           <url>https://dl.bintray.com/micro-manager/micro-manager</url>
+       </repository>
+    </repositories>
 
-<!-- TODO: replace these with non local ones -->
-  <dependencies>
-    <dependency>
-      <groupId>org.micromanager</groupId>
-      <artifactId>MMCoreJ</artifactId>
-      <version>2.0gamma</version>
-      <scope>system</scope>
-      <systemPath>${basedir}/MMCoreJ.jar</systemPath>
-    </dependency>
+   <dependencies>
+
+      <dependency>
+         <groupId>org.zeromq</groupId>
+         <artifactId>jeromq</artifactId>
+         <version>0.5.1</version>
+      </dependency>
+      <dependency>
+         <groupId>org.micro-manager.mmcorej</groupId>
+         <artifactId>MMCoreJ</artifactId>
+         <version>10.1.0.0</version>
+      </dependency>
+      <dependency>
+         <groupId>org.micro-manager.acqengj</groupId>
+         <artifactId>AcqEngJ</artifactId>
+         <version>0.1.0</version>
+      </dependency>
+      <dependency>
+         <groupId>org.micro-manager.ndviewer</groupId>
+         <artifactId>NDViewer</artifactId>
+         <version>0.1.0</version>
+      </dependency>
+      <dependency>
+         <groupId>org.micro-manager.ndtiffstorage</groupId>
+         <artifactId>NDTiffStorage</artifactId>
+         <version>0.1.0</version>
+      </dependency>
+      <!-- https://mvnrepository.com/artifact/net.imagej/ij -->
+      <dependency>
+          <groupId>net.imagej</groupId>
+          <artifactId>ij</artifactId>
+          <version>1.51s</version>
+      </dependency>
+
   </dependencies>
 
-
-<!-- TODO: NDViewer/NDTiff/ACqEngJ -->
+  <distributionManagement>
+      <repository>
+         <id>bintray-micro-manager</id>
+         <name>micro-manager-pycro-manager</name>
+         <url>https://api.bintray.com/maven/micro-manager/micro-manager/PycroManagerJava/;publish=1</url>
+      </repository>
+      <snapshotRepository>
+         <id>jfrog-snapshots</id>
+         <url>http://oss.jfrog.org/artifactory/oss-snapshot-local</url>
+      </snapshotRepository>
+   </distributionManagement>
 
 </project>
