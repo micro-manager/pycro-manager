@@ -35,6 +35,8 @@ public class ZMQServer extends ZMQSocketWrapper {
    private Function<Class, Object> classMapper_;
    private static ZMQServer masterServer_;
 
+   private ClassLoader cl_;
+
    //for testing
 //   public static void main(String[] args) {
 //      ZMQServer server = new ZMQServer(DEFAULT_MASTER_PORT_NUMBER, "master", new Function<Class, Object>() {
@@ -51,9 +53,10 @@ public class ZMQServer extends ZMQSocketWrapper {
 //         }
 //      }
 //   }
-   public ZMQServer(Function<Class, Object> classMapper) {
+   public ZMQServer(ClassLoader cl, Function<Class, Object> classMapper) {
       super(SocketType.REP);
-      apiClasses_ = ZMQUtil.getAPIClasses();
+      cl_ = cl;
+      apiClasses_ = ZMQUtil.getAPIClasses(cl);
       classMapper_ = classMapper;
    }
 
@@ -300,7 +303,7 @@ public class ZMQServer extends ZMQSocketWrapper {
 
             if (request.has("new-port") && request.getBoolean("new-port")) {
                //start the server for this class and store it
-               new ZMQServer(classMapper_);
+               new ZMQServer(cl_, classMapper_);
             }
             reply = new JSONObject();
             ZMQUtil.serialize(apiClasses_, instance, reply, port_);

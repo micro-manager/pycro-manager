@@ -5,7 +5,6 @@
  */
 package org.micromanager.internal.zmq;
 
-import ij.IJ;
 import java.io.File;
 import java.io.FilenameFilter;
 import java.io.IOException;
@@ -41,7 +40,6 @@ import java.util.stream.Stream;
 import mmcorej.org.json.JSONArray;
 import mmcorej.org.json.JSONException;
 import mmcorej.org.json.JSONObject;
-import org.micromanager.acqj.api.AcquisitionEvent;
 
 /**
  *
@@ -408,8 +406,8 @@ public class ZMQUtil {
 
    //Add java classes that are allowed to pass to python to avoid stuff leaking out
    //TODO: specify filters as arguments so org.micromanager inst hardcoded
-   public static Set<Class> getAPIClasses() {
-      Set<Class> ijClasses = parseAPIWithClassLoader(IJ.getClassLoader());
+   public static Set<Class> getAPIClasses(ClassLoader cl) {
+      Set<Class> ijClasses = parseAPIWithClassLoader(cl);
       return ijClasses;
    }
 
