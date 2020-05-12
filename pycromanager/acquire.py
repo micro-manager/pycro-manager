@@ -142,8 +142,8 @@ class Bridge:
         if 'version' not in reply_json:
             reply_json['version'] = '2.0.0' #before version was added
         if reply_json['version'] != self._EXPECTED_ZMQ_SERVER_VERSION:
-            warnings.warn('Version mistmatch between ZMQ server and Pygellan. '
-                            '\nZMQ server version: {}\nPygellan expected version: {}'.format(reply_json['version'],
+            warnings.warn('Version mistmatch between Java ZMQ server and Python client. '
+                            '\nJava ZMQ server version: {}\nPython client expected version: {}'.format(reply_json['version'],
                                                                                            self._EXPECTED_ZMQ_SERVER_VERSION))
         self._constructors = reply_json['api']
 
