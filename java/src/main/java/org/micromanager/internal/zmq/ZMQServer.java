@@ -1,8 +1,10 @@
 package org.micromanager.internal.zmq;
 
+import java.io.UnsupportedEncodingException;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
+import java.net.URISyntaxException;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashSet;
@@ -32,8 +34,10 @@ public class ZMQServer extends ZMQSocketWrapper {
    //Copied from magellan version for backwards compatibility, but they are now seperate I guess
    public static final String VERSION = "2.4.0";
 
-   private Function<Class, Object> classMapper_;
+   private final Function<Class, Object> classMapper_;
    private static ZMQServer masterServer_;
+
+   private final ClassLoader cl_;
 
    //for testing
 //   public static void main(String[] args) {
@@ -51,9 +55,10 @@ public class ZMQServer extends ZMQSocketWrapper {
 //         }
 //      }
 //   }
-   public ZMQServer(Function<Class, Object> classMapper) {
+   public ZMQServer(ClassLoader cl, Function<Class, Object> classMapper) throws URISyntaxException, UnsupportedEncodingException {
       super(SocketType.REP);
-      apiClasses_ = ZMQUtil.getAPIClasses();
+      cl_ = cl;
+      apiClasses_ = ZMQUtil.getAPIClasses(cl);
       classMapper_ = classMapper;
    }
 
@@ -300,7 +305,7 @@ public class ZMQServer extends ZMQSocketWrapper {
 
             if (request.has("new-port") && request.getBoolean("new-port")) {
                //start the server for this class and store it
-               new ZMQServer(classMapper_);
+               new ZMQServer(cl_, classMapper_);
             }
             reply = new JSONObject();
             ZMQUtil.serialize(apiClasses_, instance, reply, port_);
