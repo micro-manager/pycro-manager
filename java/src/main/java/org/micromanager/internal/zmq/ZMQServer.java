@@ -1,8 +1,10 @@
 package org.micromanager.internal.zmq;
 
+import java.io.UnsupportedEncodingException;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
+import java.net.URISyntaxException;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashSet;
@@ -32,10 +34,10 @@ public class ZMQServer extends ZMQSocketWrapper {
    //Copied from magellan version for backwards compatibility, but they are now seperate I guess
    public static final String VERSION = "2.4.0";
 
-   private Function<Class, Object> classMapper_;
+   private final Function<Class, Object> classMapper_;
    private static ZMQServer masterServer_;
 
-   private ClassLoader cl_;
+   private final ClassLoader cl_;
 
    //for testing
 //   public static void main(String[] args) {
@@ -53,7 +55,7 @@ public class ZMQServer extends ZMQSocketWrapper {
 //         }
 //      }
 //   }
-   public ZMQServer(ClassLoader cl, Function<Class, Object> classMapper) {
+   public ZMQServer(ClassLoader cl, Function<Class, Object> classMapper) throws URISyntaxException, UnsupportedEncodingException {
       super(SocketType.REP);
       cl_ = cl;
       apiClasses_ = ZMQUtil.getAPIClasses(cl);

@@ -8,11 +8,15 @@ package org.micromanager.internal.zmq;
 import java.io.File;
 import java.io.FilenameFilter;
 import java.io.IOException;
+import java.io.UnsupportedEncodingException;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
+import java.net.URI;
+import java.net.URISyntaxException;
 import java.net.URL;
+import java.net.URLDecoder;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.util.ArrayList;
@@ -329,7 +333,8 @@ public class ZMQUtil {
       return methodArray;
    }
 
-   private static Set<Class> parseAPIWithClassLoader(ClassLoader classLoader) {
+   private static Set<Class> parseAPIWithClassLoader(ClassLoader classLoader) throws
+           URISyntaxException, UnsupportedEncodingException {
       //TODO: pass in classloader as an argument
 
       HashSet<Class> apiClasses = new HashSet<Class>();
@@ -369,13 +374,15 @@ public class ZMQUtil {
             URL resource = resources.nextElement();
 //            studio_.logs().logDebugMessage("ZMQServer-resource: " + resource.getFile());
             String file = resource.getFile().replaceAll("^file:", "");
+            file = (String) URLDecoder.decode(file, "UTF-8");
+
             dirs.add(new File(file));
          }
 
          for (File directory : dirs) {
             if (directory.getAbsolutePath().contains(".jar")) {
                apiClasses.addAll(getClassesFromJarFile(directory));
-            } else {
+         } else {
                apiClasses.addAll(getClassesFromDirectory(packageName, directory));
             }
          }
@@ -406,9 +413,9 @@ public class ZMQUtil {
 
    //Add java classes that are allowed to pass to python to avoid stuff leaking out
    //TODO: specify filters as arguments so org.micromanager inst hardcoded
-   public static Set<Class> getAPIClasses(ClassLoader cl) {
-      Set<Class> ijClasses = parseAPIWithClassLoader(cl);
-      return ijClasses;
+   public static Set<Class> getAPIClasses(ClassLoader cl) throws URISyntaxException, UnsupportedEncodingException {
+      Set<Class> classes = parseAPIWithClassLoader(cl);
+      return classes;
    }
 
    private static Collection<Class> getClassesFromJarFile(File directory) {
