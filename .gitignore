@@ -2,7 +2,7 @@ Icon
 
 build/
 dist/
-pygellan.egg-info/
+*.egg-info/
 
 *.pyc
 
