@@ -347,9 +347,9 @@ def deserialize_array(json_return):
     elif json_return['type'] == 'double-array':
         return np.frombuffer(standard_b64decode(json_return['value']), dtype='>f8').copy()
     elif json_return['type'] == 'int-array':
-        return np.frombuffer(standard_b64decode(json_return['value']), dtype='>i4').copy()
+        return np.frombuffer(standard_b64decode(json_return['value']), dtype='>u4').copy()
     elif json_return['type'] == 'short-array':
-        return np.frombuffer(standard_b64decode(json_return['value']), dtype='>i2').copy()
+        return np.frombuffer(standard_b64decode(json_return['value']), dtype='>u2').copy()
     elif json_return['type'] == 'float-array':
         return np.frombuffer(standard_b64decode(json_return['value']), dtype='>f4').copy()
 
