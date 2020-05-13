@@ -2,8 +2,8 @@ Icon
 
 build/
 dist/
-*.egg-info/
-*.egg-info test/
+*.egg-info
+*.egg-info test
 
 *.pyc
 
