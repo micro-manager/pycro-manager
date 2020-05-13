@@ -7,13 +7,11 @@ Still under construction
 
 This page will show full/advanced examples of using ``pycro-manager`` interesting applications.
 
-If you have an application you'd like to figure out how to enable, please `reach out <https://github.com/micro-manager/pycro-manager/issues/new>`_!
+Have an application you'd like to figure out how to enable? Please `reach out <https://github.com/micro-manager/pycro-manager/issues/new>`_!
 
-Potential applications to add
-- specifying acquisition based on feedback from images
-- Tiled XY acquisitions that make use of multi-resolution
-- snap an image within the acquisition cycle (eg autofocus)
-- Cross correlation volume-based autofocus?
-- Use magellan for slide scanning. Pause acq and do further stuff on interesting cells
-- Adaptive illumination using magellan surfaces 
-
+Potential projects that may later appear here:
+* Denoising images with deep learning
+* `Single shot autofocus using deep learning <https://www.osapublishing.org/optica/abstract.cfm?uri=optica-6-6-794>`_
+* Controlling acquisition based on feedback from images
+* Tiled XY acquisitions that make use of multi-resolution saving/viewing
+* (Your cool example here)
