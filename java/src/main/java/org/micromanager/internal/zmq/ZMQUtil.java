@@ -288,7 +288,8 @@ public class ZMQUtil {
       throw new RuntimeException("unknown array type");
    }
 
-   public static JSONArray parseConstructors(Collection<Class> apiClasses) throws JSONException {
+   public static JSONArray parseConstructors(Collection<Class> apiClasses,
+                                             Function<Class, Object> classMapper) throws JSONException {
       JSONArray methodArray = new JSONArray();
       for (Class clazz : apiClasses) {
 
@@ -302,6 +303,16 @@ public class ZMQUtil {
             }
             methJSON.put("arguments", args);
             methodArray.put(methJSON);
+         }
+         // add in 0 argmunet "constructors" for interfaces that get mapped to an existing instance of a class
+         if (clazz.isInterface()) {
+            if (classMapper.apply(clazz) != null) {
+               JSONObject methJSON = new JSONObject();
+               methJSON.put("name", clazz.getName());
+               JSONArray args = new JSONArray();
+               methJSON.put("arguments", args);
+               methodArray.put(methJSON);
+            }
          }
       }
       return methodArray;
