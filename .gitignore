@@ -14,3 +14,4 @@ java/src/main/java/.idea/
 java/src/main/java/pycromanager.iml
 #maven
 java/target
+.idea/

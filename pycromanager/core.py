@@ -1,0 +1,469 @@
+import json
+import re
+import time
+import warnings
+from base64 import standard_b64encode, standard_b64decode
+import numpy as np
+import zmq
+from types import MethodType
+
+
+class JavaSocket:
+    """
+    Wrapper for ZMQ socket that sends and recieves dictionaries
+    """
+
+    def __init__(self, context, port, type, debug):
+        # request reply socket
+        self._socket = context.socket(type)
+        self._debug = debug
+        # try:
+        if type == zmq.PUSH:
+            if debug:
+                print('binding {}'.format(port))
+            self._socket.bind("tcp://127.0.0.1:{}".format(port))
+        else:
+            if debug:
+                print('connecting {}'.format(port))
+            self._socket.connect("tcp://127.0.0.1:{}".format(port))
+        # except Exception as e:
+        #     print(e.__traceback__)
+        # raise Exception('Couldnt connect or bind to port {}'.format(port))
+
+    def _convert_np_to_python(self, d):
+        """
+        recursive ply search dictionary and convert any values from numpy floats/ints to
+        python floats/ints so they can be hson serialized
+        :return:
+        """
+        if type(d) != dict:
+            return
+        for k, v in d.items():
+            if isinstance(v, dict):
+                self._convert_np_to_python(v)
+            elif type(v) == list:
+                for e in v:
+                    self._convert_np_to_python(e)
+            elif np.issubdtype(type(v), np.floating):
+                d[k] = float(v)
+            elif np.issubdtype(type(v), np.integer):
+                d[k] = int(v)
+
+    def send(self, message, timeout=0):
+        if message is None:
+            message = {}
+        #make sure any np types convert to python types so they can be json serialized
+        self._convert_np_to_python(message)
+        if timeout == 0:
+            self._socket.send(bytes(json.dumps(message), 'utf-8'))
+        else:
+            start = time.time()
+            while 1000 * (time.time() - start) < timeout:
+                try:
+                    self._socket.send(bytes(json.dumps(message), 'utf-8'), flags=zmq.NOBLOCK)
+                    return True
+                except zmq.ZMQError:
+                    pass #ignore, keep trying
+            return False
+
+    def receive(self, timeout=0):
+        if timeout == 0:
+            reply = self._socket.recv()
+        else:
+            start = time.time()
+            reply = None
+            while 1000 * (time.time() - start) < timeout:
+                try:
+                    reply = self._socket.recv(flags=zmq.NOBLOCK)
+                    if reply is not None:
+                        break
+                except zmq.ZMQError:
+                    pass #ignore, keep trying
+            if reply is None:
+                return reply
+        message = json.loads(reply.decode('utf-8'))
+        self._check_exception(message)
+        return message
+
+    def _check_exception(self, response):
+        if ('type' in response and response['type'] == 'exception'):
+            raise Exception(response['value'])
+
+    def close(self):
+        self._socket.close()
+
+
+class Bridge:
+    """
+    Create an object which acts as a client to a corresponding server running within micro-manager.
+    This enables construction and interaction with arbitrary java objects
+    """
+    _DEFAULT_PORT = 4827
+    _EXPECTED_ZMQ_SERVER_VERSION = '2.4.0'
+
+
+    def __init__(self, port=_DEFAULT_PORT, convert_camel_case=True, debug=False):
+        """
+        :param port: The port on which the bridge operates
+        :type port: int
+        :param convert_camel_case: If true, methods for Java objects that are passed across the bridge
+            will have their names converted from camel case to underscores. i.e. class.methodName()
+            becomes class.method_name()
+        :type convert_camel_case: boolean
+        :param debug: print helpful stuff for debugging
+        :type debug: bool
+        """
+        self._context = zmq.Context()
+        self._convert_camel_case = convert_camel_case
+        self._debug = debug
+        self._master_socket = JavaSocket(self._context, port, zmq.REQ, debug=debug)
+        self._master_socket.send({'command': 'connect', })
+        reply_json = self._master_socket.receive(timeout=500)
+        if reply_json is None:
+            raise TimeoutError("Socket timed out after 500 milliseconds. Is Micro-Manager running and is the ZMQ server option enabled?")
+        if reply_json['type'] == 'exception':
+            raise Exception(reply_json['message'])
+        if 'version' not in reply_json:
+            reply_json['version'] = '2.0.0' #before version was added
+        if reply_json['version'] != self._EXPECTED_ZMQ_SERVER_VERSION:
+            warnings.warn('Version mistmatch between Java ZMQ server and Python client. '
+                            '\nJava ZMQ server version: {}\nPython client expected version: {}'.format(reply_json['version'],
+                                                                                           self._EXPECTED_ZMQ_SERVER_VERSION))
+        self._constructors = reply_json['api']
+
+    def construct_java_object(self, classpath, new_socket=False, args=None):
+        """
+        Create a new instance of a an object on the Java side. Returns a Python "Shadow" of the object, which behaves
+        just like the object on the Java side (i.e. same methods, fields). Methods of the object can be inferred at
+        runtime using iPython autocomplete
+
+        :param classpath: Full classpath of the java object
+        :type classpath: string
+        :param new_socket: If true, will create new java object on a new port so that blocking calls will not interfere
+            with the bridges master port
+        :param args: list of arguments to the constructor, if applicable
+        :type args: list
+        :return: Python  "Shadow" to the Java object
+        """
+        if args is None:
+            args = []
+        methods_with_name = [m for m in self._constructors if m['name'] == classpath]
+        if len(methods_with_name) == 0:
+            raise Exception('No valid java constructor found with classpath {}'.format(classpath))
+        valid_method_spec = _check_method_args(methods_with_name, args)
+
+        # Calling a constructor, rather than getting return from method
+        message = {'command': 'constructor', 'classpath': classpath,
+                   'argument-types': valid_method_spec['arguments'],
+                   'arguments': _package_arguments(valid_method_spec, args)}
+        if new_socket:
+            message['new-port'] = True
+        self._master_socket.send(message)
+        serialized_object = self._master_socket.receive()
+        if new_socket:
+            socket = JavaSocket(self._context, serialized_object['port'], zmq.REQ)
+        else:
+            socket = self._master_socket
+        return JavaObjectShadow(socket=socket, serialized_object=serialized_object,
+                        convert_camel_case=self._convert_camel_case)
+
+    def _connect_push(self, port):
+        """
+        Connect a push socket on the given port
+        :param port:
+        :return:
+        """
+        return JavaSocket(self._context, port, zmq.PUSH, debug=self._debug)
+
+    def _connect_pull(self, port):
+        """
+        Connect to a pull socket on the given port
+        :param port:
+        :return:
+        """
+        return JavaSocket(self._context, port, zmq.PULL, debug=self._debug)
+
+
+    def get_magellan(self):
+        """
+        return an instance of the Micro-Magellan API
+        """
+        return self.construct_java_object('org.micromanager.magellan.api.MagellanAPI')
+
+    def get_core(self):
+        """
+        Connect to CMMCore and return object that has its methods
+
+        :return: Python "shadow" object for micromanager core
+        """
+        if hasattr(self, 'core'):
+            return getattr(self, 'core')
+        self.core = self.construct_java_object('mmcorej.CMMCore')
+        return self.core
+
+    def get_studio(self):
+        """
+        return an instance of the Studio object that provides access to micro-manager Java APIs
+        """
+        return self.construct_java_object('org.micromanager.Studio')
+
+
+class JavaObjectShadow:
+    """
+    Generic class for serving as a python interface for a micromanager class using a zmq server backend
+    """
+
+    def __init__(self, socket, serialized_object=None, convert_camel_case=True):
+        self._java_class = serialized_object['class']
+        self._socket = socket
+        self._hash_code = serialized_object['hash-code']
+        self._convert_camel_case = convert_camel_case
+        self._interfaces = serialized_object['interfaces']
+        for field in serialized_object['fields']:
+            exec('JavaObjectShadow.{} = property(lambda instance: instance._access_field(\'{}\'),'
+                 'lambda instance, val: instance._set_field(\'{}\', val))'.format(field, field, field))
+        methods = serialized_object['api']
+
+        method_names = set([m['name'] for m in methods])
+        #parse method descriptions to make python stand ins
+        for method_name in method_names:
+            lambda_arg_names, unique_argument_names, methods_with_name, \
+                method_name_modified = _parse_arg_names(methods, method_name, self._convert_camel_case)
+            #use exec so the arguments can have default names that indicate type hints
+            exec('fn = lambda {}: JavaObjectShadow._translate_call(self, {}, {})'.format(','.join(['self'] + lambda_arg_names),
+                                                        eval('methods_with_name'),  ','.join(unique_argument_names)))
+            #do this one as exec also so "fn" being undefiend doesnt complain
+            exec('setattr(self, method_name_modified, MethodType(fn, self))')
+
+
+    def __del__(self):
+        """
+        Tell java side this object is garbage collected so it can do the same if needed
+        :return:
+        """
+        if not hasattr(self, '_hash_code'):
+            return #constructor didnt properly finish, nothing to clean up on java side
+        message = {'command': 'destructor', 'hash-code': self._hash_code}
+        self._socket.send(message)
+        reply_json = self._socket.receive()
+        if reply_json['type'] == 'exception':
+            raise Exception(reply_json['value'])
+
+    def __repr__(self):
+        #convenience for debugging
+        return 'JavaObjectShadow for : ' + self._java_class
+
+    def _access_field(self, name, *args):
+        """
+        Return a python version of the field with a given name
+        :return:
+        """
+        message = {'command': 'get-field', 'hash-code': self._hash_code, 'name': name}
+        self._socket.send(message)
+        return self._deserialize(self._socket.receive())
+
+    def _set_field(self, name, value, *args):
+        """
+        Return a python version of the field with a given name
+        :return:
+        """
+        message = {'command': 'set-field', 'hash-code': self._hash_code, 'name': name, 'value': _serialize_arg(value)}
+        self._socket.send(message)
+        reply = self._deserialize(self._socket.receive())
+
+    def _translate_call(self, *args):
+        """
+        Translate to appropriate Java method, call it, and return converted python version of its result
+        :param args: args[0] is list of dictionaries of possible method specifications
+        :param kwargs: hold possible polymorphic args, or none
+        :return:
+        """
+        method_specs = args[0]
+        #args that are none are placeholders to allow for polymorphism and not considered part of the spec
+        fn_args = [a for a in args[1:] if a is not None]
+        valid_method_spec = _check_method_args(method_specs, fn_args)
+        #args are good, make call through socket, casting the correct type if needed (e.g. int to float)
+        message = {'command': 'run-method', 'hash-code': self._hash_code, 'name': valid_method_spec['name'],
+                   'argument-types': valid_method_spec['arguments']}
+        message['arguments'] = _package_arguments(valid_method_spec, fn_args)
+
+        self._socket.send(message)
+        return self._deserialize(self._socket.receive())
+
+    def _deserialize(self, json_return):
+        """
+        :param method_spec: info about the method that called it
+        :param reply: bytes that represents return
+        :return: an appropriate python type of the converted value
+        """
+        if json_return['type'] == 'exception':
+            raise Exception(json_return['value'])
+        elif json_return['type'] == 'null':
+            return None
+        elif json_return['type'] == 'primitive':
+            return json_return['value']
+        elif json_return['type'] == 'string':
+            return json_return['value']
+        elif json_return['type'] == 'list':
+            return [self._deserialize(obj) for obj in json_return['value']]
+        elif json_return['type'] == 'object':
+            if json_return['class'] == 'JSONObject':
+                return json.loads(json_return['value'])
+            else:
+                raise Exception('Unrecognized return class')
+        elif json_return['type'] == 'unserialized-object':
+            #inherit socket from parent object
+            return JavaObjectShadow(socket=self._socket, serialized_object=json_return,
+                                    convert_camel_case=self._convert_camel_case)
+        else:
+            return deserialize_array(json_return)
+
+
+def serialize_array(array):
+    return standard_b64encode(array.tobytes()).decode('utf-8')
+
+
+def deserialize_array(json_return):
+    """
+    Convet a serialized java array to the appropriate numpy type
+    :param json_return:
+    :return:
+    """
+    if json_return['type'] == 'byte-array':
+        return np.frombuffer(standard_b64decode(json_return['value']), dtype='>u1').copy()
+    elif json_return['type'] == 'double-array':
+        return np.frombuffer(standard_b64decode(json_return['value']), dtype='>f8').copy()
+    elif json_return['type'] == 'int-array':
+        return np.frombuffer(standard_b64decode(json_return['value']), dtype='>u4').copy()
+    elif json_return['type'] == 'short-array':
+        return np.frombuffer(standard_b64decode(json_return['value']), dtype='>u2').copy()
+    elif json_return['type'] == 'float-array':
+        return np.frombuffer(standard_b64decode(json_return['value']), dtype='>f4').copy()
+
+
+def _package_arguments(valid_method_spec, fn_args):
+    """
+    Serialize function arguments and also include description of their Java types
+    :param valid_method_spec:
+    :param fn_args:
+    :return:
+    """
+    arguments = []
+    for arg_type, arg_val in zip(valid_method_spec['arguments'], fn_args):
+        if isinstance(arg_val, JavaObjectShadow):
+            arguments.append(_serialize_arg(arg_val))
+        else:
+            arguments.append(_serialize_arg(_JAVA_TYPE_NAME_TO_PYTHON_TYPE[arg_type](arg_val)))
+    return arguments
+
+
+def _serialize_arg(arg):
+    if type(arg) in [bool, str, int, float]:
+        return arg #json handles serialization
+    elif type(arg) == np.ndarray:
+        return serialize_array(arg)
+    elif isinstance(arg, JavaObjectShadow):
+        return {'hash-code': arg._hash_code}
+    else:
+        raise Exception('Unknown argumetn type')
+
+
+def _check_method_args(method_specs, fn_args):
+    """
+    Compare python arguments to java arguments to find correct function to call
+    :param method_specs:
+    :param fn_args:
+    :return: one of the method_specs that is valid
+    """
+    # TODO: check that args can be translated to expected java counterparts (e.g. numpy arrays)
+    valid_method_spec = None
+    for method_spec in method_specs:
+        if len(method_spec['arguments']) != len(fn_args):
+            continue
+        valid_method_spec = method_spec
+        for arg_type, arg_val in zip(method_spec['arguments'], fn_args):
+            if isinstance(arg_val, JavaObjectShadow):
+                if arg_type not in arg_val._interfaces:
+                    # check that it shadows object of the correct type
+                    valid_method_spec = None
+            elif not isinstance(type(arg_val), type(_JAVA_TYPE_NAME_TO_PYTHON_TYPE[arg_type])):
+                # if a type that gets converted
+                valid_method_spec = None
+            elif type(arg_val) == np.ndarray:
+                # For ND Arrays, need to make sure data types match
+                if _ARRAY_TYPE_TO_NUMPY_DTYPE[arg_type] != arg_val.dtype:
+                    valid_method_spec = None
+        # if valid_method_spec is None:
+        #     break
+    if valid_method_spec is None:
+        raise Exception('Incorrect arguments. \nExpected {} \nGot {}'.format(
+            ' or '.join([', '.join(method_spec['arguments']) for method_spec in method_specs]),
+            ', '.join([str(type(a)) for a in fn_args]) ))
+    return valid_method_spec
+
+
+def _parse_arg_names(methods, method_name, convert_camel_case):
+    # dont delete because this is used in the exec
+    method_name_modified = _camel_case_2_snake_case(method_name) if convert_camel_case else method_name
+    # all methods with this name and different argument lists
+    methods_with_name = [m for m in methods if m['name'] == method_name]
+    min_required_args = 0 if len(methods_with_name) == 1 and len(methods_with_name[0]['arguments']) == 0 else \
+        min([len(m['arguments']) for m in methods_with_name])
+    # sort with largest number of args last so lambda at end gets max num args
+    methods_with_name.sort(key=lambda val: len(val['arguments']))
+    for method in methods_with_name:
+        arg_type_hints = []
+        for typ in method['arguments']:
+            arg_type_hints.append(_CLASS_NAME_MAPPING[typ]
+                                  if typ in _CLASS_NAME_MAPPING else 'object')
+        lambda_arg_names = []
+        class_arg_names = []
+        unique_argument_names = []
+        for arg_index, hint in enumerate(arg_type_hints):
+            if hint in unique_argument_names:
+                # append numbers to end so arg hints have unique names
+                i = 1
+                while hint + str(i) in unique_argument_names:
+                    i += 1
+                hint += str(i)
+            unique_argument_names.append(hint)
+            # this is how overloading is handled for now, by making default arguments as none, but
+            # it might be better to explicitly compare argument types
+            if arg_index >= min_required_args:
+                class_arg_names.append(hint + '=' + hint)
+                lambda_arg_names.append(hint + '=None')
+            else:
+                class_arg_names.append(hint)
+                lambda_arg_names.append(hint)
+    return lambda_arg_names, unique_argument_names, methods_with_name, method_name_modified
+
+
+def _camel_case_2_snake_case(name):
+    s1 = re.sub('(.)([A-Z][a-z]+)', r'\1_\2', name)
+    return re.sub('([a-z0-9])([A-Z])', r'\1_\2', s1).lower()
+
+
+_CLASS_NAME_MAPPING = {'boolean': 'boolean', 'byte[]': 'uint8array',
+                       'double': 'float', 'double[]': 'float64_array', 'float': 'float',
+                       'int': 'int', 'int[]': 'uint32_array', 'java.lang.String': 'string',
+                       'long': 'int', 'short': 'int', 'void': 'void',
+                       'java.util.List': 'list'}
+_ARRAY_TYPE_TO_NUMPY_DTYPE = {'byte[]': np.uint8, 'double[]': np.float64, 'int[]': np.int32}
+_JAVA_TYPE_NAME_TO_PYTHON_TYPE = {'boolean': bool, 'byte[]': np.ndarray,
+                                  'double': float, 'double[]': np.ndarray, 'float': float,
+                                  'int': int, 'int[]': np.ndarray, 'java.lang.String': str,
+                                  'long': int, 'short': int, 'char': int, 'byte': int, 'void': None}
+
+if __name__ == '__main__':
+    #Test basic bridge operations
+    import traceback
+    b = Bridge()
+    try:
+        s = b.get_studio()
+    except:
+       traceback.print_exc()
+    try:
+        c = b.get_core()
+    except:
+        traceback.print_exc()
+    a = 1
