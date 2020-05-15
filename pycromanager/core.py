@@ -3,9 +3,11 @@ import re
 import time
 import warnings
 from base64 import standard_b64encode, standard_b64decode
+import inspect
+
 import numpy as np
 import zmq
-from types import MethodType
+from types import MethodType, FunctionType
 
 
 class JavaSocket:
@@ -220,8 +222,9 @@ class JavaObjectShadow:
         self._convert_camel_case = convert_camel_case
         self._interfaces = serialized_object['interfaces']
         for field in serialized_object['fields']:
-            exec('JavaObjectShadow.{} = property(lambda instance: instance._access_field(\'{}\'),'
-                 'lambda instance, val: instance._set_field(\'{}\', val))'.format(field, field, field))
+            getter = lambda instance: instance._access_field(field)
+            setter = lambda instance, val: instance._set_field(field, val)
+            setattr(self, field, property(fget=getter, fset=setter))
         methods = serialized_object['api']
 
         method_names = set([m['name'] for m in methods])
@@ -230,10 +233,22 @@ class JavaObjectShadow:
             lambda_arg_names, unique_argument_names, methods_with_name, \
                 method_name_modified = _parse_arg_names(methods, method_name, self._convert_camel_case)
             #use exec so the arguments can have default names that indicate type hints
-            exec('fn = lambda {}: JavaObjectShadow._translate_call(self, {}, {})'.format(','.join(['self'] + lambda_arg_names),
-                                                        eval('methods_with_name'),  ','.join(unique_argument_names)))
+            def fn(self, *args, **kwargs):
+                self._translate_call(methods_with_name, *unique_argument_names)
+            fn.__name__ = method_name_modified
+            fn.__doc__ = "A dynamically generated Java method."
+            sig = inspect.signature(fn)
+            try:
+                sig = sig.replace(parameters=[inspect.Parameter(name=i, kind=inspect.Parameter.POSITIONAL_OR_KEYWORD) for i in lambda_arg_names]) #TODO we could also add type annotation, default values, and a return type annotation here.
+            except Exception as e:
+                a = 1
+            fn.__signature__ = sig
+            # fn = lambda self, *lamda_arg_names: self._translate_call(methods_with_name, *unique_argument_names)
+            # exec('fn = lambda {}: JavaObjectShadow._translate_call(self, {}, {})'.format(','.join(['self'] + lambda_arg_names),
+            #                                             eval('methods_with_name'),  ','.join(unique_argument_names)))
             #do this one as exec also so "fn" being undefiend doesnt complain
-            exec('setattr(self, method_name_modified, MethodType(fn, self))')
+            #exec
+            setattr(self, method_name_modified, MethodType(fn, self))
 
 
     def __del__(self):
