@@ -130,7 +130,7 @@ class Bridge:
                                                                                            self._EXPECTED_ZMQ_SERVER_VERSION))
         self._constructors = reply_json['api']
 
-    def construct_java_object(self, classpath, new_socket=False, args=[]):
+    def construct_java_object(self, classpath, new_socket=False, args=None):
         """
         Create a new instance of a an object on the Java side. Returns a Python "Shadow" of the object, which behaves
         just like the object on the Java side (i.e. same methods, fields). Methods of the object can be inferred at
@@ -144,6 +144,8 @@ class Bridge:
         :type args: list
         :return: Python  "Shadow" to the Java object
         """
+        if args is None:
+            args = []
         methods_with_name = [m for m in self._constructors if m['name'] == classpath]
         valid_method_spec = _check_method_args(methods_with_name, args)
 
