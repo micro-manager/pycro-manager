@@ -518,23 +518,23 @@ class Acquisition():
         self.acq.start()
 
         if magellan_acq_index is None:
-            event_port = self.acq.get_event_port()
+            self.event_port = self.acq.get_event_port()
 
-            def event_sending_fn():
-                bridge = Bridge(debug=debug)
-                event_socket = bridge._connect_push(event_port)
-                while True:
-                    events = self._event_queue.get(block=True)
-                    if events is None:
-                        #Poison, time to shut down
-                        event_socket.send({'events': [{'special': 'acquisition-end'}]})
-                        event_socket.close()
-                        return
-                    event_socket.send({'events': events if type(events) == list else [events]})
-
-            self.event_process = multiprocessing.Process(target=event_sending_fn, args=(), name='Event sending')
+            self.event_process = multiprocessing.Process(target=self.event_sending_fn, args=(), name='Event sending')
                     # if multiprocessing else threading.Thread(target=event_sending_fn, args=(), name='Event sending')
             self.event_process.start()
+
+    def event_sending_fn(self):
+        bridge = Bridge(debug=self._debug)
+        event_socket = bridge._connect_push(self.event_port)
+        while True:
+            events = self._event_queue.get(block=True)
+            if events is None:
+                # Poison, time to shut down
+                event_socket.send({'events': [{'special': 'acquisition-end'}]})
+                event_socket.close()
+                return
+            event_socket.send({'events': events if type(events) == list else [events]})
 
     def __enter__(self):
         return self
