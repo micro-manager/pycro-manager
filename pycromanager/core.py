@@ -5,6 +5,7 @@ import warnings
 from base64 import standard_b64encode, standard_b64decode
 import numpy as np
 import zmq
+from types import MethodType
 
 
 class JavaSocket:
@@ -207,7 +208,7 @@ class Bridge:
 
 class JavaObjectShadow:
     """
-    Generic class for serving as a pyhton interface for a micromanager class using a zmq server backend
+    Generic class for serving as a python interface for a micromanager class using a zmq server backend
     """
 
     def __init__(self, socket, serialized_object=None, convert_camel_case=True):
