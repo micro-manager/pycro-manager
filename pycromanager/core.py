@@ -148,6 +148,8 @@ class Bridge:
         if args is None:
             args = []
         methods_with_name = [m for m in self._constructors if m['name'] == classpath]
+        if len(methods_with_name) == 0:
+            raise Exception('No valid java constructor found with classpath {}'.format(classpath))
         valid_method_spec = _check_method_args(methods_with_name, args)
 
         # Calling a constructor, rather than getting return from method
