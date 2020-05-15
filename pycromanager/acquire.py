@@ -4,9 +4,7 @@ import threading
 from inspect import signature
 import copy
 import types
-
-
-from core import serialize_array, deserialize_array, Bridge
+from pycromanager.core import serialize_array, deserialize_array, Bridge
 
 
 ############ Utility functions ############
