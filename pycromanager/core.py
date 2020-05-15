@@ -452,4 +452,15 @@ _JAVA_TYPE_NAME_TO_PYTHON_TYPE = {'boolean': bool, 'byte[]': np.ndarray,
                                   'long': int, 'short': int, 'char': int, 'byte': int, 'void': None}
 
 if __name__ == '__main__':
+    #Test basic bridge operations
+    import traceback
     b = Bridge()
+    try:
+        s = b.get_studio()
+    except:
+       traceback.print_exc()
+    try:
+        c = b.get_core()
+    except:
+        traceback.print_exc()
+    a = 1
