@@ -118,7 +118,7 @@ class Bridge:
         self._debug = debug
         self._master_socket = JavaSocket(self._context, port, zmq.REQ, debug=debug)
         self._master_socket.send({'command': 'connect', })
-        reply_json = self._master_socket.receive(timeout=500)
+        reply_json = self._master_socket.receive(timeout=5000)
         if reply_json is None:
             raise TimeoutError("Socket timed out after 500 milliseconds. Is Micro-Manager running and is the ZMQ server option enabled?")
         if reply_json['type'] == 'exception':

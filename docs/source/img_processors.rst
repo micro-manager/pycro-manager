@@ -22,9 +22,11 @@ The simplest image processor function takes two arguments: the pixel data (a num
 		return image, metadata
 
 	# run an acquisition using this image processor
-	with Acquisition(directory='/path/to/saving/dir', name='acquisition_name',
-    				image_process_fn=img_process_fn) as acq:
-    		### acquire some stuff ###
+	if __name__ == '__main__':
+
+		with Acquisition(directory='/path/to/saving/dir', name='acquisition_name',
+	    				image_process_fn=img_process_fn) as acq:
+	    		### acquire some stuff ###
 
 One particularly useful metadata key is ``'Axes'`` which recovers the ``'axes'`` key that was in the **Acquisition event** in this image.
 
@@ -44,9 +46,11 @@ As an alternative to returning ``image, metadata`` to propogate the image to the
 		
 		### send iamge and metadata somewhere ###
 
-	# this acquisition won't show a viewer or save data
-	with Acquisition(image_process_fn=img_process_fn) as acq:
-    		### acquire some stuff ###
+	if __name__ == '__main__':
+
+		# this acquisition won't show a viewer or save data
+		with Acquisition(image_process_fn=img_process_fn) as acq:
+	    		### acquire some stuff ###
 
 
 In certain cases one may want to either control something on the Java side or create addition **acquisition events** in response to one of the images. A four argument processing function can be used for this purpose. This gives access to the :class:`Bridge<pycromanager.Bridge>` for interacting with the Java side, and an ``event_queue`` to which additional acquisition events can be added
@@ -65,8 +69,10 @@ In the case of using feedback from the image to control acquisition, the typical
 
 .. code-block:: python
 
-	acq = Acquisition(directory='/path/to/saving/dir', name='acquisition_name',
-    				image_process_fn=img_process_fn)
+	if __name__ == '__main__':
+	
+		acq = Acquisition(directory='/path/to/saving/dir', name='acquisition_name',
+	    				image_process_fn=img_process_fn)
 
 When it is finished, it can be closed and cleaned up by passing an ``None`` to the ``event_queue``.
 
