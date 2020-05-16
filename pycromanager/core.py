@@ -232,11 +232,9 @@ class JavaObjectShadow:
         for method_name in method_names:
             params, methods_with_name, method_name_modified = _parse_arg_names(methods, method_name, self._convert_camel_case)
             return_type = methods_with_name[0]['return-type']
-            #use exec so the arguments can have default names that indicate type hints
-            argNames = [param.name for param in params]
             fn = lambda instance, *args, signatures_list=methods_with_name: instance._translate_call(signatures_list, *args)
             fn.__name__ = method_name_modified
-            fn.__doc__ = "{}: A dynamically generated Java method.".format(method_name_modified)
+            fn.__doc__ = "{}.{}: A dynamically generated Java method.".format(self._java_class, method_name_modified)
             sig = inspect.signature(fn)
             params = [inspect.Parameter('self', inspect.Parameter.POSITIONAL_ONLY)]+params # Add `self` as the first argument.
             return_type = _JAVA_TYPE_NAME_TO_PYTHON_TYPE[return_type] if return_type in _JAVA_TYPE_NAME_TO_PYTHON_TYPE else return_type
@@ -411,7 +409,6 @@ def _check_method_args(method_specs, fn_args):
 
 
 def _parse_arg_names(methods, method_name, convert_camel_case):
-    # dont delete because this is used in the exec
     method_name_modified = _camel_case_2_snake_case(method_name) if convert_camel_case else method_name
     # all methods with this name and different argument lists
     methods_with_name = [m for m in methods if m['name'] == method_name]
