@@ -7,8 +7,6 @@ package org.micromanager.remote;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.concurrent.BrokenBarrierException;
-import java.util.concurrent.CyclicBarrier;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.function.Function;
@@ -49,15 +47,9 @@ public class RemoteEventSource {
          }
       });
       //constantly poll the socket for more event sequences to submit
-      CyclicBarrier barrier = new CyclicBarrier(2);
       executor_.submit(() -> {
-         boolean first = true;
          while (true) {
             try {
-               if (first) {
-                  first = false;
-                  barrier.await();
-               }
                List<AcquisitionEvent> eList = pullSocket_.next();
                boolean finished = eList.get(eList.size() - 1).isAcquisitionFinishedEvent();
                acq_.submitEventIterator(eList.iterator());
@@ -76,14 +68,6 @@ public class RemoteEventSource {
 
          }
       });
-      //Wait until event pulling function has started
-      try {
-         barrier.await();
-      } catch (InterruptedException e) {
-         throw new RuntimeException(e);
-      } catch (BrokenBarrierException e) {
-         throw new RuntimeException(e);
-      }
    }
 
    void setAcquisition(RemoteAcquisition aThis) {
@@ -96,6 +80,7 @@ public class RemoteEventSource {
 
    /**
     * This method needed so the source can be shutdown from x out on the viewer, 
+    * This method needed so the source can be shutdown from x out on the viewer,
     * rather than sending a finished event like noremal
     */
    void abort() {
