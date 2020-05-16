@@ -287,8 +287,6 @@ class ObjectFactory:
                  **static_attributes, **fields, **methods}
             )
 
-
-
             self.classes[_java_class] = newclass
             print(f'created {newclass.__name__}')
             return newclass
@@ -299,6 +297,8 @@ class JavaObjectShadow:
     """
     Generic class for serving as a python interface for a micromanager class using a zmq server backend
     """
+    _interfaces = None  # Subclasses should fill these out. This class should never be directly instantiated.
+    _java_class = None
 
     def __init__(self, socket, serialized_object):
         self._socket = socket
@@ -317,11 +317,7 @@ class JavaObjectShadow:
         if reply_json['type'] == 'exception':
             raise Exception(reply_json['value'])
 
-    # def __repr__(self):
-    #     #convenience for debugging
-    #     return 'JavaObjectShadow for : ' + self._java_class
-
-    def _access_field(self, name, *args):
+    def _access_field(self, name):
         """
         Return a python version of the field with a given name
         :return:
@@ -330,7 +326,7 @@ class JavaObjectShadow:
         self._socket.send(message)
         return self._deserialize(self._socket.receive())
 
-    def _set_field(self, name, value, *args):
+    def _set_field(self, name, value):
         """
         Return a python version of the field with a given name
         :return:
