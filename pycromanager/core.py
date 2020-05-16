@@ -1,14 +1,13 @@
 import json
 import re
 import time
-import typing
 import warnings
 from base64 import standard_b64encode, standard_b64decode
 import inspect
 
 import numpy as np
 import zmq
-from types import MethodType, FunctionType
+from types import MethodType
 
 
 class JavaSocket:
