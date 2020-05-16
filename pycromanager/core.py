@@ -1,11 +1,49 @@
 import json
 import re
 import time
+import typing
 import warnings
 from base64 import standard_b64encode, standard_b64decode
+from dataclasses import dataclass
+
 import numpy as np
 import zmq
 from types import MethodType
+
+@dataclass
+class Message:
+    type: str
+    value: typing.Any
+
+    def __post_init(self):
+        print('ran')
+        assert self.typeStr is not None
+
+    @property
+    def typeStr(self) -> str:
+        return None
+
+    @classmethod
+    def from_json(cls, jsonStr: str):
+        cls.__init__(json.loads(jsonStr))
+
+    def get_value(self):
+        return self.value
+
+class StdMessage(Message):
+
+    @property
+    def typeStr(self)->str:
+        return 'std'
+
+class JavaException(Message):
+
+    @property
+    def typeStr(self)->str:
+        return 'exception'
+
+
+
 
 
 class JavaSocket:
@@ -207,18 +245,29 @@ class Bridge:
         """
         return self.construct_java_object('org.micromanager.Studio')
 
+class ObjectFactory:
+    @staticmethod
+    def create(, serialized_obj, convert_camel_case: bool):
+        class c(JavaObjectShadow):
+            def __init__(self, socket, serialized_object):
+                super().__init__(socket, serialized_object)
+
+            __name__ = serialized_obj['class']
+            _java_class = __name__
+            _interfaces = serialized_obj['interfaces']
+            _convert_camel_case = convert_camel_case
+            methods
+        return c
+
 
 class JavaObjectShadow:
     """
     Generic class for serving as a python interface for a micromanager class using a zmq server backend
     """
 
-    def __init__(self, socket, serialized_object=None, convert_camel_case=True):
-        self._java_class = serialized_object['class']
+    def __init__(self, socket, serialized_object):
         self._socket = socket
         self._hash_code = serialized_object['hash-code']
-        self._convert_camel_case = convert_camel_case
-        self._interfaces = serialized_object['interfaces']
         for field in serialized_object['fields']:
             exec('JavaObjectShadow.{} = property(lambda instance: instance._access_field(\'{}\'),'
                  'lambda instance, val: instance._set_field(\'{}\', val))'.format(field, field, field))
@@ -234,6 +283,7 @@ class JavaObjectShadow:
                                                         eval('methods_with_name'),  ','.join(unique_argument_names)))
             #do this one as exec also so "fn" being undefiend doesnt complain
             exec('setattr(self, method_name_modified, MethodType(fn, self))')
+
 
 
     def __del__(self):
@@ -325,7 +375,7 @@ def serialize_array(array):
 
 def deserialize_array(json_return):
     """
-    Convet a serialized java array to the appropriate numpy type
+    Convert a serialized java array to the appropriate numpy type
     :param json_return:
     :return:
     """
