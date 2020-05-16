@@ -4,6 +4,7 @@ import threading
 from inspect import signature
 import copy
 import types
+import time
 from pycromanager.core import serialize_array, deserialize_array, Bridge
 
 ### These functions outside class to prevent problems with pickling when running them in differnet process
@@ -177,7 +178,8 @@ class Acquisition(object):
         """
         Wait for acquisition to finish and resources to be cleaned up
         """
-        self.acq.close()
+        while (not self.acq.is_finished()):
+            time.sleep(0.1)
 
     def acquire(self, events):
         """
