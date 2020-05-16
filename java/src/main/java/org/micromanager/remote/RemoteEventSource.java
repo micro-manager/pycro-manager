@@ -55,6 +55,7 @@ public class RemoteEventSource {
          while (true) {
             try {
                if (first) {
+                  first = false;
                   barrier.await();
                }
                List<AcquisitionEvent> eList = pullSocket_.next();
