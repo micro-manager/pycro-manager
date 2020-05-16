@@ -244,37 +244,27 @@ class Bridge:
         """
         return self.construct_java_object('org.micromanager.Studio')
 
-class M(type):
-    """Allows dynamic assignment of class name."""
-    def __new__(metacls, name, bases, namespace, **kw):
-         name = namespace.get("__name__", name)
-         return super().__new__(metacls, name, bases, namespace, **kw)
 
 class ObjectFactory:
     def __init__(self):
-        self.classes={}
-
+        self.classes = {}
 
     def create(self, serialized_obj: dict, convert_camel_case: bool = True):
         if serialized_obj['class'] in self.classes.keys():
             return self.classes[serialized_obj['class']]
         else:
+            _java_class: str = serialized_obj['class']
+            python_class_name_translation = _java_class.replace('.', '_')  # Having periods in the name would be problematic.
+            _interfaces = serialized_obj['interfaces']
+            static_attributes = {'_java_class': _java_class, '_interfaces': _interfaces}
 
-            class NewJClass(JavaObjectShadow, metaclass=M):
-                _java_class: str = serialized_obj['class']
-                _interfaces = serialized_obj['interfaces']
-                __name__ = _java_class.replace('.', '_')  # Having periods in the class name can be problematic.
-
-                def __init__(self, socket, serialized_object):
-                    super().__init__(socket, serialized_object)
-
-
-
+            fields = {}  # Create a dict of field names with getter and setter funcs.
             for field in serialized_obj['fields']:
                 getter = lambda instance: instance._access_field(field)
                 setter = lambda instance, val: instance._set_field(field, val)
-                setattr(NewJClass, field, property(fget=getter, fset=setter))
+                fields[field] = property(fget=getter, fset=setter)
 
+            methods = {}  # Create a dict of methods for the class by name.
             methodSpecs = serialized_obj['api']
             method_names = set([m['name'] for m in methodSpecs])
             # parse method descriptions to make python stand ins
@@ -283,18 +273,25 @@ class ObjectFactory:
                 return_type = methods_with_name[0]['return-type']
                 fn = lambda instance, *args, signatures_list=tuple(methods_with_name): instance._translate_call(signatures_list, *args)
                 fn.__name__ = method_name_modified
-                fn.__doc__ = "{}.{}: A dynamically generated Java method.".format(NewJClass._java_class, method_name_modified)
+                fn.__doc__ = "{}.{}: A dynamically generated Java method.".format(_java_class, method_name_modified)
                 sig = inspect.signature(fn)
-                params = [inspect.Parameter('self',
-                                            inspect.Parameter.POSITIONAL_ONLY)] + params  # Add `self` as the first argument.
-                return_type = _JAVA_TYPE_NAME_TO_PYTHON_TYPE[
-                    return_type] if return_type in _JAVA_TYPE_NAME_TO_PYTHON_TYPE else return_type
+                params = [inspect.Parameter('self', inspect.Parameter.POSITIONAL_ONLY)] + params  # Add `self` as the first argument.
+                return_type = _JAVA_TYPE_NAME_TO_PYTHON_TYPE[return_type] if return_type in _JAVA_TYPE_NAME_TO_PYTHON_TYPE else return_type
                 fn.__signature__ = sig.replace(parameters=params, return_annotation=return_type)
-                setattr(NewJClass, method_name_modified, fn)
+                methods[method_name_modified] = fn
 
-            self.classes[NewJClass.__name__] = NewJClass
-            print(f'created {NewJClass.__name__}')
-            return NewJClass
+            newclass = type(  # Dynamically create a class to shadow a java class.
+                python_class_name_translation,  # Name
+                (JavaObjectShadow,),  # Inheritance
+                {'__init__': lambda instance, socket, serialized_object: JavaObjectShadow.__init__(instance, socket, serialized_object),
+                 **static_attributes, **fields, **methods}
+            )
+
+
+
+            self.classes[_java_class] = newclass
+            print(f'created {newclass.__name__}')
+            return newclass
 
 theObjectFactory = ObjectFactory()
 
