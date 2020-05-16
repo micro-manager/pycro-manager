@@ -1,13 +1,49 @@
 import json
 import re
 import time
+import typing
 import warnings
 from base64 import standard_b64encode, standard_b64decode
+from dataclasses import dataclass
 import inspect
 
 import numpy as np
 import zmq
-from types import MethodType
+
+@dataclass
+class Message:
+    type: str
+    value: typing.Any
+
+    def __post_init(self):
+        print('ran')
+        assert self.typeStr is not None
+
+    @property
+    def typeStr(self) -> str:
+        return None
+
+    @classmethod
+    def from_json(cls, jsonStr: str):
+        cls.__init__(json.loads(jsonStr))
+
+    def get_value(self):
+        return self.value
+
+class StdMessage(Message):
+
+    @property
+    def typeStr(self)->str:
+        return 'std'
+
+class JavaException(Message):
+
+    @property
+    def typeStr(self)->str:
+        return 'exception'
+
+
+
 
 
 class JavaSocket:
@@ -166,8 +202,7 @@ class Bridge:
             socket = JavaSocket(self._context, serialized_object['port'], zmq.REQ)
         else:
             socket = self._master_socket
-        return JavaObjectShadow(socket=socket, serialized_object=serialized_object,
-                        convert_camel_case=self._convert_camel_case)
+        return theObjectFactory.create(serialized_object)(socket=socket, serialized_object=serialized_object)
 
     def _connect_push(self, port):
         """
@@ -209,37 +244,68 @@ class Bridge:
         """
         return self.construct_java_object('org.micromanager.Studio')
 
+class M(type):
+    """Allows dynamic assignment of class name."""
+    def __new__(metacls, name, bases, namespace, **kw):
+         name = namespace.get("__name__", name)
+         return super().__new__(metacls, name, bases, namespace, **kw)
+
+class ObjectFactory:
+    def __init__(self):
+        self.classes={}
+
+
+    def create(self, serialized_obj: dict, convert_camel_case: bool = True):
+        if serialized_obj['class'] in self.classes.keys():
+            return self.classes[serialized_obj['class']]
+        else:
+
+            class NewJClass(JavaObjectShadow, metaclass=M):
+                _java_class: str = serialized_obj['class']
+                _interfaces = serialized_obj['interfaces']
+                __name__ = _java_class.replace('.', '_')  # Having periods in the class name can be problematic.
+
+                def __init__(self, socket, serialized_object):
+                    super().__init__(socket, serialized_object)
+
+
+
+            for field in serialized_obj['fields']:
+                getter = lambda instance: instance._access_field(field)
+                setter = lambda instance, val: instance._set_field(field, val)
+                setattr(NewJClass, field, property(fget=getter, fset=setter))
+
+            methodSpecs = serialized_obj['api']
+            method_names = set([m['name'] for m in methodSpecs])
+            # parse method descriptions to make python stand ins
+            for method_name in method_names:
+                params, methods_with_name, method_name_modified = _parse_arg_names(methodSpecs, method_name, convert_camel_case)
+                return_type = methods_with_name[0]['return-type']
+                fn = lambda instance, *args, signatures_list=tuple(methods_with_name): instance._translate_call(signatures_list, *args)
+                fn.__name__ = method_name_modified
+                fn.__doc__ = "{}.{}: A dynamically generated Java method.".format(NewJClass._java_class, method_name_modified)
+                sig = inspect.signature(fn)
+                params = [inspect.Parameter('self',
+                                            inspect.Parameter.POSITIONAL_ONLY)] + params  # Add `self` as the first argument.
+                return_type = _JAVA_TYPE_NAME_TO_PYTHON_TYPE[
+                    return_type] if return_type in _JAVA_TYPE_NAME_TO_PYTHON_TYPE else return_type
+                fn.__signature__ = sig.replace(parameters=params, return_annotation=return_type)
+                setattr(NewJClass, method_name_modified, fn)
+
+            self.classes[NewJClass.__name__] = NewJClass
+            print(f'created {NewJClass.__name__}')
+            return NewJClass
+
+theObjectFactory = ObjectFactory()
 
 class JavaObjectShadow:
     """
     Generic class for serving as a python interface for a micromanager class using a zmq server backend
     """
 
-    def __init__(self, socket, serialized_object=None, convert_camel_case=True):
-        self._java_class = serialized_object['class']
+    def __init__(self, socket, serialized_object):
         self._socket = socket
         self._hash_code = serialized_object['hash-code']
-        self._convert_camel_case = convert_camel_case
-        self._interfaces = serialized_object['interfaces']
-        for field in serialized_object['fields']:
-            getter = lambda instance: instance._access_field(field)
-            setter = lambda instance, val: instance._set_field(field, val)
-            setattr(self, field, property(fget=getter, fset=setter))
-        methods = serialized_object['api']
-        method_names = set([m['name'] for m in methods])
-        #parse method descriptions to make python stand ins
-        for method_name in method_names:
-            params, methods_with_name, method_name_modified = _parse_arg_names(methods, method_name, self._convert_camel_case)
-            return_type = methods_with_name[0]['return-type']
-            fn = lambda instance, *args, signatures_list=methods_with_name: instance._translate_call(signatures_list, *args)
-            fn.__name__ = method_name_modified
-            fn.__doc__ = "{}.{}: A dynamically generated Java method.".format(self._java_class, method_name_modified)
-            sig = inspect.signature(fn)
-            params = [inspect.Parameter('self', inspect.Parameter.POSITIONAL_ONLY)]+params # Add `self` as the first argument.
-            return_type = _JAVA_TYPE_NAME_TO_PYTHON_TYPE[return_type] if return_type in _JAVA_TYPE_NAME_TO_PYTHON_TYPE else return_type
-            fn.__signature__ = sig.replace(parameters=params, return_annotation=return_type)
-            setattr(self, method_name_modified, MethodType(fn, self))
-
 
     def __del__(self):
         """
@@ -254,9 +320,9 @@ class JavaObjectShadow:
         if reply_json['type'] == 'exception':
             raise Exception(reply_json['value'])
 
-    def __repr__(self):
-        #convenience for debugging
-        return 'JavaObjectShadow for : ' + self._java_class
+    # def __repr__(self):
+    #     #convenience for debugging
+    #     return 'JavaObjectShadow for : ' + self._java_class
 
     def _access_field(self, name, *args):
         """
@@ -318,8 +384,7 @@ class JavaObjectShadow:
                 raise Exception('Unrecognized return class')
         elif json_return['type'] == 'unserialized-object':
             #inherit socket from parent object
-            return JavaObjectShadow(socket=self._socket, serialized_object=json_return,
-                                    convert_camel_case=self._convert_camel_case)
+            return theObjectFactory.create(json_return)(socket=self._socket, serialized_object=json_return)
         else:
             return deserialize_array(json_return)
 
@@ -330,7 +395,7 @@ def serialize_array(array):
 
 def deserialize_array(json_return):
     """
-    Convet a serialized java array to the appropriate numpy type
+    Convert a serialized java array to the appropriate numpy type
     :param json_return:
     :return:
     """
