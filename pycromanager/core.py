@@ -219,10 +219,15 @@ class Bridge:
 
 
 class JavaClassFactory:
+    """
+    This class is responsible for generating subclasses of JavaObjectShadow. Each generated class is kept in a `dict`.
+    If a given class has already been generate once it will be returns from the cache rather than re-generating it.
+    """
     def __init__(self):
         self.classes = {}
 
     def create(self, serialized_obj: dict, convert_camel_case: bool = True) -> typing.Type[JavaObjectShadow]:
+        """Create a class (or return a class from the cache) based on the contents of `serialized_object` message."""
         if serialized_obj['class'] in self.classes.keys():  # Return a cached class
             return self.classes[serialized_obj['class']]
         else:  # Generate a new class since it wasn't found in the cache.
