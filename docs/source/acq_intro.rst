@@ -22,7 +22,7 @@ The following shows a the simple example of acquiring a single z-stack:
 
 	from pycromanager import Acquisition, multi_d_acquisition_events
 
-	if __name__ == '__main__':
+	if __name__ == '__main__': #this is important, don't forget it
 
 		with Acquisition(directory='/path/to/saving/dir', name='acquisition_name') as acq:
 		    # Generate the events for a single z-stack
