@@ -436,8 +436,6 @@ def _parse_arg_names(methods, method_name, convert_camel_case):
         else:
             default_arg_value = inspect.Parameter.empty
         params.append(inspect.Parameter(name=arg_name, kind=inspect.Parameter.POSITIONAL_OR_KEYWORD, default=default_arg_value, annotation=python_type))
-    if method_name_modified == 'set_roi':
-        a = 1
     return params, methods_with_name, method_name_modified
 
 
