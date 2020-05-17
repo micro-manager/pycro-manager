@@ -12,14 +12,16 @@ The simplest type of acquisition hook is function that takes a single argument (
 
 .. code-block:: python
 
-	def hook_fn(event):
-		### Do some other stuff here ###
-		return event
+	if __name__ == '__main__':
 
-	# pass in the function as a post_hardware_hook
-	with Acquisition(directory='/path/to/saving/dir', name='acquisition_name',
-    				post_hardware_hook_fn=hook_fn) as acq:
-    		### acquire some stuff ###
+		def hook_fn(event):
+			### Do some other stuff here ###
+			return event
+
+		# pass in the function as a post_hardware_hook
+		with Acquisition(directory='/path/to/saving/dir', name='acquisition_name',
+	    				post_hardware_hook_fn=hook_fn) as acq:
+	    		### acquire some stuff ###
 
 
 Acquisition hooks can also be used to modify or delete acquisition events:
