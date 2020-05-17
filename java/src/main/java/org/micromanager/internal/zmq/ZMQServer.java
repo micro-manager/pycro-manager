@@ -135,15 +135,15 @@ public class ZMQServer extends ZMQSocketWrapper {
             argVals[i] = EXTERNAL_OBJECTS.get(
                     message.getJSONArray("arguments").getJSONObject(i).get("hash-code"));
             //abstract to superclasses/interfaces in the API
-            Set<Package> potentialPackages = new TreeSet<Package>();
+            Set<String> potentialPackages = new TreeSet<String>();
             for (Class c : argVals[i].getClass().getInterfaces()) {
-               potentialPackages.add(c.getPackage());
+               potentialPackages.add(c.getPackage().getName());
             }
-            potentialPackages.add(argVals[i].getClass().getPackage());
+            potentialPackages.add(argVals[i].getClass().getPackage().getName());
             //build up a list of valid packages
             Set<Class> apiClasses = new HashSet<Class>();
-            for (Package p : potentialPackages) {
-               apiClasses.addAll(util_.getPackageClasses(p.getName()));
+            for (String packageName : potentialPackages) {
+               apiClasses.addAll(util_.getPackageClasses(packageName));
             }
 
             ParamList<Class> potentialClasses = new ParamList<Class>();
