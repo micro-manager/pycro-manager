@@ -12,8 +12,7 @@ from pycromanager import Acquisition, multi_d_acquisition_events, Bridge
 
 b = Bridge()
 
-p = b.get_studio().plugins()
-p.get_autofocus_plugins()
+b.get_studio().get_acquisition_manager()
 
 pass
 # event_list = multi_d_acquisition_events(num_time_points=10, z_start=0, z_end=10, z_step=0.5)
