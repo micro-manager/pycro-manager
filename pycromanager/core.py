@@ -3,6 +3,8 @@ import re
 import time
 import warnings
 from base64 import standard_b64encode, standard_b64decode
+import inspect
+
 import numpy as np
 import zmq
 from types import MethodType
@@ -225,20 +227,23 @@ class JavaObjectShadow:
         self._convert_camel_case = convert_camel_case
         self._interfaces = serialized_object['interfaces']
         for field in serialized_object['fields']:
-            exec('JavaObjectShadow.{} = property(lambda instance: instance._access_field(\'{}\'),'
-                 'lambda instance, val: instance._set_field(\'{}\', val))'.format(field, field, field))
+            getter = lambda instance: instance._access_field(field)
+            setter = lambda instance, val: instance._set_field(field, val)
+            setattr(self, field, property(fget=getter, fset=setter))
         methods = serialized_object['api']
-
         method_names = set([m['name'] for m in methods])
         #parse method descriptions to make python stand ins
         for method_name in method_names:
-            lambda_arg_names, unique_argument_names, methods_with_name, \
-                method_name_modified = _parse_arg_names(methods, method_name, self._convert_camel_case)
-            #use exec so the arguments can have default names that indicate type hints
-            exec('fn = lambda {}: JavaObjectShadow._translate_call(self, {}, {})'.format(','.join(['self'] + lambda_arg_names),
-                                                        eval('methods_with_name'),  ','.join(unique_argument_names)))
-            #do this one as exec also so "fn" being undefiend doesnt complain
-            exec('setattr(self, method_name_modified, MethodType(fn, self))')
+            params, methods_with_name, method_name_modified = _parse_arg_names(methods, method_name, self._convert_camel_case)
+            return_type = methods_with_name[0]['return-type']
+            fn = lambda instance, *args, signatures_list=methods_with_name: instance._translate_call(signatures_list, *args)
+            fn.__name__ = method_name_modified
+            fn.__doc__ = "{}.{}: A dynamically generated Java method.".format(self._java_class, method_name_modified)
+            sig = inspect.signature(fn)
+            params = [inspect.Parameter('self', inspect.Parameter.POSITIONAL_ONLY)]+params # Add `self` as the first argument.
+            return_type = _JAVA_TYPE_NAME_TO_PYTHON_TYPE[return_type] if return_type in _JAVA_TYPE_NAME_TO_PYTHON_TYPE else return_type
+            fn.__signature__ = sig.replace(parameters=params, return_annotation=return_type)
+            setattr(self, method_name_modified, MethodType(fn, self))
 
 
     def __del__(self):
@@ -408,7 +413,6 @@ def _check_method_args(method_specs, fn_args):
 
 
 def _parse_arg_names(methods, method_name, convert_camel_case):
-    # dont delete because this is used in the exec
     method_name_modified = _camel_case_2_snake_case(method_name) if convert_camel_case else method_name
     # all methods with this name and different argument lists
     methods_with_name = [m for m in methods if m['name'] == method_name]
@@ -416,31 +420,28 @@ def _parse_arg_names(methods, method_name, convert_camel_case):
         min([len(m['arguments']) for m in methods_with_name])
     # sort with largest number of args last so lambda at end gets max num args
     methods_with_name.sort(key=lambda val: len(val['arguments']))
-    for method in methods_with_name:
-        arg_type_hints = []
-        for typ in method['arguments']:
-            arg_type_hints.append(_CLASS_NAME_MAPPING[typ]
-                                  if typ in _CLASS_NAME_MAPPING else 'object')
-        lambda_arg_names = []
-        class_arg_names = []
-        unique_argument_names = []
-        for arg_index, hint in enumerate(arg_type_hints):
-            if hint in unique_argument_names:
-                # append numbers to end so arg hints have unique names
-                i = 1
-                while hint + str(i) in unique_argument_names:
-                    i += 1
-                hint += str(i)
-            unique_argument_names.append(hint)
-            # this is how overloading is handled for now, by making default arguments as none, but
-            # it might be better to explicitly compare argument types
-            if arg_index >= min_required_args:
-                class_arg_names.append(hint + '=' + hint)
-                lambda_arg_names.append(hint + '=None')
-            else:
-                class_arg_names.append(hint)
-                lambda_arg_names.append(hint)
-    return lambda_arg_names, unique_argument_names, methods_with_name, method_name_modified
+    method = methods_with_name[-1]  # We only need to evaluate the overload with the most arguments.
+    params = []
+    unique_argument_names = []
+    for arg_index, typ in enumerate(method['arguments']):
+        hint = _CLASS_NAME_MAPPING[typ] if typ in _CLASS_NAME_MAPPING else 'object'
+        python_type = _JAVA_TYPE_NAME_TO_PYTHON_TYPE[typ] if typ in _JAVA_TYPE_NAME_TO_PYTHON_TYPE else typ
+        if hint in unique_argument_names:  # append numbers to end so arg hints have unique names
+            i = 1
+            while hint + str(i) in unique_argument_names:
+                i += 1
+            arg_name = hint + str(i)
+        else:
+            arg_name = hint
+        unique_argument_names.append(arg_name)
+        # this is how overloading is handled for now, by making default arguments as none, but
+        # it might be better to explicitly compare argument types
+        if arg_index >= min_required_args:
+            default_arg_value = None
+        else:
+            default_arg_value = inspect.Parameter.empty
+        params.append(inspect.Parameter(name=arg_name, kind=inspect.Parameter.POSITIONAL_OR_KEYWORD, default=default_arg_value, annotation=python_type))
+    return params, methods_with_name, method_name_modified
 
 
 def _camel_case_2_snake_case(name):
