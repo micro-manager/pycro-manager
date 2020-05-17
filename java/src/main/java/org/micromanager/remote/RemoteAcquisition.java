@@ -8,6 +8,7 @@ package org.micromanager.remote;
 import mmcorej.org.json.JSONObject;
 import org.micromanager.acqj.api.Acquisition;
 import org.micromanager.acqj.api.AcquisitionInterface;
+import org.micromanager.acqj.api.DataSink;
 import org.micromanager.ndviewer.api.ViewerAcquisitionInterface;
 
 /**
@@ -22,8 +23,10 @@ public class RemoteAcquisition extends Acquisition
    private RemoteEventSource eventSource_;
 
    public RemoteAcquisition(RemoteEventSource eventSource, RemoteAcquisitionSettings settings) {
-      super(new RemoteViewerStorageAdapter(settings.showViewer,
-              settings.dataLocation, settings.name));
+      if (settings.dataLocation != null && settings.name != null) {
+         dataSink_ = new RemoteViewerStorageAdapter(settings.showViewer, settings.dataLocation, settings.name);
+      }
+      initialize();
       eventSource_ = eventSource;
       eventSource.setAcquisition(this);
    }

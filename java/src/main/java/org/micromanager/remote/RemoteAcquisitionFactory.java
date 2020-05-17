@@ -22,6 +22,13 @@ public class RemoteAcquisitionFactory {
          eng_ = new Engine(core);
       }
    }
+
+   public RemoteAcquisition createAcquisition() {
+      RemoteEventSource eventSource = new RemoteEventSource();
+      RemoteAcquisitionSettings settings = new RemoteAcquisitionSettings();
+      settings.showViewer = false;
+      return new RemoteAcquisition(eventSource, settings);
+   }
    
    public RemoteAcquisition createAcquisition(String dir, String name) {
       RemoteEventSource eventSource = new RemoteEventSource();

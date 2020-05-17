@@ -28,6 +28,7 @@ The simplest image processor function takes two arguments: the pixel data (a num
 	    				image_process_fn=img_process_fn) as acq:
 	    		### acquire some stuff ###
 
+
 One particularly useful metadata key is ``'Axes'`` which recovers the ``'axes'`` key that was in the **Acquisition event** in this image.
 
 .. code-block:: python
@@ -37,14 +38,34 @@ One particularly useful metadata key is ``'Axes'`` which recovers the ``'axes'``
 		time_index = metadata['Axes']['time']
 
 
-As an alternative to returning ``image, metadata`` to propogate the image to the default viewer and saver, the image processing function can not return anything. This can be used if one wants to delete a specific image, or divert all images to customized saving/visualization code. If the latter behavior is desired, the :class:`Acquisition<pycromanager.Acquisition>` should be created without the ``name`` and ``directory`` fields.
+Image processors are not required to take in one image and return one image. They can also return multiple images or no images. In the case of multiple images, they should be returned as a list of ``(image, metadata)`` tuples. The ``'Axes'`` or ``Channel`` metadata fields will need to be modified to uniquely identify the two images for the purposes of saving or the image viewer.
+
+.. code-block:: python
+	
+	import copy
+
+	def img_process_fn(image, metadata):
+
+		#copy pixels in this example, but in reality you might want to compute something differnt
+        image_2 = np.array(image, copy=True)
+
+        metadata_2 = copy.deepcopy(metadata)
+
+        metadata_2['Channel'] = 'A_new_channel'
+
+        #return as a list of tuples
+        return [(image, metadata), (image2, md_2)]
+
+
+
+Rather than returning one or more ``image, metadata`` tuples to propogate the image to the default viewer and saver, the image processing function can not return anything. This can be used if one wants to delete a specific image, or divert all images to customized saving/visualization code. If the latter behavior is desired, the :class:`Acquisition<pycromanager.Acquisition>` should be created without the ``name`` and ``directory`` fields.
 
 
 .. code-block:: python
 
 	def img_process_fn(image, metadata):
 		
-		### send iamge and metadata somewhere ###
+		### send image and metadata somewhere ###
 
 	if __name__ == '__main__':
 
@@ -87,6 +108,4 @@ When it is finished, it can be closed and cleaned up by passing an ``None`` to t
 	
 
 
-
-TODO: add mode to return multiple images so that additional images can be inserted
 

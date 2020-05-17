@@ -13,7 +13,6 @@ if __name__ == '__main__':
         return image, metadata
 
     #magellan example
-    with Acquisition(magellan_acq_index=0, post_hardware_hook_fn=hook_fn,
-                      image_process_fn=img_process_fn, debug=True) as acq:
-        pass
+    acq = Acquisition(magellan_acq_index=0, post_hardware_hook_fn=hook_fn,
+                      image_process_fn=img_process_fn, debug=True)
     acq.await_completion()

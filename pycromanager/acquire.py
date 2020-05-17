@@ -55,6 +55,16 @@ def _processor_startup_fn(pull_port, push_port, sockets_connected_evt, process_f
         print('image processing sockets connected')
     sockets_connected_evt.set()
 
+    def process_and_sendoff(image_tags_tuple):
+        if len(image_tags_tuple) != 2:
+            raise Exception('If image is returned, it must be of the form (pixel, metadata)')
+        if not image_tags_tuple[0].dtype == pixels.dtype:
+            raise Exception('Processed image pixels must have same dtype as input image pixels, '
+                            'but instead they were {} and {}'.format(image_tags_tuple[0].dtype, pixels.dtype))
+
+        processed_img = {'pixels': serialize_array(image_tags_tuple[0]), 'metadata': image_tags_tuple[1]}
+        push_socket.send(processed_img)
+
     while True:
         message = None
         while message is None:
@@ -79,14 +89,13 @@ def _processor_startup_fn(pull_port, push_port, sockets_connected_evt, process_f
             raise Exception('Incorrect number of arguments for image processing function, must be 2 or 4')
         if processed is None:
             continue
-        if len(processed) != 2:
-            raise Exception('If image is returned, it must be of the form (pixel, metadata)')
-        if not processed[0].dtype == pixels.dtype:
-            raise Exception('Processed image pixels must have same dtype as input image pixels, '
-                            'but instead they were {} and {}'.format(processed[0].dtype, pixels.dtype))
 
-        processed_img = {'pixels': serialize_array(processed[0]), 'metadata': processed[1]}
-        push_socket.send(processed_img)
+        if type(processed) == list:
+            for image in processed:
+                process_and_sendoff(image)
+        else:
+            process_and_sendoff(image)
+
 
 
 class Acquisition(object):
@@ -131,12 +140,15 @@ class Acquisition(object):
             self.acq = magellan_api.create_acquisition(magellan_acq_index)
             self._event_queue = None
         else:
-            # TODO: call different constructor if direcotyr and name are None
             # Create thread safe queue for events so they can be passed from multiple processes
             self._event_queue = multiprocessing.Queue()
             core = self.bridge.get_core()
             acq_manager = self.bridge.construct_java_object('org.micromanager.remote.RemoteAcquisitionFactory', args=[core])
-            self.acq = acq_manager.create_acquisition(directory, name)
+            if directory is None and name is None:
+                #an image processor will be sending them somewhere custom
+                self.acq =acq_manager.create_acquisition()
+            else:
+                self.acq = acq_manager.create_acquisition(directory, name)
 
         if image_process_fn is not None:
             processor = self.bridge.construct_java_object('org.micromanager.remote.RemoteImageProcessor')
