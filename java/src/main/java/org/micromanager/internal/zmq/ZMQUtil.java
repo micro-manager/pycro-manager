@@ -51,6 +51,10 @@ import mmcorej.org.json.JSONObject;
  */
 public class ZMQUtil {
 
+    private ClassLoader classLoader_;
+    private String[] excludedPaths_;
+    private HashMap<String, Set<Class>> packageAPIClasses_ = new HashMap<String, Set<Class>>();
+
    //TODO: associtate entries in here with a prticular client
    //map of objects that exist in some client of the server
    protected final static ConcurrentHashMap<String, Object> EXTERNAL_OBJECTS
@@ -77,6 +81,11 @@ public class ZMQUtil {
       PRIMITIVE_NAME_CLASS_MAP.put("long", long.class);
       PRIMITIVE_NAME_CLASS_MAP.put("float", float.class);
       PRIMITIVE_NAME_CLASS_MAP.put("double", double.class);
+   }
+
+   public ZMQUtil(ClassLoader cl, String[] excludePaths) {
+       classLoader_ = cl;
+       excludedPaths_ = excludePaths;
    }
 
    private static final ByteOrder BYTE_ORDER = ByteOrder.BIG_ENDIAN;
@@ -149,7 +158,6 @@ public class ZMQUtil {
       return json;
    }
 
-   //TODO: is list conversion out of place?
    /**
     * This version serializes primitves, converts lists to JSONArrays, and sends
     * out pointers to Objects
@@ -158,12 +166,11 @@ public class ZMQUtil {
     * @param json JSONObject that will contain the serialized Object can not be
     * null
     */
-   protected static void serialize(Set<Class> apiClasses, Object o,
-           JSONObject json, int port) {
+   public void serialize(Object o, JSONObject json, int port) {
       try {
          JSONObject converted = toJSON(o);
          if (converted != null) {
-            //Can be driectly converted into a serialized object--copy into
+            //Can be driectly converted into a serialized object (i.e. primitive)--copy into
             converted.keys().forEachRemaining(new Consumer<String>() {
                @Override
                public void accept(String t) {
@@ -174,19 +181,10 @@ public class ZMQUtil {
                   }
                }
             });
-         } else if (Stream.of(o.getClass().getInterfaces()).anyMatch((Class t) -> t.equals(List.class))) {
-            //Serialize java lists as JSON arrays so tehy canbe converted into python lists
-            json.put("type", "list");
-            json.put("value", new JSONArray());
-            for (Object element : (List) o) {
-               JSONObject e = new JSONObject();
-               json.getJSONArray("value").put(e);
-               serialize(apiClasses, element, e, port);
-            }
          } else {
             //Don't serialize the object, but rather send out its name so that python side
             //can construct a shadow version of it
-            //Keep track of which objects have been sent out, so that garbage collection can be synchronized between 
+            //Keep track of which objects have been sent out, so that garbage collection can be synchronized between
             //the two languages
             String hash = Integer.toHexString(System.identityHashCode(o));
             //Add a random UUID to account for the fact that there may be multiple
@@ -198,16 +196,27 @@ public class ZMQUtil {
             json.put("hash-code", hash);
             json.put("port", port);
 
-            //check to make sure that only exposing methods corresponding to API interfaces
             ArrayList<Class> apiInterfaces = new ArrayList<>();
-            for (Class apiClass : apiClasses) {
-               if (apiClass.isAssignableFrom(o.getClass())) {
-                  apiInterfaces.add(apiClass);
+            if (o.getClass().getName().startsWith("java")) {
+               //Java classes
+               for (Class c : o.getClass().getInterfaces()) {
+                  apiInterfaces.add(c);
+               }
+               apiInterfaces.add(o.getClass());
+            } else {
+               //Non Java classes. Check to make sure only exposing things we mean to
+               Package p = o.getClass().getPackage();
+               Set<Class> apiClasses = this.getPackageClasses(p.getName());
+               for (Class apiClass : apiClasses) {
+                  if (apiClass.isAssignableFrom(o.getClass())) {
+                     apiInterfaces.add(apiClass);
+                  }
                }
             }
 
             if (apiInterfaces.isEmpty()) {
-               throw new RuntimeException("Internal class accidentally exposed");
+               throw new RuntimeException("Couldn't find " + o.getClass().getName()
+                       + " on classpath, or this is an internal class that was accidentally exposed");
             }
             //List all API interfaces this class implments in case its passed
             //back as an argument to another function
@@ -229,7 +238,7 @@ public class ZMQUtil {
 
             json.put("api", parseAPI(apiInterfaces));
          }
-      } catch (JSONException e) {
+      } catch (JSONException | UnsupportedEncodingException e) {
          throw new RuntimeException(e);
       }
    }
@@ -288,33 +297,33 @@ public class ZMQUtil {
       throw new RuntimeException("unknown array type");
    }
 
-   public static JSONArray parseConstructors(Collection<Class> apiClasses,
-                                             Function<Class, Object> classMapper) throws JSONException {
+   public static JSONArray parseConstructors(String classpath, Function<Class, Object> classMapper)
+           throws JSONException, ClassNotFoundException {
       JSONArray methodArray = new JSONArray();
-      for (Class clazz : apiClasses) {
+      Class clazz = Class.forName(classpath);
 
-         Constructor[] m = clazz.getConstructors();
-         for (Constructor c : m) {
+      Constructor[] m = clazz.getConstructors();
+      for (Constructor c : m) {
+         JSONObject methJSON = new JSONObject();
+         methJSON.put("name", c.getName());
+         JSONArray args = new JSONArray();
+         for (Class arg : c.getParameterTypes()) {
+            args.put(arg.getCanonicalName());
+         }
+         methJSON.put("arguments", args);
+         methodArray.put(methJSON);
+      }
+      // add in 0 argmunet "constructors" for interfaces that get mapped to an existing instance of a class
+      if (clazz.isInterface()) {
+         if (classMapper.apply(clazz) != null) {
             JSONObject methJSON = new JSONObject();
-            methJSON.put("name", c.getName());
+            methJSON.put("name", clazz.getName());
             JSONArray args = new JSONArray();
-            for (Class arg : c.getParameterTypes()) {
-               args.put(arg.getCanonicalName());
-            }
             methJSON.put("arguments", args);
             methodArray.put(methJSON);
          }
-         // add in 0 argmunet "constructors" for interfaces that get mapped to an existing instance of a class
-         if (clazz.isInterface()) {
-            if (classMapper.apply(clazz) != null) {
-               JSONObject methJSON = new JSONObject();
-               methJSON.put("name", clazz.getName());
-               JSONArray args = new JSONArray();
-               methJSON.put("arguments", args);
-               methodArray.put(methJSON);
-            }
-         }
       }
+
       return methodArray;
    }
 
@@ -344,9 +353,71 @@ public class ZMQUtil {
       return methodArray;
    }
 
-   private static Set<Class> parseAPIWithClassLoader(ClassLoader classLoader) throws
+   public static Set<String> getPackages(ClassLoader classLoader) {
+      Set<String> packages = new HashSet<String>();
+      Package[] p = Package.getPackages();
+      for (Package pa : p) {
+         packages.add(pa.getName());
+      }
+      return packages;
+   }
+
+   public Set<Class> getPackageClasses(String packageName) throws UnsupportedEncodingException {
+        if (packageAPIClasses_.containsKey(packageName)) {
+            return packageAPIClasses_.get(packageName);
+        }
+
+       Set<Class> packageClasses = new HashSet<Class>();
+       String path = packageName.replace('.', '/');
+       Enumeration<URL> resources;
+       try {
+           resources = classLoader_.getResources(path);
+       } catch (IOException ex) {
+           throw new RuntimeException("Invalid package name in ZMQ server: " + path);
+       }
+       List<File> dirs = new ArrayList<>();
+       while (resources.hasMoreElements()) {
+           URL resource = resources.nextElement();
+           String file = resource.getFile().replaceAll("^file:", "");
+           file = (String) URLDecoder.decode(file, "UTF-8");
+
+           dirs.add(new File(file));
+       }
+
+       for (File directory : dirs) {
+           if (directory.getAbsolutePath().contains(".jar")) {
+               packageClasses.addAll(getClassesFromJarFile(directory));
+           } else {
+               packageClasses.addAll(getClassesFromDirectory(packageName, directory));
+           }
+       }
+
+      //filter out internal classes
+      Stream<Class> clazzStream = packageClasses.stream();
+      Set<Class> classSet = clazzStream.filter(new Predicate<Class>() {
+         @Override
+         public boolean test(Class t) {
+            Package p = t.getPackage();
+            if (p == null) {
+               return true;
+            }
+            boolean invalid = false;
+            for (String exclude : excludedPaths_) {
+                if (t.getPackage().getName().contains(exclude)) {
+                    return true;
+                }
+            }
+            return false;
+         }
+      }).collect(Collectors.toSet());
+
+      packageAPIClasses_.put(packageName, packageClasses);
+      return packageClasses;
+   }
+
+
+   private static Set<Class> getAPIClasses(ClassLoader classLoader) throws
            URISyntaxException, UnsupportedEncodingException {
-      //TODO: pass in classloader as an argument
 
       HashSet<Class> apiClasses = new HashSet<Class>();
 
@@ -355,13 +426,15 @@ public class ZMQUtil {
       Package[] p = Package.getPackages();
       for (Package pa : p) {
          //Add all non internal MM classes
-         if (pa.getName().contains("org.micromanager") && !pa.getName().contains("internal")) {
-            mmPackages.add(pa.getName());
-         }
-         //Add all core classes
-         if (pa.getName().contains("mmcorej")) {
-            mmPackages.add(pa.getName());
-         }
+//         if (pa.getName().contains("org.micromanager") && !pa.getName().contains("internal")) {
+//            mmPackages.add(pa.getName());
+//         }
+//         //Add all core classes
+//         if (pa.getName().contains("mmcorej")) {
+//            mmPackages.add(pa.getName());
+//         }
+
+         mmPackages.add(pa.getName());
       }
 
       //TODO: this is for netbeans, delte or split out
@@ -370,10 +443,8 @@ public class ZMQUtil {
       mmPackages.add("org.micromanager.acqj.api");
 
       // ClassLoader classLoader = Thread.currentThread().getContextClassLoader();
-//      studio_.logs().logDebugMessage("ClassLoader in ZMQServer: " + classLoader.toString());  
       for (String packageName : mmPackages) {
          String path = packageName.replace('.', '/');
-//         studio_.logs().logDebugMessage("ZMQServer-packageName: " + path);
          Enumeration<URL> resources;
          try {
             resources = classLoader.getResources(path);
@@ -383,7 +454,6 @@ public class ZMQUtil {
          List<File> dirs = new ArrayList<>();
          while (resources.hasMoreElements()) {
             URL resource = resources.nextElement();
-//            studio_.logs().logDebugMessage("ZMQServer-resource: " + resource.getFile());
             String file = resource.getFile().replaceAll("^file:", "");
             file = (String) URLDecoder.decode(file, "UTF-8");
 
@@ -400,7 +470,6 @@ public class ZMQUtil {
       }
 
       //filter out internal classes
-      //TODO: make these filters pass in as arguments
       Stream<Class> clazzStream = apiClasses.stream();
       Set<Class> classSet = clazzStream.filter(new Predicate<Class>() {
          @Override
@@ -412,21 +481,7 @@ public class ZMQUtil {
             return !t.getPackage().getName().contains("internal");
          }
       }).collect(Collectors.toSet());
-
-//      for (Class c : apiClasses_) {
-//         studio_.logs().logDebugMessage("ZMQServer class: " + c.getName());
-//      }
-//      if (apiClasses_.isEmpty()) {
-//         studio_.logs().logDebugMessage("ZMQServer: no classes found");
-//      }
       return classSet;
-   }
-
-   //Add java classes that are allowed to pass to python to avoid stuff leaking out
-   //TODO: specify filters as arguments so org.micromanager inst hardcoded
-   public static Set<Class> getAPIClasses(ClassLoader cl) throws URISyntaxException, UnsupportedEncodingException {
-      Set<Class> classes = parseAPIWithClassLoader(cl);
-      return classes;
    }
 
    private static Collection<Class> getClassesFromJarFile(File directory) {

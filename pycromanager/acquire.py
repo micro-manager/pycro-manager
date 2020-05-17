@@ -4,7 +4,98 @@ import threading
 from inspect import signature
 import copy
 import types
+import time
 from pycromanager.core import serialize_array, deserialize_array, Bridge
+
+### These functions outside class to prevent problems with pickling when running them in differnet process
+
+def _event_sending_fn(event_port, event_queue, debug=False):
+    bridge = Bridge(debug=debug)
+    event_socket = bridge._connect_push(event_port)
+    while True:
+        events = event_queue.get(block=True)
+        if events is None:
+            # Poison, time to shut down
+            event_socket.send({'events': [{'special': 'acquisition-end'}]})
+            event_socket.close()
+            return
+        event_socket.send({'events': events if type(events) == list else [events]})
+
+def _acq_hook_startup_fn(pull_port, push_port, hook_connected_evt, event_queue, hook_fn, debug):
+    bridge = Bridge(debug=debug)
+
+    push_socket = bridge._connect_push(pull_port)
+    pull_socket = bridge._connect_pull(push_port)
+    hook_connected_evt.set()
+
+    while True:
+        event_msg = pull_socket.receive()
+
+        if 'special' in event_msg and event_msg['special'] == 'acquisition-end':
+            push_socket.send({})
+            push_socket.close()
+            pull_socket.close()
+            return
+        else:
+            params = signature(hook_fn).parameters
+            if len(params) == 1:
+                new_event_msg = hook_fn(event_msg)
+            elif len(params) == 3:
+                new_event_msg = hook_fn(event_msg, bridge, event_queue)
+            else:
+                raise Exception('Incorrect number of arguments for hook function. Must be 2 or 4')
+
+        push_socket.send(new_event_msg)
+
+def _processor_startup_fn(pull_port, push_port, sockets_connected_evt, process_fn, event_queue, debug):
+    bridge = Bridge(debug=debug)
+    push_socket = bridge._connect_push(pull_port)
+    pull_socket = bridge._connect_pull(push_port)
+    if debug:
+        print('image processing sockets connected')
+    sockets_connected_evt.set()
+
+    def process_and_sendoff(image_tags_tuple):
+        if len(image_tags_tuple) != 2:
+            raise Exception('If image is returned, it must be of the form (pixel, metadata)')
+        if not image_tags_tuple[0].dtype == pixels.dtype:
+            raise Exception('Processed image pixels must have same dtype as input image pixels, '
+                            'but instead they were {} and {}'.format(image_tags_tuple[0].dtype, pixels.dtype))
+
+        processed_img = {'pixels': serialize_array(image_tags_tuple[0]), 'metadata': image_tags_tuple[1]}
+        push_socket.send(processed_img)
+
+    while True:
+        message = None
+        while message is None:
+            message = pull_socket.receive(timeout=30) #check for new message
+
+        if 'special' in message and message['special'] == 'finished':
+            push_socket.send(message) #Continue propagating the finihsed signal
+            push_socket.close()
+            pull_socket.close()
+            return
+
+        metadata = message['metadata']
+        pixels = deserialize_array(message['pixels'])
+        image = np.reshape(pixels, [metadata['Width'], metadata['Height']])
+
+        params = signature(process_fn).parameters
+        if len(params) == 2:
+            processed = process_fn(image, metadata)
+        elif len(params) == 4:
+            processed = process_fn(image, metadata, bridge, event_queue)
+        else:
+            raise Exception('Incorrect number of arguments for image processing function, must be 2 or 4')
+        if processed is None:
+            continue
+
+        if type(processed) == list:
+            for image in processed:
+                process_and_sendoff(image)
+        else:
+            process_and_sendoff(image)
+
 
 
 class Acquisition(object):
@@ -49,12 +140,15 @@ class Acquisition(object):
             self.acq = magellan_api.create_acquisition(magellan_acq_index)
             self._event_queue = None
         else:
-            # TODO: call different constructor if direcotyr and name are None
             # Create thread safe queue for events so they can be passed from multiple processes
             self._event_queue = multiprocessing.Queue()
             core = self.bridge.get_core()
             acq_manager = self.bridge.construct_java_object('org.micromanager.remote.RemoteAcquisitionFactory', args=[core])
-            self.acq = acq_manager.create_acquisition(directory, name)
+            if directory is None and name is None:
+                #an image processor will be sending them somewhere custom
+                self.acq =acq_manager.create_acquisition()
+            else:
+                self.acq = acq_manager.create_acquisition(directory, name)
 
         if image_process_fn is not None:
             processor = self.bridge.construct_java_object('org.micromanager.remote.RemoteImageProcessor')
@@ -75,21 +169,12 @@ class Acquisition(object):
         if magellan_acq_index is None:
             self.event_port = self.acq.get_event_port()
 
-            self.event_process = multiprocessing.Process(target=self.event_sending_fn, args=(), name='Event sending')
+            self.event_process = multiprocessing.Process(target=_event_sending_fn,
+                                                         args=(self.event_port, self._event_queue, self._debug),
+                                                         name='Event sending')
                     # if multiprocessing else threading.Thread(target=event_sending_fn, args=(), name='Event sending')
             self.event_process.start()
 
-    def event_sending_fn(self):
-        bridge = Bridge(debug=self._debug)
-        event_socket = bridge._connect_push(self.event_port)
-        while True:
-            events = self._event_queue.get(block=True)
-            if events is None:
-                # Poison, time to shut down
-                event_socket.send({'events': [{'special': 'acquisition-end'}]})
-                event_socket.close()
-                return
-            event_socket.send({'events': events if type(events) == list else [events]})
 
     def __enter__(self):
         return self
@@ -105,7 +190,8 @@ class Acquisition(object):
         """
         Wait for acquisition to finish and resources to be cleaned up
         """
-        self.acq.close()
+        while (not self.acq.is_finished()):
+            time.sleep(0.1)
 
     def acquire(self, events):
         """
@@ -123,34 +209,10 @@ class Acquisition(object):
         pull_port = remote_hook.get_pull_port()
         push_port = remote_hook.get_push_port()
 
-        def other_thread_fn():
-            bridge = Bridge(debug=self._debug)
-
-            push_socket = bridge._connect_push(pull_port)
-            pull_socket = bridge._connect_pull(push_port)
-            hook_connected_evt.set()
-
-            while True:
-                event_msg = pull_socket.receive()
-
-                if 'special' in event_msg and event_msg['special'] == 'acquisition-end':
-                    push_socket.send({})
-                    push_socket.close()
-                    pull_socket.close()
-                    return
-                else:
-                    params = signature(remote_hook_fn).parameters
-                    if len(params) == 1:
-                        new_event_msg = remote_hook_fn(event_msg)
-                    elif len(params) == 3:
-                        new_event_msg = remote_hook_fn(event_msg, bridge, event_queue)
-                    else:
-                        raise Exception('Incorrect number of arguments for hook function. Must be 2 or 4')
-
-                push_socket.send(new_event_msg)
-
-        hook_thread = multiprocessing.Process(target=other_thread_fn, args=(), name='AcquisitionHook') if process\
-            else threading.Thread(target=other_thread_fn, args=(), name='AcquisitionHook')
+        hook_thread = multiprocessing.Process(target=_acq_hook_startup_fn, name='AcquisitionHook',
+                                              args=(pull_port, push_port, hook_connected_evt, event_queue,
+                                                    remote_hook_fn, self._debug))
+            # if process else threading.Thread(target=_acq_hook_fn, args=(), name='AcquisitionHook')
         hook_thread.start()
 
         hook_connected_evt.wait()  # wait for push/pull sockets to connect
@@ -163,49 +225,12 @@ class Acquisition(object):
 
         pull_port = processor.get_pull_port()
         push_port = processor.get_push_port()
-        def other_thread_fn():
-            bridge = Bridge(debug=self._debug)
-            push_socket = bridge._connect_push(pull_port)
-            pull_socket = bridge._connect_pull(push_port)
-            if self._debug:
-                print('image processing sockets connected')
-            sockets_connected_evt.set()
 
-            while True:
-                message = None
-                while message is None:
-                    message = pull_socket.receive(timeout=30) #check for new message
 
-                if 'special' in message and message['special'] == 'finished':
-                    push_socket.send(message) #Continue propagating the finihsed signal
-                    push_socket.close()
-                    pull_socket.close()
-                    return
-
-                metadata = message['metadata']
-                pixels = deserialize_array(message['pixels'])
-                image = np.reshape(pixels, [metadata['Width'], metadata['Height']])
-
-                params = signature(process_fn).parameters
-                if len(params) == 2:
-                    processed = process_fn(image, metadata)
-                elif len(params) == 4:
-                    processed = process_fn(image, metadata, bridge, event_queue)
-                else:
-                    raise Exception('Incorrect number of arguments for image processing function, must be 2 or 4')
-                if processed is None:
-                    continue
-                if len(processed) != 2:
-                    raise Exception('If image is returned, it must be of the form (pixel, metadata)')
-                if not processed[0].dtype == pixels.dtype:
-                    raise Exception('Processed image pixels must have same dtype as input image pixels, '
-                                    'but instead they were {} and {}'.format(processed[0].dtype, pixels.dtype))
-
-                processed_img = {'pixels': serialize_array(processed[0]), 'metadata': processed[1]}
-                push_socket.send(processed_img)
-
-        self.processor_thread = multiprocessing.Process(target=other_thread_fn, args=(), name='ImageProcessor'
-                        ) if multiprocessing else threading.Thread(target=other_thread_fn, args=(),  name='ImageProcessor')
+        self.processor_thread = multiprocessing.Process(target=_processor_startup_fn,
+                                                        args=(pull_port, push_port, sockets_connected_evt,
+                                                              process_fn, event_queue, self._debug), name='ImageProcessor')
+                         # if multiprocessing else threading.Thread(target=other_thread_fn, args=(),  name='ImageProcessor')
         self.processor_thread.start()
 
         sockets_connected_evt.wait()  # wait for push/pull sockets to connect
