@@ -245,14 +245,14 @@ class Bridge:
         return self.construct_java_object('org.micromanager.Studio')
 
 
-class ObjectFactory:
+class JavaClassFactory:
     def __init__(self):
         self.classes = {}
 
     def create(self, serialized_obj: dict, convert_camel_case: bool = True):
-        if serialized_obj['class'] in self.classes.keys():
+        if serialized_obj['class'] in self.classes.keys():  # Return a cached class
             return self.classes[serialized_obj['class']]
-        else:
+        else:  # Generate a new class since it wasn't found in the cache.
             _java_class: str = serialized_obj['class']
             python_class_name_translation = _java_class.replace('.', '_')  # Having periods in the name would be problematic.
             _interfaces = serialized_obj['interfaces']
@@ -271,7 +271,7 @@ class ObjectFactory:
             for method_name in method_names:
                 params, methods_with_name, method_name_modified = _parse_arg_names(methodSpecs, method_name, convert_camel_case)
                 return_type = methods_with_name[0]['return-type']
-                fn = lambda instance, *args, signatures_list=tuple(methods_with_name): instance._translate_call(signatures_list, *args)
+                fn = lambda instance, *args, signatures_list=tuple(methods_with_name): instance._translate_call(signatures_list, args)
                 fn.__name__ = method_name_modified
                 fn.__doc__ = "{}.{}: A dynamically generated Java method.".format(_java_class, method_name_modified)
                 sig = inspect.signature(fn)
@@ -281,7 +281,7 @@ class ObjectFactory:
                 methods[method_name_modified] = fn
 
             newclass = type(  # Dynamically create a class to shadow a java class.
-                python_class_name_translation,  # Name
+                python_class_name_translation,  # Name, based on the original java name
                 (JavaObjectShadow,),  # Inheritance
                 {'__init__': lambda instance, socket, serialized_object: JavaObjectShadow.__init__(instance, socket, serialized_object),
                  **static_attributes, **fields, **methods}
@@ -291,7 +291,7 @@ class ObjectFactory:
             print(f'created {newclass.__name__}')
             return newclass
 
-theObjectFactory = ObjectFactory()
+theObjectFactory = JavaClassFactory()
 
 class JavaObjectShadow:
     """
@@ -335,16 +335,15 @@ class JavaObjectShadow:
         self._socket.send(message)
         reply = self._deserialize(self._socket.receive())
 
-    def _translate_call(self, *args):
+    def _translate_call(self, method_specs, fn_args: tuple):
         """
         Translate to appropriate Java method, call it, and return converted python version of its result
         :param args: args[0] is list of dictionaries of possible method specifications
         :param kwargs: hold possible polymorphic args, or none
         :return:
         """
-        method_specs = args[0]
         #args that are none are placeholders to allow for polymorphism and not considered part of the spec
-        fn_args = [a for a in args[1:] if a is not None]
+        fn_args = [a for a in fn_args if a is not None]
         valid_method_spec = _check_method_args(method_specs, fn_args)
         #args are good, make call through socket, casting the correct type if needed (e.g. int to float)
         message = {'command': 'run-method', 'hash-code': self._hash_code, 'name': valid_method_spec['name'],
