@@ -129,7 +129,6 @@ class Bridge:
             warnings.warn('Version mistmatch between Java ZMQ server and Python client. '
                             '\nJava ZMQ server version: {}\nPython client expected version: {}'.format(reply_json['version'],
                                                                                            self._EXPECTED_ZMQ_SERVER_VERSION))
-        self._constructors = reply_json['api']
 
     def construct_java_object(self, classpath, new_socket=False, args=None):
         """
@@ -147,7 +146,13 @@ class Bridge:
         """
         if args is None:
             args = []
-        methods_with_name = [m for m in self._constructors if m['name'] == classpath]
+        # classpath_minus_class = '.'.join(classpath.split('.')[:-1])
+        #query the server for constructors matching this classpath
+        message = {'command': 'get-constructors', 'classpath': classpath}
+        self._master_socket.send(message)
+        constructors = self._master_socket.receive()['api']
+
+        methods_with_name = [m for m in constructors if m['name'] == classpath]
         if len(methods_with_name) == 0:
             raise Exception('No valid java constructor found with classpath {}'.format(classpath))
         valid_method_spec = _check_method_args(methods_with_name, args)

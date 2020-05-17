@@ -5,11 +5,7 @@ import java.lang.reflect.Constructor;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.net.URISyntaxException;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.HashSet;
-import java.util.LinkedList;
-import java.util.Set;
+import java.util.*;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.function.Function;
@@ -29,7 +25,9 @@ import org.zeromq.SocketType;
 public class ZMQServer extends ZMQSocketWrapper {
 
    private ExecutorService executor_;
-   protected static Set<Class> apiClasses_;
+//   protected static Set<Class> apiClasses_;
+   private Set<String> packages_;
+   private ZMQUtil util_;
 
    //Copied from magellan version for backwards compatibility, but they are now seperate I guess
    public static final String VERSION = "2.4.0";
@@ -55,10 +53,12 @@ public class ZMQServer extends ZMQSocketWrapper {
 //         }
 //      }
 //   }
-   public ZMQServer(ClassLoader cl, Function<Class, Object> classMapper) throws URISyntaxException, UnsupportedEncodingException {
+   public ZMQServer(ClassLoader cl, Function<Class, Object> classMapper, String[] excludePaths) throws URISyntaxException, UnsupportedEncodingException {
       super(SocketType.REP);
       cl_ = cl;
-      apiClasses_ = ZMQUtil.getAPIClasses(cl);
+      packages_ = ZMQUtil.getPackages(cl);
+//      apiClasses_ = ZMQUtil.getAPIClasses(cl);
+      util_ = new ZMQUtil(cl, excludePaths);
       classMapper_ = classMapper;
    }
 
@@ -111,7 +111,7 @@ public class ZMQServer extends ZMQSocketWrapper {
       String fieldName = json.getString("name");
       Object field = obj.getClass().getField(fieldName).get(obj);
       JSONObject serialized = new JSONObject();
-      ZMQUtil.serialize(apiClasses_, field, serialized, port_);
+      util_.serialize(field, serialized, port_);
       return serialized.toString().getBytes();
    }
    
@@ -124,7 +124,8 @@ public class ZMQServer extends ZMQSocketWrapper {
       obj.getClass().getField(fieldName).set(obj, val);
    }
 
-   private LinkedList<LinkedList<Class>> getParamCombos(JSONObject message, Object[] argVals) throws JSONException {
+   private LinkedList<LinkedList<Class>> getParamCombos(JSONObject message, Object[] argVals) throws JSONException,
+           UnsupportedEncodingException {
 
       Object[] argClasses = new Object[message.getJSONArray("arguments").length()];
       for (int i = 0; i < argVals.length; i++) {
@@ -135,8 +136,19 @@ public class ZMQServer extends ZMQSocketWrapper {
             argVals[i] = EXTERNAL_OBJECTS.get(
                     message.getJSONArray("arguments").getJSONObject(i).get("hash-code"));
             //abstract to superclasses/interfaces in the API
+            Set<Package> potentialPackages = new TreeSet<Package>();
+            for (Class c : argVals[i].getClass().getInterfaces()) {
+               potentialPackages.add(c.getPackage());
+            }
+            potentialPackages.add(argVals[i].getClass().getPackage());
+            //build up a list of valid packages
+            Set<Class> apiClasses = new HashSet<Class>();
+            for (Package p : potentialPackages) {
+               apiClasses.addAll(util_.getPackageClasses(p.getName()));
+            }
+
             ParamList<Class> potentialClasses = new ParamList<Class>();
-            for (Class apiClass : apiClasses_) {
+            for (Class apiClass : apiClasses) {
                if (apiClass.isAssignableFrom(argVals[i].getClass())) {
                   potentialClasses.add(apiClass);
                }
@@ -193,7 +205,7 @@ public class ZMQServer extends ZMQSocketWrapper {
 
    private Object runConstructor(JSONObject message, Class baseClass) throws
            JSONException, InstantiationException, IllegalAccessException,
-           IllegalArgumentException, InvocationTargetException {
+           IllegalArgumentException, InvocationTargetException, UnsupportedEncodingException {
 
       Object[] argVals = new Object[message.getJSONArray("arguments").length()];
 
@@ -224,7 +236,8 @@ public class ZMQServer extends ZMQSocketWrapper {
       return mathcingConstructor.newInstance(argVals);
    }
 
-   private byte[] runMethod(Object obj, JSONObject message) throws NoSuchMethodException, IllegalAccessException, JSONException {
+   private byte[] runMethod(Object obj, JSONObject message) throws NoSuchMethodException, IllegalAccessException,
+           JSONException, UnsupportedEncodingException {
       String methodName = message.getString("name");
       Object[] argVals = new Object[message.getJSONArray("arguments").length()];
       LinkedList<LinkedList<Class>> paramCombos = getParamCombos(message, argVals);
@@ -257,7 +270,7 @@ public class ZMQServer extends ZMQSocketWrapper {
       }
 
       JSONObject serialized = new JSONObject();
-      ZMQUtil.serialize(apiClasses_, result, serialized, port_);
+      util_.serialize(result, serialized, port_);
       return serialized.toString().getBytes();
    }
 
@@ -271,27 +284,18 @@ public class ZMQServer extends ZMQSocketWrapper {
             reply = new JSONObject();
             reply.put("type", "none");
             reply.put("version", VERSION);
-            reply.put("api", ZMQUtil.parseConstructors(apiClasses_, classMapper_));
-//            for (Class c : apiClasses_) {
-//               System.out.println(c);
-//            }
             return reply.toString().getBytes();
          }
-//         case "pull-socket": { //Create a new Pull socket on the specified port
-//            int port = Collections.max(portSocketMap_.keySet()) + 1;
-//            new ZMQPullSocket(port, "ZMQ pull socket");
-//            reply = new JSONObject();
-//            reply.put("type", "none");
-//            reply.put("port", port);
-//            return reply.toString().getBytes();
-//         }
+         case "get-constructors": {
+            String classpath = request.getString("classpath");
+            reply = new JSONObject();
+            reply.put("type", "none");
+            reply.put("api", ZMQUtil.parseConstructors(classpath, classMapper_));
+            return reply.toString().getBytes();
+         }
          case "constructor": { //construct a new object (or grab an exisitng instance)
-            Class baseClass = null;
-            for (Class c : apiClasses_) {
-               if (c.getName().equals(request.getString("classpath"))) {
-                  baseClass = c;
-               }
-            }
+            Class baseClass = Class.forName(request.getString("classpath"));
+
             if (baseClass == null) {
                throw new RuntimeException("Couldnt find class with name" + request.getString("classpath"));
             }
@@ -305,10 +309,10 @@ public class ZMQServer extends ZMQSocketWrapper {
 
             if (request.has("new-port") && request.getBoolean("new-port")) {
                //start the server for this class and store it
-               new ZMQServer(cl_, classMapper_);
+               new ZMQServer(cl_, classMapper_, new String[]{"org.micromanager.internal"});
             }
             reply = new JSONObject();
-            ZMQUtil.serialize(apiClasses_, instance, reply, port_);
+            util_.serialize(instance, reply, port_);
             return reply.toString().getBytes();
          }
          case "run-method": {
