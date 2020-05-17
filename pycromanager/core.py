@@ -5,46 +5,9 @@ import time
 import typing
 import warnings
 from base64 import standard_b64encode, standard_b64decode
-from dataclasses import dataclass
 import inspect
-
 import numpy as np
 import zmq
-
-@dataclass
-class Message:
-    type: str
-    value: typing.Any
-
-    def __post_init(self):
-        print('ran')
-        assert self.typeStr is not None
-
-    @property
-    def typeStr(self) -> str:
-        return None
-
-    @classmethod
-    def from_json(cls, jsonStr: str):
-        cls.__init__(json.loads(jsonStr))
-
-    def get_value(self):
-        return self.value
-
-class StdMessage(Message):
-
-    @property
-    def typeStr(self)->str:
-        return 'std'
-
-class JavaException(Message):
-
-    @property
-    def typeStr(self)->str:
-        return 'exception'
-
-
-
 
 
 class JavaSocket:
