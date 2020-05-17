@@ -80,6 +80,7 @@ public class RemoteEventSource {
 
    /**
     * This method needed so the source can be shutdown from x out on the viewer, 
+    * This method needed so the source can be shutdown from x out on the viewer,
     * rather than sending a finished event like noremal
     */
    void abort() {
