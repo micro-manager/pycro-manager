@@ -1,3 +1,4 @@
+from __future__ import annotations
 import json
 import re
 import time
@@ -156,7 +157,8 @@ class Bridge:
         self._debug = debug
         self._master_socket = JavaSocket(self._context, port, zmq.REQ, debug=debug)
         self._master_socket.send({'command': 'connect', })
-        reply_json = self._master_socket.receive(timeout=5000)
+        self._class_factory = JavaClassFactory()
+        reply_json = self._master_socket.receive(timeout=500)
         if reply_json is None:
             raise TimeoutError("Socket timed out after 500 milliseconds. Is Micro-Manager running and is the ZMQ server option enabled?")
         if reply_json['type'] == 'exception':
@@ -167,6 +169,9 @@ class Bridge:
             warnings.warn('Version mistmatch between Java ZMQ server and Python client. '
                             '\nJava ZMQ server version: {}\nPython client expected version: {}'.format(reply_json['version'],
                                                                                            self._EXPECTED_ZMQ_SERVER_VERSION))
+
+    def get_class(self, serialized_object) -> typing.Type[JavaObjectShadow]:
+        return self._class_factory.create(serialized_object, convert_camel_case=self._convert_camel_case)
 
     def construct_java_object(self, classpath, new_socket=False, args=None):
         """
@@ -207,7 +212,7 @@ class Bridge:
             socket = JavaSocket(self._context, serialized_object['port'], zmq.REQ)
         else:
             socket = self._master_socket
-        return theObjectFactory.create(serialized_object)(socket=socket, serialized_object=serialized_object)
+        return self._class_factory.create(serialized_object)(socket=socket, serialized_object=serialized_object, bridge=self)
 
     def _connect_push(self, port):
         """
@@ -254,7 +259,7 @@ class JavaClassFactory:
     def __init__(self):
         self.classes = {}
 
-    def create(self, serialized_obj: dict, convert_camel_case: bool = True):
+    def create(self, serialized_obj: dict, convert_camel_case: bool = True) -> typing.Type[JavaObjectShadow]:
         if serialized_obj['class'] in self.classes.keys():  # Return a cached class
             return self.classes[serialized_obj['class']]
         else:  # Generate a new class since it wasn't found in the cache.
@@ -288,7 +293,7 @@ class JavaClassFactory:
             newclass = type(  # Dynamically create a class to shadow a java class.
                 python_class_name_translation,  # Name, based on the original java name
                 (JavaObjectShadow,),  # Inheritance
-                {'__init__': lambda instance, socket, serialized_object: JavaObjectShadow.__init__(instance, socket, serialized_object),
+                {'__init__': lambda instance, socket, serialized_object, bridge: JavaObjectShadow.__init__(instance, socket, serialized_object, bridge),
                  **static_attributes, **fields, **methods}
             )
 
@@ -296,7 +301,6 @@ class JavaClassFactory:
             print(f'created {newclass.__name__}')
             return newclass
 
-theObjectFactory = JavaClassFactory()
 
 class JavaObjectShadow:
     """
@@ -305,9 +309,10 @@ class JavaObjectShadow:
     _interfaces = None  # Subclasses should fill these out. This class should never be directly instantiated.
     _java_class = None
 
-    def __init__(self, socket, serialized_object):
+    def __init__(self, socket, serialized_object, bridge: Bridge):
         self._socket = socket
         self._hash_code = serialized_object['hash-code']
+        self._bridge = bridge
 
     def __del__(self):
         """
@@ -381,7 +386,7 @@ class JavaObjectShadow:
                 raise Exception('Unrecognized return class')
         elif json_return['type'] == 'unserialized-object':
             #inherit socket from parent object
-            return theObjectFactory.create(json_return)(socket=self._socket, serialized_object=json_return)
+            return self._bridge.get_class(json_return)(socket=self._socket, serialized_object=json_return, bridge=self._bridge)
         else:
             return deserialize_array(json_return)
 
