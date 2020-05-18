@@ -227,9 +227,11 @@ class JavaObjectShadow:
         self._convert_camel_case = convert_camel_case
         self._interfaces = serialized_object['interfaces']
         for field in serialized_object['fields']:
-            getter = lambda instance: instance._access_field(field)
-            setter = lambda instance, val: instance._set_field(field, val)
-            setattr(self, field, property(fget=getter, fset=setter))
+            exec('JavaObjectShadow.{} = property(lambda instance: instance._access_field(\'{}\'),'
+                'lambda instance, val: instance._set_field(\'{}\', val))'.format(field, field, field))
+            # getter = lambda instance: instance._access_field(field)
+            # setter = lambda instance, val: instance._set_field(field, val)
+            # setattr(self, field, property(fget=getter, fset=setter))
         methods = serialized_object['api']
         method_names = set([m['name'] for m in methods])
         #parse method descriptions to make python stand ins
