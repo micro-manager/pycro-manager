@@ -120,7 +120,7 @@ class Bridge:
         self._debug = debug
         self._master_socket = JavaSocket(self._context, port, zmq.REQ, debug=debug)
         self._master_socket.send({'command': 'connect', })
-        self._class_factory = JavaClassFactory()
+        self._class_factory = _JavaClassFactory()
         reply_json = self._master_socket.receive(timeout=500)
         if reply_json is None:
             raise TimeoutError("Socket timed out after 500 milliseconds. Is Micro-Manager running and is the ZMQ server option enabled?")
@@ -218,7 +218,7 @@ class Bridge:
         return self.construct_java_object('org.micromanager.Studio')
 
 
-class JavaClassFactory:
+class _JavaClassFactory:
     """
     This class is responsible for generating subclasses of JavaObjectShadow. Each generated class is kept in a `dict`.
     If a given class has already been generate once it will be returns from the cache rather than re-generating it.
