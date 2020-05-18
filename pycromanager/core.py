@@ -1,13 +1,12 @@
 import json
 import re
 import time
+import typing
 import warnings
 from base64 import standard_b64encode, standard_b64decode
 import inspect
-
 import numpy as np
 import zmq
-from types import MethodType
 
 
 class JavaSocket:
@@ -120,7 +119,8 @@ class Bridge:
         self._debug = debug
         self._master_socket = JavaSocket(self._context, port, zmq.REQ, debug=debug)
         self._master_socket.send({'command': 'connect', })
-        reply_json = self._master_socket.receive(timeout=5000)
+        self._class_factory = _JavaClassFactory()
+        reply_json = self._master_socket.receive(timeout=500)
         if reply_json is None:
             raise TimeoutError("Socket timed out after 500 milliseconds. Is Micro-Manager running and is the ZMQ server option enabled?")
         if reply_json['type'] == 'exception':
@@ -131,6 +131,9 @@ class Bridge:
             warnings.warn('Version mistmatch between Java ZMQ server and Python client. '
                             '\nJava ZMQ server version: {}\nPython client expected version: {}'.format(reply_json['version'],
                                                                                            self._EXPECTED_ZMQ_SERVER_VERSION))
+
+    def get_class(self, serialized_object) -> typing.Type['JavaObjectShadow']:
+        return self._class_factory.create(serialized_object, convert_camel_case=self._convert_camel_case)
 
     def construct_java_object(self, classpath, new_socket=False, args=None):
         """
@@ -171,8 +174,7 @@ class Bridge:
             socket = JavaSocket(self._context, serialized_object['port'], zmq.REQ)
         else:
             socket = self._master_socket
-        return JavaObjectShadow(socket=socket, serialized_object=serialized_object,
-                        convert_camel_case=self._convert_camel_case)
+        return self._class_factory.create(serialized_object)(socket=socket, serialized_object=serialized_object, bridge=self)
 
     def _connect_push(self, port):
         """
@@ -215,38 +217,67 @@ class Bridge:
         return self.construct_java_object('org.micromanager.Studio')
 
 
+class _JavaClassFactory:
+    """
+    This class is responsible for generating subclasses of JavaObjectShadow. Each generated class is kept in a `dict`.
+    If a given class has already been generate once it will be returns from the cache rather than re-generating it.
+    """
+    def __init__(self):
+        self.classes = {}
+
+    def create(self, serialized_obj: dict, convert_camel_case: bool = True) -> typing.Type['JavaObjectShadow']:
+        """Create a class (or return a class from the cache) based on the contents of `serialized_object` message."""
+        if serialized_obj['class'] in self.classes.keys():  # Return a cached class
+            return self.classes[serialized_obj['class']]
+        else:  # Generate a new class since it wasn't found in the cache.
+            _java_class: str = serialized_obj['class']
+            python_class_name_translation = _java_class.replace('.', '_')  # Having periods in the name would be problematic.
+            _interfaces = serialized_obj['interfaces']
+            static_attributes = {'_java_class': _java_class, '_interfaces': _interfaces}
+
+            fields = {}  # Create a dict of field names with getter and setter funcs.
+            for field in serialized_obj['fields']:
+                fields[field] = property(fget=lambda instance, Field=field: instance._access_field(Field),
+                                         fset=lambda instance, val, Field=field: instance._set_field(Field, val))
+
+            methods = {}  # Create a dict of methods for the class by name.
+            methodSpecs = serialized_obj['api']
+            method_names = set([m['name'] for m in methodSpecs])
+            # parse method descriptions to make python stand ins
+            for method_name in method_names:
+                params, methods_with_name, method_name_modified = _parse_arg_names(methodSpecs, method_name, convert_camel_case)
+                return_type = methods_with_name[0]['return-type']
+                fn = lambda instance, *args, signatures_list=tuple(methods_with_name): instance._translate_call(signatures_list, args)
+                fn.__name__ = method_name_modified
+                fn.__doc__ = "{}.{}: A dynamically generated Java method.".format(_java_class, method_name_modified)
+                sig = inspect.signature(fn)
+                params = [inspect.Parameter('self', inspect.Parameter.POSITIONAL_ONLY)] + params  # Add `self` as the first argument.
+                return_type = _JAVA_TYPE_NAME_TO_PYTHON_TYPE[return_type] if return_type in _JAVA_TYPE_NAME_TO_PYTHON_TYPE else return_type
+                fn.__signature__ = sig.replace(parameters=params, return_annotation=return_type)
+                methods[method_name_modified] = fn
+
+            newclass = type(  # Dynamically create a class to shadow a java class.
+                python_class_name_translation,  # Name, based on the original java name
+                (JavaObjectShadow,),  # Inheritance
+                {'__init__': lambda instance, socket, serialized_object, bridge: JavaObjectShadow.__init__(instance, socket, serialized_object, bridge),
+                 **static_attributes, **fields, **methods}
+            )
+
+            self.classes[_java_class] = newclass
+            return newclass
+
+
 class JavaObjectShadow:
     """
     Generic class for serving as a python interface for a micromanager class using a zmq server backend
     """
+    _interfaces = None  # Subclasses should fill these out. This class should never be directly instantiated.
+    _java_class = None
 
-    def __init__(self, socket, serialized_object=None, convert_camel_case=True):
-        self._java_class = serialized_object['class']
+    def __init__(self, socket, serialized_object, bridge: Bridge):
         self._socket = socket
         self._hash_code = serialized_object['hash-code']
-        self._convert_camel_case = convert_camel_case
-        self._interfaces = serialized_object['interfaces']
-        for field in serialized_object['fields']:
-            exec('JavaObjectShadow.{} = property(lambda instance: instance._access_field(\'{}\'),'
-                'lambda instance, val: instance._set_field(\'{}\', val))'.format(field, field, field))
-            # getter = lambda instance: instance._access_field(field)
-            # setter = lambda instance, val: instance._set_field(field, val)
-            # setattr(self, field, property(fget=getter, fset=setter))
-        methods = serialized_object['api']
-        method_names = set([m['name'] for m in methods])
-        #parse method descriptions to make python stand ins
-        for method_name in method_names:
-            params, methods_with_name, method_name_modified = _parse_arg_names(methods, method_name, self._convert_camel_case)
-            return_type = methods_with_name[0]['return-type']
-            fn = lambda instance, *args, signatures_list=methods_with_name: instance._translate_call(signatures_list, *args)
-            fn.__name__ = method_name_modified
-            fn.__doc__ = "{}.{}: A dynamically generated Java method.".format(self._java_class, method_name_modified)
-            sig = inspect.signature(fn)
-            params = [inspect.Parameter('self', inspect.Parameter.POSITIONAL_ONLY)]+params # Add `self` as the first argument.
-            return_type = _JAVA_TYPE_NAME_TO_PYTHON_TYPE[return_type] if return_type in _JAVA_TYPE_NAME_TO_PYTHON_TYPE else return_type
-            fn.__signature__ = sig.replace(parameters=params, return_annotation=return_type)
-            setattr(self, method_name_modified, MethodType(fn, self))
-
+        self._bridge = bridge
 
     def __del__(self):
         """
@@ -261,11 +292,7 @@ class JavaObjectShadow:
         if reply_json['type'] == 'exception':
             raise Exception(reply_json['value'])
 
-    def __repr__(self):
-        #convenience for debugging
-        return 'JavaObjectShadow for : ' + self._java_class
-
-    def _access_field(self, name, *args):
+    def _access_field(self, name):
         """
         Return a python version of the field with a given name
         :return:
@@ -274,7 +301,7 @@ class JavaObjectShadow:
         self._socket.send(message)
         return self._deserialize(self._socket.receive())
 
-    def _set_field(self, name, value, *args):
+    def _set_field(self, name, value):
         """
         Return a python version of the field with a given name
         :return:
@@ -283,16 +310,15 @@ class JavaObjectShadow:
         self._socket.send(message)
         reply = self._deserialize(self._socket.receive())
 
-    def _translate_call(self, *args):
+    def _translate_call(self, method_specs, fn_args: tuple):
         """
         Translate to appropriate Java method, call it, and return converted python version of its result
         :param args: args[0] is list of dictionaries of possible method specifications
         :param kwargs: hold possible polymorphic args, or none
         :return:
         """
-        method_specs = args[0]
         #args that are none are placeholders to allow for polymorphism and not considered part of the spec
-        fn_args = [a for a in args[1:] if a is not None]
+        fn_args = [a for a in fn_args if a is not None]
         valid_method_spec = _check_method_args(method_specs, fn_args)
         #args are good, make call through socket, casting the correct type if needed (e.g. int to float)
         message = {'command': 'run-method', 'hash-code': self._hash_code, 'name': valid_method_spec['name'],
@@ -325,8 +351,7 @@ class JavaObjectShadow:
                 raise Exception('Unrecognized return class')
         elif json_return['type'] == 'unserialized-object':
             #inherit socket from parent object
-            return JavaObjectShadow(socket=self._socket, serialized_object=json_return,
-                                    convert_camel_case=self._convert_camel_case)
+            return self._bridge.get_class(json_return)(socket=self._socket, serialized_object=json_return, bridge=self._bridge)
         else:
             return deserialize_array(json_return)
 
@@ -337,7 +362,7 @@ def serialize_array(array):
 
 def deserialize_array(json_return):
     """
-    Convet a serialized java array to the appropriate numpy type
+    Convert a serialized java array to the appropriate numpy type
     :param json_return:
     :return:
     """
