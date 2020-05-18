@@ -9,10 +9,7 @@ import java.io.File;
 import java.io.FilenameFilter;
 import java.io.IOException;
 import java.io.UnsupportedEncodingException;
-import java.lang.reflect.Constructor;
-import java.lang.reflect.Field;
-import java.lang.reflect.Method;
-import java.lang.reflect.Modifier;
+import java.lang.reflect.*;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.net.URL;
@@ -195,13 +192,17 @@ public class ZMQUtil {
                apiInterfaces.add(o.getClass());
             } else {
                //Non Java classes. Check to make sure only exposing things we mean to
-               Package p = o.getClass().getPackage();
-               Set<Class> apiClasses = this.getPackageClasses(p.getName());
-               for (Class apiClass : apiClasses) {
-                  if (apiClass.isAssignableFrom(o.getClass())) {
-                     apiInterfaces.add(apiClass);
+
+               Set<String> packageNames = new HashSet<String>();
+               //Search through all superclasses and interfaces
+               Class clazz = o.getClass();
+               do {
+                  apiInterfaces.add(clazz);
+                  for (Class inter : clazz.getInterfaces()) {
+                     apiInterfaces.add(inter);
                   }
-               }
+                  clazz = clazz.getSuperclass();
+               } while (clazz != null);
             }
 
             if (apiInterfaces.isEmpty()) {
@@ -228,7 +229,7 @@ public class ZMQUtil {
 
             json.put("api", parseAPI(apiInterfaces));
          }
-      } catch (JSONException | UnsupportedEncodingException e) {
+      } catch (JSONException e) {
          throw new RuntimeException(e);
       }
    }
@@ -337,6 +338,11 @@ public class ZMQUtil {
                args.put(arg.getCanonicalName());
             }
             methJSON.put("arguments", args);
+//            JSONArray argNames = new JSONArray();
+//            for (Parameter p : method.getParameters()) {
+//               argNames.put(p.getName());
+//            }
+//            methJSON.put("argument-names", argNames);
             methodArray.put(methJSON);
          }
       }

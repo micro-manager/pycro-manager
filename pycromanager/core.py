@@ -1,4 +1,3 @@
-from __future__ import annotations
 import json
 import re
 import time
@@ -158,7 +157,7 @@ class Bridge:
                             '\nJava ZMQ server version: {}\nPython client expected version: {}'.format(reply_json['version'],
                                                                                            self._EXPECTED_ZMQ_SERVER_VERSION))
 
-    def get_class(self, serialized_object) -> typing.Type[JavaObjectShadow]:
+    def get_class(self, serialized_object) -> typing.Type['JavaObjectShadow']:
         return self._class_factory.create(serialized_object, convert_camel_case=self._convert_camel_case)
 
     def construct_java_object(self, classpath, new_socket=False, args=None):
@@ -251,7 +250,7 @@ class _JavaClassFactory:
     def __init__(self):
         self.classes = {}
 
-    def create(self, serialized_obj: dict, convert_camel_case: bool = True) -> typing.Type[JavaObjectShadow]:
+    def create(self, serialized_obj: dict, convert_camel_case: bool = True) -> typing.Type['JavaObjectShadow']:
         """Create a class (or return a class from the cache) based on the contents of `serialized_object` message."""
         if serialized_obj['class'] in self.classes.keys():  # Return a cached class
             return self.classes[serialized_obj['class']]
@@ -263,9 +262,8 @@ class _JavaClassFactory:
 
             fields = {}  # Create a dict of field names with getter and setter funcs.
             for field in serialized_obj['fields']:
-                getter = lambda instance: instance._access_field(field)
-                setter = lambda instance, val: instance._set_field(field, val)
-                fields[field] = property(fget=getter, fset=setter)
+                fields[field] = property(fget=lambda instance, Field=field: instance._access_field(Field),
+                                         fset=lambda instance, val, Field=field: instance._set_field(Field, val))
 
             methods = {}  # Create a dict of methods for the class by name.
             methodSpecs = serialized_obj['api']
@@ -291,7 +289,6 @@ class _JavaClassFactory:
             )
 
             self.classes[_java_class] = newclass
-            print(f'created {newclass.__name__}')
             return newclass
 
 
