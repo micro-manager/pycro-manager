@@ -10,6 +10,19 @@ import numpy as np
 import zmq
 
 
+class _PycromanagerEncoder(json.JSONEncoder):
+    def default(self, obj):
+        if isinstance(obj, np.ndarray):
+            return standard_b64encode(obj.tobytes()).decode('utf-8')
+        elif isinstance(obj, JavaObjectShadow):
+            return {'hash-code': obj._hash_code}
+        elif np.issubdtype(type(obj), np.floating):
+            return float(obj)
+        elif np.issubdtype(type(obj), np.integer):
+            return int(obj)
+        return super().default(obj)
+
+
 class JavaSocket:
     """
     Wrapper for ZMQ socket that sends and recieves dictionaries
@@ -32,37 +45,17 @@ class JavaSocket:
         #     print(e.__traceback__)
         # raise Exception('Couldnt connect or bind to port {}'.format(port))
 
-    def _convert_np_to_python(self, d):
-        """
-        recursive ply search dictionary and convert any values from numpy floats/ints to
-        python floats/ints so they can be hson serialized
-        :return:
-        """
-        if type(d) != dict:
-            return
-        for k, v in d.items():
-            if isinstance(v, dict):
-                self._convert_np_to_python(v)
-            elif type(v) == list:
-                for e in v:
-                    self._convert_np_to_python(e)
-            elif np.issubdtype(type(v), np.floating):
-                d[k] = float(v)
-            elif np.issubdtype(type(v), np.integer):
-                d[k] = int(v)
-
-    def send(self, message, timeout=0):
+    def send(self, message: dict, timeout=0):
         if message is None:
             message = {}
         #make sure any np types convert to python types so they can be json serialized
-        self._convert_np_to_python(message)
         if timeout == 0:
-            self._socket.send(bytes(json.dumps(message), 'utf-8'))
+            self._socket.send(bytes(json.dumps(message, cls=_PycromanagerEncoder), 'utf-8'))
         else:
             start = time.time()
             while 1000 * (time.time() - start) < timeout:
                 try:
-                    self._socket.send(bytes(json.dumps(message), 'utf-8'), flags=zmq.NOBLOCK)
+                    self._socket.send(bytes(json.dumps(message, cls=_PycromanagerEncoder), 'utf-8'), flags=zmq.NOBLOCK)
                     return True
                 except zmq.ZMQError:
                     pass #ignore, keep trying
@@ -309,7 +302,7 @@ class JavaObjectShadow:
         Return a python version of the field with a given name
         :return:
         """
-        message = {'command': 'set-field', 'hash-code': self._hash_code, 'name': name, 'value': _serialize_arg(value)}
+        message = {'command': 'set-field', 'hash-code': self._hash_code, 'name': name, 'value': value}
         self._socket.send(message)
         reply = self._deserialize(self._socket.receive())
 
@@ -359,8 +352,6 @@ class JavaObjectShadow:
             return deserialize_array(json_return)
 
 
-def serialize_array(array):
-    return standard_b64encode(array.tobytes()).decode('utf-8')
 
 
 def deserialize_array(json_return):
@@ -391,21 +382,10 @@ def _package_arguments(valid_method_spec, fn_args):
     arguments = []
     for arg_type, arg_val in zip(valid_method_spec['arguments'], fn_args):
         if isinstance(arg_val, JavaObjectShadow):
-            arguments.append(_serialize_arg(arg_val))
+            arguments.append(arg_val)
         else:
-            arguments.append(_serialize_arg(_JAVA_TYPE_NAME_TO_PYTHON_TYPE[arg_type](arg_val)))
+            arguments.append(_JAVA_TYPE_NAME_TO_PYTHON_TYPE[arg_type](arg_val))
     return arguments
-
-
-def _serialize_arg(arg):
-    if type(arg) in [bool, str, int, float]:
-        return arg #json handles serialization
-    elif type(arg) == np.ndarray:
-        return serialize_array(arg)
-    elif isinstance(arg, JavaObjectShadow):
-        return {'hash-code': arg._hash_code}
-    else:
-        raise Exception('Unknown argumetn type')
 
 
 def _check_method_args(method_specs, fn_args):
@@ -496,6 +476,7 @@ if __name__ == '__main__':
     b = Bridge()
     try:
         s = b.get_studio()
+        print(type(s.live()))
     except:
        traceback.print_exc()
     try:

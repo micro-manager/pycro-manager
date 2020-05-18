@@ -5,7 +5,7 @@ from inspect import signature
 import copy
 import types
 import time
-from pycromanager.core import serialize_array, deserialize_array, Bridge
+from pycromanager.core import deserialize_array, Bridge
 
 ### These functions outside class to prevent problems with pickling when running them in differnet process
 
@@ -62,7 +62,7 @@ def _processor_startup_fn(pull_port, push_port, sockets_connected_evt, process_f
             raise Exception('Processed image pixels must have same dtype as input image pixels, '
                             'but instead they were {} and {}'.format(image_tags_tuple[0].dtype, pixels.dtype))
 
-        processed_img = {'pixels': serialize_array(image_tags_tuple[0]), 'metadata': image_tags_tuple[1]}
+        processed_img = {'pixels': image_tags_tuple[0], 'metadata': image_tags_tuple[1]}
         push_socket.send(processed_img)
 
     while True:
