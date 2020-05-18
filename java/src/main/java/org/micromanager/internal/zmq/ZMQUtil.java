@@ -119,8 +119,18 @@ public class ZMQUtil {
                s += el.toString() + "\n";
             }
             json.put("value", s);
+         } else if (o instanceof String) {
+            json.put("type", "string");
+            json.put("value", o);
          } else if (o == null) {
-            json.put(JSONObject.NULL);
+            json.put("type", "none");
+         } else if (PRIMITIVES.contains(o.getClass())) {
+            json.put("type", "primitive");
+            json.put("value", o);
+         } else if (o.getClass().equals(JSONObject.class)) {
+            json.put("type", "object");
+            json.put("class", "JSONObject");
+            json.put("value", o.toString());
          } else if (o.getClass().equals(byte[].class)) {
             json.put("type", "byte-array");
             json.put("value", encodeArray(o));
@@ -157,7 +167,7 @@ public class ZMQUtil {
       try {
          JSONObject converted = toJSON(o);
          if (converted != null) {
-            //Can be directly converted into a serialized object (i.e. primitive)--copy into
+            //Can be driectly converted into a serialized object (i.e. primitive)--copy into
             converted.keys().forEachRemaining(new Consumer<String>() {
                @Override
                public void accept(String t) {
