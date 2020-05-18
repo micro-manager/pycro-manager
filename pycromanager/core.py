@@ -46,13 +46,13 @@ class JavaSocket:
     Wrapper for ZMQ socket that sends and recieves dictionaries
     """
 
-    def __init__(self, context, port, type, debug, bridge: Bridge):
+    def __init__(self, context, port, zmqType, debug, bridge: 'Bridge'):
         # request reply socket
-        self._socket = context.socket(type)
+        self._socket = context.socket(zmqType)
         self._debug = debug
         self._bridge = bridge
         # try:
-        if type == zmq.PUSH:
+        if zmqType == zmq.PUSH:
             if debug:
                 print('binding {}'.format(port))
             self._socket.bind("tcp://127.0.0.1:{}".format(port))
