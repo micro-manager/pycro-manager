@@ -5,7 +5,7 @@ from inspect import signature
 import copy
 import types
 import time
-from pycromanager.core import deserialize_array, Bridge
+from pycromanager import Bridge
 
 ### These functions outside class to prevent problems with pickling when running them in differnet process
 
@@ -77,7 +77,7 @@ def _processor_startup_fn(pull_port, push_port, sockets_connected_evt, process_f
             return
 
         metadata = message['metadata']
-        pixels = deserialize_array(message['pixels'])
+        pixels = message['pixels']
         image = np.reshape(pixels, [metadata['Width'], metadata['Height']])
 
         params = signature(process_fn).parameters

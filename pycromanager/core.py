@@ -10,9 +10,13 @@ import numpy as np
 import zmq
 
 
+class JavaException(Exception):
+    """An exception from the JVM that was sent over the bridge."""
+
+
 class _PycromanagerEncoder(json.JSONEncoder):
     def default(self, obj):
-        if isinstance(obj, np.ndarray):
+        if isinstance(obj, np.ndarray):  # TODO the way that we transmit arrays is not the same as the way we receive them. This could cause confusion.
             return standard_b64encode(obj.tobytes()).decode('utf-8')
         elif isinstance(obj, JavaObjectShadow):
             return {'hash-code': obj._hash_code}
@@ -23,15 +27,43 @@ class _PycromanagerEncoder(json.JSONEncoder):
         return super().default(obj)
 
 
+def _getDecoder(bridge: Bridge, socket: JavaSocket):
+    def decoderObjectHook(dct: dict):
+        numpy_type_map = {'byte-array': '>u1', 'double-array': '>f8', 'int-array': '>u4', 'short-array': '>u2', 'float-array': '>f4'}
+        if 'type' in dct:
+            if dct['type'] == 'exception':
+                raise JavaException(dct['value'])
+            #TODO aren't null, primitives, strings, and JSONObject already supported natively in JSON, why implement our own handling?
+            elif dct['type'] == 'null':
+                return None
+            elif dct['type'] == 'primitive':
+                return dct['value']
+            elif dct['type'] == 'string':
+                return dct['value']
+            elif dct['type'] == 'object':
+                if dct['class'] == 'JSONObject':
+                    return json.loads(dct['value'], object_hook=decoderObjectHook)
+                else:
+                    raise Exception('Unrecognized return class')
+            elif dct['type'] == 'unserialized-object':
+                # inherit socket from parent object
+                return bridge.get_class(dct)(socket=socket, serialized_object=dct,bridge=bridge)
+            elif dct['type'] in numpy_type_map.keys():  # If we got this far we just assume that it's an array.
+                dtype = numpy_type_map[dct['type']]
+                return np.frombuffer(standard_b64decode(dct['value']), dtype=dtype).copy()
+        return dct  # Return the dict as-is, let json do the default decoding.
+
+
 class JavaSocket:
     """
     Wrapper for ZMQ socket that sends and recieves dictionaries
     """
 
-    def __init__(self, context, port, type, debug):
+    def __init__(self, context, port, type, debug, bridge: Bridge):
         # request reply socket
         self._socket = context.socket(type)
         self._debug = debug
+        self._bridge = bridge
         # try:
         if type == zmq.PUSH:
             if debug:
@@ -76,7 +108,7 @@ class JavaSocket:
                     pass #ignore, keep trying
             if reply is None:
                 return reply
-        message = json.loads(reply.decode('utf-8'))
+        message = json.loads(reply.decode('utf-8'), object_hook=_getDecoder(self._bridge, self))
         self._check_exception(message)
         return message
 
@@ -323,53 +355,6 @@ class JavaObjectShadow:
 
         self._socket.send(message)
         return self._deserialize(self._socket.receive())
-
-    def _deserialize(self, json_return):
-        """
-        :param method_spec: info about the method that called it
-        :param reply: bytes that represents return
-        :return: an appropriate python type of the converted value
-        """
-        if json_return['type'] == 'exception':
-            raise Exception(json_return['value'])
-        elif json_return['type'] == 'null':
-            return None
-        elif json_return['type'] == 'primitive':
-            return json_return['value']
-        elif json_return['type'] == 'string':
-            return json_return['value']
-        elif json_return['type'] == 'list':
-            return [self._deserialize(obj) for obj in json_return['value']]
-        elif json_return['type'] == 'object':
-            if json_return['class'] == 'JSONObject':
-                return json.loads(json_return['value'])
-            else:
-                raise Exception('Unrecognized return class')
-        elif json_return['type'] == 'unserialized-object':
-            #inherit socket from parent object
-            return self._bridge.get_class(json_return)(socket=self._socket, serialized_object=json_return, bridge=self._bridge)
-        else:
-            return deserialize_array(json_return)
-
-
-
-
-def deserialize_array(json_return):
-    """
-    Convert a serialized java array to the appropriate numpy type
-    :param json_return:
-    :return:
-    """
-    if json_return['type'] == 'byte-array':
-        return np.frombuffer(standard_b64decode(json_return['value']), dtype='>u1').copy()
-    elif json_return['type'] == 'double-array':
-        return np.frombuffer(standard_b64decode(json_return['value']), dtype='>f8').copy()
-    elif json_return['type'] == 'int-array':
-        return np.frombuffer(standard_b64decode(json_return['value']), dtype='>u4').copy()
-    elif json_return['type'] == 'short-array':
-        return np.frombuffer(standard_b64decode(json_return['value']), dtype='>u2').copy()
-    elif json_return['type'] == 'float-array':
-        return np.frombuffer(standard_b64decode(json_return['value']), dtype='>f4').copy()
 
 
 def _package_arguments(valid_method_spec, fn_args):
