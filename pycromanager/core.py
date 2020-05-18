@@ -1,4 +1,3 @@
-from __future__ import annotations
 import json
 import re
 import time
@@ -133,7 +132,7 @@ class Bridge:
                             '\nJava ZMQ server version: {}\nPython client expected version: {}'.format(reply_json['version'],
                                                                                            self._EXPECTED_ZMQ_SERVER_VERSION))
 
-    def get_class(self, serialized_object) -> typing.Type[JavaObjectShadow]:
+    def get_class(self, serialized_object) -> typing.Type['JavaObjectShadow']:
         return self._class_factory.create(serialized_object, convert_camel_case=self._convert_camel_case)
 
     def construct_java_object(self, classpath, new_socket=False, args=None):
@@ -226,7 +225,7 @@ class _JavaClassFactory:
     def __init__(self):
         self.classes = {}
 
-    def create(self, serialized_obj: dict, convert_camel_case: bool = True) -> typing.Type[JavaObjectShadow]:
+    def create(self, serialized_obj: dict, convert_camel_case: bool = True) -> typing.Type['JavaObjectShadow']:
         """Create a class (or return a class from the cache) based on the contents of `serialized_object` message."""
         if serialized_obj['class'] in self.classes.keys():  # Return a cached class
             return self.classes[serialized_obj['class']]
