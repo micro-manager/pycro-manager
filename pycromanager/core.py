@@ -237,9 +237,8 @@ class _JavaClassFactory:
 
             fields = {}  # Create a dict of field names with getter and setter funcs.
             for field in serialized_obj['fields']:
-                getter = lambda instance: instance._access_field(field)
-                setter = lambda instance, val: instance._set_field(field, val)
-                fields[field] = property(fget=getter, fset=setter)
+                fields[field] = property(fget=lambda instance, Field=field: instance._access_field(Field),
+                                         fset=lambda instance, val, Field=field: instance._set_field(Field, val))
 
             methods = {}  # Create a dict of methods for the class by name.
             methodSpecs = serialized_obj['api']
