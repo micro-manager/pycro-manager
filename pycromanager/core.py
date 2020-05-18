@@ -26,24 +26,12 @@ class _PycromanagerEncoder(json.JSONEncoder):
         return super().default(obj)
 
 
-def _getDecoder(bridge: Bridge, socket: JavaSocket):
+def _getDecoder(bridge: 'Bridge', socket: 'JavaSocket'):
     def decoderObjectHook(dct: dict):
         numpy_type_map = {'byte-array': '>u1', 'double-array': '>f8', 'int-array': '>u4', 'short-array': '>u2', 'float-array': '>f4'}
         if 'type' in dct:
             if dct['type'] == 'exception':
                 raise JavaException(dct['value'])
-            #TODO aren't null, primitives, strings, and JSONObject already supported natively in JSON, why implement our own handling?
-            elif dct['type'] == 'null':
-                return None
-            elif dct['type'] == 'primitive':
-                return dct['value']
-            elif dct['type'] == 'string':
-                return dct['value']
-            elif dct['type'] == 'object':
-                if dct['class'] == 'JSONObject':
-                    return json.loads(dct['value'], object_hook=decoderObjectHook)
-                else:
-                    raise Exception('Unrecognized return class')
             elif dct['type'] == 'unserialized-object':
                 # inherit socket from parent object
                 return bridge.get_class(dct)(socket=socket, serialized_object=dct,bridge=bridge)
