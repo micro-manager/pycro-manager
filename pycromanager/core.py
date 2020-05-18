@@ -266,7 +266,6 @@ class _JavaClassFactory:
             )
 
             self.classes[_java_class] = newclass
-            print(f'created {newclass.__name__}')
             return newclass
 
 
