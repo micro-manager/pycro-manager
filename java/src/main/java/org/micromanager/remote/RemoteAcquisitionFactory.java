@@ -27,17 +27,13 @@ public class RemoteAcquisitionFactory {
       RemoteEventSource eventSource = new RemoteEventSource();
       RemoteAcquisitionSettings settings = new RemoteAcquisitionSettings();
       settings.showViewer = false;
-      return new RemoteAcquisition(eventSource, settings);
+      return new RemoteAcquisition(eventSource,null);
    }
    
-   public RemoteAcquisition createAcquisition(String dir, String name) {
+   public RemoteAcquisition createAcquisition(String dir, String name, boolean showViewer) {
       RemoteEventSource eventSource = new RemoteEventSource();
-      RemoteAcquisitionSettings settings = new RemoteAcquisitionSettings();
-      settings.dataLocation = dir;
-      settings.showViewer = true;
-      settings.name = name;
-      
-      return new RemoteAcquisition(eventSource, settings);
+      RemoteViewerStorageAdapter adapter = new RemoteViewerStorageAdapter(showViewer, dir, name);
+      return new RemoteAcquisition(eventSource, adapter);
    }
    
    
