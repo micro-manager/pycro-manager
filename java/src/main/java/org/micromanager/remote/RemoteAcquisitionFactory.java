@@ -25,8 +25,6 @@ public class RemoteAcquisitionFactory {
 
    public RemoteAcquisition createAcquisition() {
       RemoteEventSource eventSource = new RemoteEventSource();
-      RemoteAcquisitionSettings settings = new RemoteAcquisitionSettings();
-      settings.showViewer = false;
       return new RemoteAcquisition(eventSource,null);
    }
    
