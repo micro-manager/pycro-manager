@@ -22,10 +22,8 @@ public class RemoteAcquisition extends Acquisition
 
    private RemoteEventSource eventSource_;
 
-   public RemoteAcquisition(RemoteEventSource eventSource, RemoteAcquisitionSettings settings) {
-      if (settings.dataLocation != null && settings.name != null) {
-         dataSink_ = new RemoteViewerStorageAdapter(settings.showViewer, settings.dataLocation, settings.name);
-      }
+   public RemoteAcquisition(RemoteEventSource eventSource, DataSink sink) {
+      super(sink);
       initialize();
       eventSource_ = eventSource;
       eventSource.setAcquisition(this);

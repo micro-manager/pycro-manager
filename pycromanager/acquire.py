@@ -144,11 +144,12 @@ class Acquisition(object):
             self._event_queue = multiprocessing.Queue()
             core = self.bridge.get_core()
             acq_manager = self.bridge.construct_java_object('org.micromanager.remote.RemoteAcquisitionFactory', args=[core])
+
             if directory is None and name is None:
                 #an image processor will be sending them somewhere custom
                 self.acq =acq_manager.create_acquisition()
             else:
-                self.acq = acq_manager.create_acquisition(directory, name)
+                self.acq = acq_manager.create_acquisition(directory, name, True)
 
         if image_process_fn is not None:
             processor = self.bridge.construct_java_object('org.micromanager.remote.RemoteImageProcessor')
