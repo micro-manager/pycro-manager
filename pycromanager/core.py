@@ -280,6 +280,7 @@ class JavaObjectShadow:
         self._socket = socket
         self._hash_code = serialized_object['hash-code']
         self._bridge = bridge
+        self._closed = False
 
     def _close(self):
         if not hasattr(self, '_hash_code'):
@@ -289,6 +290,7 @@ class JavaObjectShadow:
         reply_json = self._socket.receive()
         if reply_json['type'] == 'exception':
             raise Exception(reply_json['value'])
+        self._closed = True
 
     def __del__(self):
         """
