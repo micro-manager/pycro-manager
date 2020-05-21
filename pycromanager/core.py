@@ -279,6 +279,7 @@ class JavaObjectShadow:
     def __init__(self, socket, serialized_object, bridge: Bridge):
         self._socket = socket
         self._hash_code = serialized_object['hash-code']
+        self._bridge = bridge
 
     def _close(self):
         if not hasattr(self, '_hash_code'):
