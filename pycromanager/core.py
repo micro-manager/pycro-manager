@@ -8,6 +8,7 @@ import inspect
 import numpy as np
 import zmq
 from types import MethodType
+import atexit
 
 
 class JavaSocket:
@@ -246,13 +247,10 @@ class JavaObjectShadow:
             return_type = _JAVA_TYPE_NAME_TO_PYTHON_TYPE[return_type] if return_type in _JAVA_TYPE_NAME_TO_PYTHON_TYPE else return_type
             fn.__signature__ = sig.replace(parameters=params, return_annotation=return_type)
             setattr(self, method_name_modified, MethodType(fn, self))
+        self._closed = False
+        atexit.register(self._close)
 
-
-    def __del__(self):
-        """
-        Tell java side this object is garbage collected so it can do the same if needed
-        :return:
-        """
+    def _close(self):
         if not hasattr(self, '_hash_code'):
             return #constructor didnt properly finish, nothing to clean up on java side
         message = {'command': 'destructor', 'hash-code': self._hash_code}
@@ -260,6 +258,15 @@ class JavaObjectShadow:
         reply_json = self._socket.receive()
         if reply_json['type'] == 'exception':
             raise Exception(reply_json['value'])
+
+    def __del__(self):
+        """
+        Tell java side this object is garbage collected so it can do the same if needed
+        """
+        # May have already closed if atexit hook already run on interpreter shurdown
+        if not self._closed:
+            self._close()
+
 
     def __repr__(self):
         #convenience for debugging
