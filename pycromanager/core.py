@@ -8,7 +8,6 @@ import inspect
 import numpy as np
 import zmq
 from types import MethodType
-import atexit
 
 
 class JavaSocket:
@@ -20,6 +19,7 @@ class JavaSocket:
         # request reply socket
         self._socket = context.socket(type)
         self._debug = debug
+        self._java_objects = []
         # try:
         if type == zmq.PUSH:
             if debug:
@@ -32,6 +32,15 @@ class JavaSocket:
         # except Exception as e:
         #     print(e.__traceback__)
         # raise Exception('Couldnt connect or bind to port {}'.format(port))
+
+    def _register_java_object(self, object):
+        self._java_objects.append(object)
+
+    def __del__(self):
+        #make sure all shadow objects have signaled to Java side to release references before they
+        #shit down
+        for java_object in self._java_objects:
+            java_object._close()
 
     def _convert_np_to_python(self, d):
         """
@@ -280,9 +289,13 @@ class JavaObjectShadow:
         self._socket = socket
         self._hash_code = serialized_object['hash-code']
         self._bridge = bridge
+        #register objects with bridge so it can tell Java side to release them before socket shuts down
+        socket._register_java_object(self)
         self._closed = False
 
     def _close(self):
+        if self._closed:
+            return
         if not hasattr(self, '_hash_code'):
             return #constructor didnt properly finish, nothing to clean up on java side
         message = {'command': 'destructor', 'hash-code': self._hash_code}
@@ -296,9 +309,7 @@ class JavaObjectShadow:
         """
         Tell java side this object is garbage collected so it can do the same if needed
         """
-        # May have already closed if atexit hook already run on interpreter shurdown
-        if not self._closed:
-            self._close()
+        self._close()
 
     def _access_field(self, name):
         """
