@@ -26,3 +26,16 @@ which will give an output like:
 Out[1]: JavaObjectShadow for : mmcorej.CMMCore
 ```
 
+Upon creating the Bridge, you may see an error with something like:
+
+```
+UserWarning: Version mistmatch between Java ZMQ server and Python client.
+Java ZMQ server version: 2.4.0
+Python client expected version: 2.5.0
+```
+
+In this case case your Micro-manager version Pycro-manager versions are out of sync. The best fix is to down the latest versions of both. Uprgade to the latest Pycro-manager with: 
+
+```
+pip install pycromanager --upgrade
+```
