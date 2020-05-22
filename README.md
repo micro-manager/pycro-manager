@@ -26,6 +26,8 @@ which will give an output like:
 Out[1]: JavaObjectShadow for : mmcorej.CMMCore
 ```
 
+### Troubleshooting 
+
 Upon creating the Bridge, you may see an error with something like:
 
 ```
