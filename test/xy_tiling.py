@@ -1,9 +1,6 @@
-from pycromanager import Acquisition, Bridge
-import numpy as np
+from pycromanager import Acquisition
 
 if __name__ == '__main__':
-
-    bridge = Bridge()
 
     with Acquisition('/Users/henrypinkard/megllandump', 'tiled', tile_overlap=10) as acq:
         #10 pixel overlap between adjacent tiles
