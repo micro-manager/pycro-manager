@@ -152,6 +152,8 @@ public class ZMQServer extends ZMQSocketWrapper {
                   potentialClasses.add(apiClass);
                }
             }
+            //add the class itself. This is needed for java internal classes
+            potentialClasses.add(argVals[i].getClass());
             argClasses[i] = potentialClasses;
          } else if (ZMQUtil.PRIMITIVE_NAME_CLASS_MAP.containsKey(message.getJSONArray("argument-types").get(i))) {
             argClasses[i] = ZMQUtil.PRIMITIVE_NAME_CLASS_MAP.get(
@@ -159,9 +161,12 @@ public class ZMQServer extends ZMQSocketWrapper {
             Object primitive = message.getJSONArray("arguments").get(i); //Double, Integer, Long, Boolean
             argVals[i] = ZMQUtil.convertToPrimitiveClass(primitive, (Class) argClasses[i]);            
          } else if (message.getJSONArray("argument-types").get(i).equals("java.lang.String")) {
-            //Strings are a special case
+            //Strings are a special case because they're like a primitive but not quite
             argClasses[i] = java.lang.String.class;
             argVals[i] = message.getJSONArray("arguments").getString(i);
+         } else if (message.getJSONArray("argument-types").get(i).equals("java.lang.Object")) {
+            argClasses[i] = java.lang.Object.class;
+            argVals[i] = message.getJSONArray("arguments").get(i);
          }
       }
 

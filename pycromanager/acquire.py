@@ -6,6 +6,8 @@ import copy
 import types
 import time
 from pycromanager.core import serialize_array, deserialize_array, Bridge
+from pycromanager.data import Dataset
+import warnings
 
 ### These functions outside class to prevent problems with pickling when running them in differnet process
 
@@ -38,12 +40,17 @@ def _acq_hook_startup_fn(pull_port, push_port, hook_connected_evt, event_queue, 
             return
         else:
             params = signature(hook_fn).parameters
-            if len(params) == 1:
-                new_event_msg = hook_fn(event_msg)
-            elif len(params) == 3:
-                new_event_msg = hook_fn(event_msg, bridge, event_queue)
+            if len(params) == 1 or len(params) == 3:
+                try:
+                    if len(params) == 1:
+                        new_event_msg = hook_fn(event_msg)
+                    elif len(params) == 3:
+                        new_event_msg = hook_fn(event_msg, bridge, event_queue)
+                except Exception as e:
+                    warnings.warn('exception in acquisition hook: {}'.format(e))
+                    continue
             else:
-                raise Exception('Incorrect number of arguments for hook function. Must be 2 or 4')
+                raise Exception('Incorrect number of arguments for hook function. Must be 1 or 3')
 
         push_socket.send(new_event_msg)
 
@@ -81,12 +88,18 @@ def _processor_startup_fn(pull_port, push_port, sockets_connected_evt, process_f
         image = np.reshape(pixels, [metadata['Width'], metadata['Height']])
 
         params = signature(process_fn).parameters
-        if len(params) == 2:
-            processed = process_fn(image, metadata)
-        elif len(params) == 4:
-            processed = process_fn(image, metadata, bridge, event_queue)
+        if len(params) == 2 or len(params) == 4:
+            try:
+                if len(params) == 2:
+                    processed = process_fn(image, metadata)
+                elif len(params) == 4:
+                    processed = process_fn(image, metadata, bridge, event_queue)
+            except Exception as e:
+                warnings.warn('exception in image processor: {}'.format(e))
+                continue
         else:
             raise Exception('Incorrect number of arguments for image processing function, must be 2 or 4')
+
         if processed is None:
             continue
 
@@ -94,13 +107,13 @@ def _processor_startup_fn(pull_port, push_port, sockets_connected_evt, process_f
             for image in processed:
                 process_and_sendoff(image)
         else:
-            process_and_sendoff(image)
+            process_and_sendoff(processed)
 
 
 
 class Acquisition(object):
     def __init__(self, directory=None, name=None, image_process_fn=None,
-                 pre_hardware_hook_fn=None, post_hardware_hook_fn=None,
+                 pre_hardware_hook_fn=None, post_hardware_hook_fn=None, tile_overlap=None,
                  magellan_acq_index=None, process=True, debug=False):
         """
         :param directory: saving directory for this acquisition. Required unless an image process function will be
@@ -122,6 +135,12 @@ class Acquisition(object):
         :param post_hardware_hook_fn: hook function that will be run just before the hardware is updated before acquiring
             a new image. Accepts either one argument (the current acquisition event) or three arguments (current event,
             bridge, event Queue)
+        :param tile_overlap: If given, XY tiles will be laid out in a grid and multi-resolution saving will be
+            actived. Argument can be a two element tuple describing the pixel overlaps between adjacent
+            tiles. i.e. (pixel_overlap_x, pixel_overlap_y), or an integer to use the same overlap for both.
+            For these features to work, the current hardware configuration must have a valid affine transform
+            between camera coordinates and XY stage coordinates
+        :type tile_overlap: tuple, int
         :param magellan_acq_index: run this acquisition using the settings specified at this position in the main
             GUI of micro-magellan (micro-manager plugin). This index starts at 0
         :type magellan_acq_index: int
@@ -133,42 +152,52 @@ class Acquisition(object):
         """
         self.bridge = Bridge(debug=debug)
         self._debug = debug
-
+        self._dataset = None
 
         if magellan_acq_index is not None:
             magellan_api = self.bridge.get_magellan()
-            self.acq = magellan_api.create_acquisition(magellan_acq_index)
+            self._remote_acq = magellan_api.create_acquisition(magellan_acq_index)
             self._event_queue = None
         else:
             # Create thread safe queue for events so they can be passed from multiple processes
             self._event_queue = multiprocessing.Queue()
             core = self.bridge.get_core()
-            acq_manager = self.bridge.construct_java_object('org.micromanager.remote.RemoteAcquisitionFactory', args=[core])
+            acq_factory = self.bridge.construct_java_object('org.micromanager.remote.RemoteAcquisitionFactory', args=[core])
 
-            if directory is None and name is None:
-                #an image processor will be sending them somewhere custom
-                self.acq =acq_manager.create_acquisition()
+            #TODO: could add hiding viewer as an option
+            show_viewer = directory is not None and name is not None
+            if tile_overlap is None:
+                #argument placeholders, these wont actually be used
+                x_overlap = 0
+                y_overlap = 0
             else:
-                self.acq = acq_manager.create_acquisition(directory, name, True)
+                if type(tile_overlap) is tuple:
+                    x_overlap, y_overlap = tile_overlap
+                else:
+                    x_overlap = tile_overlap
+                    y_overlap = tile_overlap
+
+            self._remote_acq = acq_factory.create_acquisition(directory, name, show_viewer,
+                                                              tile_overlap is not None, x_overlap, y_overlap)
 
         if image_process_fn is not None:
             processor = self.bridge.construct_java_object('org.micromanager.remote.RemoteImageProcessor')
-            self.acq.add_image_processor(processor)
+            self._remote_acq.add_image_processor(processor)
             self._start_processor(processor, image_process_fn, self._event_queue, process=process)
 
         if pre_hardware_hook_fn is not None:
             hook = self.bridge.construct_java_object('org.micromanager.remote.RemoteAcqHook')
             self._start_hook(hook, pre_hardware_hook_fn, self._event_queue, process=process)
-            self.acq.add_hook(hook, self.acq.BEFORE_HARDWARE_HOOK, args=[self.acq])
+            self._remote_acq.add_hook(hook, self._remote_acq.BEFORE_HARDWARE_HOOK, args=[self._remote_acq])
         if post_hardware_hook_fn is not None:
-            hook = self.bridge.construct_java_object('org.micromanager.remote.RemoteAcqHook', args=[self.acq])
+            hook = self.bridge.construct_java_object('org.micromanager.remote.RemoteAcqHook', args=[self._remote_acq])
             self._start_hook(hook, post_hardware_hook_fn, self._event_queue, process=process)
-            self.acq.add_hook(hook, self.acq.AFTER_HARDWARE_HOOK)
+            self._remote_acq.add_hook(hook, self._remote_acq.AFTER_HARDWARE_HOOK)
 
-        self.acq.start()
+        self._remote_acq.start()
 
         if magellan_acq_index is None:
-            self.event_port = self.acq.get_event_port()
+            self.event_port = self._remote_acq.get_event_port()
 
             self.event_process = multiprocessing.Process(target=_event_sending_fn,
                                                          args=(self.event_port, self._event_queue, self._debug),
@@ -187,11 +216,21 @@ class Acquisition(object):
         #now wait on it to finish
         self.await_completion()
 
+    def get_dataset(self):
+        """
+        Return a :class:`~pycromanager.data.Dataset` object that has access to the underlying pixels
+
+        :return: :class:`~pycromanager.data.Dataset` corresponding to this acquisition
+        """
+        if self._dataset is None:
+            self._dataset = Dataset(remote_storage=self._remote_acq.get_storage())
+        return self._dataset
+
     def await_completion(self):
         """
         Wait for acquisition to finish and resources to be cleaned up
         """
-        while (not self.acq.is_finished()):
+        while (not self._remote_acq.is_finished()):
             time.sleep(0.1)
 
     def acquire(self, events):

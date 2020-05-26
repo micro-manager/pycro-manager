@@ -6,9 +6,11 @@
 package org.micromanager.remote;
 
 import mmcorej.org.json.JSONObject;
+import org.micromanager.acqj.api.AcqEngMetadata;
 import org.micromanager.acqj.api.Acquisition;
 import org.micromanager.acqj.api.AcquisitionInterface;
 import org.micromanager.acqj.api.DataSink;
+import org.micromanager.multiresstorage.MultiResMultipageTiffStorage;
 import org.micromanager.ndviewer.api.ViewerAcquisitionInterface;
 
 /**
@@ -22,11 +24,20 @@ public class RemoteAcquisition extends Acquisition
 
    private RemoteEventSource eventSource_;
 
-   public RemoteAcquisition(RemoteEventSource eventSource, DataSink sink) {
+   public RemoteAcquisition(RemoteEventSource eventSource, RemoteViewerStorageAdapter sink) {
       super(sink);
-      initialize();
+      if (((RemoteViewerStorageAdapter)dataSink_).isXYTiled()) {
+         initialize(((RemoteViewerStorageAdapter) dataSink_).getOverlapX(),
+                 ((RemoteViewerStorageAdapter) dataSink_).getOverlapY());
+      } else {
+         initialize();
+      }
       eventSource_ = eventSource;
       eventSource.setAcquisition(this);
+   }
+
+   public MultiResMultipageTiffStorage getStorage() {
+      return  ((RemoteViewerStorageAdapter) dataSink_).getStorage();
    }
    
    public int getEventPort() {
