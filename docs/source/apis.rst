@@ -35,11 +35,10 @@ The following shows all possible fields in an acquisition event (not all of whic
 	#For XY stages
 	'x': x_position_in_µm,
 	'y': y_position_in_µm,
-	#Optional if xy stage positions are in a grid
+	#If xy stage positions are in a grid
 	'row': row_index_of_xy_position,
 	'col': col_index_of_xy_position,
-	'overlap_x': pixel_overlap_between_tiles,
-	'overlap_y': pixel_overlap_between_tiles,
+
 
 	#Other arbitrary hardware settings can be encoded in a list of strings with
 	#each entry containing the name of the device, the name of the property,
