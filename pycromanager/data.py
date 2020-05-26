@@ -10,6 +10,7 @@ import platform
 import dask.array as da
 import dask
 import warnings
+from pycromanager.core import Bridge
 
 
 class _MultipageTiffReader:
@@ -263,7 +264,16 @@ class Dataset:
     _CHANNEL_AXIS = 'channel'
 
 
-    def __init__(self, dataset_path, full_res_only=True):
+    def __init__(self, dataset_path=None, full_res_only=True, remote_storage=None):
+        if remote_storage is not None:
+            #this dataset is a view of an active acquisiiton. The storage exists on the java side
+            self._remote_storage = remote_storage
+            self._bridge = Bridge()
+            smd = self._remote_storage.get_summary_metadata()
+            self._tile_width = smd['Width'] - smd['GridPixelOverlapX']
+            self._tile_height = smd['Height'] - smd['GridPixelOverlapY']
+            return
+
         self.path = dataset_path
         res_dirs = [dI for dI in os.listdir(dataset_path) if os.path.isdir(os.path.join(dataset_path, dI))]
         # map from downsample factor to datset
@@ -283,7 +293,7 @@ class Dataset:
             res_level = _ResolutionLevel(res_dir_path, count, num_tiffs)
             if res_dir == 'Full resolution':
                 #TODO: might want to move this within the resolution level class to facilitate loading pyramids
-                self.res_levels[1] = res_level
+                self.res_levels[0] = res_level
                 # get summary metadata and index tree from full resolution image
                 self.summary_metadata = res_level.reader_list[0].summary_md
                 self._channel_names = {} #read them from image metadata
@@ -309,7 +319,7 @@ class Dataset:
                             for p in c_z_t_p_tree[c][z][t]:
                                 self.axes[self._POSITION_AXIS].add(p)
                                 if c not in self.axes['channel']:
-                                    metadata = self.res_levels[1].read_metadata(channel_index=c, z_index=z,
+                                    metadata = self.res_levels[0].read_metadata(channel_index=c, z_index=z,
                                                                                 t_index=t, pos_index=p)
                                     current_axes = metadata['Axes']
                                     non_zpt_axes = {}
@@ -352,7 +362,7 @@ class Dataset:
                     self.row_col_array = np.stack(row_cols)
 
             else:
-                self.res_levels[int(res_dir.split('x')[1])] = res_level
+                self.res_levels[int(np.log2(int(res_dir.split('x')[1])))] = res_level
         print('\rDataset opened')
 
     def as_array(self, stitched=False):
@@ -369,6 +379,8 @@ class Dataset:
         :type stitched: boolean
         :return:
         """
+        if self._remote_storage is not None:
+            raise Exception('Method not yet implemented for in progress acquisitions')
         self._empty_tile = np.zeros((self.image_height, self.image_width), self.dtype)
         self._count = 1
         total = np.prod([len(v) for v in self.axes.values()])
@@ -454,7 +466,7 @@ class Dataset:
         return c_index, t_index, p_index, z_index
 
     def has_image(self, channel=None, z=None, time=None, position=None,
-                  channel_name=None, downsample_factor=1, **kwargs):
+                  channel_name=None, resolution_level=0, row=None, col=None, **kwargs):
         """
         Check if this image is present in the dataset
 
@@ -467,7 +479,13 @@ class Dataset:
         :param position: index of the XY position, if applicable
         :type position: int
         :param channel_name: Name of the channel. Overrides channel index if supplied
-        :param downsample_factor: 1 is full resolution, lower resolutions are powers of 2 if available
+        :type channel_name: str
+        :param row: index of tile row for XY tiled datasets
+        :type row: int
+        :param col: index of tile col for XY tiled datasets
+        :type col: int
+        :param resolution_level: 0 is full resolution, otherwise represents downampling of pixels
+            at 2 ** (resolution_level)
         :param kwargs: names and integer positions of any other axes
         :return: boolean indicating whether image present
         """
@@ -480,16 +498,30 @@ class Dataset:
         if position is not None:
             kwargs['position'] = position
 
+        if self._remote_storage is not None:
+            axes = self._bridge.construct_java_object('java.util.HashMap')
+            for key in kwargs.keys():
+                axes.put(key, kwargs[key])
+            if row is not None and col is not None:
+                return self._remote_storage.has_tile_by_row_col(axes, resolution_level, row, col)
+            else:
+                return self._remote_storage.has_image(axes, resolution_level)
+
+        if row is not None or col is not None:
+            raise Exception('row col lookup not yet implmented for saved datasets')
+            # self.row_col_array #TODO: find position index in here
+
         storage_c_index, t_index, p_index, z_index = self._convert_to_storage_axes(kwargs, channel_name=channel_name)
-        c_z_t_p_tree = self.res_levels[downsample_factor].reader_tree
+        c_z_t_p_tree = self.res_levels[resolution_level].reader_tree
         if storage_c_index in c_z_t_p_tree and z_index in c_z_t_p_tree[storage_c_index] and  t_index in \
                 c_z_t_p_tree[storage_c_index][z_index] and p_index in c_z_t_p_tree[storage_c_index][z_index][t_index]:
-            res_level = self.res_levels[downsample_factor]
+            res_level = self.res_levels[resolution_level]
             return res_level.check_ifd(channel_index=storage_c_index, z_index=z_index, t_index=t_index, pos_index=p_index)
         return False
 
     def read_image(self, channel=None, z=None, time=None, position=None,
-                   channel_name=None, read_metadata=False, downsample_factor=1, memmapped=False, **kwargs):
+                   channel_name=None, read_metadata=False, resolution_level=0, row=None, col=None,
+                   memmapped=False, **kwargs):
         """
         Read image data as numpy array
 
@@ -502,7 +534,12 @@ class Dataset:
         :param position: index of the XY position, if applicable
         :type position: int
         :param channel_name: Name of the channel. Overrides channel index if supplied
-        :param downsample_factor: 1 is full resolution, lower resolutions are powers of 2 if available
+        :param row: index of tile row for XY tiled datasets
+        :type row: int
+        :param col: index of tile col for XY tiled datasets
+        :type col: int
+        :param resolution_level: 0 is full resolution, otherwise represents downampling of pixels
+            at 2 ** (resolution_level)
         :param kwargs: names and integer positions of any other axes
         :return: image as 2D numpy array, or tuple with image and image metadata as dict
         """
@@ -515,12 +552,43 @@ class Dataset:
         if position is not None:
             kwargs['position'] = position
 
+        if self._remote_storage is not None:
+            if memmapped:
+                raise Exception('Memory mapping not available for in progress acquisitions')
+            axes = self._bridge.construct_java_object('java.util.HashMap')
+            for key in kwargs.keys():
+                axes.put(key, kwargs[key])
+            if not self._remote_storage.has_image(axes, resolution_level):
+                return None
+            if row is not None and col is not None:
+                tagged_image = self._remote_storage.get_tile_by_row_col(axes, resolution_level, row, col)
+            else:
+                tagged_image = self._remote_storage.get_image(axes, resolution_level)
+            if tagged_image is None:
+                return None
+            if resolution_level == 0:
+                image = np.reshape(tagged_image.pix,
+                                    newshape=[tagged_image.tags['Height'], tagged_image.tags['Width']])
+                #crop down to just the part that shows (i.e. no overlap)
+                image = image[(image.shape[0] - self._tile_height) // 2: -(image.shape[0] - self._tile_height) // 2,
+                            (image.shape[0] - self._tile_width) // 2: -(image.shape[0] - self._tile_width) // 2]
+            else:
+                image = np.reshape(tagged_image.pix, newshape=[self._tile_height, self._tile_width])
+            if read_metadata:
+                return image, tagged_image.tags
+            return image
+
+
+        if row is not None or col is not None:
+            raise Exception('row col lookup not yet implmented for saved datasets')
+            # self.row_col_array #TODO: find position index in here
+
         storage_c_index, t_index, p_index, z_index = self._convert_to_storage_axes(kwargs, channel_name=channel_name)
-        res_level = self.res_levels[downsample_factor]
+        res_level = self.res_levels[resolution_level]
         return res_level.read_image(storage_c_index, z_index, t_index, p_index, read_metadata, memmapped)
 
     def read_metadata(self, channel=None, z=None, time=None, position=None,
-                        channel_name=None, downsample_factor=1, **kwargs):
+                        channel_name=None, row=None, col=None, resolution_level=0, **kwargs):
         """
         Read metadata only. Faster than using read_image to retireve metadata
 
@@ -533,7 +601,12 @@ class Dataset:
         :param position: index of the XY position, if applicable
         :type position: int
         :param channel_name: Name of the channel. Overrides channel index if supplied
-        :param downsample_factor: 1 is full resolution, lower resolutions are powers of 2 if available
+        :param row: index of tile row for XY tiled datasets
+        :type row: int
+        :param col: index of tile col for XY tiled datasets
+        :type col: int
+        :param resolution_level: 0 is full resolution, otherwise represents downampling of pixels
+            at 2 ** (resolution_level)
         :param kwargs: names and integer positions of any other axes
         :return: image metadata as dict
         """
@@ -546,13 +619,24 @@ class Dataset:
         if position is not None:
             kwargs['position'] = position
 
+        if self._remote_storage is not None:
+            #read the tagged image because no funciton in Java API rn for metadata only
+            return self.read_image(channel=channel, z=z, time=time, position=position,
+                   channel_name=channel_name, read_metadata=True, resolution_level=resolution_level,
+                             row=row, col=col, **kwargs)[1]
+
         storage_c_index, t_index, p_index, z_index = self._convert_to_storage_axes(kwargs, channel_name=channel_name)
-        res_level = self.res_levels[downsample_factor]
+        res_level = self.res_levels[resolution_level]
         return res_level.read_metadata(storage_c_index, z_index, t_index, p_index)
 
     def close(self):
+        if self._remote_storage is not None:
+            #nothing to do, this is handled on the java side
+            return
         for res_level in self.res_levels:
             res_level.close()
 
     def get_channel_names(self):
+        if self._remote_storage is not None:
+            raise Exception('Not implemented for in progress datasets')
         return self._channel_names.keys()

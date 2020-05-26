@@ -5,6 +5,7 @@ if __name__ == '__main__':
     # Version 1:
     def img_process_fn(image, metadata):
         image[250:350, 100:300] = np.random.randint(0, 4999)
+        raise Exception()
         return image, metadata
 
     with Acquisition(directory='/Users/henrypinkard/megllandump', name='tcz_acq', image_process_fn=img_process_fn) as acq:

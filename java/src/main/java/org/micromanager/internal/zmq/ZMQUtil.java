@@ -374,29 +374,34 @@ public class ZMQUtil {
         }
 
        Set<Class> packageClasses = new HashSet<Class>();
-       String path = packageName.replace('.', '/');
-       Enumeration<URL> resources;
-       try {
-           resources = classLoader_.getResources(path);
-       } catch (IOException ex) {
-           throw new RuntimeException("Invalid package name in ZMQ server: " + path);
-       }
-       List<File> dirs = new ArrayList<>();
-       while (resources.hasMoreElements()) {
-           URL resource = resources.nextElement();
-           String file = resource.getFile().replaceAll("^file:", "");
-           file = (String) URLDecoder.decode(file, "UTF-8");
-
-           dirs.add(new File(file));
-       }
-
-       for (File directory : dirs) {
-           if (directory.getAbsolutePath().contains(".jar")) {
-               packageClasses.addAll(getClassesFromJarFile(directory));
-           } else {
-               packageClasses.addAll(getClassesFromDirectory(packageName, directory));
+        if (packageName.contains("java.")) {
+           //java classes are different for some reason
+           //Aparently you can't find java classes in a package without a third party library
+        } else {
+           String path = packageName.replace('.', '/');
+           Enumeration<URL> resources;
+           try {
+              resources = classLoader_.getResources(path);
+           } catch (IOException ex) {
+              throw new RuntimeException("Invalid package name in ZMQ server: " + path);
            }
-       }
+           List<File> dirs = new ArrayList<>();
+           while (resources.hasMoreElements()) {
+              URL resource = resources.nextElement();
+              String file = resource.getFile().replaceAll("^file:", "");
+              file = (String) URLDecoder.decode(file, "UTF-8");
+
+              dirs.add(new File(file));
+           }
+
+           for (File directory : dirs) {
+              if (directory.getAbsolutePath().contains(".jar")) {
+                 packageClasses.addAll(getClassesFromJarFile(directory));
+              } else {
+                 packageClasses.addAll(getClassesFromDirectory(packageName, directory));
+              }
+           }
+        }
 
       //filter out internal classes
       Stream<Class> clazzStream = packageClasses.stream();
@@ -407,86 +412,16 @@ public class ZMQUtil {
             if (p == null) {
                return true;
             }
-            boolean invalid = false;
             for (String exclude : excludedPaths_) {
                 if (t.getPackage().getName().contains(exclude)) {
-                    return true;
+                    return false;
                 }
             }
-            return false;
+            return true;
          }
       }).collect(Collectors.toSet());
 
-      packageAPIClasses_.put(packageName, packageClasses);
-      return packageClasses;
-   }
-
-
-   private static Set<Class> getAPIClasses(ClassLoader classLoader) throws
-           URISyntaxException, UnsupportedEncodingException {
-
-      HashSet<Class> apiClasses = new HashSet<Class>();
-
-      //recursively get all names that have org.micromanager, but not internal in the name
-      ArrayList<String> mmPackages = new ArrayList<>();
-      Package[] p = Package.getPackages();
-      for (Package pa : p) {
-         //Add all non internal MM classes
-//         if (pa.getName().contains("org.micromanager") && !pa.getName().contains("internal")) {
-//            mmPackages.add(pa.getName());
-//         }
-//         //Add all core classes
-//         if (pa.getName().contains("mmcorej")) {
-//            mmPackages.add(pa.getName());
-//         }
-
-         mmPackages.add(pa.getName());
-      }
-
-      //TODO: this is for netbeans, delte or split out
-      mmPackages.add("org.micromanager.remote");
-      mmPackages.add("org.micromanager.magellan.api");
-      mmPackages.add("org.micromanager.acqj.api");
-
-      // ClassLoader classLoader = Thread.currentThread().getContextClassLoader();
-      for (String packageName : mmPackages) {
-         String path = packageName.replace('.', '/');
-         Enumeration<URL> resources;
-         try {
-            resources = classLoader.getResources(path);
-         } catch (IOException ex) {
-            throw new RuntimeException("Invalid package name in ZMQ server: " + path);
-         }
-         List<File> dirs = new ArrayList<>();
-         while (resources.hasMoreElements()) {
-            URL resource = resources.nextElement();
-            String file = resource.getFile().replaceAll("^file:", "");
-            file = (String) URLDecoder.decode(file, "UTF-8");
-
-            dirs.add(new File(file));
-         }
-
-         for (File directory : dirs) {
-            if (directory.getAbsolutePath().contains(".jar")) {
-               apiClasses.addAll(getClassesFromJarFile(directory));
-         } else {
-               apiClasses.addAll(getClassesFromDirectory(packageName, directory));
-            }
-         }
-      }
-
-      //filter out internal classes
-      Stream<Class> clazzStream = apiClasses.stream();
-      Set<Class> classSet = clazzStream.filter(new Predicate<Class>() {
-         @Override
-         public boolean test(Class t) {
-            Package p = t.getPackage();
-            if (p == null) {
-               return true;
-            }
-            return !t.getPackage().getName().contains("internal");
-         }
-      }).collect(Collectors.toSet());
+      packageAPIClasses_.put(packageName, classSet);
       return classSet;
    }
 

@@ -408,6 +408,8 @@ def _package_arguments(valid_method_spec, fn_args):
     for arg_type, arg_val in zip(valid_method_spec['arguments'], fn_args):
         if isinstance(arg_val, JavaObjectShadow):
             arguments.append(_serialize_arg(arg_val))
+        elif _JAVA_TYPE_NAME_TO_PYTHON_TYPE[arg_type] is object:
+            arguments.append(_serialize_arg(arg_val))
         else:
             arguments.append(_serialize_arg(_JAVA_TYPE_NAME_TO_PYTHON_TYPE[arg_type](arg_val)))
     return arguments
@@ -442,13 +444,14 @@ def _check_method_args(method_specs, fn_args):
                 if arg_type not in arg_val._interfaces:
                     # check that it shadows object of the correct type
                     valid_method_spec = None
-            elif not isinstance(type(arg_val), type(_JAVA_TYPE_NAME_TO_PYTHON_TYPE[arg_type])):
-                # if a type that gets converted
-                valid_method_spec = None
             elif type(arg_val) == np.ndarray:
                 # For ND Arrays, need to make sure data types match
                 if _ARRAY_TYPE_TO_NUMPY_DTYPE[arg_type] != arg_val.dtype:
                     valid_method_spec = None
+            elif not isinstance(type(arg_val), type(_JAVA_TYPE_NAME_TO_PYTHON_TYPE[arg_type])):
+                # if a type that gets converted
+                valid_method_spec = None
+
         # if valid_method_spec is None:
         #     break
     if valid_method_spec is None:
@@ -504,7 +507,8 @@ _ARRAY_TYPE_TO_NUMPY_DTYPE = {'byte[]': np.uint8, 'double[]': np.float64, 'int[]
 _JAVA_TYPE_NAME_TO_PYTHON_TYPE = {'boolean': bool, 'byte[]': np.ndarray,
                                   'double': float, 'double[]': np.ndarray, 'float': float,
                                   'int': int, 'int[]': np.ndarray, 'java.lang.String': str,
-                                  'long': int, 'short': int, 'char': int, 'byte': int, 'void': None}
+                                  'long': int, 'short': int, 'char': int, 'byte': int, 'void': None,
+                                  'java.lang.Object': object}
 
 if __name__ == '__main__':
     #Test basic bridge operations

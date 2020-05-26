@@ -32,27 +32,31 @@ public class RemoteViewerStorageAdapter implements DataSourceInterface, DataSink
    private volatile RemoteAcquisition acq_;
    private volatile MultiResMultipageTiffStorage storage_;
 
-   private final boolean showViewer_, storeData_;
+   private final boolean showViewer_, storeData_, xyTiled_;
+   private final int tileOverlapX_, tileOverlapY_;
    private String dir_;
    private String name_;
 
    public RemoteViewerStorageAdapter(boolean showViewer, 
-           String dataStorageLocation, String name) {
+           String dataStorageLocation, String name, boolean xyTiled, int tileOverlapX, int tileOverlapY) {
       showViewer_ = showViewer;
       storeData_ = dataStorageLocation != null;
+      xyTiled_ = xyTiled;
       dir_ = dataStorageLocation;
       name_ = name;
+      tileOverlapX_ = tileOverlapX;
+      tileOverlapY_ = tileOverlapY;
    }
 
    public void initialize(Acquisition acq, JSONObject summaryMetadata) {
       acq_ = (RemoteAcquisition) acq;
 
       if (storeData_) {
-         int overlapX = 0, overlapY = 0; //Don't worry about multires features for now
          storage_ = new MultiResMultipageTiffStorage(dir_, name_,
-                 summaryMetadata, overlapX, overlapY, AcqEngMetadata.getWidth(summaryMetadata),
+                 summaryMetadata, tileOverlapX_, tileOverlapY_,
+                 AcqEngMetadata.getWidth(summaryMetadata),
                  AcqEngMetadata.getHeight(summaryMetadata),
-                 AcqEngMetadata.getBytesPerPixel(summaryMetadata), false);
+                 AcqEngMetadata.getBytesPerPixel(summaryMetadata), xyTiled_);
          name_ = storage_.getUniqueAcqName();
       }
 
@@ -60,6 +64,10 @@ public class RemoteViewerStorageAdapter implements DataSourceInterface, DataSink
          createDisplay(summaryMetadata);
       }
 
+   }
+
+   public MultiResMultipageTiffStorage getStorage() {
+      return storage_;
    }
 
    private void createDisplay(JSONObject summaryMetadata) {
@@ -79,15 +87,25 @@ public class RemoteViewerStorageAdapter implements DataSourceInterface, DataSink
 
    public void putImage(final TaggedImage taggedImg) {
       HashMap<String, Integer> axes = AcqEngMetadata.getAxes(taggedImg.tags);
-      storage_.putImage(taggedImg, axes);
+      if (xyTiled_) {
+         int row = AcqEngMetadata.getGridRow(taggedImg.tags);
+         int col = AcqEngMetadata.getGridCol(taggedImg.tags);
+         storage_.putImage(taggedImg, axes, row, col);
+      } else {
+         storage_.putImage(taggedImg, axes);
+      }
 
       if (showViewer_) {
          //put on different thread to not slow down acquisition
          displayCommunicationExecutor_.submit(new Runnable() {
             @Override
             public void run() {
-               viewer_.newImageArrived(AcqEngMetadata.getAxes(taggedImg.tags),
-                       AcqEngMetadata.getChannelName(taggedImg.tags));
+               HashMap<String, Integer> axes = AcqEngMetadata.getAxes(taggedImg.tags);
+               if (xyTiled_) {
+                  //remove this so the viewer doesn't show it
+                  axes.remove(AcqEngMetadata.POSITION_AXIS);
+               }
+               viewer_.newImageArrived(axes, AcqEngMetadata.getChannelName(taggedImg.tags));
             }
          });
       }
@@ -103,7 +121,6 @@ public class RemoteViewerStorageAdapter implements DataSourceInterface, DataSink
    public TaggedImage getImageForDisplay(HashMap<String, Integer> axes, int resolutionindex,
            double xOffset, double yOffset, int imageWidth, int imageHeight) {
 
-      //TODO: what if you want to use viewer, but an external data source
        int resIndex = 0;
       return storage_.getStitchedImage(
               axes, resIndex, (int) xOffset, (int) yOffset,
@@ -149,4 +166,15 @@ public class RemoteViewerStorageAdapter implements DataSourceInterface, DataSink
       return acq_.anythingAcquired();
    }
 
+   boolean isXYTiled() {
+      return xyTiled_;
+   }
+
+   int getOverlapX() {
+      return tileOverlapX_;
+   }
+
+   int getOverlapY() {
+      return tileOverlapY_;
+   }
 }

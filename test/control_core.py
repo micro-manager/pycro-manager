@@ -32,8 +32,7 @@ tagged_image = core.get_tagged_image()
 #the camera index
 
 #pixels by default come out as a 1D array. We can reshape them into an image
-pixels = np.reshape(tagged_image.pix,
-                                        newshape=[tagged_image.tags['Height'], tagged_image.tags['Width']])
+pixels = np.reshape(tagged_image.pix, newshape=[tagged_image.tags['Height'], tagged_image.tags['Width']])
 #plot it
 plt.imshow(pixels, cmap='gray')
 plt.show()

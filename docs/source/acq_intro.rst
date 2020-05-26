@@ -113,6 +113,33 @@ For the values in provided in the micro-manager demo config, this would be:
 
 A description of all possible fields in an acquisition event can be found in the :ref:`acq_event_spec`
 
+
+XY tiling
+===========
+Pycro-manager has special support for acquisitions in which multiple images are tiled together to form large, high-resolution images. In this mode, data will automatically be saved in a multi-resolution pyramid, so that it can be efficiently viewed at multiple levels of zoom. These features are also available though `Micro-magellan <https://micro-manager.org/wiki/MicroMagellan>`_, which provides a GUI for using them as well as other higher level features.
+
+
+.. note::
+
+   In order for this functionality to work. The current configuration must have a correctly calibrated affine transform matrix, which gives the corrspondence between the coordinate systems of the camera and the XY stage. This can be calibrated automatically in Micro-Manager by using the pixel size calibrator (under ``Devices``--``Pixel Size Calibration`` in the Micro-manager GUI).
+
+
+To enable this mode, pass in a value in for the ``tile_overlap`` argument when creating an acquisition. The value gives the number of pixels by which adjacent tiles will overlap. Specify which tiles to acquire using the ``row`` and ``col`` fields in acquisition events.
+
+
+.. code-block:: python
+
+	if __name__ == '__main__':
+
+	    with Acquisition('/path/to/saving/dir', 'saving_name', tile_overlap=10) as acq:
+	        #10 pixel overlap between adjacent tiles
+
+	        #acquire a 2 x 1 grid
+	        acq.acquire({'row': 0, 'col': 0})
+	        acq.acquire({'row': 1, 'col': 0})
+
+
+
 .. _magellan_acq_launch:
 
 Micro-Magellan Acquisitions

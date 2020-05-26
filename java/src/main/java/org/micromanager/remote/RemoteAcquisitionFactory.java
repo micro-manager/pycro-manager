@@ -15,7 +15,10 @@ import org.micromanager.acqj.internal.acqengj.Engine;
 public class RemoteAcquisitionFactory {
    
    private Engine eng_;
-   
+
+   /////////////////////////////////////////////////////////////////
+   /////////   These methods are called by the Python side /////////
+   /////////////////////////////////////////////////////////////////
    public RemoteAcquisitionFactory(CMMCore core) {
       eng_ = Engine.getInstance();
       if (eng_ == null) {
@@ -23,16 +26,15 @@ public class RemoteAcquisitionFactory {
       }
    }
 
-   public RemoteAcquisition createAcquisition() {
+   public RemoteAcquisition createAcquisition(String dir, String name, boolean showViewer,
+                                              boolean xyTiled, int tileOverlapX, int tileOverlapY) {
       RemoteEventSource eventSource = new RemoteEventSource();
-      return new RemoteAcquisition(eventSource,null);
-   }
-   
-   public RemoteAcquisition createAcquisition(String dir, String name, boolean showViewer) {
-      RemoteEventSource eventSource = new RemoteEventSource();
-      RemoteViewerStorageAdapter adapter = new RemoteViewerStorageAdapter(showViewer, dir, name);
+      RemoteViewerStorageAdapter adapter = null;
+      if (name != null && dir != null) {
+         adapter = new RemoteViewerStorageAdapter(showViewer, dir, name, xyTiled, tileOverlapX, tileOverlapY);
+      }
       return new RemoteAcquisition(eventSource, adapter);
    }
-   
+
    
 }
