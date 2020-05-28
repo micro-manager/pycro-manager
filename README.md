@@ -36,7 +36,7 @@ Java ZMQ server version: 2.4.0
 Python client expected version: 2.5.0
 ```
 
-In this case case your Micro-manager version Pycro-manager versions are out of sync. The best fix is to down the latest versions of both. Uprgade to the latest Pycro-manager with: 
+In this case case your Micro-manager version Pycro-manager versions are out of sync. The best fix is to download the latest versions of both. Uprgade to the latest Pycro-manager with: 
 
 ```
 pip install pycromanager --upgrade
