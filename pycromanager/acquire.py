@@ -8,6 +8,7 @@ import time
 from pycromanager.core import serialize_array, deserialize_array, Bridge
 from pycromanager.data import Dataset
 import warnings
+import os.path
 
 ### These functions outside class to prevent problems with pickling when running them in differnet process
 
@@ -153,6 +154,12 @@ class Acquisition(object):
         self.bridge = Bridge(debug=debug)
         self._debug = debug
         self._dataset = None
+
+        if directory is not None:
+            # Expend ~ in path
+            directory = os.path.expanduser(directory)
+            # If path is relative, retain knowledge of the current working directory
+            directory = os.path.abspath(directory)
 
         if magellan_acq_index is not None:
             magellan_api = self.bridge.get_magellan()
