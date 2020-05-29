@@ -185,7 +185,9 @@ class Bridge:
             socket = JavaSocket(self._context, serialized_object['port'], zmq.REQ)
         else:
             socket = self._master_socket
-        return self._class_factory.create(serialized_object)(socket=socket, serialized_object=serialized_object, bridge=self)
+        return self._class_factory.create(
+            serialized_object, convert_camel_case=self._convert_camel_case)(
+            socket=socket, serialized_object=serialized_object, bridge=self)
 
     def _connect_push(self, port):
         """
