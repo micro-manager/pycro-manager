@@ -8,6 +8,7 @@ import inspect
 import numpy as np
 import zmq
 from types import MethodType
+import threading
 
 
 class JavaSocket:
@@ -20,6 +21,7 @@ class JavaSocket:
         self._socket = context.socket(type)
         self._debug = debug
         self._java_objects = []
+        self.lock = threading.Lock()
         # try:
         if type == zmq.PUSH:
             if debug:
@@ -129,9 +131,10 @@ class Bridge:
         self._convert_camel_case = convert_camel_case
         self._debug = debug
         self._master_socket = JavaSocket(self._context, port, zmq.REQ, debug=debug)
-        self._master_socket.send({'command': 'connect', })
-        self._class_factory = _JavaClassFactory()
-        reply_json = self._master_socket.receive(timeout=500)
+        with self._master_socket.lock:
+            self._master_socket.send({'command': 'connect', })
+            self._class_factory = _JavaClassFactory()
+            reply_json = self._master_socket.receive(timeout=500)
         if reply_json is None:
             raise TimeoutError("Socket timed out after 500 milliseconds. Is Micro-Manager running and is the ZMQ server option enabled?")
         if reply_json['type'] == 'exception':
@@ -165,8 +168,9 @@ class Bridge:
         # classpath_minus_class = '.'.join(classpath.split('.')[:-1])
         #query the server for constructors matching this classpath
         message = {'command': 'get-constructors', 'classpath': classpath}
-        self._master_socket.send(message)
-        constructors = self._master_socket.receive()['api']
+        with self._master_socket.lock:
+            self._master_socket.send(message)
+            constructors = self._master_socket.receive()['api']
 
         methods_with_name = [m for m in constructors if m['name'] == classpath]
         if len(methods_with_name) == 0:
@@ -179,8 +183,9 @@ class Bridge:
                    'arguments': _package_arguments(valid_method_spec, args)}
         if new_socket:
             message['new-port'] = True
-        self._master_socket.send(message)
-        serialized_object = self._master_socket.receive()
+        with self._master_socket.lock:
+            self._master_socket.send(message)
+            serialized_object = self._master_socket.receive()
         if new_socket:
             socket = JavaSocket(self._context, serialized_object['port'], zmq.REQ)
         else:
@@ -301,8 +306,9 @@ class JavaObjectShadow:
         if not hasattr(self, '_hash_code'):
             return #constructor didnt properly finish, nothing to clean up on java side
         message = {'command': 'destructor', 'hash-code': self._hash_code}
-        self._socket.send(message)
-        reply_json = self._socket.receive()
+        with self._socket.lock:
+            self._socket.send(message)
+            reply_json = self._socket.receive()
         if reply_json['type'] == 'exception':
             raise Exception(reply_json['value'])
         self._closed = True
@@ -319,8 +325,9 @@ class JavaObjectShadow:
         :return:
         """
         message = {'command': 'get-field', 'hash-code': self._hash_code, 'name': name}
-        self._socket.send(message)
-        return self._deserialize(self._socket.receive())
+        with self._socket.lock:
+            self._socket.send(message)
+            return self._deserialize(self._socket.receive())
 
     def _set_field(self, name, value):
         """
@@ -328,8 +335,9 @@ class JavaObjectShadow:
         :return:
         """
         message = {'command': 'set-field', 'hash-code': self._hash_code, 'name': name, 'value': _serialize_arg(value)}
-        self._socket.send(message)
-        reply = self._deserialize(self._socket.receive())
+        with self._socket.lock:
+            self._socket.send(message)
+            reply = self._deserialize(self._socket.receive())
 
     def _translate_call(self, method_specs, fn_args: tuple):
         """
@@ -345,9 +353,9 @@ class JavaObjectShadow:
         message = {'command': 'run-method', 'hash-code': self._hash_code, 'name': valid_method_spec['name'],
                    'argument-types': valid_method_spec['arguments']}
         message['arguments'] = _package_arguments(valid_method_spec, fn_args)
-
-        self._socket.send(message)
-        return self._deserialize(self._socket.receive())
+        with self._socket.lock:
+            self._socket.send(message)
+            return self._deserialize(self._socket.receive())
 
     def _deserialize(self, json_return):
         """
