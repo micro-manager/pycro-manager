@@ -121,7 +121,7 @@ Pycro-manager has special support for acquisitions in which multiple images are 
 
 .. note::
 
-   In order for this functionality to work. The current configuration must have a correctly calibrated affine transform matrix, which gives the corrspondence between the coordinate systems of the camera and the XY stage. This can be calibrated automatically in Micro-Manager by using the pixel size calibrator (under ``Devices``--``Pixel Size Calibration`` in the Micro-manager GUI).
+   In order for this functionality to work, the current configuration must have a correctly calibrated affine transform matrix, which gives the corrspondence between the coordinate systems of the camera and the XY stage. This can be calibrated automatically in Micro-Manager by using the pixel size calibrator (under ``Devices``--``Pixel Size Calibration`` in the Micro-manager GUI).
 
 
 To enable this mode, pass in a value in for the ``tile_overlap`` argument when creating an acquisition. The value gives the number of pixels by which adjacent tiles will overlap. Specify which tiles to acquire using the ``row`` and ``col`` fields in acquisition events.
