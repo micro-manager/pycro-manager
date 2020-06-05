@@ -15,6 +15,9 @@ import mmcorej.org.json.JSONArray;
 import mmcorej.org.json.JSONException;
 import mmcorej.org.json.JSONObject;
 import static org.micromanager.internal.zmq.ZMQUtil.EXTERNAL_OBJECTS;
+
+import org.micromanager.display.DisplaySettings;
+import org.micromanager.display.internal.DefaultDisplaySettings;
 import org.zeromq.SocketType;
 
 /**
@@ -267,6 +270,7 @@ public class ZMQServer extends ZMQSocketWrapper {
 
       Object result;
       try {
+         matchingMethod.setAccessible(true); //this is needed to call public methods on private classes
          result = matchingMethod.invoke(obj, argVals);
       } catch (InvocationTargetException ex) {
          ex.printStackTrace();
