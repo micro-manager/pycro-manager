@@ -9,9 +9,6 @@ import java.util.*;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.function.Function;
-import java.util.logging.Level;
-import java.util.logging.Logger;
-import mmcorej.org.json.JSONArray;
 import mmcorej.org.json.JSONException;
 import mmcorej.org.json.JSONObject;
 import static org.micromanager.internal.zmq.ZMQUtil.EXTERNAL_OBJECTS;
@@ -267,6 +264,7 @@ public class ZMQServer extends ZMQSocketWrapper {
 
       Object result;
       try {
+         matchingMethod.setAccessible(true); //this is needed to call public methods on private classes
          result = matchingMethod.invoke(obj, argVals);
       } catch (InvocationTargetException ex) {
          ex.printStackTrace();
@@ -313,6 +311,7 @@ public class ZMQServer extends ZMQSocketWrapper {
 
             if (request.has("new-port") && request.getBoolean("new-port")) {
                //start the server for this class and store it
+               //TODO: this needs to be removed?
                new ZMQServer(cl_, classMapper_, new String[]{"org.micromanager.internal"});
             }
             reply = new JSONObject();
