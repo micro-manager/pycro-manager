@@ -17,12 +17,16 @@ def _event_sending_fn(event_port, event_queue, debug=False):
     event_socket = bridge._connect_push(event_port)
     while True:
         events = event_queue.get(block=True)
+        if debug:
+            print('got event(s): ' + events)
         if events is None:
             # Poison, time to shut down
             event_socket.send({'events': [{'special': 'acquisition-end'}]})
             event_socket.close()
             return
         event_socket.send({'events': events if type(events) == list else [events]})
+        if debug:
+            print('sent events')
 
 def _acq_hook_startup_fn(pull_port, push_port, hook_connected_evt, event_queue, hook_fn, debug):
     bridge = Bridge(debug=debug)
