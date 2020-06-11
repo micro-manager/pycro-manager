@@ -273,6 +273,8 @@ class Dataset:
             self._tile_width = smd['Width'] - smd['GridPixelOverlapX']
             self._tile_height = smd['Height'] - smd['GridPixelOverlapY']
             return
+        else:
+            self._remote_storage = None
 
         self.path = dataset_path
         res_dirs = [dI for dI in os.listdir(dataset_path) if os.path.isdir(os.path.join(dataset_path, dI))]

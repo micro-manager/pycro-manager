@@ -18,4 +18,4 @@ If the constructor takes arguments, they can be passed in using:
 	java_obj = self.construct_java_object('the.full.classpath.to.TheClass', args=['demo', 30])
 
 
-In either case, calling ``java_obj.`` and using IPython autocomplete to discover method names can be useful for development.
+In either case, calling ``java_obj.`` and using IPython autocomplete to discover method names can be useful for development. Note that function names will be automatically translated from the camelCase Java convention to the Python convention of underscores between words (e.g. ``setExposure`` becomes ``set_exposure``)

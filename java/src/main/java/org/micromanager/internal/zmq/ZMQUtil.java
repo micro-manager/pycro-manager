@@ -202,7 +202,6 @@ public class ZMQUtil {
                apiInterfaces.add(o.getClass());
             } else {
                //Non Java classes. Check to make sure only exposing things we mean to
-
                Set<String> packageNames = new HashSet<String>();
                //Search through all superclasses and interfaces
                Class clazz = o.getClass();
@@ -210,6 +209,7 @@ public class ZMQUtil {
                   apiInterfaces.add(clazz);
                   for (Class inter : clazz.getInterfaces()) {
                      apiInterfaces.add(inter);
+                     recursiveAddInterfaces(apiInterfaces, inter);
                   }
                   clazz = clazz.getSuperclass();
                } while (clazz != null);
@@ -241,6 +241,13 @@ public class ZMQUtil {
          }
       } catch (JSONException e) {
          throw new RuntimeException(e);
+      }
+   }
+
+   private void recursiveAddInterfaces(ArrayList<Class> apiInterfaces, Class inter) {
+      for (Class extendedInterface : inter.getInterfaces()) {
+         apiInterfaces.add(extendedInterface);
+         recursiveAddInterfaces(apiInterfaces, extendedInterface);
       }
    }
 
@@ -302,7 +309,6 @@ public class ZMQUtil {
            throws JSONException, ClassNotFoundException {
       JSONArray methodArray = new JSONArray();
       Class clazz = Class.forName(classpath);
-
       Constructor[] m = clazz.getConstructors();
       for (Constructor c : m) {
          JSONObject methJSON = new JSONObject();
@@ -342,10 +348,10 @@ public class ZMQUtil {
          for (Method method : clazz.getDeclaredMethods()) {
             JSONObject methJSON = new JSONObject();
             methJSON.put("name", method.getName());
-            methJSON.put("return-type", method.getReturnType().getCanonicalName());
+            methJSON.put("return-type", method.getReturnType().getTypeName());
             JSONArray args = new JSONArray();
             for (Class arg : method.getParameterTypes()) {
-               args.put(arg.getCanonicalName());
+               args.put(arg.getTypeName());
             }
             methJSON.put("arguments", args);
 //            JSONArray argNames = new JSONArray();
