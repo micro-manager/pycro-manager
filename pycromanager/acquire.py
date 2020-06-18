@@ -118,7 +118,7 @@ def _processor_startup_fn(pull_port, push_port, sockets_connected_evt, process_f
 
 class Acquisition(object):
     def __init__(self, directory=None, name=None, image_process_fn=None,
-                 pre_hardware_hook_fn=None, post_hardware_hook_fn=None, tile_overlap=None,
+                 pre_hardware_hook_fn=None, post_hardware_hook_fn=None, show_display=True, tile_overlap=None,
                  magellan_acq_index=None, process=True, debug=False):
         """
         :param directory: saving directory for this acquisition. Required unless an image process function will be
@@ -145,6 +145,8 @@ class Acquisition(object):
             tiles. i.e. (pixel_overlap_x, pixel_overlap_y), or an integer to use the same overlap for both.
             For these features to work, the current hardware configuration must have a valid affine transform
             between camera coordinates and XY stage coordinates
+        :param show_display: show the image viewer window
+        :type show_display: boolean
         :type tile_overlap: tuple, int
         :param magellan_acq_index: run this acquisition using the settings specified at this position in the main
             GUI of micro-magellan (micro-manager plugin). This index starts at 0
@@ -175,8 +177,7 @@ class Acquisition(object):
             core = self.bridge.get_core()
             acq_factory = self.bridge.construct_java_object('org.micromanager.remote.RemoteAcquisitionFactory', args=[core])
 
-            #TODO: could add hiding viewer as an option
-            show_viewer = directory is not None and name is not None
+            show_viewer = show_display and (directory is not None and name is not None)
             if tile_overlap is None:
                 #argument placeholders, these wont actually be used
                 x_overlap = 0
