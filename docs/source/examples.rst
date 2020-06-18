@@ -16,3 +16,9 @@ Potential projects that may later appear here:
 * Controlling acquisition based on feedback from images
 * Tiled XY acquisitions that make use of multi-resolution saving/viewing
 * (Your cool example here)
+
+.. toctree::
+	:maxdepth: 3
+	:caption: Contents:
+
+	pycro_manager_denoising_demo_n2v
