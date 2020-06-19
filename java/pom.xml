@@ -85,12 +85,12 @@
       <dependency>
          <groupId>org.micro-manager.ndviewer</groupId>
          <artifactId>NDViewer</artifactId>
-         <version>0.2.7</version>
+         <version>0.2.1</version>
       </dependency>
       <dependency>
          <groupId>org.micro-manager.ndtiffstorage</groupId>
          <artifactId>NDTiffStorage</artifactId>
-         <version>0.2.6</version>
+         <version>0.2.7</version>
       </dependency>
       <!-- https://mvnrepository.com/artifact/net.imagej/ij -->
       <dependency>
