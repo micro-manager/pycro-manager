@@ -445,7 +445,7 @@ def _check_single_method_spec(method_spec, fn_args):
             # For ND Arrays, need to make sure data types match
             if _ARRAY_TYPE_TO_NUMPY_DTYPE[arg_type] != arg_val.dtype:
                 return False
-        elif not isinstance(type(arg_val), type(_JAVA_TYPE_NAME_TO_PYTHON_TYPE[arg_type])):
+        elif not isinstance(arg_val, _JAVA_TYPE_NAME_TO_PYTHON_TYPE[arg_type]):
             # if a type that gets converted
             return False
     return True
