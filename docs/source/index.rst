@@ -24,6 +24,8 @@
 	tutorials
 	examples
 	apis
+	citation
+	
 
 
 
