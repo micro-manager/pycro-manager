@@ -18,7 +18,7 @@ def _event_sending_fn(event_port, event_queue, debug=False):
     while True:
         events = event_queue.get(block=True)
         if debug:
-            print('got event(s): ' + events)
+            print('got event(s):', events)
         if events is None:
             # Poison, time to shut down
             event_socket.send({'events': [{'special': 'acquisition-end'}]})

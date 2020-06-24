@@ -427,6 +427,28 @@ def _serialize_arg(arg):
     else:
         raise Exception('Unknown argumetn type')
 
+def _check_single_method_spec(method_spec, fn_args):
+    """
+    Check if a single method specificiation is compatible with the arguments the function recieved
+    :param method_spec:
+    :param fn_args:
+    :return:
+    """
+    if len(method_spec['arguments']) != len(fn_args):
+        return False
+    for arg_type, arg_val in zip(method_spec['arguments'], fn_args):
+        if isinstance(arg_val, JavaObjectShadow):
+            if arg_type not in arg_val._interfaces:
+                # check that it shadows object of the correct type
+                return False
+        elif type(arg_val) == np.ndarray:
+            # For ND Arrays, need to make sure data types match
+            if _ARRAY_TYPE_TO_NUMPY_DTYPE[arg_type] != arg_val.dtype:
+                return False
+        elif not isinstance(type(arg_val), type(_JAVA_TYPE_NAME_TO_PYTHON_TYPE[arg_type])):
+            # if a type that gets converted
+            return False
+    return True
 
 def _check_method_args(method_specs, fn_args):
     """
@@ -438,24 +460,10 @@ def _check_method_args(method_specs, fn_args):
     # TODO: check that args can be translated to expected java counterparts (e.g. numpy arrays)
     valid_method_spec = None
     for method_spec in method_specs:
-        if len(method_spec['arguments']) != len(fn_args):
-            continue
-        valid_method_spec = method_spec
-        for arg_type, arg_val in zip(method_spec['arguments'], fn_args):
-            if isinstance(arg_val, JavaObjectShadow):
-                if arg_type not in arg_val._interfaces:
-                    # check that it shadows object of the correct type
-                    valid_method_spec = None
-            elif type(arg_val) == np.ndarray:
-                # For ND Arrays, need to make sure data types match
-                if _ARRAY_TYPE_TO_NUMPY_DTYPE[arg_type] != arg_val.dtype:
-                    valid_method_spec = None
-            elif not isinstance(type(arg_val), type(_JAVA_TYPE_NAME_TO_PYTHON_TYPE[arg_type])):
-                # if a type that gets converted
-                valid_method_spec = None
+        if _check_single_method_spec(method_spec, fn_args):
+            valid_method_spec = method_spec
+            break
 
-        # if valid_method_spec is None:
-        #     break
     if valid_method_spec is None:
         raise Exception('Incorrect arguments. \nExpected {} \nGot {}'.format(
             ' or '.join([', '.join(method_spec['arguments']) for method_spec in method_specs]),
