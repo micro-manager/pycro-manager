@@ -94,6 +94,7 @@ def _processor_startup_fn(pull_port, push_port, sockets_connected_evt, process_f
 
         params = signature(process_fn).parameters
         if len(params) == 2 or len(params) == 4:
+            processed = None
             try:
                 if len(params) == 2:
                     processed = process_fn(image, metadata)
