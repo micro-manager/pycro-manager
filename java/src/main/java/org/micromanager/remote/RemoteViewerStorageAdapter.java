@@ -5,7 +5,9 @@
  */
 package org.micromanager.remote;
 
+import java.awt.*;
 import java.util.HashMap;
+import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import mmcorej.TaggedImage;
@@ -31,6 +33,7 @@ public class RemoteViewerStorageAdapter implements DataSourceInterface, DataSink
    private volatile ViewerInterface viewer_;
    private volatile RemoteAcquisition acq_;
    private volatile MultiResMultipageTiffStorage storage_;
+   private CopyOnWriteArrayList<String> channelNames_ = new CopyOnWriteArrayList<String>();
 
    private final boolean showViewer_, storeData_, xyTiled_;
    private final int tileOverlapX_, tileOverlapY_;
@@ -95,11 +98,25 @@ public class RemoteViewerStorageAdapter implements DataSourceInterface, DataSink
          storage_.putImage(taggedImg, axes);
       }
 
+      //Check if new viewer to init display settings
+      String channelName = AcqEngMetadata.getChannelName(taggedImg.tags);
+      boolean newChannel = !channelNames_.contains(channelName);
+      if (newChannel) {
+         channelNames_.add(channelName);
+      }
+
       if (showViewer_) {
          //put on different thread to not slow down acquisition
          displayCommunicationExecutor_.submit(new Runnable() {
             @Override
             public void run() {
+               if (newChannel) {
+                  //Insert a preferred color. Make a copy just in case concurrency issues
+                  String chName = AcqEngMetadata.getChannelName(taggedImg.tags);
+//                  Color c = Color.white; //TODO could add color memory here
+                  int bitDepth = AcqEngMetadata.getBitDepth(taggedImg.tags);
+                  viewer_.setChannelDisplaySettings(chName, null, bitDepth);
+               }
                HashMap<String, Integer> axes = AcqEngMetadata.getAxes(taggedImg.tags);
                if (xyTiled_) {
                   //remove this so the viewer doesn't show it

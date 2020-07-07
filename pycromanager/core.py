@@ -339,7 +339,7 @@ class JavaObjectShadow:
         :return:
         """
         #args that are none are placeholders to allow for polymorphism and not considered part of the spec
-        fn_args = [a for a in fn_args if a is not None]
+        # fn_args = [a for a in fn_args if a is not None]
         valid_method_spec = _check_method_args(method_specs, fn_args)
         #args are good, make call through socket, casting the correct type if needed (e.g. int to float)
         message = {'command': 'run-method', 'hash-code': self._hash_code, 'name': valid_method_spec['name'],
@@ -445,7 +445,8 @@ def _check_single_method_spec(method_spec, fn_args):
             # For ND Arrays, need to make sure data types match
             if _ARRAY_TYPE_TO_NUMPY_DTYPE[arg_type] != arg_val.dtype:
                 return False
-        elif not isinstance(arg_val, _JAVA_TYPE_NAME_TO_PYTHON_TYPE[arg_type]):
+        elif not isinstance(arg_val, _JAVA_TYPE_NAME_TO_PYTHON_TYPE[arg_type]) and \
+                    not (arg_val is None and arg_type in _JAVA_NON_PRIMITIVES): #could be null if its an object
             # if a type that gets converted
             return False
     return True
@@ -519,6 +520,7 @@ _JAVA_TYPE_NAME_TO_PYTHON_TYPE = {'boolean': bool, 'byte[]': np.ndarray,
                                   'int': int, 'int[]': np.ndarray, 'java.lang.String': str,
                                   'long': int, 'short': int, 'char': int, 'byte': int, 'void': None,
                                   'java.lang.Object': object}
+_JAVA_NON_PRIMITIVES = {'byte[]', 'double[]', 'int[]', 'java.lang.String', 'java.lang.Object'}
 
 if __name__ == '__main__':
     #Test basic bridge operations
