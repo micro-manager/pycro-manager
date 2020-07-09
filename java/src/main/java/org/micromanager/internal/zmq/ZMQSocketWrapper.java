@@ -35,11 +35,10 @@ public abstract class ZMQSocketWrapper {
    }
 
    private static synchronized int nextPortNumber(ZMQSocketWrapper t) {
-      int port = portSocketMap_.isEmpty() ? DEFAULT_MASTER_PORT_NUMBER : 
-              Collections.max(portSocketMap_.keySet()) + 1;
-//         int port = nextPort_;
-//         nextPort_++;
-
+      int port = DEFAULT_MASTER_PORT_NUMBER;
+      while (portSocketMap_.containsKey(port)) {
+         port++;
+      }
       portSocketMap_.put(port, t);
       return port;
    }
@@ -52,7 +51,7 @@ public abstract class ZMQSocketWrapper {
    
    public void close() {
       socket_.close();
-      portSocketMap_.remove(socket_);
+      portSocketMap_.remove(this.getPort());
    }
 
 }
