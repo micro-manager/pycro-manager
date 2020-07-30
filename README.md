@@ -41,3 +41,8 @@ In this case case your Micro-manager version Pycro-manager versions are out of s
 ```
 pip install pycromanager --upgrade
 ```
+
+
+## Contributing
+
+We welcome community contributions to improve Pycro-manager, including bug fixes, improvements to documentation, examples of different use cases, or internal improvements. Check out the [contributing guide](https://github.com/micro-manager/pycro-manager/blob/master/Contributing.md) to see more about the workflow. Areas where community contributions would be especially helpful can be found on the [Issues](https://github.com/micro-manager/pycro-manager/issues) page with a **Help wanted** label
