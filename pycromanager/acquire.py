@@ -119,7 +119,8 @@ def _processor_startup_fn(pull_port, push_port, sockets_connected_evt, process_f
 
 class Acquisition(object):
     def __init__(self, directory=None, name=None, image_process_fn=None,
-                 pre_hardware_hook_fn=None, post_hardware_hook_fn=None, show_display=True, tile_overlap=None,
+                 pre_hardware_hook_fn=None, post_hardware_hook_fn=None, post_camera_hook_fn=None,
+                 show_display=True, tile_overlap=None,
                  magellan_acq_index=None, process=True, debug=False):
         """
         :param directory: saving directory for this acquisition. Required unless an image process function will be
@@ -141,6 +142,10 @@ class Acquisition(object):
         :param post_hardware_hook_fn: hook function that will be run just before the hardware is updated before acquiring
             a new image. Accepts either one argument (the current acquisition event) or three arguments (current event,
             bridge, event Queue)
+        :param post_camera_hook_fn: hook function that will be run just after the camera has been triggered to snapImage or
+            startSequence. A common use case for this hook is when one want to send TTL triggers to the camera from an
+            external timing device that synchronizes with other hardware. Accepts either one argument (the current
+            acquisition event) or three arguments (current event, bridge, event Queue)
         :param tile_overlap: If given, XY tiles will be laid out in a grid and multi-resolution saving will be
             actived. Argument can be a two element tuple describing the pixel overlaps between adjacent
             tiles. i.e. (pixel_overlap_x, pixel_overlap_y), or an integer to use the same overlap for both.
@@ -206,6 +211,11 @@ class Acquisition(object):
             hook = self.bridge.construct_java_object('org.micromanager.remote.RemoteAcqHook', args=[self._remote_acq])
             self._start_hook(hook, post_hardware_hook_fn, self._event_queue, process=process)
             self._remote_acq.add_hook(hook, self._remote_acq.AFTER_HARDWARE_HOOK)
+        if post_camera_hook_fn is not None:
+            hook = self.bridge.construct_java_object('org.micromanager.remote.RemoteAcqHook', args=[self._remote_acq])
+            self._start_hook(hook, post_camera_hook_fn, self._event_queue, process=process)
+            self._remote_acq.add_hook(hook, self._remote_acq.AFTER_CAMERA_HOOK)
+
 
         self._remote_acq.start()
 
