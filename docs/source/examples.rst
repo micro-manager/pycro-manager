@@ -7,11 +7,11 @@ This page contains a few full/advanced examples of using ``pycro-manager`` inter
 Have an application you'd like to figure out how to enable? Please `reach out <https://github.com/micro-manager/pycro-manager/issues/new>`_!
 
 
-.. toctree::
-	:maxdepth: 3
-	:caption: Contents:
+.. .. toctree::
+.. 	:maxdepth: 3
+.. 	:caption: Contents:
 
-	pycro_manager_denoising_demo_n2v.ipynb
+.. 	pycro_manager_denoising_demo_n2v.ipynb
 	
 
 Still under construction. Potential projects that may later appear here:
