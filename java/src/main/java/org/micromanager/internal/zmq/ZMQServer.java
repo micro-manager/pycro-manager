@@ -133,17 +133,21 @@ public class ZMQServer extends ZMQSocketWrapper {
                     message.getJSONArray("arguments").getJSONObject(i).get("hash-code"));
             //abstract to superclasses/interfaces in the API
             Set<String> potentialPackages = new TreeSet<String>();
-            for (Class c : argVals[i].getClass().getInterfaces()) {
-               potentialPackages.add(c.getPackage().getName());
+            Class clazz = argVals[i].getClass();
+            while (clazz.getSuperclass() != null) {
+               for (Class c : clazz.getInterfaces()){
+                  potentialPackages.add(c.getPackage().getName());
+               }
+               potentialPackages.add(clazz.getPackage().getName());
+               clazz = clazz.getSuperclass();
             }
-            potentialPackages.add(argVals[i].getClass().getPackage().getName());
             //build up a list of valid packages
             Set<Class> apiClasses = new HashSet<Class>();
             for (String packageName : potentialPackages) {
                apiClasses.addAll(util_.getPackageClasses(packageName));
             }
 
-            ParamList<Class> potentialClasses = new ParamList<Class>();
+            ParamSet<Class> potentialClasses = new ParamSet<Class>();
             for (Class apiClass : apiClasses) {
                if (apiClass.isAssignableFrom(argVals[i].getClass())) {
                   potentialClasses.add(apiClass);
@@ -171,10 +175,10 @@ public class ZMQServer extends ZMQSocketWrapper {
       //so that the correct method can be located
       LinkedList<LinkedList<Class>> paramCombos = new LinkedList<LinkedList<Class>>();
       for (Object argument : argClasses) {
-         if (argument instanceof ParamList) {
+         if (argument instanceof ParamSet) {
             if (paramCombos.isEmpty()) {
                //Add an entry for each possible type of the argument
-               for (Class c : (ArrayList<Class>) argument) {
+               for (Class c : (ParamSet<Class>) argument) {
                   paramCombos.add(new LinkedList<Class>());
                   paramCombos.getLast().add(c);
                }
@@ -354,6 +358,6 @@ public class ZMQServer extends ZMQSocketWrapper {
 
 }
 
-class ParamList<E> extends ArrayList<E> {
+class ParamSet<E> extends HashSet<E> {
 
 }
