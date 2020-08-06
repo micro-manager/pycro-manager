@@ -13,6 +13,9 @@ interp_points = test_surface.get_points()
 first_point = interp_points.get(0)
 print(first_point.x, first_point.y, first_point.z)
 
+test_surface.get_extrapolated_value(5., 200.)
+
+
 #get
 xy_positions = test_surface.get_xy_positions()
 for i in range(xy_positions.size()):

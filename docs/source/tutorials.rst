@@ -15,4 +15,5 @@ Finally, for experiments that require Java-based micro-manager plugins or alread
 	acq_overview
 	core
 	mm_java_apis
+	magellan_api
 	your_own_java
