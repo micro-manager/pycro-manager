@@ -1,10 +1,16 @@
 package org.micromanager.internal.zmq;
 
+import java.io.File;
+import java.io.PrintWriter;
+import java.io.StringWriter;
 import java.io.UnsupportedEncodingException;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
+import java.net.MalformedURLException;
 import java.net.URISyntaxException;
+import java.net.URL;
+import java.net.URLClassLoader;
 import java.util.*;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -12,6 +18,8 @@ import java.util.function.Function;
 import mmcorej.org.json.JSONException;
 import mmcorej.org.json.JSONObject;
 import static org.micromanager.internal.zmq.ZMQUtil.EXTERNAL_OBJECTS;
+
+import org.micromanager.internal.utils.ReportingUtils;
 import org.zeromq.SocketType;
 
 /**
@@ -23,15 +31,15 @@ public class ZMQServer extends ZMQSocketWrapper {
 
    private ExecutorService executor_;
 //   protected static Set<Class> apiClasses_;
-   private Set<String> packages_;
-   private ZMQUtil util_;
+   private static Set<String> packages_;
+   private static ZMQUtil util_;
 
    public static final String VERSION = "2.5.0";
 
-   private final Function<Class, Object> classMapper_;
+   private static Function<Class, Object> classMapper_;
    private static ZMQServer masterServer_;
 
-   private final ClassLoader cl_;
+   private static ClassLoader cl_;
 
    //for testing
 //   public static void main(String[] args) {
@@ -49,12 +57,36 @@ public class ZMQServer extends ZMQSocketWrapper {
 //         }
 //      }
 //   }
-   public ZMQServer(ClassLoader cl, Function<Class, Object> classMapper, String[] excludePaths) throws URISyntaxException, UnsupportedEncodingException {
+
+   /**
+    * This constructor used if making a new server on a different port and all the classloader info already parsed
+    */
+   public ZMQServer()  {
       super(SocketType.REP);
-      cl_ = cl;
-      packages_ = ZMQUtil.getPackages(cl);
-//      apiClasses_ = ZMQUtil.getAPIClasses(cl);
-      util_ = new ZMQUtil(cl, excludePaths);
+   }
+
+   public ZMQServer(ClassLoader cl, String jarDir, Function<Class, Object> classMapper, String[] excludePaths) throws URISyntaxException, UnsupportedEncodingException {
+      super(SocketType.REP);
+
+      //Gererate a classloader that includes all plugin classes in Jars
+      ArrayList<URL> jarURLs = new ArrayList<URL>();
+      for (String jarPath : ZMQUtil.findPaths(jarDir, ".jar")) {
+         try {
+            jarURLs.add(new File(jarPath).toURI().toURL());
+         } catch (MalformedURLException e) {
+            ReportingUtils.logError("Unable to generate URL from path " + jarPath + "; skipping");
+            continue;
+         }
+      }
+
+      URL[] array = new URL[jarURLs.size()];
+      for (int i = 0; i < jarURLs.size(); i++) {
+         array[i] = jarURLs.get(i);
+      }
+
+      cl_ = new URLClassLoader(array, cl);
+      packages_ = ZMQUtil.getPackages(cl_);
+      util_ = new ZMQUtil(cl_, excludePaths);
       classMapper_ = classMapper;
    }
 
@@ -82,7 +114,12 @@ public class ZMQServer extends ZMQSocketWrapper {
                try {
                   JSONObject json = new JSONObject();
                   json.put("type", "exception");
-                  json.put("value", e.toString());
+
+                  StringWriter sw = new StringWriter();
+                  e.printStackTrace(new PrintWriter(sw));
+                  String exceptionAsString = sw.toString();
+                  json.put("value", exceptionAsString);
+
                   reply = json.toString().getBytes();
                   e.printStackTrace();
 
@@ -315,8 +352,7 @@ public class ZMQServer extends ZMQSocketWrapper {
 
             if (request.has("new-port") && request.getBoolean("new-port")) {
                //start the server for this class and store it
-               //TODO: this needs to be removed?
-               new ZMQServer(cl_, classMapper_, new String[]{"org.micromanager.internal"});
+               new ZMQServer();
             }
             reply = new JSONObject();
             util_.serialize(instance, reply, port_);

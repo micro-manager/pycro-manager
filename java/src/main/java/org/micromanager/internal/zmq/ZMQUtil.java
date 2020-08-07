@@ -10,10 +10,7 @@ import java.io.FilenameFilter;
 import java.io.IOException;
 import java.io.UnsupportedEncodingException;
 import java.lang.reflect.*;
-import java.net.URI;
-import java.net.URISyntaxException;
-import java.net.URL;
-import java.net.URLDecoder;
+import java.net.*;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.util.ArrayList;
@@ -41,6 +38,8 @@ import java.util.stream.Stream;
 import mmcorej.org.json.JSONArray;
 import mmcorej.org.json.JSONException;
 import mmcorej.org.json.JSONObject;
+import org.micromanager.internal.MMStudio;
+import org.micromanager.internal.utils.ReportingUtils;
 
 /**
  *
@@ -48,7 +47,7 @@ import mmcorej.org.json.JSONObject;
  */
 public class ZMQUtil {
 
-    private ClassLoader classLoader_;
+    private static ClassLoader classLoader_;
     private String[] excludedPaths_;
     private HashMap<String, Set<Class>> packageAPIClasses_ = new HashMap<String, Set<Class>>();
 
@@ -83,6 +82,37 @@ public class ZMQUtil {
    public ZMQUtil(ClassLoader cl, String[] excludePaths) {
        classLoader_ = cl;
        excludedPaths_ = excludePaths;
+   }
+
+   /**
+    * Recursively seek through the directory structure under the specified
+    * root and generate a list of files that match the given extension.
+    * Just a passthrough to the actual recursive method.
+    */
+   static ArrayList<String> findPaths(String root, String extension) {
+      ArrayList<String> result = new ArrayList<>();
+      // Short-circuit if we're called with a non-directory.
+      if (!(new File(root).isDirectory())) {
+         if (root.endsWith(extension)) {
+            result.add(root);
+         }
+         return result;
+      }
+      recursiveFindPaths(new File(root), extension, result);
+      return result;
+   }
+
+   private static void recursiveFindPaths(File root, String extension,
+                                          ArrayList<String> result) {
+      File[] items = root.listFiles();
+      for (File item : items) {
+         if (item.getAbsolutePath().endsWith(extension)) {
+            result.add(item.getAbsolutePath());
+         }
+         else if (item.isDirectory()) {
+            recursiveFindPaths(item, extension, result);
+         }
+      }
    }
 
    private static final ByteOrder BYTE_ORDER = ByteOrder.BIG_ENDIAN;
@@ -308,7 +338,11 @@ public class ZMQUtil {
    public static JSONArray parseConstructors(String classpath, Function<Class, Object> classMapper)
            throws JSONException, ClassNotFoundException {
       JSONArray methodArray = new JSONArray();
-      Class clazz = Class.forName(classpath);
+
+
+      Class clazz = classLoader_.loadClass(classpath);
+
+
       Constructor[] m = clazz.getConstructors();
       for (Constructor c : m) {
          JSONObject methJSON = new JSONObject();
@@ -366,6 +400,8 @@ public class ZMQUtil {
    }
 
    public static Set<String> getPackages(ClassLoader classLoader) {
+      classLoader.ge
+
       Set<String> packages = new HashSet<String>();
       Package[] p = Package.getPackages();
       for (Package pa : p) {
