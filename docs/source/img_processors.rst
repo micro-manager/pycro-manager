@@ -45,16 +45,18 @@ Image processors are not required to take in one image and return one image. The
 	import copy
 
 	def img_process_fn(image, metadata):
+		
+		# copy pixels in this example, but in reality
+		# you might want to compute something different
+        
+		image_2 = np.array(image, copy=True)
 
-		#copy pixels in this example, but in reality you might want to compute something differnt
-        image_2 = np.array(image, copy=True)
+		metadata_2 = copy.deepcopy(metadata)
 
-        metadata_2 = copy.deepcopy(metadata)
+		metadata_2['Channel'] = 'A_new_channel'
 
-        metadata_2['Channel'] = 'A_new_channel'
-
-        #return as a list of tuples
-        return [(image, metadata), (image2, md_2)]
+		#return as a list of tuples
+		return [(image, metadata), (image2, md_2)]
 
 
 
