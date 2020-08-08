@@ -5,19 +5,14 @@
  */
 package org.micromanager.internal.zmq;
 
-import java.io.File;
-import java.io.FilenameFilter;
-import java.io.IOException;
-import java.io.UnsupportedEncodingException;
+import java.io.*;
 import java.lang.reflect.*;
 import java.net.*;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Base64;
 import java.util.Collection;
-import java.util.Collections;
 import java.util.Enumeration;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -31,15 +26,15 @@ import java.util.function.Function;
 import java.util.function.Predicate;
 import java.util.jar.JarEntry;
 import java.util.jar.JarFile;
-import java.util.logging.Level;
-import java.util.logging.Logger;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
+import java.util.zip.ZipEntry;
+import java.util.zip.ZipInputStream;
+
 import mmcorej.org.json.JSONArray;
 import mmcorej.org.json.JSONException;
 import mmcorej.org.json.JSONObject;
-import org.micromanager.internal.MMStudio;
-import org.micromanager.internal.utils.ReportingUtils;
+
 
 /**
  *
@@ -47,7 +42,7 @@ import org.micromanager.internal.utils.ReportingUtils;
  */
 public class ZMQUtil {
 
-    private static ClassLoader classLoader_;
+    private static Collection<ClassLoader> classLoaders_;
     private String[] excludedPaths_;
     private HashMap<String, Set<Class>> packageAPIClasses_ = new HashMap<String, Set<Class>>();
 
@@ -79,8 +74,8 @@ public class ZMQUtil {
       PRIMITIVE_NAME_CLASS_MAP.put("double", double.class);
    }
 
-   public ZMQUtil(ClassLoader cl, String[] excludePaths) {
-       classLoader_ = cl;
+   public ZMQUtil(Collection<ClassLoader> cl, String[] excludePaths) {
+       classLoaders_ = cl;
        excludedPaths_ = excludePaths;
    }
 
@@ -339,9 +334,7 @@ public class ZMQUtil {
            throws JSONException, ClassNotFoundException {
       JSONArray methodArray = new JSONArray();
 
-
-      Class clazz = classLoader_.loadClass(classpath);
-
+      Class clazz = loadClass(classpath);
 
       Constructor[] m = clazz.getConstructors();
       for (Constructor c : m) {
@@ -399,15 +392,55 @@ public class ZMQUtil {
       return methodArray;
    }
 
-   public static Set<String> getPackages(ClassLoader classLoader) {
-      classLoader.ge
+   public static Collection<String> getPackagesFromJars(URLClassLoader cl) {
+      HashSet<String> packages = new HashSet<String>();
+      for (URL u : cl.getURLs()) {
+
+         try {
+         ZipInputStream zip = new ZipInputStream(new FileInputStream(u.getFile()));
+            for (ZipEntry entry = zip.getNextEntry(); entry != null; entry = zip.getNextEntry()) {
+               if (!entry.isDirectory() && entry.getName().endsWith(".class") && !entry.getName().contains("$")) {
+                  // This ZipEntry represents a class. Now, what class does it represent?
+                  String className = entry.getName().replace('/', '.');
+                  className = className.substring(0, className.length() - 6); // including ".class"
+                  Class clazz = loadClass(className);
+                  try {
+                     if (clazz.getPackage() != null) {
+                        packages.add(clazz.getPackage().getName());
+                     }
+                  } catch (Exception sdf) {
+                     sdf.printStackTrace();
+                  }
+               }
+            }
+         } catch (Exception e) {
+            e.printStackTrace();
+            continue;
+         }
+      }
+      return packages;
+   }
+
+   public static Set<String> getPackages() {
 
       Set<String> packages = new HashSet<String>();
       Package[] p = Package.getPackages();
+
       for (Package pa : p) {
          packages.add(pa.getName());
       }
       return packages;
+   }
+
+   protected static Class loadClass(String path) {
+      for (ClassLoader cl : classLoaders_) {
+         try {
+            return cl.loadClass(path);
+         } catch (ClassNotFoundException e) {
+            //On to the next one
+         }
+      }
+      throw new RuntimeException("Class not found on any classloaders");
    }
 
    public Set<Class> getPackageClasses(String packageName) throws UnsupportedEncodingException {
@@ -420,27 +453,29 @@ public class ZMQUtil {
            //java classes are different for some reason
            //Aparently you can't find java classes in a package without a third party library
         } else {
-           String path = packageName.replace('.', '/');
-           Enumeration<URL> resources;
-           try {
-              resources = classLoader_.getResources(path);
-           } catch (IOException ex) {
-              throw new RuntimeException("Invalid package name in ZMQ server: " + path);
-           }
-           List<File> dirs = new ArrayList<>();
-           while (resources.hasMoreElements()) {
-              URL resource = resources.nextElement();
-              String file = resource.getFile().replaceAll("^file:", "");
-              file = (String) URLDecoder.decode(file, "UTF-8");
+           for (ClassLoader classLoader : classLoaders_) {
+              String path = packageName.replace('.', '/');
+              Enumeration<URL> resources;
+              try {
+                 resources = classLoader.getResources(path);
+              } catch (IOException ex) {
+                 throw new RuntimeException("Invalid package name in ZMQ server: " + path);
+              }
+              List<File> dirs = new ArrayList<>();
+              while (resources.hasMoreElements()) {
+                 URL resource = resources.nextElement();
+                 String file = resource.getFile().replaceAll("^file:", "");
+                 file = (String) URLDecoder.decode(file, "UTF-8");
 
-              dirs.add(new File(file));
-           }
+                 dirs.add(new File(file));
+              }
 
-           for (File directory : dirs) {
-              if (directory.getAbsolutePath().contains(".jar")) {
-                 packageClasses.addAll(getClassesFromJarFile(directory));
-              } else {
-                 packageClasses.addAll(getClassesFromDirectory(packageName, directory));
+              for (File directory : dirs) {
+                 if (directory.getAbsolutePath().contains(".jar")) {
+                    packageClasses.addAll(getClassesFromJarFile(directory));
+                 } else {
+                    packageClasses.addAll(getClassesFromDirectory(packageName, directory));
+                 }
               }
            }
         }
@@ -485,7 +520,7 @@ public class ZMQUtil {
                   classes.add(Class.forName(name.replace("/", ".").
                           substring(0, name.length() - 6)));
                } catch (ClassNotFoundException ex) {
-//                  studio_.logs().logError("Class not found in ZMQ server: " + name);
+                  ex.printStackTrace();
                }
             }
          }

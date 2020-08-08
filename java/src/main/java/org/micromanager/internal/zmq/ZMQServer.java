@@ -19,7 +19,6 @@ import mmcorej.org.json.JSONException;
 import mmcorej.org.json.JSONObject;
 import static org.micromanager.internal.zmq.ZMQUtil.EXTERNAL_OBJECTS;
 
-import org.micromanager.internal.utils.ReportingUtils;
 import org.zeromq.SocketType;
 
 /**
@@ -38,8 +37,6 @@ public class ZMQServer extends ZMQSocketWrapper {
 
    private static Function<Class, Object> classMapper_;
    private static ZMQServer masterServer_;
-
-   private static ClassLoader cl_;
 
    //for testing
 //   public static void main(String[] args) {
@@ -65,29 +62,17 @@ public class ZMQServer extends ZMQSocketWrapper {
       super(SocketType.REP);
    }
 
-   public ZMQServer(ClassLoader cl, String jarDir, Function<Class, Object> classMapper, String[] excludePaths) throws URISyntaxException, UnsupportedEncodingException {
+   public ZMQServer(Collection<ClassLoader> cls, Function<Class, Object> classMapper,
+                    String[] excludePaths) throws URISyntaxException, UnsupportedEncodingException {
       super(SocketType.REP);
-
-      //Gererate a classloader that includes all plugin classes in Jars
-      ArrayList<URL> jarURLs = new ArrayList<URL>();
-      for (String jarPath : ZMQUtil.findPaths(jarDir, ".jar")) {
-         try {
-            jarURLs.add(new File(jarPath).toURI().toURL());
-         } catch (MalformedURLException e) {
-            ReportingUtils.logError("Unable to generate URL from path " + jarPath + "; skipping");
-            continue;
-         }
-      }
-
-      URL[] array = new URL[jarURLs.size()];
-      for (int i = 0; i < jarURLs.size(); i++) {
-         array[i] = jarURLs.get(i);
-      }
-
-      cl_ = new URLClassLoader(array, cl);
-      packages_ = ZMQUtil.getPackages(cl_);
-      util_ = new ZMQUtil(cl_, excludePaths);
       classMapper_ = classMapper;
+      util_ = new ZMQUtil(cls, excludePaths);
+
+      //get packages for current classloader (redundant?)
+      packages_ = ZMQUtil.getPackages();
+      for (ClassLoader cl : cls) {
+         packages_.addAll(ZMQUtil.getPackagesFromJars((URLClassLoader) cl));
+      }
    }
 
    public static ZMQServer getMasterServer() {
@@ -337,7 +322,7 @@ public class ZMQServer extends ZMQSocketWrapper {
             return reply.toString().getBytes();
          }
          case "constructor": { //construct a new object (or grab an exisitng instance)
-            Class baseClass = Class.forName(request.getString("classpath"));
+            Class baseClass = util_.loadClass(request.getString("classpath"));
 
             if (baseClass == null) {
                throw new RuntimeException("Couldnt find class with name" + request.getString("classpath"));
