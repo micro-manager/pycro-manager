@@ -395,9 +395,8 @@ public class ZMQUtil {
    public static Collection<String> getPackagesFromJars(URLClassLoader cl) {
       HashSet<String> packages = new HashSet<String>();
       for (URL u : cl.getURLs()) {
-
          try {
-         ZipInputStream zip = new ZipInputStream(new FileInputStream(u.getFile()));
+         ZipInputStream zip = new ZipInputStream(new FileInputStream(URLDecoder.decode(u.getFile(), "UTF-8")));
             for (ZipEntry entry = zip.getNextEntry(); entry != null; entry = zip.getNextEntry()) {
                if (!entry.isDirectory() && entry.getName().endsWith(".class") && !entry.getName().contains("$")) {
                   // This ZipEntry represents a class. Now, what class does it represent?
