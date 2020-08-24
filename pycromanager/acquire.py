@@ -120,7 +120,7 @@ def _processor_startup_fn(pull_port, push_port, sockets_connected_evt, process_f
 class Acquisition(object):
     def __init__(self, directory=None, name=None, image_process_fn=None,
                  pre_hardware_hook_fn=None, post_hardware_hook_fn=None, post_camera_hook_fn=None,
-                 show_display=True, tile_overlap=None,
+                 show_display=True, tile_overlap=None, max_multi_res_index=None,
                  magellan_acq_index=None, process=True, debug=False):
         """
         :param directory: saving directory for this acquisition. Required unless an image process function will be
@@ -151,9 +151,13 @@ class Acquisition(object):
             tiles. i.e. (pixel_overlap_x, pixel_overlap_y), or an integer to use the same overlap for both.
             For these features to work, the current hardware configuration must have a valid affine transform
             between camera coordinates and XY stage coordinates
+        :type tile_overlap: tuple, int
+        :param max_multi_res_index: Maximum index to downsample to in multi-res pyramid mode. 0 is no downsampling,
+            1 is downsampled up to 2x, 2 is downsampled up to 4x, etc. If not provided, it will be dynamically
+            calculated and updated from data
+        :type max_multi_res_index: int
         :param show_display: show the image viewer window
         :type show_display: boolean
-        :type tile_overlap: tuple, int
         :param magellan_acq_index: run this acquisition using the settings specified at this position in the main
             GUI of micro-magellan (micro-manager plugin). This index starts at 0
         :type magellan_acq_index: int
@@ -195,8 +199,9 @@ class Acquisition(object):
                     x_overlap = tile_overlap
                     y_overlap = tile_overlap
 
-            self._remote_acq = acq_factory.create_acquisition(directory, name, show_viewer,
-                                                              tile_overlap is not None, x_overlap, y_overlap)
+            self._remote_acq = acq_factory.create_acquisition(directory, name, show_viewer, tile_overlap is not None,
+                                                              x_overlap, y_overlap,
+                                                              max_multi_res_index if max_multi_res_index is not None else -1)
 
         if image_process_fn is not None:
             processor = self.bridge.construct_java_object('org.micromanager.remote.RemoteImageProcessor')

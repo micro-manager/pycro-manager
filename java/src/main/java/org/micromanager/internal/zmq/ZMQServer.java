@@ -33,7 +33,7 @@ public class ZMQServer extends ZMQSocketWrapper {
    private static Set<String> packages_;
    private static ZMQUtil util_;
 
-   public static final String VERSION = "2.5.0";
+   public static final String VERSION = "2.6.0";
 
    private static Function<Class, Object> classMapper_;
    private static ZMQServer masterServer_;
@@ -207,7 +207,7 @@ public class ZMQServer extends ZMQSocketWrapper {
             } else {
                //multiply each existing combo by each possible value of the arg
                LinkedList<LinkedList<Class>> newComboList = new LinkedList<LinkedList<Class>>();
-               for (Class c : (ArrayList<Class>) argument) {
+               for (Class c : (ParamSet<Class>) argument) {
                   for (LinkedList<Class> argList : paramCombos) {
                      LinkedList<Class> newArgList = new LinkedList<Class>(argList);
                      newArgList.add(c);

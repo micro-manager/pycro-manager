@@ -22,6 +22,8 @@ for i in range(interp_points.size()):
     point = interp_points.get(i)
     print(point.x, point.y, point.z)
 
+#can add points with
+#surface.add_point(x, y, z)
 
 
 ### Part 3a run autofocus #####
