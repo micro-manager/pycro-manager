@@ -39,9 +39,11 @@ public class RemoteViewerStorageAdapter implements DataSourceInterface, DataSink
    private final int tileOverlapX_, tileOverlapY_;
    private String dir_;
    private String name_;
+   private Integer maxResLevel_;
 
-   public RemoteViewerStorageAdapter(boolean showViewer, 
-           String dataStorageLocation, String name, boolean xyTiled, int tileOverlapX, int tileOverlapY) {
+   public RemoteViewerStorageAdapter(boolean showViewer,  String dataStorageLocation,
+                                     String name, boolean xyTiled, int tileOverlapX, int tileOverlapY,
+                                     Integer maxResLevel) {
       showViewer_ = showViewer;
       storeData_ = dataStorageLocation != null;
       xyTiled_ = xyTiled;
@@ -49,6 +51,7 @@ public class RemoteViewerStorageAdapter implements DataSourceInterface, DataSink
       name_ = name;
       tileOverlapX_ = tileOverlapX;
       tileOverlapY_ = tileOverlapY;
+      maxResLevel_ = maxResLevel;
    }
 
    public void initialize(Acquisition acq, JSONObject summaryMetadata) {
@@ -59,7 +62,7 @@ public class RemoteViewerStorageAdapter implements DataSourceInterface, DataSink
                  summaryMetadata, tileOverlapX_, tileOverlapY_,
                  AcqEngMetadata.getWidth(summaryMetadata),
                  AcqEngMetadata.getHeight(summaryMetadata),
-                 AcqEngMetadata.getBytesPerPixel(summaryMetadata), xyTiled_);
+                 AcqEngMetadata.getBytesPerPixel(summaryMetadata), xyTiled_, maxResLevel_);
          name_ = storage_.getUniqueAcqName();
       }
 
@@ -146,7 +149,7 @@ public class RemoteViewerStorageAdapter implements DataSourceInterface, DataSink
 
    @Override
    public int getMaxResolutionIndex() {
-      return 0; //No multi resolution support for now
+      return storage_.getNumResLevels() - 1;
    }
 
    @Override

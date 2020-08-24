@@ -111,7 +111,7 @@ class Bridge:
     This enables construction and interaction with arbitrary java objects
     """
     _DEFAULT_PORT = 4827
-    _EXPECTED_ZMQ_SERVER_VERSION = '2.5.0'
+    _EXPECTED_ZMQ_SERVER_VERSION = '2.6.0'
 
 
     def __init__(self, port=_DEFAULT_PORT, convert_camel_case=True, debug=False):
