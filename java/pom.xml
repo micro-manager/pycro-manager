@@ -90,7 +90,7 @@
       <dependency>
          <groupId>org.micro-manager.ndtiffstorage</groupId>
          <artifactId>NDTiffStorage</artifactId>
-         <version>0.3.0</version>
+         <version>0.3.1</version>
       </dependency>
       <!-- https://mvnrepository.com/artifact/net.imagej/ij -->
       <dependency>
