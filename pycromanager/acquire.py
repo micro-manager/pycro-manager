@@ -209,9 +209,9 @@ class Acquisition(object):
             self._start_processor(processor, image_process_fn, self._event_queue, process=process)
 
         if pre_hardware_hook_fn is not None:
-            hook = self.bridge.construct_java_object('org.micromanager.remote.RemoteAcqHook')
+            hook = self.bridge.construct_java_object('org.micromanager.remote.RemoteAcqHook', args=[self._remote_acq])
             self._start_hook(hook, pre_hardware_hook_fn, self._event_queue, process=process)
-            self._remote_acq.add_hook(hook, self._remote_acq.BEFORE_HARDWARE_HOOK, args=[self._remote_acq])
+            self._remote_acq.add_hook(hook, self._remote_acq.BEFORE_HARDWARE_HOOK)
         if post_hardware_hook_fn is not None:
             hook = self.bridge.construct_java_object('org.micromanager.remote.RemoteAcqHook', args=[self._remote_acq])
             self._start_hook(hook, post_hardware_hook_fn, self._event_queue, process=process)
