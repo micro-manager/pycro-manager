@@ -202,6 +202,9 @@ class Acquisition(object):
             self._remote_acq = acq_factory.create_acquisition(directory, name, show_viewer, tile_overlap is not None,
                                                               x_overlap, y_overlap,
                                                               max_multi_res_index if max_multi_res_index is not None else -1)
+        storage = self._remote_acq.get_storage()
+        if storage is not None:
+            self.disk_location = storage.get_disk_location()
 
         if image_process_fn is not None:
             processor = self.bridge.construct_java_object('org.micromanager.remote.RemoteImageProcessor')

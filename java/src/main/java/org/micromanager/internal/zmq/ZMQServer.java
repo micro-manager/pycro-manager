@@ -186,7 +186,11 @@ public class ZMQServer extends ZMQSocketWrapper {
          } else if (message.getJSONArray("argument-types").get(i).equals("java.lang.String")) {
             //Strings are a special case because they're like a primitive but not quite
             argClasses[i] = java.lang.String.class;
-            argVals[i] = message.getJSONArray("arguments").getString(i);
+            if (message.getJSONArray("arguments").get(i) == JSONObject.NULL) {
+               argVals[i] = null;
+            } else {
+               argVals[i] = message.getJSONArray("arguments").getString(i);
+            }
          } else if (message.getJSONArray("argument-types").get(i).equals("java.lang.Object")) {
             argClasses[i] = java.lang.Object.class;
             argVals[i] = message.getJSONArray("arguments").get(i);

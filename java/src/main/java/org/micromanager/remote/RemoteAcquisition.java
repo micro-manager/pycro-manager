@@ -26,7 +26,7 @@ public class RemoteAcquisition extends Acquisition
 
    public RemoteAcquisition(RemoteEventSource eventSource, RemoteViewerStorageAdapter sink) {
       super(sink);
-      if (((RemoteViewerStorageAdapter)dataSink_).isXYTiled()) {
+      if (dataSink_ != null && ((RemoteViewerStorageAdapter)dataSink_).isXYTiled()) {
          initialize(((RemoteViewerStorageAdapter) dataSink_).getOverlapX(),
                  ((RemoteViewerStorageAdapter) dataSink_).getOverlapY());
       } else {
@@ -37,7 +37,7 @@ public class RemoteAcquisition extends Acquisition
    }
 
    public MultiResMultipageTiffStorage getStorage() {
-      return  ((RemoteViewerStorageAdapter) dataSink_).getStorage();
+      return dataSink_ == null ? null : ((RemoteViewerStorageAdapter) dataSink_).getStorage();
    }
    
    public int getEventPort() {
