@@ -17,3 +17,6 @@ Finally, for experiments that require Java-based micro-manager plugins or alread
 	mm_java_apis
 	magellan_api
 	your_own_java
+	pycro_manager_imjoy_tutorial
+
+.. 	pycro_manager_imjoy_tutorial.ipynb
