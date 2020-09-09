@@ -412,12 +412,16 @@ def _package_arguments(valid_method_spec, fn_args):
             arguments.append(_serialize_arg(arg_val))
         elif _JAVA_TYPE_NAME_TO_PYTHON_TYPE[arg_type] is object:
             arguments.append(_serialize_arg(arg_val))
+        elif arg_val is None:
+            arguments.append(_serialize_arg(arg_val))
         else:
             arguments.append(_serialize_arg(_JAVA_TYPE_NAME_TO_PYTHON_TYPE[arg_type](arg_val)))
     return arguments
 
 
 def _serialize_arg(arg):
+    if arg is None:
+        return None
     if type(arg) in [bool, str, int, float]:
         return arg #json handles serialization
     elif type(arg) == np.ndarray:
@@ -513,8 +517,7 @@ def _camel_case_2_snake_case(name):
 _CLASS_NAME_MAPPING = {'boolean': 'boolean', 'byte[]': 'uint8array',
                        'double': 'float', 'double[]': 'float64_array', 'float': 'float',
                        'int': 'int', 'int[]': 'uint32_array', 'java.lang.String': 'string',
-                       'long': 'int', 'short': 'int', 'void': 'void',
-                       'java.util.List': 'list'}
+                       'long': 'int', 'short': 'int', 'void': 'void'}
 _ARRAY_TYPE_TO_NUMPY_DTYPE = {'byte[]': np.uint8, 'double[]': np.float64, 'int[]': np.int32}
 _JAVA_TYPE_NAME_TO_PYTHON_TYPE = {'boolean': bool, 'byte[]': np.ndarray,
                                   'double': float, 'double[]': np.ndarray, 'float': float,

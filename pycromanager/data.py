@@ -270,8 +270,9 @@ class Dataset:
             self._remote_storage = remote_storage
             self._bridge = Bridge()
             smd = self._remote_storage.get_summary_metadata()
-            self._tile_width = smd['Width'] - smd['GridPixelOverlapX']
-            self._tile_height = smd['Height'] - smd['GridPixelOverlapY']
+            if 'GridPixelOverlapX' in smd.keys():
+                self._tile_width = smd['Width'] - smd['GridPixelOverlapX']
+                self._tile_height = smd['Height'] - smd['GridPixelOverlapY']
             return
         else:
             self._remote_storage = None
