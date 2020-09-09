@@ -6,9 +6,6 @@ Specifying data to acquire
 
 The :class:`Acquisition<pycromanager.Acquisition>` class enables both simple mutli-dimensional acquisitions and complex data-adaptive acquisitions. Acquisitions take instructions in the form of :ref:`acquisition events<acq_event_spec>`, which are a set of instructions for setting hardware positions for the acquisition of a single image.
 
-.. note::
-
-   It is essential to wrap the calling script that uses the :class:`Acquisition<pycromanager.Acquisition>` with :code:`if __name__ == '__main__':`, as shown in the examples below
 
 Multi-dimensional acquisitions
 ##############################
