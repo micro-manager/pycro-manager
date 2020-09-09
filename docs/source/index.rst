@@ -9,7 +9,7 @@
 :doc:`setup`
 #############
 
-:doc:`tutorials`
+:doc:`features`
 ##################
 
 :doc:`apis`
@@ -21,8 +21,8 @@
 	:hidden:
 
 	setup
-	tutorials
-	examples
+	features
+	applications
 	apis
 	citation
 	
