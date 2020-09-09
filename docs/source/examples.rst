@@ -11,7 +11,7 @@ Have an application you'd like to figure out how to enable? Please `reach out <h
 .. 	:maxdepth: 3
 .. 	:caption: Contents:
 
-.. 	pycro_manager_denoising_demo_n2v.ipynb
+..	Denoising acquired images using deep learning.ipynb
 	
 
 Still under construction. Potential projects that may later appear here:
