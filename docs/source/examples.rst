@@ -11,12 +11,12 @@ Have an application you'd like to figure out how to enable? Please `reach out <h
 	:maxdepth: 3
 	:caption: Contents:
 
-	pycro_manager_denoising_demo_n2v.ipynb
+	Denoising acquired images using deep learning.ipynb
 	
 
 Still under construction. Potential projects that may later appear here:
 
-* Denoising images with deep learning
+* Denoising images with dseep learning
 * `Single shot autofocus using deep learning <https://www.osapublishing.org/optica/abstract.cfm?uri=optica-6-6-794>`_
 * Controlling acquisition based on feedback from images
 * Tiled XY acquisitions that make use of multi-resolution saving/viewing
