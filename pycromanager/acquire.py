@@ -9,6 +9,7 @@ from pycromanager.core import serialize_array, deserialize_array, Bridge
 from pycromanager.data import Dataset
 import warnings
 import os.path
+import queue
 
 ### These functions outside class to prevent problems with pickling when running them in differnet process
 
@@ -121,7 +122,7 @@ class Acquisition(object):
     def __init__(self, directory=None, name=None, image_process_fn=None,
                  pre_hardware_hook_fn=None, post_hardware_hook_fn=None, post_camera_hook_fn=None,
                  show_display=True, tile_overlap=None, max_multi_res_index=None,
-                 magellan_acq_index=None, process=True, debug=False):
+                 magellan_acq_index=None, process=False, debug=False):
         """
         :param directory: saving directory for this acquisition. Required unless an image process function will be
             implemented that diverts images from saving
@@ -161,8 +162,10 @@ class Acquisition(object):
         :param magellan_acq_index: run this acquisition using the settings specified at this position in the main
             GUI of micro-magellan (micro-manager plugin). This index starts at 0
         :type magellan_acq_index: int
-        :param process: (Experimental) use multiprocessing instead of multithreading for acquisition hooks and image
-            processors
+        :param process: Use multiprocessing instead of multithreading for acquisition hooks and image
+            processors. This can be used to speed up CPU-bounded processing by eliminating bottlenecks
+            caused by Python's Global Interpreter Lock, but also creates complications on Windows-based
+            systems
         :type process: boolean
         :param debug: print debugging stuff
         :type debug: boolean
@@ -183,7 +186,7 @@ class Acquisition(object):
             self._event_queue = None
         else:
             # Create thread safe queue for events so they can be passed from multiple processes
-            self._event_queue = multiprocessing.Queue()
+            self._event_queue = multiprocessing.Queue() if process else queue.Queue()
             core = self.bridge.get_core()
             acq_factory = self.bridge.construct_java_object('org.micromanager.remote.RemoteAcquisitionFactory', args=[core])
 
@@ -230,10 +233,9 @@ class Acquisition(object):
         if magellan_acq_index is None:
             self.event_port = self._remote_acq.get_event_port()
 
-            self.event_process = multiprocessing.Process(target=_event_sending_fn,
+            self.event_process = threading.Thread(target=_event_sending_fn,
                                                          args=(self.event_port, self._event_queue, self._debug),
                                                          name='Event sending')
-                    # if multiprocessing else threading.Thread(target=event_sending_fn, args=(), name='Event sending')
             self.event_process.start()
 
 
@@ -280,9 +282,9 @@ class Acquisition(object):
         pull_port = remote_hook.get_pull_port()
         push_port = remote_hook.get_push_port()
 
-        hook_thread = multiprocessing.Process(target=_acq_hook_startup_fn, name='AcquisitionHook',
-                                              args=(pull_port, push_port, hook_connected_evt, event_queue,
-                                                    remote_hook_fn, self._debug))
+        hook_thread = (multiprocessing.Process if process else threading.Thread)(
+                        target=_acq_hook_startup_fn, name='AcquisitionHook',
+                        args=(pull_port, push_port, hook_connected_evt, event_queue, remote_hook_fn, self._debug))
             # if process else threading.Thread(target=_acq_hook_fn, args=(), name='AcquisitionHook')
         hook_thread.start()
 
@@ -298,10 +300,9 @@ class Acquisition(object):
         push_port = processor.get_push_port()
 
 
-        self.processor_thread = multiprocessing.Process(target=_processor_startup_fn,
-                                                        args=(pull_port, push_port, sockets_connected_evt,
-                                                              process_fn, event_queue, self._debug), name='ImageProcessor')
-                         # if multiprocessing else threading.Thread(target=other_thread_fn, args=(),  name='ImageProcessor')
+        self.processor_thread = (multiprocessing.Process if process else threading.Thread)(
+                                        target=_processor_startup_fn, args=(pull_port, push_port, sockets_connected_evt,
+                                              process_fn, event_queue, self._debug), name='ImageProcessor')
         self.processor_thread.start()
 
         sockets_connected_evt.wait()  # wait for push/pull sockets to connect
