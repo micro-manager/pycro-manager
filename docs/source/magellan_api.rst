@@ -4,7 +4,7 @@
 Controlling Micro-Magellan
 ****************************************************************
 
-In addition to launching :ref:`acq_event_spec`, other aspects of Micro-Magellan can be controlled programatically through Python. 
+In addition to launching :ref:`magellan_acq_launch`, other aspects of Micro-Magellan can be controlled programatically through Python. 
 
 For example, Magellan acquisitions can be created or removed, and have their setting changed:
 
@@ -69,3 +69,19 @@ It is also possible to create Grids for acquisition:
 
 	#delete it (and anything else)
 	magellan.delete_all_grids_and_surfaces()
+
+
+Or surfaces:
+
+.. code-block:: python
+
+	magellan = bridge.get_magellan()
+
+	test_surface = magellan.create_surface('Test surface')
+
+	#Use the magellan GUI to add interpolation points
+
+	#get the z position of the surface at this XY location
+	z_position = test_surface.get_extrapolated_value(5., 200.)
+
+

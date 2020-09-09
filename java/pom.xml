@@ -2,7 +2,7 @@
     <modelVersion>4.0.0</modelVersion>
     <groupId>org.micro-manager.pycro-manager</groupId>
     <artifactId>PycroManagerJava</artifactId>
-    <version>0.7.7</version>
+    <version>0.8.13</version>
     <packaging>jar</packaging>
     <properties>
         <maven.compiler.source>1.8</maven.compiler.source>
@@ -80,17 +80,17 @@
       <dependency>
          <groupId>org.micro-manager.acqengj</groupId>
          <artifactId>AcqEngJ</artifactId>
-         <version>0.5.1</version>
+         <version>0.6.4</version>
       </dependency>
       <dependency>
          <groupId>org.micro-manager.ndviewer</groupId>
          <artifactId>NDViewer</artifactId>
-         <version>0.2.1</version>
+         <version>0.2.6</version>
       </dependency>
       <dependency>
          <groupId>org.micro-manager.ndtiffstorage</groupId>
          <artifactId>NDTiffStorage</artifactId>
-         <version>0.2.6</version>
+         <version>0.3.2</version>
       </dependency>
       <!-- https://mvnrepository.com/artifact/net.imagej/ij -->
       <dependency>

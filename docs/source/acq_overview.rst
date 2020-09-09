@@ -15,5 +15,4 @@ Acquisitions
 	acq_hooks
 	img_processors
 	read_data
-	magellan_api
 

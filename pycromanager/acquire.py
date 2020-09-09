@@ -9,6 +9,7 @@ from pycromanager.core import serialize_array, deserialize_array, Bridge
 from pycromanager.data import Dataset
 import warnings
 import os.path
+import queue
 
 ### These functions outside class to prevent problems with pickling when running them in differnet process
 
@@ -18,7 +19,7 @@ def _event_sending_fn(event_port, event_queue, debug=False):
     while True:
         events = event_queue.get(block=True)
         if debug:
-            print('got event(s): ' + events)
+            print('got event(s):', events)
         if events is None:
             # Poison, time to shut down
             event_socket.send({'events': [{'special': 'acquisition-end'}]})
@@ -90,10 +91,11 @@ def _processor_startup_fn(pull_port, push_port, sockets_connected_evt, process_f
 
         metadata = message['metadata']
         pixels = deserialize_array(message['pixels'])
-        image = np.reshape(pixels, [metadata['Width'], metadata['Height']])
+        image = np.reshape(pixels, [metadata['Height'], metadata['Width']])
 
         params = signature(process_fn).parameters
         if len(params) == 2 or len(params) == 4:
+            processed = None
             try:
                 if len(params) == 2:
                     processed = process_fn(image, metadata)
@@ -118,8 +120,9 @@ def _processor_startup_fn(pull_port, push_port, sockets_connected_evt, process_f
 
 class Acquisition(object):
     def __init__(self, directory=None, name=None, image_process_fn=None,
-                 pre_hardware_hook_fn=None, post_hardware_hook_fn=None, tile_overlap=None,
-                 magellan_acq_index=None, process=True, debug=False):
+                 pre_hardware_hook_fn=None, post_hardware_hook_fn=None, post_camera_hook_fn=None,
+                 show_display=True, tile_overlap=None, max_multi_res_index=None,
+                 magellan_acq_index=None, process=False, debug=False):
         """
         :param directory: saving directory for this acquisition. Required unless an image process function will be
             implemented that diverts images from saving
@@ -140,17 +143,29 @@ class Acquisition(object):
         :param post_hardware_hook_fn: hook function that will be run just before the hardware is updated before acquiring
             a new image. Accepts either one argument (the current acquisition event) or three arguments (current event,
             bridge, event Queue)
+        :param post_camera_hook_fn: hook function that will be run just after the camera has been triggered to snapImage or
+            startSequence. A common use case for this hook is when one want to send TTL triggers to the camera from an
+            external timing device that synchronizes with other hardware. Accepts either one argument (the current
+            acquisition event) or three arguments (current event, bridge, event Queue)
         :param tile_overlap: If given, XY tiles will be laid out in a grid and multi-resolution saving will be
             actived. Argument can be a two element tuple describing the pixel overlaps between adjacent
             tiles. i.e. (pixel_overlap_x, pixel_overlap_y), or an integer to use the same overlap for both.
             For these features to work, the current hardware configuration must have a valid affine transform
             between camera coordinates and XY stage coordinates
         :type tile_overlap: tuple, int
+        :param max_multi_res_index: Maximum index to downsample to in multi-res pyramid mode. 0 is no downsampling,
+            1 is downsampled up to 2x, 2 is downsampled up to 4x, etc. If not provided, it will be dynamically
+            calculated and updated from data
+        :type max_multi_res_index: int
+        :param show_display: show the image viewer window
+        :type show_display: boolean
         :param magellan_acq_index: run this acquisition using the settings specified at this position in the main
             GUI of micro-magellan (micro-manager plugin). This index starts at 0
         :type magellan_acq_index: int
-        :param process: (Experimental) use multiprocessing instead of multithreading for acquisition hooks and image
-            processors
+        :param process: Use multiprocessing instead of multithreading for acquisition hooks and image
+            processors. This can be used to speed up CPU-bounded processing by eliminating bottlenecks
+            caused by Python's Global Interpreter Lock, but also creates complications on Windows-based
+            systems
         :type process: boolean
         :param debug: print debugging stuff
         :type debug: boolean
@@ -171,12 +186,11 @@ class Acquisition(object):
             self._event_queue = None
         else:
             # Create thread safe queue for events so they can be passed from multiple processes
-            self._event_queue = multiprocessing.Queue()
+            self._event_queue = multiprocessing.Queue() if process else queue.Queue()
             core = self.bridge.get_core()
             acq_factory = self.bridge.construct_java_object('org.micromanager.remote.RemoteAcquisitionFactory', args=[core])
 
-            #TODO: could add hiding viewer as an option
-            show_viewer = directory is not None and name is not None
+            show_viewer = show_display and (directory is not None and name is not None)
             if tile_overlap is None:
                 #argument placeholders, these wont actually be used
                 x_overlap = 0
@@ -188,8 +202,12 @@ class Acquisition(object):
                     x_overlap = tile_overlap
                     y_overlap = tile_overlap
 
-            self._remote_acq = acq_factory.create_acquisition(directory, name, show_viewer,
-                                                              tile_overlap is not None, x_overlap, y_overlap)
+            self._remote_acq = acq_factory.create_acquisition(directory, name, show_viewer, tile_overlap is not None,
+                                                              x_overlap, y_overlap,
+                                                              max_multi_res_index if max_multi_res_index is not None else -1)
+        storage = self._remote_acq.get_storage()
+        if storage is not None:
+            self.disk_location = storage.get_disk_location()
 
         if image_process_fn is not None:
             processor = self.bridge.construct_java_object('org.micromanager.remote.RemoteImageProcessor')
@@ -197,23 +215,27 @@ class Acquisition(object):
             self._start_processor(processor, image_process_fn, self._event_queue, process=process)
 
         if pre_hardware_hook_fn is not None:
-            hook = self.bridge.construct_java_object('org.micromanager.remote.RemoteAcqHook')
+            hook = self.bridge.construct_java_object('org.micromanager.remote.RemoteAcqHook', args=[self._remote_acq])
             self._start_hook(hook, pre_hardware_hook_fn, self._event_queue, process=process)
-            self._remote_acq.add_hook(hook, self._remote_acq.BEFORE_HARDWARE_HOOK, args=[self._remote_acq])
+            self._remote_acq.add_hook(hook, self._remote_acq.BEFORE_HARDWARE_HOOK)
         if post_hardware_hook_fn is not None:
             hook = self.bridge.construct_java_object('org.micromanager.remote.RemoteAcqHook', args=[self._remote_acq])
             self._start_hook(hook, post_hardware_hook_fn, self._event_queue, process=process)
             self._remote_acq.add_hook(hook, self._remote_acq.AFTER_HARDWARE_HOOK)
+        if post_camera_hook_fn is not None:
+            hook = self.bridge.construct_java_object('org.micromanager.remote.RemoteAcqHook', args=[self._remote_acq])
+            self._start_hook(hook, post_camera_hook_fn, self._event_queue, process=process)
+            self._remote_acq.add_hook(hook, self._remote_acq.AFTER_CAMERA_HOOK)
+
 
         self._remote_acq.start()
 
         if magellan_acq_index is None:
             self.event_port = self._remote_acq.get_event_port()
 
-            self.event_process = multiprocessing.Process(target=_event_sending_fn,
+            self.event_process = threading.Thread(target=_event_sending_fn,
                                                          args=(self.event_port, self._event_queue, self._debug),
                                                          name='Event sending')
-                    # if multiprocessing else threading.Thread(target=event_sending_fn, args=(), name='Event sending')
             self.event_process.start()
 
 
@@ -260,9 +282,9 @@ class Acquisition(object):
         pull_port = remote_hook.get_pull_port()
         push_port = remote_hook.get_push_port()
 
-        hook_thread = multiprocessing.Process(target=_acq_hook_startup_fn, name='AcquisitionHook',
-                                              args=(pull_port, push_port, hook_connected_evt, event_queue,
-                                                    remote_hook_fn, self._debug))
+        hook_thread = (multiprocessing.Process if process else threading.Thread)(
+                        target=_acq_hook_startup_fn, name='AcquisitionHook',
+                        args=(pull_port, push_port, hook_connected_evt, event_queue, remote_hook_fn, self._debug))
             # if process else threading.Thread(target=_acq_hook_fn, args=(), name='AcquisitionHook')
         hook_thread.start()
 
@@ -278,10 +300,9 @@ class Acquisition(object):
         push_port = processor.get_push_port()
 
 
-        self.processor_thread = multiprocessing.Process(target=_processor_startup_fn,
-                                                        args=(pull_port, push_port, sockets_connected_evt,
-                                                              process_fn, event_queue, self._debug), name='ImageProcessor')
-                         # if multiprocessing else threading.Thread(target=other_thread_fn, args=(),  name='ImageProcessor')
+        self.processor_thread = (multiprocessing.Process if process else threading.Thread)(
+                                        target=_processor_startup_fn, args=(pull_port, push_port, sockets_connected_evt,
+                                              process_fn, event_queue, self._debug), name='ImageProcessor')
         self.processor_thread.start()
 
         sockets_connected_evt.wait()  # wait for push/pull sockets to connect

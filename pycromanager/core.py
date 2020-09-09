@@ -111,7 +111,7 @@ class Bridge:
     This enables construction and interaction with arbitrary java objects
     """
     _DEFAULT_PORT = 4827
-    _EXPECTED_ZMQ_SERVER_VERSION = '2.5.0'
+    _EXPECTED_ZMQ_SERVER_VERSION = '2.6.0'
 
 
     def __init__(self, port=_DEFAULT_PORT, convert_camel_case=True, debug=False):
@@ -339,7 +339,7 @@ class JavaObjectShadow:
         :return:
         """
         #args that are none are placeholders to allow for polymorphism and not considered part of the spec
-        fn_args = [a for a in fn_args if a is not None]
+        # fn_args = [a for a in fn_args if a is not None]
         valid_method_spec = _check_method_args(method_specs, fn_args)
         #args are good, make call through socket, casting the correct type if needed (e.g. int to float)
         message = {'command': 'run-method', 'hash-code': self._hash_code, 'name': valid_method_spec['name'],
@@ -412,12 +412,16 @@ def _package_arguments(valid_method_spec, fn_args):
             arguments.append(_serialize_arg(arg_val))
         elif _JAVA_TYPE_NAME_TO_PYTHON_TYPE[arg_type] is object:
             arguments.append(_serialize_arg(arg_val))
+        elif arg_val is None:
+            arguments.append(_serialize_arg(arg_val))
         else:
             arguments.append(_serialize_arg(_JAVA_TYPE_NAME_TO_PYTHON_TYPE[arg_type](arg_val)))
     return arguments
 
 
 def _serialize_arg(arg):
+    if arg is None:
+        return None
     if type(arg) in [bool, str, int, float]:
         return arg #json handles serialization
     elif type(arg) == np.ndarray:
@@ -427,6 +431,30 @@ def _serialize_arg(arg):
     else:
         raise Exception('Unknown argumetn type')
 
+def _check_single_method_spec(method_spec, fn_args):
+    """
+    Check if a single method specificiation is compatible with the arguments the function recieved
+    :param method_spec:
+    :param fn_args:
+    :return:
+    """
+    if len(method_spec['arguments']) != len(fn_args):
+        return False
+    for arg_java_type, arg_val in zip(method_spec['arguments'], fn_args):
+        if isinstance(arg_val, JavaObjectShadow):
+            if arg_java_type not in arg_val._interfaces:
+                # check that it shadows object of the correct type
+                return False
+        elif type(arg_val) == np.ndarray:
+            # For ND Arrays, need to make sure data types match
+            if _ARRAY_TYPE_TO_NUMPY_DTYPE[arg_java_type] != arg_val.dtype:
+                return False
+        elif not any([isinstance(arg_val, acceptable_type) for acceptable_type in
+                      _JAVA_TYPE_NAME_TO_CASTABLE_PYTHON_TYPE[arg_java_type]]) and \
+                    not (arg_val is None and arg_java_type in _JAVA_NON_PRIMITIVES): #could be null if its an object
+            # if a type that gets converted
+            return False
+    return True
 
 def _check_method_args(method_specs, fn_args):
     """
@@ -438,24 +466,10 @@ def _check_method_args(method_specs, fn_args):
     # TODO: check that args can be translated to expected java counterparts (e.g. numpy arrays)
     valid_method_spec = None
     for method_spec in method_specs:
-        if len(method_spec['arguments']) != len(fn_args):
-            continue
-        valid_method_spec = method_spec
-        for arg_type, arg_val in zip(method_spec['arguments'], fn_args):
-            if isinstance(arg_val, JavaObjectShadow):
-                if arg_type not in arg_val._interfaces:
-                    # check that it shadows object of the correct type
-                    valid_method_spec = None
-            elif type(arg_val) == np.ndarray:
-                # For ND Arrays, need to make sure data types match
-                if _ARRAY_TYPE_TO_NUMPY_DTYPE[arg_type] != arg_val.dtype:
-                    valid_method_spec = None
-            elif not isinstance(type(arg_val), type(_JAVA_TYPE_NAME_TO_PYTHON_TYPE[arg_type])):
-                # if a type that gets converted
-                valid_method_spec = None
+        if _check_single_method_spec(method_spec, fn_args):
+            valid_method_spec = method_spec
+            break
 
-        # if valid_method_spec is None:
-        #     break
     if valid_method_spec is None:
         raise Exception('Incorrect arguments. \nExpected {} \nGot {}'.format(
             ' or '.join([', '.join(method_spec['arguments']) for method_spec in method_specs]),
@@ -503,14 +517,20 @@ def _camel_case_2_snake_case(name):
 _CLASS_NAME_MAPPING = {'boolean': 'boolean', 'byte[]': 'uint8array',
                        'double': 'float', 'double[]': 'float64_array', 'float': 'float',
                        'int': 'int', 'int[]': 'uint32_array', 'java.lang.String': 'string',
-                       'long': 'int', 'short': 'int', 'void': 'void',
-                       'java.util.List': 'list'}
+                       'long': 'int', 'short': 'int', 'void': 'void'}
 _ARRAY_TYPE_TO_NUMPY_DTYPE = {'byte[]': np.uint8, 'double[]': np.float64, 'int[]': np.int32}
 _JAVA_TYPE_NAME_TO_PYTHON_TYPE = {'boolean': bool, 'byte[]': np.ndarray,
                                   'double': float, 'double[]': np.ndarray, 'float': float,
                                   'int': int, 'int[]': np.ndarray, 'java.lang.String': str,
                                   'long': int, 'short': int, 'char': int, 'byte': int, 'void': None,
                                   'java.lang.Object': object}
+#type conversions that allow for autocasting
+_JAVA_TYPE_NAME_TO_CASTABLE_PYTHON_TYPE = {'boolean': {bool}, 'byte[]': {np.ndarray},
+                                  'double': {float, int}, 'double[]':  {np.ndarray}, 'float': {float},
+                                  'int': {int}, 'int[]': {np.ndarray}, 'java.lang.String': {str},
+                                  'long': {int}, 'short': {int}, 'char': {int}, 'byte': {int}, 'void': {None},
+                                  'java.lang.Object': {object}}
+_JAVA_NON_PRIMITIVES = {'byte[]', 'double[]', 'int[]', 'java.lang.String', 'java.lang.Object'}
 
 if __name__ == '__main__':
     #Test basic bridge operations
