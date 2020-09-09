@@ -17,13 +17,11 @@ There are two ways to do this, depending on whether the data is part of an in-pr
 
 	from pycromanager import Acquisition
 
-	if __name__ == '__main__':
+    with Acquisition('/path/to/saving/dir', 'saving_name') as acq:
 
-	    with Acquisition('/path/to/saving/dir', 'saving_name') as acq:
+    	### send some instructions so something is acquired ######
 
-	    	### send some instructions so something is acquired ######
-
-	        dataset = acq.get_dataset()
+        dataset = acq.get_dataset()
 
 Alternatively, to open a finished dataset from disk:
 
