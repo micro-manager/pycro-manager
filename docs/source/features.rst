@@ -1,5 +1,5 @@
 ****************
-Tutorials
+Features
 ****************
 
 ``pycromanager`` has several options for interacting with micro-manager which can be used independently or in combination. The high level APIs described in :doc:`acq_overview` are usually the best place to start. They describe how to run standard multi-dimensional acquisitions (i.e. Z-stacks, multiple XY posisitons, etc.), customized ones, or ones generated through the `Micro-magellan <https://micro-manager.org/wiki/MicroMagellan>`_ GUI. They also support customization such as modifying image data on-the-fly, controlling acquisition in response to data, integrating non-micro-manger supported hardware, and using customized visualization/data saving.

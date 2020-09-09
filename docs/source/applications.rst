@@ -1,5 +1,5 @@
 ****************************
-Full/advanced examples
+Applications
 ****************************
 
 This page contains a few full/advanced examples of using ``pycro-manager`` interesting applications.
