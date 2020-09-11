@@ -7,8 +7,7 @@ from base64 import standard_b64encode, standard_b64decode
 import inspect
 import numpy as np
 import zmq
-from types import MethodType
-import atexit
+from weakref import WeakSet
 
 
 class JavaSocket:
@@ -20,7 +19,8 @@ class JavaSocket:
         # request reply socket
         self._socket = context.socket(type)
         self._debug = debug
-        self._java_objects = []
+        # store these as wekrefs so that circular refs dont prevent garbage collection
+        self._java_objects = WeakSet()
         # try:
         if type == zmq.PUSH:
             if debug:
@@ -35,7 +35,7 @@ class JavaSocket:
         # raise Exception('Couldnt connect or bind to port {}'.format(port))
 
     def _register_java_object(self, object):
-        self._java_objects.append(object)
+        self._java_objects.add(object)
 
     def __del__(self):
         # make sure all shadow objects have signaled to Java side to release references before they shut down
@@ -111,7 +111,7 @@ class Bridge:
     This enables construction and interaction with arbitrary java objects
     """
     _DEFAULT_PORT = 4827
-    _EXPECTED_ZMQ_SERVER_VERSION = '2.6.0'
+    _EXPECTED_ZMQ_SERVER_VERSION = '2.7.0'
 
 
     def __init__(self, port=_DEFAULT_PORT, convert_camel_case=True, debug=False):
@@ -129,7 +129,7 @@ class Bridge:
         self._convert_camel_case = convert_camel_case
         self._debug = debug
         self._master_socket = JavaSocket(self._context, port, zmq.REQ, debug=debug)
-        self._master_socket.send({'command': 'connect', })
+        self._master_socket.send({'command': 'connect', 'debug': debug})
         self._class_factory = _JavaClassFactory()
         reply_json = self._master_socket.receive(timeout=500)
         if reply_json is None:
@@ -273,9 +273,8 @@ class _JavaClassFactory:
             newclass = type(  # Dynamically create a class to shadow a java class.
                 python_class_name_translation,  # Name, based on the original java name
                 (JavaObjectShadow,),  # Inheritance
-                {'__init__': lambda instance, socket, serialized_object, bridge: JavaObjectShadow.__init__(instance, socket, serialized_object, bridge),
-                 **static_attributes, **fields, **methods}
-            )
+                {'__init__': lambda instance, socket, serialized_object, bridge: JavaObjectShadow.__init__(
+                    instance, socket, serialized_object, bridge), **static_attributes, **fields, **methods})
 
             self.classes[_java_class] = newclass
             return newclass
@@ -295,7 +294,7 @@ class JavaObjectShadow:
         #register objects with bridge so it can tell Java side to release them before socket shuts down
         socket._register_java_object(self)
         self._closed = False
-        atexit.register(self._close)
+        # atexit.register(self._close)
 
     def _close(self):
         if self._closed:
