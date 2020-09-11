@@ -8,6 +8,7 @@ import inspect
 import numpy as np
 import zmq
 from types import MethodType
+import atexit
 
 
 class JavaSocket:
@@ -37,8 +38,7 @@ class JavaSocket:
         self._java_objects.append(object)
 
     def __del__(self):
-        #make sure all shadow objects have signaled to Java side to release references before they
-        #shit down
+        # make sure all shadow objects have signaled to Java side to release references before they shut down
         for java_object in self._java_objects:
             java_object._close()
 
@@ -140,7 +140,8 @@ class Bridge:
             reply_json['version'] = '2.0.0' #before version was added
         if reply_json['version'] != self._EXPECTED_ZMQ_SERVER_VERSION:
             warnings.warn('Version mistmatch between Java ZMQ server and Python client. '
-                            '\nJava ZMQ server version: {}\nPython client expected version: {}'.format(reply_json['version'],
+                            '\nJava ZMQ server version: {}\nPython client expected version: {}'
+                          '\n To fix, update to BOTH latest pycromanager and latest micro-manager nightly build'.format(reply_json['version'],
                                                                                            self._EXPECTED_ZMQ_SERVER_VERSION))
 
     def get_class(self, serialized_object) -> typing.Type['JavaObjectShadow']:
@@ -294,6 +295,7 @@ class JavaObjectShadow:
         #register objects with bridge so it can tell Java side to release them before socket shuts down
         socket._register_java_object(self)
         self._closed = False
+        atexit.register(self._close)
 
     def _close(self):
         if self._closed:
