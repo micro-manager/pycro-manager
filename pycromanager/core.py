@@ -114,13 +114,14 @@ class Bridge:
     _DEFAULT_PORT = 4827
     _EXPECTED_ZMQ_SERVER_VERSION = '2.7.0'
 
-    def __new__(cls):
+    thread_local = threading.local()
+
+    def __new__(cls, *args, **kwargs):
         """
         Only one instance of Bridge per a thread
         """
-        thread_storage = threading.local()
-        if hasattr(thread_storage, 'bridge'):
-            return thread_storage.bridge
+        if hasattr(Bridge.thread_local, 'bridge'):
+            return Bridge.thread_local.bridge
         else:
             return super(Bridge, cls).__new__(cls)
 
@@ -137,7 +138,6 @@ class Bridge:
         """
         if not hasattr(self, '_context'):
             Bridge._context = zmq.Context()
-            Bridge.thread_local = threading.local()
         if hasattr(self.thread_local, 'bridge'):
             return
         self.thread_local.bridge = self #cache a thread-local version of the bridge
