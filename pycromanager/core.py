@@ -8,6 +8,7 @@ import inspect
 import numpy as np
 import zmq
 from weakref import WeakSet
+import threading
 
 
 class JavaSocket:
@@ -113,6 +114,15 @@ class Bridge:
     _DEFAULT_PORT = 4827
     _EXPECTED_ZMQ_SERVER_VERSION = '2.7.0'
 
+    def __new__(cls):
+        """
+        Only one instance of Bridge per a thread
+        """
+        thread_storage = threading.local()
+        if hasattr(thread_storage, 'bridge'):
+            return thread_storage.bridge
+        else:
+            return super(Bridge, cls).__new__(cls)
 
     def __init__(self, port=_DEFAULT_PORT, convert_camel_case=True, debug=False):
         """
@@ -125,7 +135,13 @@ class Bridge:
         :param debug: print helpful stuff for debugging
         :type debug: bool
         """
-        self._context = zmq.Context()
+        if not hasattr(self, '_context'):
+            Bridge._context = zmq.Context()
+            Bridge.thread_local = threading.local()
+        if hasattr(self.thread_local, 'bridge'):
+            return
+        self.thread_local.bridge = self #cache a thread-local version of the bridge
+
         self._convert_camel_case = convert_camel_case
         self._debug = debug
         self._master_socket = JavaSocket(self._context, port, zmq.REQ, debug=debug)
