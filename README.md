@@ -1,3 +1,5 @@
+[![Documentation Status](https://readthedocs.org/projects/pycro-manager/badge/?version=latest)](https://pycro-manager.readthedocs.io/en/latest/?badge=latest)
+
 <img src="docs/source/pycromanager_banner.png" width="600">
 
 `pycromanager` is a Python library for customized microscope hardware control and integration with image processing. It works together with [Micro-manager](https://micro-manager.org/) and [Micro-magellan](https://micro-manager.org/wiki/MicroMagellan).
