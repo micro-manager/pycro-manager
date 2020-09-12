@@ -7,12 +7,7 @@ This page contains a few full/advanced examples of using ``pycro-manager`` inter
 Have an application you'd like to figure out how to enable? Please `reach out <https://github.com/micro-manager/pycro-manager/issues/new>`_!
 
 
-.. .. toctree::
-.. 	:maxdepth: 3
-.. 	:caption: Contents:
 
-..	Denoising acquired images using deep learning.ipynb
-	
 
 Still under construction. Potential projects that may later appear here:
 
@@ -21,3 +16,15 @@ Still under construction. Potential projects that may later appear here:
 * Controlling acquisition based on feedback from images
 * Tiled XY acquisitions that make use of multi-resolution saving/viewing
 * (Your cool example here)
+
+
+.. toctree::
+	:maxdepth: 2
+	:caption: Contents:
+
+..	pycro_manager_intelligent_acquisition_demo.ipynb
+	pycro_manager_tie_demo.ipynb
+
+	
+
+under construction
