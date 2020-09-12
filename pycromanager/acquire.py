@@ -45,6 +45,8 @@ def _acq_hook_startup_fn(pull_port, push_port, hook_connected_evt, event_queue, 
             pull_socket.close()
             return
         else:
+            if 'events' in event_msg.keys():
+                event_msg = event_msg['events'] #convert from sequence
             params = signature(hook_fn).parameters
             if len(params) == 1 or len(params) == 3:
                 try:
@@ -58,6 +60,8 @@ def _acq_hook_startup_fn(pull_port, push_port, hook_connected_evt, event_queue, 
             else:
                 raise Exception('Incorrect number of arguments for hook function. Must be 1 or 3')
 
+        if isinstance(new_event_msg, list):
+            new_event_msg = {'events': new_event_msg} #convert back to the expected format for a sequence
         push_socket.send(new_event_msg)
 
 def _processor_startup_fn(pull_port, push_port, sockets_connected_evt, process_fn, event_queue, debug):
