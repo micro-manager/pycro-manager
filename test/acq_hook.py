@@ -1,8 +1,6 @@
 from pycromanager import Acquisition, multi_d_acquisition_events
 import numpy as np
 
-
-#this hook function can control the micro-manager core
 def hook_fn(event):
 
     return event
