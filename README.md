@@ -10,7 +10,7 @@
 
 Check out to the [pre-print](https://arxiv.org/abs/2006.11330) or the [documentation](https://pycro-manager.readthedocs.io/en/latest/) for an idea of the capabilities and how to get started.
 
-Have a cool example of something you've done with `pycromanager` or an idea for improvement? Reach out on the issues page. Contributions/ideas/examples welcome!
+Have a cool example of something you've done with `pycromanager` or an idea for improvement? Reach out on the issues page.
 
 ## Installing pycro-manager
 
