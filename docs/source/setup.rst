@@ -1,6 +1,6 @@
-******************
+********************
 Installation/setup
-******************
+********************
 
 
 - Install pycro-manager using ``pip install pycromanager``
@@ -28,7 +28,7 @@ which will give an output like:
 	Out[1]: JavaObjectShadow for : mmcorej.CMMCore
 
 
-###############################
+################################
 Troubleshooting
 ################################
 
