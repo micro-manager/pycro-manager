@@ -1,4 +1,9 @@
 [![Documentation Status](https://readthedocs.org/projects/pycro-manager/badge/?version=latest)](https://pycro-manager.readthedocs.io/en/latest/?badge=latest)
+[![License](https://img.shields.io/pypi/l/pycromanager.svg)](https://github.com/micro-manager/pycromanager/raw/master/LICENSE)
+[![Python Version](https://img.shields.io/pypi/pyversions/pycromanager.svg)](https://python.org)
+[![PyPI](https://img.shields.io/pypi/v/pycromanager.svg)](https://pypi.org/project/pycromanager)
+[![PyPI - Downloads](https://img.shields.io/pypi/dm/pycromanager.svg)](https://pypistats.org/packages/pycromanager)
+[![Development Status](https://img.shields.io/pypi/status/pycromanager.svg)](https://github.com/pycromanager/pycromanager)
 
 <img src="docs/source/pycromanager_banner.png" width="600">
 
