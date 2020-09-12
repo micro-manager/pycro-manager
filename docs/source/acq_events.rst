@@ -1,4 +1,4 @@
-.. _acq_intro:
+.. _acq_events:
 
 ****************************************************************
 Specifying data to acquire
