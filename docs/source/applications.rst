@@ -5,13 +5,6 @@ Applications
 
 Have an application you'd like to figure out how to enable or add to this page? Please `reach out <https://github.com/micro-manager/pycro-manager/issues/new>`_!
 
-.. toctree::
-	:maxdepth: 2
-	:caption: Contents:
-
-	guiding_acq_with_neural_network_attention.ipynb
-
-
 
 ##########################################################################################################
 `Targeted multi-contrast microscopy using attention-based multi-instance learning for tissue sections`_
