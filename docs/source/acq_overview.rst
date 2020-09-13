@@ -34,5 +34,7 @@ The figure figure below gives an overview of all of the features this class prov
 	acq_hooks
 	img_processors
 	hardware_triggering
+	magellan_api
+
 
 
