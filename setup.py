@@ -14,7 +14,8 @@ setuptools.setup(
     url="https://github.com/henrypinkard/pycro-manager",
     packages=setuptools.find_packages(),
     install_requires=['numpy', 'dask[array]>=2.4.0', 'zmq'],
-
+    python_requires='>=3.6',
+   
     classifiers=[
         "Programming Language :: Python :: 3",
         "Development Status :: 3 - Alpha",
