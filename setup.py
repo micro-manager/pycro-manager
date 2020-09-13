@@ -5,7 +5,7 @@ with open("README.md", "r") as fh:
 
 setuptools.setup(
     name="pycromanager",
-    version="0.4.7",
+    version="0.4.9",
     author="Henry Pinkard",
     author_email="henry.pinkard@gmail.com",
     description="Open source microscope control using python",
@@ -17,8 +17,10 @@ setuptools.setup(
     python_requires='>=3.6',
    
     classifiers=[
-        "Programming Language :: Python :: 3",
-        "Development Status :: 3 - Alpha",
+        "Programming Language :: Python :: 3.6",
+        "Programming Language :: Python :: 3.7",
+	"Programming Language :: Python :: 3.8",		
+	"Development Status :: 3 - Alpha",
         "License :: OSI Approved :: BSD License",      
         "Operating System :: OS Independent",
     ],
