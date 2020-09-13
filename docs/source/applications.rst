@@ -2,29 +2,20 @@
 Applications
 ****************************
 
-This page contains a few full/advanced examples of using ``pycro-manager`` interesting applications.
 
-Have an application you'd like to figure out how to enable? Please `reach out <https://github.com/micro-manager/pycro-manager/issues/new>`_!
-
-
-
-
-Still under construction. Potential projects that may later appear here:
-
-* Denoising images with deep learning
-* `Single shot autofocus using deep learning <https://www.osapublishing.org/optica/abstract.cfm?uri=optica-6-6-794>`_
-* Controlling acquisition based on feedback from images
-* Tiled XY acquisitions that make use of multi-resolution saving/viewing
-* (Your cool example here)
-
+Have an application you'd like to figure out how to enable or add to this page? Please `reach out <https://github.com/micro-manager/pycro-manager/issues/new>`_!
 
 .. toctree::
 	:maxdepth: 2
 	:caption: Contents:
 
-..	pycro_manager_intelligent_acquisition_demo.ipynb
-	pycro_manager_tie_demo.ipynb
+	guiding_acq_with_neural_network_attention.ipynb
 
-	
 
-under construction
+
+#####################################################################################################
+`Targeted multi-contrast microscopy using attention-based multi-instance learning for tissue sections`_
+#####################################################################################################
+
+This tutorial shows how to use Pycro-manager to perform analysis driven targeted multimodal/multiscale acquisition for automated collagen fiber-based biomarker identification. We will acquire brightfield images of a H&E stained cancer histology slide at 4x magnification, identify pathology relevant ROIs using a deep learning model based on the 4x image, and zoom into these ROIs to perform the collagen fiber-specific method of second-harmonic generation (SHG) laser scanning at 20x magnification. This allows for disease-relevant, collagen-specific features to be collected automatically and correlated with the gold standard H&E pathology method. We use Pycro-manager to read/write hardware properties (e.g. camera exposure, lamp intensity, turret position, stage position, etc.), change Micro-Manager hardware property configuration groups, acquire images and access the image data as NumPy array, and perform Z-stack acquisition via multi-dimension acquisition events.
+
