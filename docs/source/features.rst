@@ -17,5 +17,4 @@ Finally, for experiments that require Java-based micro-manager plugins or alread
 	read_data
 	core
 	mm_java_apis
-	magellan_api
 	custom_java
