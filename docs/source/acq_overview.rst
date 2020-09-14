@@ -6,9 +6,9 @@ The :class:`Acquisition<pycromanager.Acquisition>` class is a powerful abstracti
 
 More advanced functionality can be implemented through the use of :ref:`acq_hooks`, which are used to modify acquisition control on-the-fly or synchrnoize hardware outside of micro-manager with acquisition, or with :ref:`img_processors`, which can be used to modify images during before saving/display or to divert images away from display/saving to custom endpoints.
 
-The :class:`Acquisition<pycromanager.Acquisition>`'s class can also be used for :ref:`hardware_triggering`.
+The :class:`Acquisition<pycromanager.Acquisition>` class can also be used for :ref:`hardware_triggering`.
 
-:ref:`reading_data` describes how to read the data acquired by an :class:`Acquisition<pycromanager.Acquisition>` as ``numpy`` or ``dask`` array.
+:ref:`reading_data` describes how to read the data acquired by an :class:`Acquisition<pycromanager.Acquisition>` as a ``numpy`` or ``dask`` array.
 
 The figure figure below gives an overview of all of the features this class provides.
 
