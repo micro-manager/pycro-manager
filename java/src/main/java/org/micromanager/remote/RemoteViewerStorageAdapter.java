@@ -62,7 +62,8 @@ public class RemoteViewerStorageAdapter implements DataSourceInterface, DataSink
                  summaryMetadata, tileOverlapX_, tileOverlapY_,
                  AcqEngMetadata.getWidth(summaryMetadata),
                  AcqEngMetadata.getHeight(summaryMetadata),
-                 AcqEngMetadata.getBytesPerPixel(summaryMetadata), xyTiled_, maxResLevel_);
+                 AcqEngMetadata.isRGB(summaryMetadata) ? 1 :AcqEngMetadata.getBytesPerPixel(summaryMetadata),
+                 xyTiled_, maxResLevel_, AcqEngMetadata.isRGB(summaryMetadata));
          name_ = storage_.getUniqueAcqName();
       }
 
@@ -82,7 +83,7 @@ public class RemoteViewerStorageAdapter implements DataSourceInterface, DataSink
               -> new Thread(r, "Image viewer communication thread"));
 
       viewer_ = new NDViewer(this, (ViewerAcquisitionInterface) acq_,
-              summaryMetadata, AcqEngMetadata.getPixelSizeUm(summaryMetadata));
+              summaryMetadata, AcqEngMetadata.getPixelSizeUm(summaryMetadata), AcqEngMetadata.isRGB(summaryMetadata));
 
       viewer_.setWindowTitle(name_ + (acq_ != null
               ? (acq_.isFinished()? " (Finished)" : " (Running)") : " (Loaded)"));
