@@ -142,11 +142,13 @@ class Acquisition(object):
             core), and queue is a Queue objects that holds upcomning acquisition events. Both version must either
             return
         :param pre_hardware_hook_fn: hook function that will be run just before the hardware is updated before acquiring
-            a new image. Accepts either one argument (the current acquisition event) or three arguments (current event,
-            bridge, event Queue)
+            a new image. In the case of hardware sequencing, it will be run just before a sequence of instructions are
+            dispatched to the hardware. Accepts either one argument (the current acquisition event) or three arguments
+            (current event, bridge, event Queue)
         :param post_hardware_hook_fn: hook function that will be run just before the hardware is updated before acquiring
-            a new image. Accepts either one argument (the current acquisition event) or three arguments (current event,
-            bridge, event Queue)
+            a new image. In the case of hardware sequencing, it will be run just after a sequence of instructions are
+            dispatched to the hardware, but before the camera sequence has been started. Accepts either one argument
+             (the current acquisition event) or three arguments (current event, bridge, event Queue)
         :param post_camera_hook_fn: hook function that will be run just after the camera has been triggered to snapImage or
             startSequence. A common use case for this hook is when one want to send TTL triggers to the camera from an
             external timing device that synchronizes with other hardware. Accepts either one argument (the current

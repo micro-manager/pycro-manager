@@ -49,9 +49,11 @@ class _MultipageTiffReader:
         self.np_memmap = np.memmap(self.file, dtype=np.uint8, mode='r')
 
         # get important metadata fields
+        self.rgb = 'RGB' in self.summary_md['PixelType']
         self.width = self.summary_md['Width']
         self.height = self.summary_md['Height']
-        self.dtype = np.uint8 if self.summary_md['PixelType'] == 'GRAY8' else np.uint16
+        self.dtype = np.uint8 if self.summary_md['PixelType'] == 'GRAY8' or \
+                                 self.summary_md['PixelType'] == 'RGB32' else np.uint16
 
     def close(self):
         self.file.close()
@@ -185,8 +187,9 @@ class _MultipageTiffReader:
 
     def read_image(self, channel_index, z_index, t_index, pos_index, read_metadata=False, memmapped=False):
         ifd_offset, pixels_offset = self.index_tree[channel_index][z_index][t_index][pos_index]
-        image = np.reshape(self.np_memmap[pixels_offset: pixels_offset + self.width * self.height *
-                                    (2 if self.dtype == np.uint16 else 1)].view(self.dtype), [self.height, self.width])
+        image = np.reshape(self.np_memmap[pixels_offset: pixels_offset + self.width * self.height * (3 if self.rgb else 1) *
+                                    (2 if self.dtype == np.uint16 else 1)].view(self.dtype),
+                           [self.height, self.width, 3] if self.rgb else [self.height, self.width])
         if not memmapped:
             image = np.copy(image)
         # image = self._read_pixels(ifd_data['pixel_offset'], ifd_data['bytes_per_image'], memmapped)
@@ -299,6 +302,7 @@ class Dataset:
                 self.res_levels[0] = res_level
                 # get summary metadata and index tree from full resolution image
                 self.summary_metadata = res_level.reader_list[0].summary_md
+                self.rgb = res_level.reader_list[0].rgb
                 self._channel_names = {} #read them from image metadata
                 self._extra_axes_to_storage_channel = {}
 
@@ -384,7 +388,8 @@ class Dataset:
         """
         if self._remote_storage is not None:
             raise Exception('Method not yet implemented for in progress acquisitions')
-        self._empty_tile = np.zeros((self.image_height, self.image_width), self.dtype)
+        self._empty_tile = np.zeros((self.image_height, self.image_width), self.dtype) if not self.rgb else \
+            np.zeros((self.image_height, self.image_width, 3), self.dtype)
         self._count = 1
         total = np.prod([len(v) for v in self.axes.values()])
 
@@ -426,7 +431,12 @@ class Dataset:
                             valed_axes[axis] = int(p_index) if not np.isnan(p_index) else None
                             blocks[-1].append(da.stack(recurse_axes(remaining_axes, valed_axes)))
 
-                    stitched_array = da.block(blocks)
+                    if self.rgb:
+                        stitched_array = np.concatenate(
+                            [np.concatenate(row, axis=len(blocks[0][0].shape) - 2) for row in blocks],
+                            axis=len(blocks[0][0].shape) - 3)
+                    else:
+                        stitched_array = da.block(blocks)
                     return stitched_array
                 else:
                     blocks = []
