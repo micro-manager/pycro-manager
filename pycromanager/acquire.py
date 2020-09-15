@@ -272,14 +272,22 @@ class Acquisition(object):
         while (not self._remote_acq.is_finished()):
             time.sleep(0.1)
 
-    def acquire(self, events):
+    def acquire(self, events, keep_shutter_open=False):
         """
         Submit an event or a list of events for acquisition. Optimizations (i.e. taking advantage of
         hardware synchronization, where available), will take place across this list of events, but not
         over multiple calls of this method. A single event is a python dictionary with a specific structure
 
         :param events: single event (i.e. a dictionary) or a list of events
+        :param keep_shutter_open: dont close and repoen the shutter between events
         """
+        if keep_shutter_open and isinstance(events, list):
+            for e in events:
+                e['keep_shutter_open'] = True
+            events.append({'keep_shutter_open': False}) #return to autoshutter, dont acquire an image
+        elif keep_shutter_open and isinstance(events, dict):
+            events['keep_shutter_open'] = True
+            events = [events, {'keep_shutter_open': False}]  #return to autoshutter, dont acquire an image
         self._event_queue.put(events)
 
     def _start_hook(self, remote_hook, remote_hook_fn, event_queue, process):
