@@ -42,11 +42,16 @@ public class RemoteAcqHook implements AcquisitionHook {
                  public List<AcquisitionEvent> apply(JSONObject t) {
                     try {
                        List<AcquisitionEvent> eventList = new ArrayList<AcquisitionEvent>();
-                       JSONArray events = t.getJSONArray("events");
-                       for (int i = 0; i < events.length(); i++) {
-                          JSONObject e = events.getJSONObject(i);
-                          eventList.add(AcquisitionEvent.fromJSON(e, acq));
+                       if (t.has("events")) { // list of events
+                          JSONArray events = t.getJSONArray("events");
+                          for (int i = 0; i < events.length(); i++) {
+                             JSONObject e = events.getJSONObject(i);
+                             eventList.add(AcquisitionEvent.fromJSON(e, acq));
+                          }
+                       } else { //single event
+                          eventList.add(AcquisitionEvent.fromJSON(t, acq));
                        }
+
                        return eventList;
                     } catch (JSONException ex) {
                        throw new RuntimeException("Incorrect format for acquisitio event");

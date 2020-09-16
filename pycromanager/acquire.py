@@ -126,7 +126,7 @@ class Acquisition(object):
     def __init__(self, directory=None, name=None, image_process_fn=None,
                  pre_hardware_hook_fn=None, post_hardware_hook_fn=None, post_camera_hook_fn=None,
                  show_display=True, tile_overlap=None, max_multi_res_index=None,
-                 magellan_acq_index=None, process=False, debug=False):
+                 magellan_acq_index=None, magellan_explore=False, process=False, debug=False):
         """
         :param directory: saving directory for this acquisition. Required unless an image process function will be
             implemented that diverts images from saving
@@ -148,7 +148,7 @@ class Acquisition(object):
         :param post_hardware_hook_fn: hook function that will be run just before the hardware is updated before acquiring
             a new image. In the case of hardware sequencing, it will be run just after a sequence of instructions are
             dispatched to the hardware, but before the camera sequence has been started. Accepts either one argument
-             (the current acquisition event) or three arguments (current event, bridge, event Queue)
+            (the current acquisition event) or three arguments (current event, bridge, event Queue)
         :param post_camera_hook_fn: hook function that will be run just after the camera has been triggered to snapImage or
             startSequence. A common use case for this hook is when one want to send TTL triggers to the camera from an
             external timing device that synchronizes with other hardware. Accepts either one argument (the current
@@ -168,6 +168,8 @@ class Acquisition(object):
         :param magellan_acq_index: run this acquisition using the settings specified at this position in the main
             GUI of micro-magellan (micro-manager plugin). This index starts at 0
         :type magellan_acq_index: int
+        :param magellan_explore: Run a Micro-magellan explore acquisition
+        :type magellan_explore: bool
         :param process: Use multiprocessing instead of multithreading for acquisition hooks and image
             processors. This can be used to speed up CPU-bounded processing by eliminating bottlenecks
             caused by Python's Global Interpreter Lock, but also creates complications on Windows-based
@@ -190,6 +192,10 @@ class Acquisition(object):
             magellan_api = self.bridge.get_magellan()
             self._remote_acq = magellan_api.create_acquisition(magellan_acq_index)
             self._event_queue = None
+        elif magellan_explore:
+            magellan_api = self.bridge.get_magellan()
+            self._remote_acq = magellan_api.create_explore_acquisition()
+            self._event_queue = None
         else:
             # Create thread safe queue for events so they can be passed from multiple processes
             self._event_queue = multiprocessing.Queue() if process else queue.Queue()
@@ -211,7 +217,7 @@ class Acquisition(object):
             self._remote_acq = acq_factory.create_acquisition(directory, name, show_viewer, tile_overlap is not None,
                                                               x_overlap, y_overlap,
                                                               max_multi_res_index if max_multi_res_index is not None else -1)
-        storage = self._remote_acq.get_storage()
+        storage = self._remote_acq.get_data_sink()
         if storage is not None:
             self.disk_location = storage.get_disk_location()
 
@@ -236,7 +242,7 @@ class Acquisition(object):
 
         self._remote_acq.start()
 
-        if magellan_acq_index is None:
+        if magellan_acq_index is None and not magellan_explore:
             self.event_port = self._remote_acq.get_event_port()
 
             self.event_process = threading.Thread(target=_event_sending_fn,
@@ -272,14 +278,22 @@ class Acquisition(object):
         while (not self._remote_acq.is_finished()):
             time.sleep(0.1)
 
-    def acquire(self, events):
+    def acquire(self, events, keep_shutter_open=False):
         """
         Submit an event or a list of events for acquisition. Optimizations (i.e. taking advantage of
         hardware synchronization, where available), will take place across this list of events, but not
         over multiple calls of this method. A single event is a python dictionary with a specific structure
 
         :param events: single event (i.e. a dictionary) or a list of events
+        :param keep_shutter_open: dont close and repoen the shutter between events
         """
+        if keep_shutter_open and isinstance(events, list):
+            for e in events:
+                e['keep_shutter_open'] = True
+            events.append({'keep_shutter_open': False}) #return to autoshutter, dont acquire an image
+        elif keep_shutter_open and isinstance(events, dict):
+            events['keep_shutter_open'] = True
+            events = [events, {'keep_shutter_open': False}]  #return to autoshutter, dont acquire an image
         self._event_queue.put(events)
 
     def _start_hook(self, remote_hook, remote_hook_fn, event_queue, process):
