@@ -126,7 +126,7 @@ class Acquisition(object):
     def __init__(self, directory=None, name=None, image_process_fn=None,
                  pre_hardware_hook_fn=None, post_hardware_hook_fn=None, post_camera_hook_fn=None,
                  show_display=True, tile_overlap=None, max_multi_res_index=None,
-                 magellan_acq_index=None, process=False, debug=False):
+                 magellan_acq_index=None, magellan_explore=False, process=False, debug=False):
         """
         :param directory: saving directory for this acquisition. Required unless an image process function will be
             implemented that diverts images from saving
@@ -168,6 +168,8 @@ class Acquisition(object):
         :param magellan_acq_index: run this acquisition using the settings specified at this position in the main
             GUI of micro-magellan (micro-manager plugin). This index starts at 0
         :type magellan_acq_index: int
+        :param magellan_explore: Run a Micro-magellan explore acquisition
+        :type magellan_explore: bool
         :param process: Use multiprocessing instead of multithreading for acquisition hooks and image
             processors. This can be used to speed up CPU-bounded processing by eliminating bottlenecks
             caused by Python's Global Interpreter Lock, but also creates complications on Windows-based
@@ -190,6 +192,10 @@ class Acquisition(object):
             magellan_api = self.bridge.get_magellan()
             self._remote_acq = magellan_api.create_acquisition(magellan_acq_index)
             self._event_queue = None
+        elif magellan_explore:
+            magellan_api = self.bridge.get_magellan()
+            self._remote_acq = magellan_api.create_explore_acquisition()
+            self._event_queue = None
         else:
             # Create thread safe queue for events so they can be passed from multiple processes
             self._event_queue = multiprocessing.Queue() if process else queue.Queue()
@@ -211,7 +217,7 @@ class Acquisition(object):
             self._remote_acq = acq_factory.create_acquisition(directory, name, show_viewer, tile_overlap is not None,
                                                               x_overlap, y_overlap,
                                                               max_multi_res_index if max_multi_res_index is not None else -1)
-        storage = self._remote_acq.get_storage()
+        storage = self._remote_acq.get_data_sink()
         if storage is not None:
             self.disk_location = storage.get_disk_location()
 
@@ -236,7 +242,7 @@ class Acquisition(object):
 
         self._remote_acq.start()
 
-        if magellan_acq_index is None:
+        if magellan_acq_index is None and not magellan_explore:
             self.event_port = self._remote_acq.get_event_port()
 
             self.event_process = threading.Thread(target=_event_sending_fn,
