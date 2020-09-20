@@ -46,6 +46,9 @@ exclude_patterns = []
 #this is needed for read the docs
 master_doc = 'index'
 
+#dont look for errors in notebook cells
+nbsphinx_allow_errors = True
+
 #this is to make constructor docstrings show up
 autoclass_content = 'both'
 
