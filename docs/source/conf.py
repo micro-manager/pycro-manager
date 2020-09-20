@@ -25,7 +25,7 @@ copyright = '2020, Henry Pinkard'
 author = 'Henry Pinkard'
 
 # The full version, including alpha/beta/rc tags
-release = '0.0.1'
+# release = '0.0.1'
 
 
 # -- General configuration ---------------------------------------------------
