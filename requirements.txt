@@ -2,3 +2,5 @@ numpy
 dask[array]
 zmq
 Sphinx==2.1.0
+nbsphinx
+pygments<3,>=2.4.1

@@ -1,4 +1,4 @@
-.. _acq_intro:
+.. _acq_events:
 
 ****************************************************************
 Specifying data to acquire
@@ -6,9 +6,6 @@ Specifying data to acquire
 
 The :class:`Acquisition<pycromanager.Acquisition>` class enables both simple mutli-dimensional acquisitions and complex data-adaptive acquisitions. Acquisitions take instructions in the form of :ref:`acquisition events<acq_event_spec>`, which are a set of instructions for setting hardware positions for the acquisition of a single image.
 
-.. note::
-
-   It is essential to wrap the calling script that uses the :class:`Acquisition<pycromanager.Acquisition>` with :code:`if __name__ == '__main__':`, as shown in the examples below
 
 Multi-dimensional acquisitions
 ##############################
@@ -134,13 +131,19 @@ To enable this mode, pass in a value in for the ``tile_overlap`` argument when c
 
 Micro-Magellan Acquisitions
 ############################
-Another alternative is to launch `Micro-magellan <https://micro-manager.org/wiki/MicroMagellan>`_ acquisitions (which generate the acquisition events automatically). This is accomplished by passing in a value to the ``magellan_acq_index`` argument, which corresponds to the position of the acquisition to be launched in the **Acquisition(s)** section of the Micro-Magellan GUI. Passing in 0 corresponds to the default acquisition. Greater numbers can be used to programatically control multiple acquisitions.
+Another alternative is to launch `Micro-magellan <https://micro-manager.org/wiki/MicroMagellan>`_ acquisitions. These include both regular and `explore acquisitions <https://micro-manager.org/wiki/MicroMagellan#Explore_Acquisitions>`_. In the former case, acquisition events are generated automatically from the Micro-Magellan GUI. In the latter, they are created in response to user clicks.
+
+
+To run a regular Micro-Magellan acquisition, pass in a value to the ``magellan_acq_index`` argument, which corresponds to the position of the acquisition to be launched in the **Acquisition(s)** section of the Micro-Magellan GUI. Passing in 0 corresponds to the default acquisition. Greater numbers can be used to programatically control multiple acquisitions. Alternatively, to launch an explore acquisition, set the ``magellan_explore`` argument equal to ``True``.
 
 
 .. code-block:: python
 	
-	#no need to use the normal "with" syntax because these acquisition are cleaned up automatically
+	# no need to use the normal "with" syntax because these acquisition are cleaned up automatically
 	acq = Acquisition(magellan_acq_index=0)
+
+	# Or do this to launch an explore acquisition
+	acq = Acquisition(magellan_explore=True)
 
 	# Optional: block here until the acquisition is finished
 	acq.await_completion()

@@ -1,6 +1,6 @@
 
 *****************************
-Calling your own Java code
+Calling custom Java code
 *****************************
 
 You can also use the :class:`Bridge<pycromanager.Bridge>` to call your own Java code (such as a micro-manager Java plugin). The construction of an arbitrary Java object is show below using Micro-Magellan as an example:

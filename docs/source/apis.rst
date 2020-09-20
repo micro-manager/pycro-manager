@@ -7,7 +7,7 @@ API Reference
 Acquisition event specification
 ###############################
 
-The following shows all possible fields in an acquisition event (not all of which are required)
+The following shows all possible fields in an acquisition event (not all of which are required). An acquisition event which does not contain either the `'channel'` key or the `'axes'` key will not acquire an image, and can be used to control hardware only. 
 
 .. code-block:: python
 
@@ -39,6 +39,8 @@ The following shows all possible fields in an acquisition event (not all of whic
 	'row': row_index_of_xy_position,
 	'col': col_index_of_xy_position,
 
+	#Turn of autoshutter, and keep the shutter open while acquiring
+	'keep_shutter_open': True,
 
 	#Other arbitrary hardware settings can be encoded in a list of strings with
 	#each entry containing the name of the device, the name of the property,
