@@ -13,6 +13,7 @@ Have an application you'd like to contribute to this page? Please `reach out <ht
 	intermittent_Z_T.ipynb
 	TZYX_fast_sequencing_z_indexing.ipynb
 	Denoising acquired images using deep learning.ipynb
+	pycro_manager_tie_demo.ipynb
 	guiding_acq_with_neural_network_attention.ipynb
 
 
@@ -27,6 +28,10 @@ Have an application you'd like to contribute to this page? Please `reach out <ht
 :doc:`Denoising acquired images using deep learning`
 
 	 This tutorial demonstrates how to train a deep learning model for image denoising using data aquired by Pycro-Manager. This training is performed on Google Colab, which provides free usage of GPUs in the cloud, so no specialized hardware is required to implement it. The trained model will then be used to denoise images in real time using a Pycro-Manager image processor. 
+
+:doc:`pycro_manager_tie_demo`
+
+	This example shows how to compute 2D quantitative phase images from collected focal stacks, without the need for specialized optics, using computational imaging. Specifically, we will solve and inverse problem based on the `Transport of Intensity Equation (TIE) <https://en.wikipedia.org/wiki/Transport-of-intensity_equation>`_. The inverse problem is implemented in an image processor, to enable on-the-fly quantitative phase imaging during acquisition.
 
 :doc:`guiding_acq_with_neural_network_attention`
 

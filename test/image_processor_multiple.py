@@ -28,6 +28,6 @@ if __name__ == '__main__':
         # Generate the events for a single z-stack
         events = multi_d_acquisition_events(
             num_time_points=10, time_interval_s=0,
-            channel_group='channel', channels=['DAPI', 'FITC'],
+            channel_group='Channel', channels=['DAPI', 'FITC'],
             order='tc')
         acq.acquire(events)
