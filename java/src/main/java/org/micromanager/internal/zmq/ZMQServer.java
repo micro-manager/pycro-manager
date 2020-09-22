@@ -33,10 +33,11 @@ public class ZMQServer extends ZMQSocketWrapper {
    private static Set<String> packages_;
    private static ZMQUtil util_;
 
-   public static final String VERSION = "2.6.0";
+   public static final String VERSION = "2.7.0";
 
    private static Function<Class, Object> classMapper_;
    private static ZMQServer masterServer_;
+   static boolean debug_ = false;
 
    //for testing
 //   public static void main(String[] args) {
@@ -90,8 +91,12 @@ public class ZMQServer extends ZMQSocketWrapper {
          port_ = port;
          socket_.bind("tcp://127.0.0.1:" + port);
 
+         //Master request-reply loop
          while (true) {
             String message = socket_.recvStr();
+            if (debug_) {
+               System.out.println("Recieved message: \t" + message);
+            }
             byte[] reply = null;
             try {
                reply = parseAndExecuteCommand(message);
@@ -113,7 +118,13 @@ public class ZMQServer extends ZMQSocketWrapper {
                   // This wont happen          
                }
             }
+            if (debug_) {
+               System.out.println("Sending message: \t" + new String(reply));
+            }
             socket_.send(reply);
+            if (debug_) {
+               System.out.println("Message sent");
+            }
          }
       });
    }
@@ -186,7 +197,11 @@ public class ZMQServer extends ZMQSocketWrapper {
          } else if (message.getJSONArray("argument-types").get(i).equals("java.lang.String")) {
             //Strings are a special case because they're like a primitive but not quite
             argClasses[i] = java.lang.String.class;
-            argVals[i] = message.getJSONArray("arguments").getString(i);
+            if (message.getJSONArray("arguments").get(i) == JSONObject.NULL) {
+               argVals[i] = null;
+            } else {
+               argVals[i] = message.getJSONArray("arguments").getString(i);
+            }
          } else if (message.getJSONArray("argument-types").get(i).equals("java.lang.Object")) {
             argClasses[i] = java.lang.Object.class;
             argVals[i] = message.getJSONArray("arguments").get(i);
@@ -308,6 +323,7 @@ public class ZMQServer extends ZMQSocketWrapper {
       switch (request.getString("command")) {
          case "connect": {//Connect to master server
             masterServer_ = this;
+            debug_ = request.getBoolean("debug");
             //Called by master process
             reply = new JSONObject();
             reply.put("type", "none");
@@ -365,7 +381,7 @@ public class ZMQServer extends ZMQSocketWrapper {
             String hashCode = request.getString("hash-code");
             //TODO this is defined in superclass, maybe it would be good to merge these?
 //            System.out.println("remove object: " + hashCode);
-            EXTERNAL_OBJECTS.remove(hashCode);
+            Object removed = EXTERNAL_OBJECTS.remove(hashCode);
             reply = new JSONObject();
 
             reply.put("type", "none");

@@ -1,10 +1,10 @@
 .. _reading_data:
 
 ******************************************************
-Reading saved data
+Reading acquired data
 ******************************************************
 
-This section describes how to read image data and metadata from multidimensional datasets saved in the default `NDTiff format <https://github.com/micro-manager/NDTiffStorage>`_ of ``pycromanager``. This can take place either during or after an acquisition. In either case, access to the underlying data is provided by a :class:`Dataset<pycromanager.Dataset>` object.  
+The `NDTiff format <https://github.com/micro-manager/NDTiffStorage>`_ is the default saving format of ``pycromanager`` :class:`Acquisition<pycromanager.Acquisition>`s, as well as acquisitions run using Micro-Magellan. Data saved in this format can be read either during or after an acquisition. In either case, access to the underlying data is provided by a :class:`Dataset<pycromanager.Dataset>` object.  
 
 Images can be loaded individually, or all data can be loaded simulataneously into a memory-mapped `dask <https://dask.org/>`_ array, which works like a numpy array and also allows scalable processing of large datasets and viewing data in `napari <https://github.com/napari/napari>`_. 
 
@@ -17,13 +17,11 @@ There are two ways to do this, depending on whether the data is part of an in-pr
 
 	from pycromanager import Acquisition
 
-	if __name__ == '__main__':
+	with Acquisition('/path/to/saving/dir', 'saving_name') as acq:
 
-	    with Acquisition('/path/to/saving/dir', 'saving_name') as acq:
+		### send some instructions so something is acquired ######
 
-	    	### send some instructions so something is acquired ######
-
-	        dataset = acq.get_dataset()
+		dataset = acq.get_dataset()
 
 Alternatively, to open a finished dataset from disk:
 
