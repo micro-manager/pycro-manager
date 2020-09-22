@@ -12,6 +12,7 @@ Have an application you'd like to contribute to this page? Please `reach out <ht
 
 	intermittent_Z_T.ipynb
 	TZYX_fast_sequencing_z_indexing.ipynb
+	pycro_manager_imjoy_tutorial.ipynb
 	Denoising acquired images using deep learning.ipynb
 	pycro_manager_tie_demo.ipynb
 	guiding_acq_with_neural_network_attention.ipynb
@@ -24,6 +25,10 @@ Have an application you'd like to contribute to this page? Please `reach out <ht
 :doc:`TZYX_fast_sequencing_z_indexing`
 
 	This notebook acquires a fast TZYX data series. The camera is run at reduced ROI to achieve higher framerate (here 200 frames per second). Movement of the z stage is "sequenced" to speed up acquisition. The z stage advances to the next position in the sequence when a trigger from the camera is received. This eliminates delays due to software communication.
+
+:doc:`pycro_manager_imjoy_tutorial`
+	This tutorial notebook shows how you can combine Pycro-Manager with `ImJoy <https://imjoy.io/>` which is a web framework for building rich and powerful interactive analysis tools. 
+	Step by step, it show how you can use ImJoy plugins for acquiring and visualzing images, using a dedicated ImJoy plugin for Pycro-Manager in the notebook with snap/live buttons, exposure/binning controls and a full-featured Device Property Browser. The built plugin can be hosted on Github, and use independently outside the Jupyter notebook interface.
 
 :doc:`Denoising acquired images using deep learning`
 
