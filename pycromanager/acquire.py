@@ -330,7 +330,8 @@ class Acquisition(object):
 
 
 def multi_d_acquisition_events(num_time_points=1, time_interval_s=0, z_start=None, z_end=None, z_step=None,
-                channel_group=None, channels=None, channel_exposures_ms=None, xy_positions=None, order='tpcz'):
+                channel_group=None, channels=None, channel_exposures_ms=None, xy_positions=None, order='tpcz',
+                               keep_shutter_open_between_channels=False, keep_shutter_open_between_z_steps=False):
     """
     Convenience function for generating the events of a typical multi-dimensional acquisition (i.e. an
     acquisition with some combination of multiple timepoints, channels, z-slices, or xy positions)
@@ -362,6 +363,10 @@ def multi_d_acquisition_events(num_time_points=1, time_interval_s=0, z_start=Non
         series. 'pt' would move to different xy stage positions and run a complete timelapse at each one before moving
         to the next
     :type order: str
+    :param keep_shutter_open_between_channels: don't close the shutter in between channels
+    :type keep_shutter_open_between_channels: bool
+    :param keep_shutter_open_between_z_steps: don't close the shutter during steps of a z stack
+    :type keep_shutter_open_between_z_steps: bool
 
     :return: a list of acquisition events to run the specified acquisition
     """
@@ -385,6 +390,8 @@ def multi_d_acquisition_events(num_time_points=1, time_interval_s=0, z_start=Non
                 new_event = copy.deepcopy(event)
                 new_event['axes']['z'] = z_index
                 new_event['z'] = z_position
+                if keep_shutter_open_between_z_steps:
+                    new_event['keep_shutter_open'] = True
                 yield generate_events(new_event, order[1:])
         elif order[0] == 'p' and xy_positions is not None:
             for p_index, xy in enumerate(xy_positions):
@@ -399,6 +406,8 @@ def multi_d_acquisition_events(num_time_points=1, time_interval_s=0, z_start=Non
                 new_event['channel'] = {'group': channel_group, 'config': channels[i]}
                 if channel_exposures_ms is not None:
                     new_event['exposure'] = i
+                if keep_shutter_open_between_channels:
+                    new_event['keep_shutter_open'] = True
                 yield generate_events(new_event, order[1:])
         else:
             #this axis appears to be missing
