@@ -590,7 +590,7 @@ class Dataset:
                 if (self._tile_height is not None) and (self._tile_width is not None):
                     #crop down to just the part that shows (i.e. no overlap)
                     image = image[(image.shape[0] - self._tile_height) // 2: -(image.shape[0] - self._tile_height) // 2,
-                                (image.shape[0] - self._tile_width) // 2: -(image.shape[0] - self._tile_width) // 2]
+                                (image.shape[1] - self._tile_width) // 2: -(image.shape[1] - self._tile_width) // 2]
             else:
                 image = np.reshape(tagged_image.pix, newshape=[self._tile_height, self._tile_width])
             if read_metadata:
