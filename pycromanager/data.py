@@ -83,6 +83,9 @@ class _MultipageTiffReader:
         index_map_offset_header, index_map_offset = np.frombuffer(self.mmap_file[8:16], dtype=np.uint32)
         if index_map_offset_header != self.INDEX_MAP_OFFSET_HEADER:
             raise Exception('Index map offset header wrong')
+        # int.from_bytes(self.mmap_file[24:28], sys.byteorder) # should be equal to 483729 starting in version 1
+        self._major_version = int.from_bytes(self.mmap_file[28:32], sys.byteorder)
+
         summary_md_header, summary_md_length = np.frombuffer(self.mmap_file[32:40], dtype=np.uint32)
         if summary_md_header != self.SUMMARY_MD_HEADER:
             raise Exception('Index map offset header wrong')
