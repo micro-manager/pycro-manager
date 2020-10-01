@@ -17,6 +17,7 @@ Have an application you'd like to contribute to this page? Please `reach out <ht
 	Denoising acquired images using deep learning.ipynb
 	pycro_manager_tie_demo.ipynb
 	guiding_acq_with_neural_network_attention.ipynb
+	Auto_CycIF.ipynb
 
 
 :doc:`intermittent_Z_T`
@@ -41,7 +42,6 @@ Have an application you'd like to contribute to this page? Please `reach out <ht
 :doc:`guiding_acq_with_neural_network_attention`
 	This tutorial shows how to use Pycro-manager to perform analysis driven targeted multimodal/multiscale acquisition for automated collagen fiber-based biomarker identification. We will acquire brightfield images of a H&E stained cancer histology slide at 4x magnification, identify pathology relevant ROIs using a deep learning model based on the 4x image, and zoom into these ROIs to perform the collagen fiber-specific method of second-harmonic generation (SHG) laser scanning at 20x magnification. This allows for disease-relevant, collagen-specific features to be collected automatically and correlated with the gold standard H&E pathology method. We use Pycro-manager to read/write hardware properties (e.g. camera exposure, lamp intensity, turret position, stage position, etc.), change Micro-Manager hardware property configuration groups, acquire images and access the image data as NumPy array, and perform Z-stack acquisition via multi-dimension acquisition events.
 
-:doc:`Auto_CyCIF`
-	
-	*Warning, this project is not completed and is a work in progress* This notebook goes over a project that automatically images samples and automatically executes each cycle in the open source multiplex method, CyCIF. While this is a complete project tutorial, parts of the code may be of use for different applications. The overall operations that this microscope does is after a user defines the bounds of each tissue section, it calculates the center of the surface. This coordinate is used to drive the stage underneath the robotic pipettor for staining cycles. It also executes autofocus routines where, for time savings, performs an auto focus routine at sub-sampled tiles. It goes through typical 4 color images and sets an executes a simple auto-expose routine and calculates new exposure times. It also takes outputted files and repackages in the specific format that the alignment and stitching software, Ashlar, can accept. 
+:doc:`Auto_CycIF`
+	This notebook shows an implementation of the `CycIF <https://www.cycif.org/>`_ Multiplex immunostaining method on several slides in parallel. It utilizes Micro-Magellan as a user interface to define the bounds of each tissue section, calculates the center of the section, and uses this coordinate to drive the stage underneath the robotic pipettor for staining cycles. It also executes autofocus routines at sub-sampled tiles to provide speed increases. It goes through typical 4 color images and sets an executes a simple auto-expose routine and calculates new exposure times. Finally, it takes the saved data and repackages it into a format that the alignment and stitching software, Ashlar, can accept. 
 
