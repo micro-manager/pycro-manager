@@ -17,6 +17,7 @@ Have an application you'd like to contribute to this page? Please `reach out <ht
 	Denoising acquired images using deep learning.ipynb
 	pycro_manager_tie_demo.ipynb
 	guiding_acq_with_neural_network_attention.ipynb
+	Auto_CyCIF.ipynb
 
 
 :doc:`intermittent_Z_T`
