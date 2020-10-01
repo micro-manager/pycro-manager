@@ -12,6 +12,7 @@ Have an application you'd like to contribute to this page? Please `reach out <ht
 
 	intermittent_Z_T.ipynb
 	TZYX_fast_sequencing_z_indexing.ipynb
+	convert_MM_MDA_data_into_zarr.ipynb
 	pycro_manager_imjoy_tutorial.ipynb
 	Denoising acquired images using deep learning.ipynb
 	pycro_manager_tie_demo.ipynb
@@ -24,7 +25,7 @@ Have an application you'd like to contribute to this page? Please `reach out <ht
 :doc:`TZYX_fast_sequencing_z_indexing`
 	This notebook acquires a fast TZYX data series. The camera is run at reduced ROI to achieve higher framerate (here 200 frames per second). Movement of the z stage is "sequenced" to speed up acquisition. The z stage advances to the next position in the sequence when a trigger from the camera is received. This eliminates delays due to software communication.
 
-:doc:`TZYX_fast_sequencing_z_indexing`
+:doc:`convert_MM_MDA_data_into_zarr`
 	This notebook explains how to use Pycromanger to readout the data saved by Micro-manager's multi-dimensional acquisition and convert it into zarr format. This is useful when the data is large (more than hundreds of GBs). Currently there is no python reader that can directly readout the large multi-dimensional data saved by Micromanger. The Pycro-Manager Java Python Bridge makes this possible.
 
 :doc:`pycro_manager_imjoy_tutorial`
