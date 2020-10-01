@@ -24,6 +24,9 @@ Have an application you'd like to contribute to this page? Please `reach out <ht
 :doc:`TZYX_fast_sequencing_z_indexing`
 	This notebook acquires a fast TZYX data series. The camera is run at reduced ROI to achieve higher framerate (here 200 frames per second). Movement of the z stage is "sequenced" to speed up acquisition. The z stage advances to the next position in the sequence when a trigger from the camera is received. This eliminates delays due to software communication.
 
+:doc:`TZYX_fast_sequencing_z_indexing`
+	This notebook explains how to use Pycromanger to readout the data saved by Micro-manager's multi-dimensional acquisition and convert it into zarr format. This is useful when the data is large (more than hundreds of GBs). Currently there is no python reader that can directly readout the large multi-dimensional data saved by Micromanger. The Pycro-Manager Java Python Bridge makes this possible.
+
 :doc:`pycro_manager_imjoy_tutorial`
 	This tutorial notebook shows how you can combine Pycro-Manager with `ImJoy <https://imjoy.io/>`_ which is a web framework for building rich and powerful interactive analysis tools. 
 	Step by step, it shows how you can use ImJoy plugins for acquiring and visualzing images using a dedicated ImJoy plugin for Pycro-Manager in the notebook with snap/live buttons, exposure/binning controls and a full-featured device property browser. The built plugin can be hosted on Github, and use independently outside the Jupyter notebook interface.
