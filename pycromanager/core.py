@@ -127,14 +127,16 @@ class Bridge:
 
     def __init__(self, port=_DEFAULT_PORT, convert_camel_case=True, debug=False):
         """
-        :param port: The port on which the bridge operates
-        :type port: int
-        :param convert_camel_case: If true, methods for Java objects that are passed across the bridge
+        Parameters
+        ----------
+        port : int
+            The port on which the bridge operates
+        convert_camel_case : bool
+            If True, methods for Java objects that are passed across the bridge
             will have their names converted from camel case to underscores. i.e. class.methodName()
             becomes class.method_name()
-        :type convert_camel_case: boolean
-        :param debug: print helpful stuff for debugging
-        :type debug: bool
+        debug : bool
+            If True print helpful stuff for debugging
         """
         if not hasattr(self, '_context'):
             Bridge._context = zmq.Context()
@@ -169,13 +171,19 @@ class Bridge:
         just like the object on the Java side (i.e. same methods, fields). Methods of the object can be inferred at
         runtime using iPython autocomplete
 
-        :param classpath: Full classpath of the java object
-        :type classpath: string
-        :param new_socket: If true, will create new java object on a new port so that blocking calls will not interfere
+        Parameters
+        ----------
+        classpath : str
+            Full classpath of the java object
+        new_socket : bool
+            If True, will create new java object on a new port so that blocking calls will not interfere
             with the bridges master port
-        :param args: list of arguments to the constructor, if applicable
-        :type args: list
-        :return: Python  "Shadow" to the Java object
+        args : list
+            list of arguments to the constructor, if applicable
+        Returns
+        -------
+        
+        Python  "Shadow" to the Java object
         """
         if args is None:
             args = []
@@ -351,9 +359,12 @@ class JavaObjectShadow:
     def _translate_call(self, method_specs, fn_args: tuple):
         """
         Translate to appropriate Java method, call it, and return converted python version of its result
-        :param args: args[0] is list of dictionaries of possible method specifications
-        :param kwargs: hold possible polymorphic args, or none
-        :return:
+        Parameters
+        ----------
+        args :
+             args[0] is list of dictionaries of possible method specifications
+        kwargs :
+             hold possible polymorphic args, or none
         """
         #args that are none are placeholders to allow for polymorphism and not considered part of the spec
         # fn_args = [a for a in fn_args if a is not None]
@@ -368,9 +379,13 @@ class JavaObjectShadow:
 
     def _deserialize(self, json_return):
         """
-        :param method_spec: info about the method that called it
-        :param reply: bytes that represents return
-        :return: an appropriate python type of the converted value
+        method_spec :
+             info about the method that called it
+        reply :
+            bytes that represents return
+        Returns
+        -------
+        An appropriate python type of the converted value
         """
         if json_return['type'] == 'exception':
             raise Exception(json_return['value'])
@@ -401,8 +416,9 @@ def serialize_array(array):
 def deserialize_array(json_return):
     """
     Convert a serialized java array to the appropriate numpy type
-    :param json_return:
-    :return:
+    Parameters
+    ----------
+    json_return
     """
     if json_return['type'] == 'byte-array':
         return np.frombuffer(standard_b64decode(json_return['value']), dtype='>u1').copy()
@@ -419,9 +435,11 @@ def deserialize_array(json_return):
 def _package_arguments(valid_method_spec, fn_args):
     """
     Serialize function arguments and also include description of their Java types
-    :param valid_method_spec:
-    :param fn_args:
-    :return:
+
+    Parameters
+    ----------
+    valid_method_spec:
+    fn_args :
     """
     arguments = []
     for arg_type, arg_val in zip(valid_method_spec['arguments'], fn_args):
@@ -451,9 +469,10 @@ def _serialize_arg(arg):
 def _check_single_method_spec(method_spec, fn_args):
     """
     Check if a single method specificiation is compatible with the arguments the function recieved
-    :param method_spec:
-    :param fn_args:
-    :return:
+    Parameters
+    ----------
+    method_spec :
+    fn_args :
     """
     if len(method_spec['arguments']) != len(fn_args):
         return False
@@ -476,9 +495,15 @@ def _check_single_method_spec(method_spec, fn_args):
 def _check_method_args(method_specs, fn_args):
     """
     Compare python arguments to java arguments to find correct function to call
-    :param method_specs:
-    :param fn_args:
-    :return: one of the method_specs that is valid
+
+    Parameters
+    ----------
+    method_specs :
+    fn_args :
+
+    Returns
+    -------
+    one of the method_specs that is valid
     """
     # TODO: check that args can be translated to expected java counterparts (e.g. numpy arrays)
     valid_method_spec = None
