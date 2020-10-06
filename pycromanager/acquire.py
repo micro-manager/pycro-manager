@@ -14,6 +14,21 @@ import queue
 ### These functions outside class to prevent problems with pickling when running them in differnet process
 
 def _event_sending_fn(event_port, event_queue, debug=False):
+    """
+
+    Parameters
+    ----------
+    event_port :
+        
+    event_queue :
+        
+    debug :
+         (Default value = False)
+
+    Returns
+    -------
+
+    """
     bridge = Bridge(debug=debug)
     event_socket = bridge._connect_push(event_port)
     while True:
@@ -30,6 +45,27 @@ def _event_sending_fn(event_port, event_queue, debug=False):
             print('sent events')
 
 def _acq_hook_startup_fn(pull_port, push_port, hook_connected_evt, event_queue, hook_fn, debug):
+    """
+
+    Parameters
+    ----------
+    pull_port :
+        
+    push_port :
+        
+    hook_connected_evt :
+        
+    event_queue :
+        
+    hook_fn :
+        
+    debug :
+        
+
+    Returns
+    -------
+
+    """
     bridge = Bridge(debug=debug)
 
     push_socket = bridge._connect_push(pull_port)
@@ -65,6 +101,27 @@ def _acq_hook_startup_fn(pull_port, push_port, hook_connected_evt, event_queue, 
         push_socket.send(new_event_msg)
 
 def _processor_startup_fn(pull_port, push_port, sockets_connected_evt, process_fn, event_queue, debug):
+    """
+
+    Parameters
+    ----------
+    pull_port :
+        
+    push_port :
+        
+    sockets_connected_evt :
+        
+    process_fn :
+        
+    event_queue :
+        
+    debug :
+        
+
+    Returns
+    -------
+
+    """
     bridge = Bridge(debug=debug)
     push_socket = bridge._connect_push(pull_port)
     pull_socket = bridge._connect_pull(push_port)
@@ -73,6 +130,17 @@ def _processor_startup_fn(pull_port, push_port, sockets_connected_evt, process_f
     sockets_connected_evt.set()
 
     def process_and_sendoff(image_tags_tuple):
+        """
+
+        Parameters
+        ----------
+        image_tags_tuple :
+            
+
+        Returns
+        -------
+
+        """
         if len(image_tags_tuple) != 2:
             raise Exception('If image is returned, it must be of the form (pixel, metadata)')
         if not image_tags_tuple[0].dtype == pixels.dtype:
@@ -123,60 +191,67 @@ def _processor_startup_fn(pull_port, push_port, sockets_connected_evt, process_f
 
 
 class Acquisition(object):
+    """ """
     def __init__(self, directory=None, name=None, image_process_fn=None,
                  pre_hardware_hook_fn=None, post_hardware_hook_fn=None, post_camera_hook_fn=None,
                  show_display=True, tile_overlap=None, max_multi_res_index=None,
                  magellan_acq_index=None, magellan_explore=False, process=False, debug=False):
         """
-        :param directory: saving directory for this acquisition. Required unless an image process function will be
+        Parameters
+        ----------
+        directory : str
+            saving directory for this acquisition. Required unless an image process function will be
             implemented that diverts images from saving
-        :type directory: str
-        :param name: Saving name for the acquisition. Required unless an image process function will be
+        name : str
+            Saving name for the acquisition. Required unless an image process function will be
             implemented that diverts images from saving
-        :type name: str
-        :param image_process_fn: image processing function that will be called on each image that gets acquired.
+        image_process_fn : Callable
+            image processing function that will be called on each image that gets acquired.
             Can either take two arguments (image, metadata) where image is a numpy array and metadata is a dict
             containing the corresponding iamge metadata. Or a 4 argument version is accepted, which accepts (image,
             metadata, bridge, queue), where bridge and queue are an instance of the pycromanager.acquire.Bridge
             object for the purposes of interacting with arbitrary code on the Java side (such as the micro-manager
             core), and queue is a Queue objects that holds upcomning acquisition events. Both version must either
             return
-        :param pre_hardware_hook_fn: hook function that will be run just before the hardware is updated before acquiring
+        pre_hardware_hook_fn : Callable
+            hook function that will be run just before the hardware is updated before acquiring
             a new image. In the case of hardware sequencing, it will be run just before a sequence of instructions are
             dispatched to the hardware. Accepts either one argument (the current acquisition event) or three arguments
             (current event, bridge, event Queue)
-        :param post_hardware_hook_fn: hook function that will be run just before the hardware is updated before acquiring
+        post_hardware_hook_fn : Callable
+            hook function that will be run just before the hardware is updated before acquiring
             a new image. In the case of hardware sequencing, it will be run just after a sequence of instructions are
             dispatched to the hardware, but before the camera sequence has been started. Accepts either one argument
             (the current acquisition event) or three arguments (current event, bridge, event Queue)
-        :param post_camera_hook_fn: hook function that will be run just after the camera has been triggered to snapImage or
+        post_camera_hook_fn : Callable
+            hook function that will be run just after the camera has been triggered to snapImage or
             startSequence. A common use case for this hook is when one want to send TTL triggers to the camera from an
             external timing device that synchronizes with other hardware. Accepts either one argument (the current
             acquisition event) or three arguments (current event, bridge, event Queue)
-        :param tile_overlap: If given, XY tiles will be laid out in a grid and multi-resolution saving will be
+        tile_overlap : int or tuple of int
+            If given, XY tiles will be laid out in a grid and multi-resolution saving will be
             actived. Argument can be a two element tuple describing the pixel overlaps between adjacent
             tiles. i.e. (pixel_overlap_x, pixel_overlap_y), or an integer to use the same overlap for both.
             For these features to work, the current hardware configuration must have a valid affine transform
             between camera coordinates and XY stage coordinates
-        :type tile_overlap: tuple, int
-        :param max_multi_res_index: Maximum index to downsample to in multi-res pyramid mode. 0 is no downsampling,
+        max_multi_res_index : int
+            Maximum index to downsample to in multi-res pyramid mode. 0 is no downsampling,
             1 is downsampled up to 2x, 2 is downsampled up to 4x, etc. If not provided, it will be dynamically
             calculated and updated from data
-        :type max_multi_res_index: int
-        :param show_display: show the image viewer window
-        :type show_display: boolean
-        :param magellan_acq_index: run this acquisition using the settings specified at this position in the main
+        show_display : bool
+            show the image viewer window
+        magellan_acq_index : int
+            run this acquisition using the settings specified at this position in the main
             GUI of micro-magellan (micro-manager plugin). This index starts at 0
-        :type magellan_acq_index: int
-        :param magellan_explore: Run a Micro-magellan explore acquisition
-        :type magellan_explore: bool
-        :param process: Use multiprocessing instead of multithreading for acquisition hooks and image
+        magellan_explore : bool
+            Run a Micro-magellan explore acquisition
+        process : bool
+            Use multiprocessing instead of multithreading for acquisition hooks and image
             processors. This can be used to speed up CPU-bounded processing by eliminating bottlenecks
             caused by Python's Global Interpreter Lock, but also creates complications on Windows-based
             systems
-        :type process: boolean
-        :param debug: print debugging stuff
-        :type debug: boolean
+        debug : bool
+            whether to print debug messages
         """
         self.bridge = Bridge(debug=debug)
         self._debug = debug
@@ -262,30 +337,32 @@ class Acquisition(object):
         self.await_completion()
 
     def get_dataset(self):
-        """
-        Return a :class:`~pycromanager.data.Dataset` object that has access to the underlying pixels
-
-        :return: :class:`~pycromanager.data.Dataset` corresponding to this acquisition
-        """
+        """ """
         if self._dataset is None:
             self._dataset = Dataset(remote_storage=self._remote_acq.get_storage())
         return self._dataset
 
     def await_completion(self):
-        """
-        Wait for acquisition to finish and resources to be cleaned up
-        """
+        """Wait for acquisition to finish and resources to be cleaned up"""
         while (not self._remote_acq.is_finished()):
             time.sleep(0.1)
 
     def acquire(self, events, keep_shutter_open=False):
-        """
-        Submit an event or a list of events for acquisition. Optimizations (i.e. taking advantage of
+        """Submit an event or a list of events for acquisition. Optimizations (i.e. taking advantage of
         hardware synchronization, where available), will take place across this list of events, but not
         over multiple calls of this method. A single event is a python dictionary with a specific structure
 
-        :param events: single event (i.e. a dictionary) or a list of events
-        :param keep_shutter_open: dont close and repoen the shutter between events
+        Parameters
+        ----------
+        events
+            
+        keep_shutter_open :
+             (Default value = False)
+
+        Returns
+        -------
+
+        
         """
         if keep_shutter_open and isinstance(events, list):
             for e in events:
@@ -297,6 +374,23 @@ class Acquisition(object):
         self._event_queue.put(events)
 
     def _start_hook(self, remote_hook, remote_hook_fn, event_queue, process):
+        """
+
+        Parameters
+        ----------
+        remote_hook :
+            
+        remote_hook_fn :
+            
+        event_queue :
+            
+        process :
+            
+
+        Returns
+        -------
+
+        """
         hook_connected_evt = multiprocessing.Event() if process else threading.Event()
 
         pull_port = remote_hook.get_pull_port()
@@ -311,6 +405,23 @@ class Acquisition(object):
         hook_connected_evt.wait()  # wait for push/pull sockets to connect
 
     def _start_processor(self, processor, process_fn, event_queue, process):
+        """
+
+        Parameters
+        ----------
+        processor :
+            
+        process_fn :
+            
+        event_queue :
+            
+        process :
+            
+
+        Returns
+        -------
+
+        """
         # this must start first
         processor.start_pull()
 
@@ -332,47 +443,64 @@ class Acquisition(object):
 def multi_d_acquisition_events(num_time_points=1, time_interval_s=0, z_start=None, z_end=None, z_step=None,
                 channel_group=None, channels=None, channel_exposures_ms=None, xy_positions=None, order='tpcz',
                                keep_shutter_open_between_channels=False, keep_shutter_open_between_z_steps=False):
-    """
-    Convenience function for generating the events of a typical multi-dimensional acquisition (i.e. an
+    """Convenience function for generating the events of a typical multi-dimensional acquisition (i.e. an
     acquisition with some combination of multiple timepoints, channels, z-slices, or xy positions)
 
-    :param num_time_points: How many time points if it is a timelapse
-    :type num_time_points: int
-    :param time_interval_s: the minimum interval between consecutive time points in seconds. Keep at 0 to go as
-        fast as possible
-    :type time_interval_s: float
-    :param z_start: z-stack starting position, in µm
-    :type z_start: float
-    :param z_end: z-stack ending position, in µm
-    :type z_end: float
-    :param z_step: step size of z-stack, in µm
-    :type z_step: float
-    :param channel_group: name of the channel group (which should correspond to a config group in micro-manager)
-    :type channel_group: str
-    :param channels: list of channel names, which correspond to possible settings of the config group (e.g. ['DAPI',
-        'FITC'])
-    :type channels: list of strings
-    :param channel_exposures_ms: list of camera exposure times corresponding to each channel. The length of this list
-        should be the same as the the length of the list of channels
-    :type channel_exposures_ms: list of floats or ints
-    :param xy_positions: N by 2 numpy array where N is the number of XY stage positions, and the 2 are the X and Y
-        coordinates
-    :type xy_positions: numpy array
-    :param order: string that specifies the order of different dimensions. Must have some ordering of the letters
+    Parameters
+    ----------
+    num_time_points : int
+        How many time points if it is a timelapse (Default value = 1)
+    time_interval_s : float
+        the minimum interval between consecutive time points in seconds. Keep at 0 to go as
+        fast as possible (Default value = 0)
+    z_start : float
+        z-stack starting position, in µm (Default value = None)
+    z_end : float
+        z-stack ending position, in µm (Default value = None)
+    z_step : float
+        step size of z-stack, in µm (Default value = None)
+    channel_group : str
+        name of the channel group (which should correspond to a config group in micro-manager) (Default value = None)
+    channels : list of strings
+        list of channel names, which correspond to possible settings of the config group
+        (e.g. ['DAPI', 'FITC']) (Default value = None)
+    channel_exposures_ms : list of floats or ints
+        list of camera exposure times corresponding to each channel. The length of this list
+        should be the same as the the length of the list of channels (Default value = None)
+    xy_positions : arraylike
+        N by 2 array where N is the number of XY stage positions, and the 2 are the X and Y
+        coordinates (Default value = None)
+    order : str
+        string that specifies the order of different dimensions. Must have some ordering of the letters
         c, t, p, and z. For example, 'tcz' would run a timelapse where z stacks would be acquired at each channel in
         series. 'pt' would move to different xy stage positions and run a complete timelapse at each one before moving
-        to the next
-    :type order: str
-    :param keep_shutter_open_between_channels: don't close the shutter in between channels
-    :type keep_shutter_open_between_channels: bool
-    :param keep_shutter_open_between_z_steps: don't close the shutter during steps of a z stack
-    :type keep_shutter_open_between_z_steps: bool
+        to the next (Default value = 'tpcz')
+    keep_shutter_open_between_channels : bool
+        don't close the shutter in between channels (Default value = False)
+    keep_shutter_open_between_z_steps : bool
+        don't close the shutter during steps of a z stack (Default value = False)
 
-    :return: a list of acquisition events to run the specified acquisition
+    Returns
+    -------
+
+    
     """
 
 
     def generate_events(event, order):
+        """
+
+        Parameters
+        ----------
+        event :
+            
+        order :
+            
+
+        Returns
+        -------
+
+        """
         if len(order) == 0:
             yield event
             return
@@ -417,6 +545,17 @@ def multi_d_acquisition_events(num_time_points=1, time_interval_s=0, z_start=Non
     base_event = {'axes': {}}
     events = []
     def appender(next):
+        """
+
+        Parameters
+        ----------
+        next :
+            
+
+        Returns
+        -------
+
+        """
         if isinstance(next, types.GeneratorType):
             for n in next:
                 appender(n)
