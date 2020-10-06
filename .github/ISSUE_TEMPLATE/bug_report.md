@@ -1,3 +1,10 @@
+---
+name: Bug report
+about: Report a bug in pycromanager
+labels: bug
+---
+
+
 ### Bug report
 
 <!--To help us understand and resolve your issue, please fill out the form to the best of your ability.-->
