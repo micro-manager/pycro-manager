@@ -4,9 +4,6 @@ about: Report parts of the docs that are wrong or unclear
 labels: documentation
 ---
 
-<!--To help us understand and resolve your issue, please fill out the form to the best of your ability.-->
-<!--You can feel free to delete the sections that do not apply.-->
-
 ### Problem
 
 <!--
@@ -26,5 +23,12 @@ If you have an idea to improve the documentation please suggest it here
 * This line should be be changed to say [...]
 * Include a paragraph explaining [...]
 * Add a figure showing [...]
+-->
+
+### Optional: Pull request to make improvement
+
+<!--
+If you think the changes are straitforward, the most helpful thing to do is to directly make a pull request with them implemented
+The contributing guide (https://github.com/micro-manager/pycro-manager/blob/master/Contributing.md) explains how to do this
 -->
 
