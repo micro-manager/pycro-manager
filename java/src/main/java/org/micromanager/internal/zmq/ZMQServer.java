@@ -153,10 +153,20 @@ public class ZMQServer extends ZMQSocketWrapper {
       obj.getClass().getField(fieldName).set(obj, val);
    }
 
+   /**
+    * Generate every possible combination of parameters given multiple interfaces for classes so that
+    * the correct method can be located. Also fill in argVals with the correct objects or primitives
+    *
+    * @param message
+    * @param argVals
+    * @return
+    * @throws JSONException
+    * @throws UnsupportedEncodingException
+    */
    private LinkedList<LinkedList<Class>> getParamCombos(JSONObject message, Object[] argVals) throws JSONException,
            UnsupportedEncodingException {
 
-      Object[] argClasses = new Object[message.getJSONArray("arguments").length()];
+      //get argument values
       for (int i = 0; i < argVals.length; i++) {
 //         Class c = message.getJSONArray("arguments").get(i).getClass();
          if (message.getJSONArray("arguments").get(i) instanceof JSONObject
@@ -164,6 +174,31 @@ public class ZMQServer extends ZMQSocketWrapper {
             //Passed in a javashadow object as an argument
             argVals[i] = EXTERNAL_OBJECTS.get(
                     message.getJSONArray("arguments").getJSONObject(i).get("hash-code"));
+         } else if (ZMQUtil.PRIMITIVE_NAME_CLASS_MAP.containsKey(message.getJSONArray("argument-deserialization-types").get(i))) {
+            Object primitive = message.getJSONArray("arguments").get(i); //Double, Integer, Long, Boolean
+            Class c = ZMQUtil.PRIMITIVE_NAME_CLASS_MAP.get(message.getJSONArray("argument-deserialization-types").get(i));
+            argVals[i] = ZMQUtil.convertToPrimitiveClass(primitive, c);
+         } else if (ZMQUtil.PRIMITIVE_ARRAY_NAME_CLASS_MAP.containsKey(message.getJSONArray("argument-deserialization-types").get(i))) {
+            Class c = ZMQUtil.PRIMITIVE_ARRAY_NAME_CLASS_MAP.get(message.getJSONArray("argument-deserialization-types").get(i));
+            argVals[i] = ZMQUtil.convertToPrimitiveArray(c, message.getJSONArray("arguments").getString(i));
+         } else if (message.getJSONArray("argument-deserialization-types").get(i).equals("java.lang.String")) {
+            //Strings are a special case because they're like a primitive but not quite
+            if (message.getJSONArray("arguments").get(i) == JSONObject.NULL) {
+               argVals[i] = null;
+            } else {
+               argVals[i] = message.getJSONArray("arguments").getString(i);
+            }
+         } else if (message.getJSONArray("argument-deserialization-types").get(i).equals("java.lang.Object")) {
+            argVals[i] = message.getJSONArray("arguments").get(i);
+         }
+      }
+
+      //get classes
+      Object[] argClasses = new Object[message.getJSONArray("arguments").length()];
+      for (int i = 0; i < argVals.length; i++) {
+//         Class c = message.getJSONArray("arguments").get(i).getClass();
+         if (message.getJSONArray("arguments").get(i) instanceof JSONObject
+                 && message.getJSONArray("arguments").getJSONObject(i).has("hash-code")) {
             //abstract to superclasses/interfaces in the API
             Set<String> potentialPackages = new TreeSet<String>();
             Class clazz = argVals[i].getClass();
@@ -190,21 +225,14 @@ public class ZMQServer extends ZMQSocketWrapper {
             potentialClasses.add(argVals[i].getClass());
             argClasses[i] = potentialClasses;
          } else if (ZMQUtil.PRIMITIVE_NAME_CLASS_MAP.containsKey(message.getJSONArray("argument-types").get(i))) {
-            argClasses[i] = ZMQUtil.PRIMITIVE_NAME_CLASS_MAP.get(
-                    message.getJSONArray("argument-types").get(i));         
-            Object primitive = message.getJSONArray("arguments").get(i); //Double, Integer, Long, Boolean
-            argVals[i] = ZMQUtil.convertToPrimitiveClass(primitive, (Class) argClasses[i]);            
+            argClasses[i] = ZMQUtil.PRIMITIVE_NAME_CLASS_MAP.get(message.getJSONArray("argument-types").get(i));
+         } else if (ZMQUtil.PRIMITIVE_ARRAY_NAME_CLASS_MAP.containsKey(message.getJSONArray("argument-types").get(i))) {
+            argClasses[i] = ZMQUtil.PRIMITIVE_ARRAY_NAME_CLASS_MAP.get( message.getJSONArray("argument-types").get(i));
          } else if (message.getJSONArray("argument-types").get(i).equals("java.lang.String")) {
             //Strings are a special case because they're like a primitive but not quite
             argClasses[i] = java.lang.String.class;
-            if (message.getJSONArray("arguments").get(i) == JSONObject.NULL) {
-               argVals[i] = null;
-            } else {
-               argVals[i] = message.getJSONArray("arguments").getString(i);
-            }
          } else if (message.getJSONArray("argument-types").get(i).equals("java.lang.Object")) {
             argClasses[i] = java.lang.Object.class;
-            argVals[i] = message.getJSONArray("arguments").get(i);
          }
       }
 
