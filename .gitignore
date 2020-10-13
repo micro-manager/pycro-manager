@@ -17,3 +17,7 @@ java/src/main/java/pycromanager.iml
 #maven
 java/target
 .idea/
+#jupyter
+.ipynb_checkpoints
+#vim
+*.swp
