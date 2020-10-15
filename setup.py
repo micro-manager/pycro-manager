@@ -23,7 +23,11 @@ setuptools.setup(
     packages=setuptools.find_packages(),
     install_requires=['numpy', 'dask[array]>=2.4.0', 'zmq'],
     python_requires='>=3.6',
-    extra_requires=["pytest"],
+    extras_require={
+        "test": [
+            "pytest"
+        ]
+    },
     classifiers=[
         "Programming Language :: Python :: 3.6",
         "Programming Language :: Python :: 3.7",
