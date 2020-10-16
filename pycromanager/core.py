@@ -517,6 +517,11 @@ def _check_method_args(method_specs, fn_args):
             valid_method_spec = method_spec
             break
 
+    if valid_method_spec is None:
+        raise Exception('Incorrect arguments. \nExpected {} \nGot {}'.format(
+            ' or '.join([', '.join(method_spec['arguments']) for method_spec in method_specs]),
+            ', '.join([str(type(a)) for a in fn_args]) ))
+
     # subclass NDArrays to the appropriate data type so they dont get incorrectly reconstructed as objects
     valid_method_spec = copy.deepcopy(valid_method_spec)
     deserialize_types = []
@@ -528,10 +533,7 @@ def _check_method_args(method_specs, fn_args):
         else:
             deserialize_types.append(java_arg_class)
 
-    if valid_method_spec is None:
-        raise Exception('Incorrect arguments. \nExpected {} \nGot {}'.format(
-            ' or '.join([', '.join(method_spec['arguments']) for method_spec in method_specs]),
-            ', '.join([str(type(a)) for a in fn_args]) ))
+
     return valid_method_spec, deserialize_types
 
 
