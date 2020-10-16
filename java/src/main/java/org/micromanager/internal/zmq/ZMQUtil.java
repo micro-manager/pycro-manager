@@ -10,6 +10,7 @@ import java.lang.reflect.*;
 import java.net.*;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
+import java.nio.ShortBuffer;
 import java.util.ArrayList;
 import java.util.Base64;
 import java.util.Collection;
@@ -53,6 +54,7 @@ public class ZMQUtil {
 
    public final static Set<Class> PRIMITIVES = new HashSet<Class>();
    public final static Map<String, Class<?>> PRIMITIVE_NAME_CLASS_MAP = new HashMap<String, Class<?>>();
+   public final static Map<String, Class<?>> PRIMITIVE_ARRAY_NAME_CLASS_MAP = new HashMap<String, Class<?>>();
 
    static {
       PRIMITIVES.add(Boolean.class);
@@ -72,6 +74,15 @@ public class ZMQUtil {
       PRIMITIVE_NAME_CLASS_MAP.put("long", long.class);
       PRIMITIVE_NAME_CLASS_MAP.put("float", float.class);
       PRIMITIVE_NAME_CLASS_MAP.put("double", double.class);
+
+      PRIMITIVE_ARRAY_NAME_CLASS_MAP.put("boolean[]", boolean[].class);
+      PRIMITIVE_ARRAY_NAME_CLASS_MAP.put("byte[]", byte[].class);
+      PRIMITIVE_ARRAY_NAME_CLASS_MAP.put("short[]", short[].class);
+      PRIMITIVE_ARRAY_NAME_CLASS_MAP.put("char[]", char[].class);
+      PRIMITIVE_ARRAY_NAME_CLASS_MAP.put("int[]", int[].class);
+      PRIMITIVE_ARRAY_NAME_CLASS_MAP.put("long[]", long[].class);
+      PRIMITIVE_ARRAY_NAME_CLASS_MAP.put("float[]", float[].class);
+      PRIMITIVE_ARRAY_NAME_CLASS_MAP.put("double[]", double[].class);
    }
 
    public ZMQUtil(Collection<ClassLoader> cl, String[] excludePaths) {
@@ -607,7 +618,29 @@ public class ZMQUtil {
       } else if (argClass.equals(double.class)) {
          return ((Number) primitive).doubleValue();
       } else {
-         throw new RuntimeException("Unkown class");
+         throw new RuntimeException("Unknown class");
       }
    }
+
+   public static Object convertToPrimitiveArray(Object argClass, String value) {
+      byte[] bytes = value.getBytes();
+      if (argClass.equals(boolean[].class)) {
+         return bytes;
+      } else if (argClass.equals(short[].class)) {
+         short[] shorts = new short[bytes.length / 2];
+         ByteBuffer.wrap(bytes).asShortBuffer().get(shorts);
+         return shorts;
+      } else if (argClass.equals(int[].class)) {
+         int[] ints = new int[bytes.length / 4];
+         ByteBuffer.wrap(bytes).asIntBuffer().get(ints);
+         return ints;
+      } else if (argClass.equals(double[].class)) {
+         double[] doubles = new double[bytes.length / 8];
+         ByteBuffer.wrap(bytes).asDoubleBuffer().get(doubles);
+         return doubles;
+      } else {
+         throw new RuntimeException("Unknown class");
+      }
+   }
+
 }
