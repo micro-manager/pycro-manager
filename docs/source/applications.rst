@@ -11,6 +11,7 @@ Have an application you'd like to contribute to this page? Please `reach out <ht
 	:caption: Contents:
 
 	intermittent_Z_T.ipynb
+	multi-d-acq-tutorial.ipynb
 	TZYX_fast_sequencing_z_indexing.ipynb
 	convert_MM_MDA_data_into_zarr.ipynb
 	pycro_manager_imjoy_tutorial.ipynb
@@ -22,6 +23,9 @@ Have an application you'd like to contribute to this page? Please `reach out <ht
 
 :doc:`intermittent_Z_T`
 	This notebook shows how to repeatedly acquire a short time series and then a z stack at a set with a set delay in between.
+
+:doc:`multi-d-acq-tutorial`
+	This notebook shows how to use the `multi_d_acquisition_events` function to automatically create events to use for acquistion.
 
 :doc:`TZYX_fast_sequencing_z_indexing`
 	This notebook acquires a fast TZYX data series. The camera is run at reduced ROI to achieve higher framerate (here 200 frames per second). Movement of the z stage is "sequenced" to speed up acquisition. The z stage advances to the next position in the sequence when a trigger from the camera is received. This eliminates delays due to software communication.
