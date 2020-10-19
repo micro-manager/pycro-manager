@@ -1,6 +1,6 @@
 name: Test
 
-# this is heavily based off the jupyterlab-git workflow file created by @fcollonval
+# this is heavily based off workflow file for jupyterlab-git created by @fcollonval
 # https://github.com/jupyterlab/jupyterlab-git/blob/a046b66415c6afabcbdf6e624e2a367523ee2e80/.github/workflows/build.yml
 
 on:
