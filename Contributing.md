@@ -19,7 +19,7 @@ cd pycro-manager
 
 Set the `upstream` remote to the base `pycro-manager` repository:
 ```sh
-git remote add upstream https://github.com/pycro-manager/pycro-manager.git
+git remote add upstream https://github.com/micro-manager/pycro-manager.git
 ```
 
 Install the package in editable mode, along with all of the developer tools
