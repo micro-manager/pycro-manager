@@ -328,7 +328,11 @@ class JavaObjectShadow:
         if not hasattr(self, '_hash_code'):
             return #constructor didnt properly finish, nothing to clean up on java side
         message = {'command': 'destructor', 'hash-code': self._hash_code}
-        self._socket.send(message)
+        try:
+            self._socket.send(message)
+        except Exception as e:
+            print(e)
+            print(self._socket, type(self._socket))
         reply_json = self._socket.receive()
         if reply_json['type'] == 'exception':
             raise Exception(reply_json['value'])
