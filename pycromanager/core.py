@@ -68,13 +68,16 @@ class JavaSocket:
             message = {}
         #make sure any np types convert to python types so they can be json serialized
         self._convert_np_to_python(message)
+        message_string = json.dumps(message)
+        if self._debug:
+            print('DEBUG, sending: {}'.format(message))
         if timeout == 0:
-            self._socket.send(bytes(json.dumps(message), 'utf-8'))
+            self._socket.send(bytes(message_string, 'utf-8'))
         else:
             start = time.time()
             while 1000 * (time.time() - start) < timeout:
                 try:
-                    self._socket.send(bytes(json.dumps(message), 'utf-8'), flags=zmq.NOBLOCK)
+                    self._socket.send(bytes(message_string, 'utf-8'), flags=zmq.NOBLOCK)
                     return True
                 except zmq.ZMQError:
                     pass #ignore, keep trying
@@ -96,6 +99,8 @@ class JavaSocket:
             if reply is None:
                 return reply
         message = json.loads(reply.decode('utf-8'))
+        if self._debug:
+            print('DEBUG, recieved: {}'.format(message))
         self._check_exception(message)
         return message
 
@@ -328,11 +333,7 @@ class JavaObjectShadow:
         if not hasattr(self, '_hash_code'):
             return #constructor didnt properly finish, nothing to clean up on java side
         message = {'command': 'destructor', 'hash-code': self._hash_code}
-        try:
-            self._socket.send(message)
-        except Exception as e:
-            print(e)
-            print(self._socket, type(self._socket))
+        self._socket.send(message)
         reply_json = self._socket.receive()
         if reply_json['type'] == 'exception':
             raise Exception(reply_json['value'])
