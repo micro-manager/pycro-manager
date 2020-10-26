@@ -25,8 +25,15 @@ git remote add upstream https://github.com/micro-manager/pycro-manager.git
 Install the package in editable mode, along with all of the developer tools
 ```sh
 pip install -r requirements.txt
+pip install -e .[test]
 ```
 
+
+## Autoformatting
+
+pycro-manager's python code is autoformatted using [black](https://black.readthedocs.io/en/stable/). To autoformat your code:
+1. navigating to the `pycro-manager`
+2. run `black .`  
 
 ## Making changes
 
