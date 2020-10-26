@@ -50,9 +50,7 @@ def test_xyz_relative_z():
         {"axes": {"position": 4, "z": 1}, "x": 4, "y": -4, "z": 4},
         {"axes": {"position": 4, "z": 2}, "x": 4, "y": -4, "z": 5},
     ]
-    assert expected == multi_d_acquisition_events(
-        xyz_positions=xyz, z_start=-1, z_end=1, z_step=1
-    )
+    assert expected == multi_d_acquisition_events(xyz_positions=xyz, z_start=-1, z_end=1, z_step=1)
 
 
 def test_xy_absolute_z():
@@ -73,9 +71,7 @@ def test_xy_absolute_z():
         {"axes": {"position": 4, "z": 1}, "x": 4, "y": -4, "z": 0},
         {"axes": {"position": 4, "z": 2}, "x": 4, "y": -4, "z": 1},
     ]
-    assert expected == multi_d_acquisition_events(
-        xy_positions=xy, z_start=-1, z_end=1, z_step=1
-    )
+    assert expected == multi_d_acquisition_events(xy_positions=xy, z_start=-1, z_end=1, z_step=1)
 
 
 def test_time_points():

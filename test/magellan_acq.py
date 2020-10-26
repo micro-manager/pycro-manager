@@ -1,7 +1,7 @@
 from pycromanager import Acquisition, multi_d_acquisition_events, Bridge
 import numpy as np
 
-if __name__ == '__main__':
+if __name__ == "__main__":
 
     def hook_fn(event):
         # if np.random.randint(4) < 2:
@@ -12,7 +12,11 @@ if __name__ == '__main__':
         image[250:350, 100:300] = np.random.randint(0, 4999)
         return image, metadata
 
-    #magellan example
-    acq = Acquisition(magellan_acq_index=0, post_hardware_hook_fn=hook_fn,
-                      image_process_fn=img_process_fn, debug=True)
+    # magellan example
+    acq = Acquisition(
+        magellan_acq_index=0,
+        post_hardware_hook_fn=hook_fn,
+        image_process_fn=img_process_fn,
+        debug=True,
+    )
     acq.await_completion()

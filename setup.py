@@ -21,8 +21,8 @@ setuptools.setup(
     long_description_content_type="text/markdown",
     url="https://github.com/micro-manager/pycro-manager",
     packages=setuptools.find_packages(),
-    install_requires=['numpy', 'dask[array]>=2.4.0', 'zmq'],
-    python_requires='>=3.6',
+    install_requires=["numpy", "dask[array]>=2.4.0", "zmq"],
+    python_requires=">=3.6",
     extras_require={
         "test": [
             "pytest",
@@ -32,9 +32,9 @@ setuptools.setup(
     classifiers=[
         "Programming Language :: Python :: 3.6",
         "Programming Language :: Python :: 3.7",
-        "Programming Language :: Python :: 3.8",		
+        "Programming Language :: Python :: 3.8",
         "Development Status :: 3 - Alpha",
-        "License :: OSI Approved :: BSD License",      
+        "License :: OSI Approved :: BSD License",
         "Operating System :: OS Independent",
     ],
 )
