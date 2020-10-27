@@ -3,6 +3,7 @@
 [![Python Version](https://img.shields.io/pypi/pyversions/pycromanager.svg)](https://python.org)
 [![PyPI](https://img.shields.io/pypi/v/pycromanager.svg)](https://pypi.org/project/pycromanager)
 [![PyPI - Downloads](https://img.shields.io/pypi/dm/pycromanager.svg)](https://pypistats.org/packages/pycromanager)
+[![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
 
 <img src="docs/source/pycromanager_banner.png" width="600">
 
