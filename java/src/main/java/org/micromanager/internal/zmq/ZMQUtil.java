@@ -624,7 +624,7 @@ public class ZMQUtil {
 
    public static Object convertToPrimitiveArray(Object argClass, String value) {
       byte[] bytes = value.getBytes();
-      if (argClass.equals(boolean[].class)) {
+      if (argClass.equals(byte[].class)) {
          return bytes;
       } else if (argClass.equals(short[].class)) {
          short[] shorts = new short[bytes.length / 2];
