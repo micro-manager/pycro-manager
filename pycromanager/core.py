@@ -118,7 +118,7 @@ class Bridge:
     """
 
     _DEFAULT_PORT = 4827
-    _EXPECTED_ZMQ_SERVER_VERSION = "2.7.0"
+    _EXPECTED_ZMQ_SERVER_VERSION = "3.0.0"
 
     thread_local = threading.local()
 
