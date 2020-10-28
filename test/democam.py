@@ -6,15 +6,14 @@ current folder; consecutively numbered `X` separate individual runs of this scri
 """
 from pycromanager import Acquisition
 
-if __name__ == '__main__':
+if __name__ == "__main__":
 
     exposures = [100, 200, 300, 400]
-    with Acquisition(directory='.', name='democam') as acq:
+    with Acquisition(directory=".", name="democam") as acq:
         events = []
         for rep in range(3):
             for idx, exposure in enumerate(exposures):
-                evt = {'axes': {'repetition': rep, 'exposure': idx},
-                       'exposure': exposure}
+                evt = {"axes": {"repetition": rep, "exposure": idx}, "exposure": exposure}
                 events.append(evt)
 
         acq.acquire(events)

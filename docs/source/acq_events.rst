@@ -10,7 +10,7 @@ The :class:`Acquisition<pycromanager.Acquisition>` class enables both simple mut
 Multi-dimensional acquisitions
 ##############################
 
-Multi-dimensional acquisitions are a common type of acquisition in which images are collected across some set of time, z-stack, channel, and xy position. The :meth:`multi_d_acquisition_events<pycromanager.multi_d_acquisition_events>` function can be used to automatically generate the required :ref:`acquisition events<acq_event_spec>`. 
+Multi-dimensional acquisitions are a common type of acquisition in which images are collected across some set of time, z-stack, channel, and xy position. The :meth:`multi_d_acquisition_events<pycromanager.multi_d_acquisition_events>` function can be used to automatically generate the required :ref:`acquisition events<acq_event_spec>`. For a full tutorial on how to use this function see `MDA Tutorial <multi-d-acq-tutorial.ipynb>`_
 
 
 The following shows a the simple example of acquiring a single z-stack:
@@ -104,7 +104,7 @@ A description of all possible fields in an acquisition event can be found in the
 
 
 XY tiling
-===========
+=========
 Pycro-manager has special support for acquisitions in which multiple images are tiled together to form large, high-resolution images. In this mode, data will automatically be saved in a multi-resolution pyramid, so that it can be efficiently viewed at multiple levels of zoom. These features are also available though `Micro-magellan <https://micro-manager.org/wiki/MicroMagellan>`_, which provides a GUI for using them as well as other higher level features.
 
 
@@ -130,7 +130,7 @@ To enable this mode, pass in a value in for the ``tile_overlap`` argument when c
 .. _magellan_acq_launch:
 
 Micro-Magellan Acquisitions
-############################
+###########################
 Another alternative is to launch `Micro-magellan <https://micro-manager.org/wiki/MicroMagellan>`_ acquisitions. These include both regular and `explore acquisitions <https://micro-manager.org/wiki/MicroMagellan#Explore_Acquisitions>`_. In the former case, acquisition events are generated automatically from the Micro-Magellan GUI. In the latter, they are created in response to user clicks.
 
 
