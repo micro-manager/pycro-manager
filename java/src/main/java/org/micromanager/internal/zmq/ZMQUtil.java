@@ -11,8 +11,8 @@ import java.net.*;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.nio.ShortBuffer;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
-import java.util.Base64;
 import java.util.Collection;
 import java.util.Enumeration;
 import java.util.HashMap;
@@ -314,11 +314,12 @@ public class ZMQUtil {
          buffer.order(BYTE_ORDER).asFloatBuffer().put((float[]) array);
          byteArray = buffer.array();
       }
-      return Base64.getEncoder().encodeToString(byteArray);
+      return new String(byteArray, StandardCharsets.ISO_8859_1);
    }
 
    public static Object decodeArray(String serialized, Class arrayClass) {
-      byte[] byteArray = Base64.getDecoder().decode(serialized);
+      byte[] byteArray;
+      byteArray = serialized.getBytes(StandardCharsets.ISO_8859_1);
       if (arrayClass.equals(byte[].class)) {
          return byteArray;
       } else if (arrayClass.equals(short[].class)) {
@@ -623,7 +624,8 @@ public class ZMQUtil {
    }
 
    public static Object convertToPrimitiveArray(Object argClass, String value) {
-      byte[] bytes = value.getBytes();
+      byte[] bytes = new byte[0];
+      bytes = value.getBytes( StandardCharsets.ISO_8859_1);
       if (argClass.equals(byte[].class)) {
          return bytes;
       } else if (argClass.equals(short[].class)) {

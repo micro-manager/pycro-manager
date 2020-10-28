@@ -3,7 +3,6 @@ import re
 import time
 import typing
 import warnings
-from base64 import standard_b64encode, standard_b64decode
 import inspect
 import numpy as np
 import zmq
@@ -46,8 +45,8 @@ class JavaSocket:
 
     def _convert_np_to_python(self, d):
         """
-        recursive ply search dictionary and convert any values from numpy floats/ints to
-        python floats/ints so they can be hson serialized
+        recursively search dictionary and convert any values from numpy floats/ints to
+        python floats/ints so they can be json serialized
         :return:
         """
         if type(d) != dict:
@@ -72,12 +71,12 @@ class JavaSocket:
         if self._debug:
             print("DEBUG, sending: {}".format(message))
         if timeout == 0:
-            self._socket.send(bytes(message_string, "utf-8"))
+            self._socket.send(bytes(message_string, 'iso-8859-1'))
         else:
             start = time.time()
             while 1000 * (time.time() - start) < timeout:
                 try:
-                    self._socket.send(bytes(message_string, "utf-8"), flags=zmq.NOBLOCK)
+                    self._socket.send(bytes(message_string, 'iso-8859-1'), flags=zmq.NOBLOCK)
                     return True
                 except zmq.ZMQError:
                     pass  # ignore, keep trying
@@ -98,7 +97,7 @@ class JavaSocket:
                     pass  # ignore, keep trying
             if reply is None:
                 return reply
-        message = json.loads(reply.decode("utf-8"))
+        message = json.loads(reply.decode('iso-8859-1'))
         if self._debug:
             print("DEBUG, recieved: {}".format(message))
         self._check_exception(message)
@@ -119,7 +118,7 @@ class Bridge:
     """
 
     _DEFAULT_PORT = 4827
-    _EXPECTED_ZMQ_SERVER_VERSION = "2.7.0"
+    _EXPECTED_ZMQ_SERVER_VERSION = "3.0.0"
 
     thread_local = threading.local()
 
@@ -470,8 +469,7 @@ class JavaObjectShadow:
 
 
 def serialize_array(array):
-    return standard_b64encode(array.tobytes()).decode("utf-8")
-
+    return array.tobytes().decode('iso-8859-1')
 
 def deserialize_array(json_return):
     """
@@ -480,16 +478,19 @@ def deserialize_array(json_return):
     ----------
     json_return
     """
-    if json_return["type"] == "byte-array":
-        return np.frombuffer(standard_b64decode(json_return["value"]), dtype=">u1").copy()
-    elif json_return["type"] == "double-array":
-        return np.frombuffer(standard_b64decode(json_return["value"]), dtype=">f8").copy()
-    elif json_return["type"] == "int-array":
-        return np.frombuffer(standard_b64decode(json_return["value"]), dtype=">u4").copy()
-    elif json_return["type"] == "short-array":
-        return np.frombuffer(standard_b64decode(json_return["value"]), dtype=">u2").copy()
-    elif json_return["type"] == "float-array":
-        return np.frombuffer(standard_b64decode(json_return["value"]), dtype=">f4").copy()
+    if json_return['type'] in ['byte-array', 'int-array', 'short-array', 'float-array']:
+        decoded = bytes(json_return['value'], 'iso-8859-1')
+        if json_return['type'] == 'byte-array':
+            return np.frombuffer(decoded, dtype='>u1').copy()
+        elif json_return['type'] == 'double-array':
+            return np.frombuffer(decoded, dtype='>f8').copy()
+        elif json_return['type'] == 'int-array':
+            return np.frombuffer(decoded, dtype='>u4').copy()
+        elif json_return['type'] == 'short-array':
+            return np.frombuffer(decoded, dtype='>u2').copy()
+        elif json_return['type'] == 'float-array':
+            return np.frombuffer(decoded, dtype='>f4').copy()
+
 
 
 def _package_arguments(valid_method_spec, fn_args):
