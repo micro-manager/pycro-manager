@@ -30,4 +30,4 @@ jobs:
       run: |
         version=$(python -c "from pycromanager import __version__; print(__version__)")
         git tag $version
-        git push --tag
+        git push origin $version
