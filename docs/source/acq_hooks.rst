@@ -4,9 +4,9 @@
 Acquisition hooks
 ****************************************************************
 
-Acquisition hooks can be used for two main purposes: 1) Executing arbitrary code at different points within the acquisition cycle. For example, this could be used to incorporate devices outside of micro-manager into the acquisition cycle. 2) Modifying/deleting acquisition events in progress, for example to skip certain channels, or applying focus corrections on-the-fly
+Acquisition hooks can be used for several purposes: 1) Executing arbitrary code at different points within the acquisition cycle. For example, this could be used to incorporate devices outside of micro-manager into the acquisition cycle. 2) Modifying/deleting acquisition events in progress, for example to skip certain channels, or applying focus corrections on-the-fly. 3) Communcation with external devices at specific points in the acquisition cycle to enable the use of hardware TTL triggering for fast acquisitions
 
-Hooks can either be executed before the hardware updates for a particular acquisition event (a ``pre_hardware_hook``), or after the hardware updates, just before the image is captured (a ``post_hardware_hook``). 
+Hooks can either be executed before the hardware updates for a particular acquisition event (a ``pre_hardware_hook``), just after the hardware updates, just before the image is captured (a ``post_hardware_hook``), or after the camera has been instructed to take images or wait for an external trigger (a ``post_camera_hook``). 
 
 The simplest type of acquisition hook is function that takes a single argument (the current acquisition event). Pass this function to the acquisition by adding it as an argument in the constructor. This form might be used, for example, to control other hardware and have it synchronized with acquisition.
 
