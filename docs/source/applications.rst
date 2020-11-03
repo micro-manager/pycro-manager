@@ -20,6 +20,7 @@ Have an application you'd like to contribute to this page? Please `reach out <ht
 	guiding_acq_with_neural_network_attention.ipynb
 	Auto_CycIF.ipynb
 	closedloop_headless_demo.ipynb
+	external_master_tutorial.ipynb
 
 
 :doc:`intermittent_Z_T`
