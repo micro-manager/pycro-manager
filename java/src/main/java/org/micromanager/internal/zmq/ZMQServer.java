@@ -131,6 +131,7 @@ public class ZMQServer extends ZMQSocketWrapper {
    }
 
    public void close() {
+      super.close();
       if (executor_ != null) {
          executor_.shutdownNow();
          socket_.close();
