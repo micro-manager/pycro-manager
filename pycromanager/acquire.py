@@ -5,7 +5,7 @@ from inspect import signature
 import copy
 import types
 import time
-from pycromanager.core import serialize_array, deserialize_array, Bridge
+from pycromanager.core import deserialize_array, Bridge
 from pycromanager.data import Dataset
 import warnings
 import os.path
@@ -157,7 +157,7 @@ def _processor_startup_fn(
             )
 
         processed_img = {
-            "pixels": serialize_array(image_tags_tuple[0]),
+            "pixels": image_tags_tuple[0].tobytes(),
             "metadata": image_tags_tuple[1],
         }
         push_socket.send(processed_img)

@@ -61,7 +61,7 @@ public class RemoteImageProcessor implements TaggedImageProcessor {
                   return new TaggedImage(null, null);
                } else {
                   JSONObject tags = ((JSONObject) t).getJSONObject("metadata");
-                  Object pix = ZMQUtil.decodeArray(((JSONObject) t).getString("pixels"),
+                  Object pix = ZMQUtil.decodeArray((byte[]) ((JSONObject) t).get("pixels"),
                           AcqEngMetadata.getBytesPerPixel(tags) == 1 ? byte[].class : short[].class);
                   return new TaggedImage(pix, tags);
                }

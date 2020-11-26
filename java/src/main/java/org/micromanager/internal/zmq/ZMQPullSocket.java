@@ -32,16 +32,9 @@ public class ZMQPullSocket<T> extends ZMQSocketWrapper {
       socket_.connect("tcp://127.0.0.1:" + port);
    }
 
-
    public T next() {
-      try {
-         String message = new String(socket_.recv());
-         JSONObject json = new JSONObject(message);
-         return (T) deserializationFunction_.apply(json);
-      } catch (JSONException ex) {
-         ex.printStackTrace();
-         throw new RuntimeException("problem deserializing");
-      }
+      JSONObject json = receiveMessage();
+      return (T) deserializationFunction_.apply(json);
    }
 
 }
