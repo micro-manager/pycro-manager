@@ -8,9 +8,8 @@ if __name__ == "__main__":
         # raise Exception()
         return image, metadata
 
-    with Acquisition(
-        directory="/Users/henrypinkard/megllandump", name="tcz_acq", image_process_fn=img_process_fn
-    ) as acq:
+    with Acquisition(directory="/Users/henrypinkard/megllandump", name="tcz_acq",
+                     image_process_fn=img_process_fn) as acq:
         # Generate the events for a single z-stack
         events = multi_d_acquisition_events(
             num_time_points=10,
