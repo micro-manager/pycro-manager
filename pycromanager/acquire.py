@@ -261,7 +261,8 @@ class Acquisition(object):
             For these features to work, the current hardware configuration must have a valid affine transform
             between camera coordinates and XY stage coordinates
         max_multi_res_index : int
-            Maximum index to downsample to in multi-res pyramid mode. 0 is no downsampling,
+            Maximum index to downsample to in multi-res pyramid mode (which is only active if a value for
+            "tile_overlap" is passed in, or if running a Micro-Magellan acquisition). 0 is no downsampling,
             1 is downsampled up to 2x, 2 is downsampled up to 4x, etc. If not provided, it will be dynamically
             calculated and updated from data
         show_display : bool
