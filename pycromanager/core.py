@@ -11,6 +11,7 @@ import threading
 import copy
 import sys
 
+
 class DataSocket:
     """
     Wrapper for ZMQ socket that sends and recieves dictionaries
@@ -66,18 +67,18 @@ class DataSocket:
         if isinstance(structure, list):
             for i, entry in enumerate(structure):
                 if isinstance(entry, bytes):
-                    identifier = np.random.randint(-2 ** 31, 2 ** 31 - 1, 1, dtype=np.int32)[0]
-                    structure[i] = '@' + str(int(identifier))
+                    identifier = np.random.randint(-(2 ** 31), 2 ** 31 - 1, 1, dtype=np.int32)[0]
+                    structure[i] = "@" + str(int(identifier))
                     bytes_data.append((identifier, entry))
                 elif isinstance(entry, list) or isinstance(entry, dict):
                     self._remove_bytes(bytes_data, entry)
         elif isinstance(structure, dict):
             for key in structure.keys():
                 if isinstance(structure[key], bytes):
-                    #make up a random 32 bit int as the identifier
-                    identifier = np.random.randint(-2 ** 31, 2 ** 31 - 1, 1, dtype=np.int32)[0]
+                    # make up a random 32 bit int as the identifier
+                    identifier = np.random.randint(-(2 ** 31), 2 ** 31 - 1, 1, dtype=np.int32)[0]
                     bytes_data.append((identifier, structure[key]))
-                    structure[key] = '@' + str(int(identifier))
+                    structure[key] = "@" + str(int(identifier))
                 elif isinstance(structure[key], list) or isinstance(structure[key], dict):
                     self._remove_bytes(bytes_data, structure[key])
 
@@ -86,15 +87,17 @@ class DataSocket:
             message = {}
         # make sure any np types convert to python types so they can be json serialized
         self._convert_np_to_python(message)
-        #Send binary data in seperate messages so it doesnt need to be json serialized
+        # Send binary data in seperate messages so it doesnt need to be json serialized
         bytes_data = []
         self._remove_bytes(bytes_data, message)
         message_string = json.dumps(message)
         if self._debug:
             print("DEBUG, sending: {}".format(message))
-        #convert keys to byte array
+        # convert keys to byte array
         key_vals = [(identifier.tobytes(), value) for identifier, value in bytes_data]
-        message_parts = [bytes(message_string, "iso-8859-1")] + [item for keyval in key_vals for item in keyval]
+        message_parts = [bytes(message_string, "iso-8859-1")] + [
+            item for keyval in key_vals for item in keyval
+        ]
         if timeout == 0:
             self._socket.send_multipart(message_parts)
         else:
@@ -113,8 +116,10 @@ class DataSocket:
         """
         if isinstance(dict_or_list, dict):
             for key in dict_or_list:
-                if isinstance(dict_or_list[key], str) and '@' in dict_or_list[key]:
-                    hash_in_message = int(dict_or_list[key].split('@')[1], 16) #interpret hex hash string
+                if isinstance(dict_or_list[key], str) and "@" in dict_or_list[key]:
+                    hash_in_message = int(
+                        dict_or_list[key].split("@")[1], 16
+                    )  # interpret hex hash string
                     if hash == hash_in_message:
                         dict_or_list[key] = value
                         return
@@ -122,8 +127,8 @@ class DataSocket:
                     self._replace_bytes(dict_or_list[key], hash, value)
         elif isinstance(dict_or_list, list):
             for i, entry in enumerate(dict_or_list):
-                if isinstance(entry, str) and '@' in dict_or_list[key]:
-                    hash_in_message = int(entry.split('@')[1], 16) #interpret hex hash string
+                if isinstance(entry, str) and "@" in dict_or_list[key]:
+                    hash_in_message = int(entry.split("@")[1], 16)  # interpret hex hash string
                     if hash == hash_in_message:
                         dict_or_list[i] = value
                         return
@@ -146,9 +151,9 @@ class DataSocket:
             if reply is None:
                 return reply
         message = json.loads(reply[0].decode("iso-8859-1"))
-        #replace any byte data placeholders with the byte data itself
+        # replace any byte data placeholders with the byte data itself
         for i in np.arange(1, len(reply), 2):
-            #messages come in pairs: first is hash, second it byte data
+            # messages come in pairs: first is hash, second it byte data
             identity_hash = int.from_bytes(reply[i], byteorder=sys.byteorder)
             value = reply[i + 1]
             self._replace_bytes(message, identity_hash, value)
@@ -157,7 +162,6 @@ class DataSocket:
             print("DEBUG, recieved: {}".format(message))
         self._check_exception(message)
         return message
-
 
     def _check_exception(self, response):
         if "type" in response and response["type"] == "exception":
