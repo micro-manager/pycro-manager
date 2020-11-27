@@ -9,9 +9,9 @@ import zmq
 from weakref import WeakSet
 import threading
 import copy
+import sys
 
-
-class JavaSocket:
+class DataSocket:
     """
     Wrapper for ZMQ socket that sends and recieves dictionaries
     """
@@ -62,46 +62,102 @@ class JavaSocket:
             elif np.issubdtype(type(v), np.integer):
                 d[k] = int(v)
 
+    def _remove_bytes(self, bytes_data, structure):
+        if isinstance(structure, list):
+            for i, entry in enumerate(structure):
+                if isinstance(entry, bytes):
+                    identifier = np.random.randint(-2 ** 31, 2 ** 31 - 1, 1, dtype=np.int32)[0]
+                    structure[i] = '@' + str(int(identifier))
+                    bytes_data.append((identifier, entry))
+                elif isinstance(entry, list) or isinstance(entry, dict):
+                    self._remove_bytes(bytes_data, entry)
+        elif isinstance(structure, dict):
+            for key in structure.keys():
+                if isinstance(structure[key], bytes):
+                    #make up a random 32 bit int as the identifier
+                    identifier = np.random.randint(-2 ** 31, 2 ** 31 - 1, 1, dtype=np.int32)[0]
+                    bytes_data.append((identifier, structure[key]))
+                    structure[key] = '@' + str(int(identifier))
+                elif isinstance(structure[key], list) or isinstance(structure[key], dict):
+                    self._remove_bytes(bytes_data, structure[key])
+
     def send(self, message, timeout=0):
         if message is None:
             message = {}
         # make sure any np types convert to python types so they can be json serialized
         self._convert_np_to_python(message)
+        #Send binary data in seperate messages so it doesnt need to be json serialized
+        bytes_data = []
+        self._remove_bytes(bytes_data, message)
         message_string = json.dumps(message)
         if self._debug:
             print("DEBUG, sending: {}".format(message))
+        #convert keys to byte array
+        key_vals = [(identifier.tobytes(), value) for identifier, value in bytes_data]
+        message_parts = [bytes(message_string, "iso-8859-1")] + [item for keyval in key_vals for item in keyval]
         if timeout == 0:
-            self._socket.send(bytes(message_string, "iso-8859-1"))
+            self._socket.send_multipart(message_parts)
         else:
             start = time.time()
             while 1000 * (time.time() - start) < timeout:
                 try:
-                    self._socket.send(bytes(message_string, "iso-8859-1"), flags=zmq.NOBLOCK)
+                    self._socket.send_multipart(message_parts, flags=zmq.NOBLOCK)
                     return True
                 except zmq.ZMQError:
                     pass  # ignore, keep trying
             return False
 
+    def _replace_bytes(self, dict_or_list, hash, value):
+        """
+        Replace placeholders for byte arrays in JSON message with their actual values
+        """
+        if isinstance(dict_or_list, dict):
+            for key in dict_or_list:
+                if isinstance(dict_or_list[key], str) and '@' in dict_or_list[key]:
+                    hash_in_message = int(dict_or_list[key].split('@')[1], 16) #interpret hex hash string
+                    if hash == hash_in_message:
+                        dict_or_list[key] = value
+                        return
+                elif isinstance(dict_or_list[key], list) or isinstance(dict_or_list[key], dict):
+                    self._replace_bytes(dict_or_list[key], hash, value)
+        elif isinstance(dict_or_list, list):
+            for i, entry in enumerate(dict_or_list):
+                if isinstance(entry, str) and '@' in dict_or_list[key]:
+                    hash_in_message = int(entry.split('@')[1], 16) #interpret hex hash string
+                    if hash == hash_in_message:
+                        dict_or_list[i] = value
+                        return
+                elif isinstance(entry, list) or isinstance(entry, dict):
+                    self._replace_bytes(entry, hash, value)
+
     def receive(self, timeout=0):
         if timeout == 0:
-            reply = self._socket.recv()
+            reply = self._socket.recv_multipart()
         else:
             start = time.time()
             reply = None
             while 1000 * (time.time() - start) < timeout:
                 try:
-                    reply = self._socket.recv(flags=zmq.NOBLOCK)
+                    reply = self._socket.recv_multipart(flags=zmq.NOBLOCK)
                     if reply is not None:
                         break
                 except zmq.ZMQError:
                     pass  # ignore, keep trying
             if reply is None:
                 return reply
-        message = json.loads(reply.decode("iso-8859-1"))
+        message = json.loads(reply[0].decode("iso-8859-1"))
+        #replace any byte data placeholders with the byte data itself
+        for i in np.arange(1, len(reply), 2):
+            #messages come in pairs: first is hash, second it byte data
+            identity_hash = int.from_bytes(reply[i], byteorder=sys.byteorder)
+            value = reply[i + 1]
+            self._replace_bytes(message, identity_hash, value)
+
         if self._debug:
             print("DEBUG, recieved: {}".format(message))
         self._check_exception(message)
         return message
+
 
     def _check_exception(self, response):
         if "type" in response and response["type"] == "exception":
@@ -118,7 +174,7 @@ class Bridge:
     """
 
     _DEFAULT_PORT = 4827
-    _EXPECTED_ZMQ_SERVER_VERSION = "3.0.0"
+    _EXPECTED_ZMQ_SERVER_VERSION = "4.0.0"
 
     thread_local = threading.local()
 
@@ -152,7 +208,7 @@ class Bridge:
 
         self._convert_camel_case = convert_camel_case
         self._debug = debug
-        self._master_socket = JavaSocket(self._context, port, zmq.REQ, debug=debug)
+        self._master_socket = DataSocket(self._context, port, zmq.REQ, debug=debug)
         self._master_socket.send({"command": "connect", "debug": debug})
         self._class_factory = _JavaClassFactory()
         reply_json = self._master_socket.receive(timeout=500)
@@ -224,7 +280,7 @@ class Bridge:
         self._master_socket.send(message)
         serialized_object = self._master_socket.receive()
         if new_socket:
-            socket = JavaSocket(self._context, serialized_object["port"], zmq.REQ)
+            socket = DataSocket(self._context, serialized_object["port"], zmq.REQ)
         else:
             socket = self._master_socket
         return self._class_factory.create(
@@ -237,7 +293,7 @@ class Bridge:
         :param port:
         :return:
         """
-        return JavaSocket(self._context, port, zmq.PUSH, debug=self._debug)
+        return DataSocket(self._context, port, zmq.PUSH, debug=self._debug)
 
     def _connect_pull(self, port):
         """
@@ -245,7 +301,7 @@ class Bridge:
         :param port:
         :return:
         """
-        return JavaSocket(self._context, port, zmq.PULL, debug=self._debug)
+        return DataSocket(self._context, port, zmq.PULL, debug=self._debug)
 
     def get_magellan(self):
         """
@@ -468,10 +524,6 @@ class JavaObjectShadow:
             return deserialize_array(json_return)
 
 
-def serialize_array(array):
-    return array.tobytes().decode("iso-8859-1")
-
-
 def deserialize_array(json_return):
     """
     Convert a serialized java array to the appropriate numpy type
@@ -480,7 +532,7 @@ def deserialize_array(json_return):
     json_return
     """
     if json_return["type"] in ["byte-array", "int-array", "short-array", "float-array"]:
-        decoded = bytes(json_return["value"], "iso-8859-1")
+        decoded = json_return["value"]
         if json_return["type"] == "byte-array":
             return np.frombuffer(decoded, dtype=">u1").copy()
         elif json_return["type"] == "double-array":
@@ -523,7 +575,7 @@ def _serialize_arg(arg):
     if type(arg) in [bool, str, int, float]:
         return arg  # json handles serialization
     elif type(arg) == np.ndarray:
-        return serialize_array(arg)
+        return arg.tobytes()
     elif isinstance(arg, JavaObjectShadow):
         return {"hash-code": arg._hash_code}
     else:

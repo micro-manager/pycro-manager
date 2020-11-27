@@ -44,7 +44,7 @@ The following shows all possible fields in an acquisition event (not all of whic
 
 	#Other arbitrary hardware settings can be encoded in a list of strings with
 	#each entry containing the name of the device, the name of the property,
-	#and the value of the property seperated with '-'
+	#and the value of the property
 	'properties': [['DeviceName', 'PropertyName', 'PropertyValue'], 
 		['OtherDeviceName', 'OtherPropertyName', 'OtherPropertyValue']],
 	}

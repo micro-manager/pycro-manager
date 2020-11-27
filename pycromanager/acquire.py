@@ -5,7 +5,7 @@ from inspect import signature
 import copy
 import types
 import time
-from pycromanager.core import serialize_array, deserialize_array, Bridge
+from pycromanager.core import deserialize_array, Bridge
 from pycromanager.data import Dataset
 import warnings
 import os.path
@@ -157,7 +157,7 @@ def _processor_startup_fn(
             )
 
         processed_img = {
-            "pixels": serialize_array(image_tags_tuple[0]),
+            "pixels": image_tags_tuple[0].tobytes(),
             "metadata": image_tags_tuple[1],
         }
         push_socket.send(processed_img)
@@ -261,7 +261,8 @@ class Acquisition(object):
             For these features to work, the current hardware configuration must have a valid affine transform
             between camera coordinates and XY stage coordinates
         max_multi_res_index : int
-            Maximum index to downsample to in multi-res pyramid mode. 0 is no downsampling,
+            Maximum index to downsample to in multi-res pyramid mode (which is only active if a value for
+            "tile_overlap" is passed in, or if running a Micro-Magellan acquisition). 0 is no downsampling,
             1 is downsampled up to 2x, 2 is downsampled up to 4x, etc. If not provided, it will be dynamically
             calculated and updated from data
         show_display : bool

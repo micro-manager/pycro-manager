@@ -34,7 +34,7 @@ public class ZMQServer extends ZMQSocketWrapper {
    private static Set<String> packages_;
    private static ZMQUtil util_;
 
-   public static final String VERSION = "3.0.0";
+   public static final String VERSION = "4.0.0";
 
    private static Function<Class, Object> classMapper_;
    private static ZMQServer masterServer_;
@@ -94,24 +94,23 @@ public class ZMQServer extends ZMQSocketWrapper {
 
          //Master request-reply loop
          while (true) {
-            String message = socket_.recvStr();
+            JSONObject message = receiveMessage();
             if (debug_) {
                System.out.println("Recieved message: \t" + message);
             }
-            byte[] reply = null;
+            JSONObject reply = null;
             try {
                reply = parseAndExecuteCommand(message);
             } catch (Exception e) {
                try {
-                  JSONObject json = new JSONObject();
-                  json.put("type", "exception");
+                  reply = new JSONObject();
+                  reply.put("type", "exception");
 
                   StringWriter sw = new StringWriter();
                   e.printStackTrace(new PrintWriter(sw));
                   String exceptionAsString = sw.toString();
-                  json.put("value", exceptionAsString);
+                  reply.put("value", exceptionAsString);
 
-                  reply = json.toString().getBytes( StandardCharsets.ISO_8859_1);
                   e.printStackTrace();
 
                } catch (JSONException ex) {
@@ -119,10 +118,11 @@ public class ZMQServer extends ZMQSocketWrapper {
                   // This wont happen          
                }
             }
+
             if (debug_) {
-               System.out.println("Sending message: \t" + new String(reply));
+               System.out.println("Sending message: \t" + reply.toString());
             }
-            socket_.send(reply);
+            sendMessage(reply);
             if (debug_) {
                System.out.println("Message sent");
             }
@@ -138,12 +138,12 @@ public class ZMQServer extends ZMQSocketWrapper {
       }
    }
 
-   protected byte[] getField(Object obj, JSONObject json) throws JSONException, NoSuchFieldException, IllegalArgumentException, IllegalAccessException {
+   protected JSONObject getField(Object obj, JSONObject json) throws JSONException, NoSuchFieldException, IllegalArgumentException, IllegalAccessException {
       String fieldName = json.getString("name");
       Object field = obj.getClass().getField(fieldName).get(obj);
       JSONObject serialized = new JSONObject();
       util_.serialize(field, serialized, port_);
-      return serialized.toString().getBytes(StandardCharsets.ISO_8859_1);
+      return serialized;
    }
    
    protected void setField(Object obj, JSONObject json) throws JSONException, NoSuchFieldException, IllegalArgumentException, IllegalAccessException {
@@ -308,7 +308,7 @@ public class ZMQServer extends ZMQSocketWrapper {
       return mathcingConstructor.newInstance(argVals);
    }
 
-   private byte[] runMethod(Object obj, JSONObject message) throws NoSuchMethodException, IllegalAccessException,
+   private JSONObject runMethod(Object obj, JSONObject message) throws NoSuchMethodException, IllegalAccessException,
            JSONException, UnsupportedEncodingException {
       String methodName = message.getString("name");
       Object[] argVals = new Object[message.getJSONArray("arguments").length()];
@@ -344,11 +344,10 @@ public class ZMQServer extends ZMQSocketWrapper {
 
       JSONObject serialized = new JSONObject();
       util_.serialize(result, serialized, port_);
-      return serialized.toString().getBytes( StandardCharsets.ISO_8859_1);
+      return serialized;
    }
 
-   protected byte[] parseAndExecuteCommand(String message) throws Exception {
-      JSONObject request = new JSONObject(message);
+   protected JSONObject parseAndExecuteCommand(JSONObject request) throws Exception {
       JSONObject reply;
       switch (request.getString("command")) {
          case "connect": {//Connect to master server
@@ -358,14 +357,14 @@ public class ZMQServer extends ZMQSocketWrapper {
             reply = new JSONObject();
             reply.put("type", "none");
             reply.put("version", VERSION);
-            return reply.toString().getBytes( StandardCharsets.ISO_8859_1);
+            return reply;
          }
          case "get-constructors": {
             String classpath = request.getString("classpath");
             reply = new JSONObject();
             reply.put("type", "none");
             reply.put("api", ZMQUtil.parseConstructors(classpath, classMapper_));
-            return reply.toString().getBytes( StandardCharsets.ISO_8859_1);
+            return reply;
          }
          case "constructor": { //construct a new object (or grab an exisitng instance)
             Class baseClass = util_.loadClass(request.getString("classpath"));
@@ -387,7 +386,7 @@ public class ZMQServer extends ZMQSocketWrapper {
             }
             reply = new JSONObject();
             util_.serialize(instance, reply, port_);
-            return reply.toString().getBytes( StandardCharsets.ISO_8859_1);
+            return reply;
          }
          case "run-method": {
             String hashCode = request.getString("hash-code");
@@ -405,7 +404,7 @@ public class ZMQServer extends ZMQSocketWrapper {
             setField(target, request);
             reply = new JSONObject();
             reply.put("type", "none");
-            return reply.toString().getBytes( StandardCharsets.ISO_8859_1);
+            return reply;
          }
          case "destructor": {
             String hashCode = request.getString("hash-code");
@@ -415,7 +414,7 @@ public class ZMQServer extends ZMQSocketWrapper {
             reply = new JSONObject();
 
             reply.put("type", "none");
-            return reply.toString().getBytes( StandardCharsets.ISO_8859_1);
+            return reply;
          }
          default:
             break;

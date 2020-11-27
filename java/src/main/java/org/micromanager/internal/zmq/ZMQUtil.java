@@ -293,7 +293,7 @@ public class ZMQUtil {
     * @param array
     * @return
     */
-   public static String encodeArray(Object array) {
+   public static byte[] encodeArray(Object array) {
       byte[] byteArray = null;
       if (array instanceof byte[]) {
          byteArray = (byte[]) array;
@@ -314,12 +314,10 @@ public class ZMQUtil {
          buffer.order(BYTE_ORDER).asFloatBuffer().put((float[]) array);
          byteArray = buffer.array();
       }
-      return new String(byteArray, StandardCharsets.ISO_8859_1);
+      return byteArray;
    }
 
-   public static Object decodeArray(String serialized, Class arrayClass) {
-      byte[] byteArray;
-      byteArray = serialized.getBytes(StandardCharsets.ISO_8859_1);
+   public static Object decodeArray(byte[] byteArray, Class arrayClass) {
       if (arrayClass.equals(byte[].class)) {
          return byteArray;
       } else if (arrayClass.equals(short[].class)) {

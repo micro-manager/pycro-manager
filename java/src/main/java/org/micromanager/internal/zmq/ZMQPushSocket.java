@@ -46,12 +46,13 @@ public class ZMQPushSocket<T> extends ZMQSocketWrapper {
     */
    public void push(T o) {
       JSONObject json = serializationFn_.apply(o);
-      String s = json.toString();
-      socket_.send(s);
+      sendMessage(json);
 
 //      return executor_.submit(() -> {
 //         socket_.send(serializationFn_.apply(o).toString());
 //      });
    }
+
+
 
 }
