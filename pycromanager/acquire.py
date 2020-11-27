@@ -379,6 +379,12 @@ class Acquisition(object):
         # now wait on it to finish
         self.await_completion()
 
+    def get_disk_location(self):
+        """
+        Return the path where the dataset is on disk
+        """
+        return self._remote_acq.get_storage().get_disk_location()
+
     def get_dataset(self):
         """ """
         if self._dataset is None:
