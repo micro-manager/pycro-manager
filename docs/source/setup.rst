@@ -19,13 +19,13 @@ Run the following code:
 	from pycromanager import Bridge
 
 	bridge = Bridge()
-	bridge.get_core()
+	print(bridge.get_core())
 
 which will give an output like:
 
 .. code-block:: python
 
-	Out[1]: JavaObjectShadow for : mmcorej.CMMCore
+	<pycromanager.core.mmcorej_CMMCore object at 0x7fe32824a208>
 
 
 ################################

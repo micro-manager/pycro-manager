@@ -17,7 +17,7 @@ class DataSocket:
     Wrapper for ZMQ socket that sends and recieves dictionaries
     """
 
-    def __init__(self, context, port, type, debug):
+    def __init__(self, context, port, type, debug, ip_address='127.0.0.1'):
         # request reply socket
         self._socket = context.socket(type)
         self._debug = debug
@@ -27,11 +27,11 @@ class DataSocket:
         if type == zmq.PUSH:
             if debug:
                 print("binding {}".format(port))
-            self._socket.bind("tcp://127.0.0.1:{}".format(port))
+            self._socket.bind("tcp://{}:{}".format(ip_address, port))
         else:
             if debug:
                 print("connecting {}".format(port))
-            self._socket.connect("tcp://127.0.0.1:{}".format(port))
+            self._socket.connect("tcp://{}:{}".format(ip_address, port))
         # except Exception as e:
         #     print(e.__traceback__)
         # raise Exception('Couldnt connect or bind to port {}'.format(port))
@@ -191,7 +191,7 @@ class Bridge:
         else:
             return super(Bridge, cls).__new__(cls)
 
-    def __init__(self, port=_DEFAULT_PORT, convert_camel_case=True, debug=False):
+    def __init__(self, port=_DEFAULT_PORT, convert_camel_case=True, debug=False, ip_address='127.0.0.1'):
         """
         Parameters
         ----------
@@ -204,6 +204,7 @@ class Bridge:
         debug : bool
             If True print helpful stuff for debugging
         """
+        self._ip_address = ip_address
         if not hasattr(self, "_context"):
             Bridge._context = zmq.Context()
         if hasattr(self.thread_local, "bridge"):
@@ -212,7 +213,7 @@ class Bridge:
 
         self._convert_camel_case = convert_camel_case
         self._debug = debug
-        self._master_socket = DataSocket(self._context, port, zmq.REQ, debug=debug)
+        self._master_socket = DataSocket(self._context, port, zmq.REQ, debug=debug, ip_address=self.ip_address)
         self._master_socket.send({"command": "connect", "debug": debug})
         self._class_factory = _JavaClassFactory()
         reply_json = self._master_socket.receive(timeout=500)
@@ -284,7 +285,7 @@ class Bridge:
         self._master_socket.send(message)
         serialized_object = self._master_socket.receive()
         if new_socket:
-            socket = DataSocket(self._context, serialized_object["port"], zmq.REQ)
+            socket = DataSocket(self._context, serialized_object["port"], zmq.REQ, ip_address=self.ip_address)
         else:
             socket = self._master_socket
         return self._class_factory.create(
@@ -297,7 +298,7 @@ class Bridge:
         :param port:
         :return:
         """
-        return DataSocket(self._context, port, zmq.PUSH, debug=self._debug)
+        return DataSocket(self._context, port, zmq.PUSH, debug=self._debug, ip_address=self.ip_address)
 
     def _connect_pull(self, port):
         """
@@ -305,7 +306,7 @@ class Bridge:
         :param port:
         :return:
         """
-        return DataSocket(self._context, port, zmq.PULL, debug=self._debug)
+        return DataSocket(self._context, port, zmq.PULL, debug=self._debug, ip_address=self.ip_address)
 
     def get_magellan(self):
         """

@@ -150,7 +150,8 @@ def _processor_startup_fn(
         """
         if len(image_tags_tuple) != 2:
             raise Exception("If image is returned, it must be of the form (pixel, metadata)")
-        if not image_tags_tuple[0].dtype == pixels.dtype:
+        if not np.issubdtype(image_tags_tuple[0].dtype, pixels.dtype) and not np.issubdtype(
+                pixels.dtype, image_tags_tuple[0].dtype):
             raise Exception(
                 "Processed image pixels must have same dtype as input image pixels, "
                 "but instead they were {} and {}".format(image_tags_tuple[0].dtype, pixels.dtype)
