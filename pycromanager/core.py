@@ -213,7 +213,7 @@ class Bridge:
 
         self._convert_camel_case = convert_camel_case
         self._debug = debug
-        self._master_socket = DataSocket(self._context, port, zmq.REQ, debug=debug, ip_address=self.ip_address)
+        self._master_socket = DataSocket(self._context, port, zmq.REQ, debug=debug, ip_address=self._ip_address)
         self._master_socket.send({"command": "connect", "debug": debug})
         self._class_factory = _JavaClassFactory()
         reply_json = self._master_socket.receive(timeout=500)
