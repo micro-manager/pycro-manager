@@ -7,6 +7,7 @@ package org.micromanager.remote;
 
 import java.awt.*;
 import java.util.HashMap;
+import java.util.Set;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -146,6 +147,11 @@ public class RemoteViewerStorageAdapter implements DataSourceInterface, DataSink
       return storage_.getStitchedImage(
               axes, resIndex, (int) xOffset, (int) yOffset,
               imageWidth, imageHeight);
+   }
+
+   @Override
+   public Set<HashMap<String, Integer>> getStoredAxes() {
+      return storage_.getAxesSet();
    }
 
    @Override

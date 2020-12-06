@@ -539,15 +539,15 @@ def deserialize_array(json_return):
     if json_return["type"] in ["byte-array", "int-array", "short-array", "float-array"]:
         decoded = json_return["value"]
         if json_return["type"] == "byte-array":
-            return np.frombuffer(decoded, dtype=">u1").copy()
+            return np.frombuffer(decoded, dtype="=u1").copy()
         elif json_return["type"] == "double-array":
-            return np.frombuffer(decoded, dtype=">f8").copy()
+            return np.frombuffer(decoded, dtype="=f8").copy()
         elif json_return["type"] == "int-array":
-            return np.frombuffer(decoded, dtype=">u4").copy()
+            return np.frombuffer(decoded, dtype="=u4").copy()
         elif json_return["type"] == "short-array":
-            return np.frombuffer(decoded, dtype=">u2").copy()
+            return np.frombuffer(decoded, dtype="=u2").copy()
         elif json_return["type"] == "float-array":
-            return np.frombuffer(decoded, dtype=">f4").copy()
+            return np.frombuffer(decoded, dtype="=f4").copy()
 
 
 def _package_arguments(valid_method_spec, fn_args):

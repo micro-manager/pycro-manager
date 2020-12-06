@@ -121,7 +121,7 @@ public class ZMQUtil {
       }
    }
 
-   private static final ByteOrder BYTE_ORDER = ByteOrder.BIG_ENDIAN;
+   private static final ByteOrder BYTE_ORDER = ByteOrder.nativeOrder();
 
    protected static Object deserialize(byte[] message, Function<JSONObject, ?> deserializationFn) {
       try {
@@ -322,19 +322,19 @@ public class ZMQUtil {
          return byteArray;
       } else if (arrayClass.equals(short[].class)) {
          short[] shorts = new short[byteArray.length / 2];
-         ByteBuffer.wrap(byteArray).asShortBuffer().get(shorts);
+         ByteBuffer.wrap(byteArray).order(ByteOrder.nativeOrder()).asShortBuffer().get(shorts);
          return shorts;
       } else if (arrayClass.equals(int[].class)) {
          int[] ints = new int[byteArray.length / 4];
-         ByteBuffer.wrap(byteArray).asIntBuffer().get(ints);
+         ByteBuffer.wrap(byteArray).order(ByteOrder.nativeOrder()).asIntBuffer().get(ints);
          return ints;
       } else if (arrayClass.equals(double[].class)) {
          double[] doubles = new double[byteArray.length / 8];
-         ByteBuffer.wrap(byteArray).asDoubleBuffer().get(doubles);
+         ByteBuffer.wrap(byteArray).order(ByteOrder.nativeOrder()).asDoubleBuffer().get(doubles);
          return doubles;
       } else if (arrayClass.equals(float[].class)) {
          float[] floats = new float[byteArray.length / 4];
-         ByteBuffer.wrap(byteArray).asFloatBuffer().get(floats);
+         ByteBuffer.wrap(byteArray).order(ByteOrder.nativeOrder()).asFloatBuffer().get(floats);
          return floats;
       }
       throw new RuntimeException("unknown array type");
