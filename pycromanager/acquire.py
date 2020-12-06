@@ -154,15 +154,16 @@ def _processor_startup_fn(
         pixels = image_tags_tuple[0]
         metadata = image_tags_tuple[1]
 
-        #only accepts same pixel type as original
+        # only accepts same pixel type as original
         if not np.issubdtype(image_tags_tuple[0].dtype, original_dtype) and not np.issubdtype(
-                original_dtype, image_tags_tuple[0].dtype):
+            original_dtype, image_tags_tuple[0].dtype
+        ):
             raise Exception(
                 "Processed image pixels must have same dtype as input image pixels, "
                 "but instead they were {} and {}".format(image_tags_tuple[0].dtype, pixels.dtype)
             )
 
-        metadata['PixelType'] = 'GRAY8' if pixels.dtype.itemsize == 1 else 'GRAY16'
+        metadata["PixelType"] = "GRAY8" if pixels.dtype.itemsize == 1 else "GRAY16"
 
         processed_img = {
             "pixels": pixels.tobytes(),

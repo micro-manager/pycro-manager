@@ -17,7 +17,7 @@ class DataSocket:
     Wrapper for ZMQ socket that sends and recieves dictionaries
     """
 
-    def __init__(self, context, port, type, debug, ip_address='127.0.0.1'):
+    def __init__(self, context, port, type, debug, ip_address="127.0.0.1"):
         # request reply socket
         self._socket = context.socket(type)
         self._debug = debug
@@ -191,7 +191,9 @@ class Bridge:
         else:
             return super(Bridge, cls).__new__(cls)
 
-    def __init__(self, port=_DEFAULT_PORT, convert_camel_case=True, debug=False, ip_address='127.0.0.1'):
+    def __init__(
+        self, port=_DEFAULT_PORT, convert_camel_case=True, debug=False, ip_address="127.0.0.1"
+    ):
         """
         Parameters
         ----------
@@ -213,7 +215,9 @@ class Bridge:
 
         self._convert_camel_case = convert_camel_case
         self._debug = debug
-        self._master_socket = DataSocket(self._context, port, zmq.REQ, debug=debug, ip_address=self._ip_address)
+        self._master_socket = DataSocket(
+            self._context, port, zmq.REQ, debug=debug, ip_address=self._ip_address
+        )
         self._master_socket.send({"command": "connect", "debug": debug})
         self._class_factory = _JavaClassFactory()
         reply_json = self._master_socket.receive(timeout=500)
@@ -285,7 +289,9 @@ class Bridge:
         self._master_socket.send(message)
         serialized_object = self._master_socket.receive()
         if new_socket:
-            socket = DataSocket(self._context, serialized_object["port"], zmq.REQ, ip_address=self._ip_address)
+            socket = DataSocket(
+                self._context, serialized_object["port"], zmq.REQ, ip_address=self._ip_address
+            )
         else:
             socket = self._master_socket
         return self._class_factory.create(
@@ -298,7 +304,9 @@ class Bridge:
         :param port:
         :return:
         """
-        return DataSocket(self._context, port, zmq.PUSH, debug=self._debug, ip_address=self._ip_address)
+        return DataSocket(
+            self._context, port, zmq.PUSH, debug=self._debug, ip_address=self._ip_address
+        )
 
     def _connect_pull(self, port):
         """
@@ -306,7 +314,9 @@ class Bridge:
         :param port:
         :return:
         """
-        return DataSocket(self._context, port, zmq.PULL, debug=self._debug, ip_address=self._ip_address)
+        return DataSocket(
+            self._context, port, zmq.PULL, debug=self._debug, ip_address=self._ip_address
+        )
 
     def get_magellan(self):
         """

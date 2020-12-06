@@ -5,6 +5,7 @@ showing the maximum intensity projection of the z stack
 from pycromanager import Acquisition, multi_d_acquisition_events
 import numpy as np
 
+
 def img_process_fn(image, metadata):
     # accumulate images as they come
     if not hasattr(img_process_fn, "images"):
@@ -15,8 +16,10 @@ def img_process_fn(image, metadata):
         # if last image in z stack, make max intensity projection
         stack = np.stack(img_process_fn.images, axis=2)
         max_intensity_projection = np.max(stack, axis=2)
-        projection_metadata = {'Axes': {'time': metadata['Axes']['time']},
-                               'Channel': 'max_intensity_projection'}
+        projection_metadata = {
+            "Axes": {"time": metadata["Axes"]["time"]},
+            "Channel": "max_intensity_projection",
+        }
         # clear list of accumulated images
         img_process_fn.images = []
         # propagate both original image and intensity project back to viewer
@@ -27,8 +30,11 @@ def img_process_fn(image, metadata):
 
 num_z_steps = 11
 save_dir = "/Users/henrypinkard/tmp"
-save_name = 'max_intesnity_acq'
+save_name = "max_intesnity_acq"
 
-with Acquisition(directory=save_dir, name=save_name, image_process_fn=img_process_fn ) as acq:
+with Acquisition(directory=save_dir, name=save_name, image_process_fn=img_process_fn) as acq:
     acq.acquire(
-        multi_d_acquisition_events(num_time_points=10, time_interval_s=2, z_start=0, z_end=10, z_step=1))
+        multi_d_acquisition_events(
+            num_time_points=10, time_interval_s=2, z_start=0, z_end=10, z_step=1
+        )
+    )
