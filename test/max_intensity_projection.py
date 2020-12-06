@@ -7,7 +7,7 @@ import numpy as np
 
 
 def img_process_fn(image, metadata):
-    # accumulate images as they come
+    # accumulate individual Z images
     if not hasattr(img_process_fn, "images"):
         img_process_fn.images = []
     img_process_fn.images.append(image)
@@ -28,13 +28,11 @@ def img_process_fn(image, metadata):
         return image, metadata
 
 
-num_z_steps = 11
+events = multi_d_acquisition_events(num_time_points=10, time_interval_s=2, z_start=0, z_end=10, z_step=1)
+# read the number of z steps
+num_z_steps = len(set([event['axes']['z'] for event in events]))
 save_dir = "/Users/henrypinkard/tmp"
 save_name = "max_intesnity_acq"
 
 with Acquisition(directory=save_dir, name=save_name, image_process_fn=img_process_fn) as acq:
-    acq.acquire(
-        multi_d_acquisition_events(
-            num_time_points=10, time_interval_s=2, z_start=0, z_end=10, z_step=1
-        )
-    )
+    acq.acquire(events)

@@ -506,18 +506,21 @@ class Dataset:
 
                 if "position" in self.axes and "GridPixelOverlapX" in self.summary_metadata:
                     # Make an n x 2 array with nan's where no positions actually exist
+                    self.row_col_array = np.ones((len(self.axes['position']), 2)) * np.nan
+                    self.position_centers = np.ones((len(self.axes['position']), 2)) * np.nan
                     row_cols = []
-                    positions_checked = []
                     for c_index in c_z_t_p_tree.keys():
                         for z_index in c_z_t_p_tree[c_index].keys():
                             for t_index in c_z_t_p_tree[c_index][z_index].keys():
                                 p_indices = c_z_t_p_tree[c_index][z_index][t_index].keys()
-                                for p_index in range(max(p_indices) + 1):
-                                    if p_index in positions_checked:
+                                for p_index in p_indices:
+                                    #in case position index doesn't start at 0, pos_index_index is index
+                                    #into self.axes['position']
+                                    pos_index_index = list(self.axes['position']).index(p_index)
+                                    if not np.isnan(self.row_col_array[pos_index_index, 0]):
+                                        # already figured this one out
                                         continue
-                                    if p_index not in p_indices:
-                                        row_cols.append(np.array([np.nan, np.nan]))
-                                    elif not res_level.check_ifd(
+                                    if not res_level.check_ifd(
                                         channel_index=c_index,
                                         z_index=z_index,
                                         t_index=t_index,
@@ -539,11 +542,10 @@ class Dataset:
                                             t_index=t_index,
                                             z_index=z_index,
                                         )
-                                        row_cols.append(
-                                            np.array([md["GridRowIndex"], md["GridColumnIndex"]])
-                                        )
-                                    positions_checked.append(p_index)
-                    self.row_col_array = np.stack(row_cols)
+                                        self.row_col_array[pos_index_index] = np.array(
+                                            [md["GridRowIndex"], md["GridColumnIndex"]])
+                                        self.position_centers[pos_index_index] = np.array(
+                                            [md["XPosition_um_Intended"], md["YPosition_um_Intended"]])
 
             else:
                 self.res_levels[int(np.log2(int(res_dir.split("x")[1])))] = res_level
@@ -877,6 +879,23 @@ class Dataset:
         return res_level.read_image(
             storage_c_index, z_index, t_index, p_index, read_metadata, memmapped
         )
+
+    def read_first_image_metadata(self):
+        """
+        Get the first image metadata in the dataset (according to position along axes).
+        This is useful if you want to access the image metadata in a dataset sparse, nonzero azes
+
+        Returns
+        -------
+        metadata : dict
+
+        """
+        cztp_tree = self.res_levels[0].reader_tree
+        c = list(cztp_tree.keys())[0]
+        z = list(cztp_tree[c].keys())[0]
+        t = list(cztp_tree[c][z].keys())[0]
+        p = list(cztp_tree[c][z][t].keys())[0]
+        return self.res_levels[0].read_metadata(c, z, t, p)
 
     def read_metadata(
         self,
