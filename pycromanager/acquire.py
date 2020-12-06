@@ -136,7 +136,7 @@ def _processor_startup_fn(
         print("image processing sockets connected")
     sockets_connected_evt.set()
 
-    def process_and_sendoff(image_tags_tuple):
+    def process_and_sendoff(image_tags_tuple, original_dtype):
         """
 
         Parameters
@@ -150,16 +150,24 @@ def _processor_startup_fn(
         """
         if len(image_tags_tuple) != 2:
             raise Exception("If image is returned, it must be of the form (pixel, metadata)")
-        if not np.issubdtype(image_tags_tuple[0].dtype, pixels.dtype) and not np.issubdtype(
-                pixels.dtype, image_tags_tuple[0].dtype):
+
+        pixels = image_tags_tuple[0]
+        metadata = image_tags_tuple[1]
+
+        # only accepts same pixel type as original
+        if not np.issubdtype(image_tags_tuple[0].dtype, original_dtype) and not np.issubdtype(
+            original_dtype, image_tags_tuple[0].dtype
+        ):
             raise Exception(
                 "Processed image pixels must have same dtype as input image pixels, "
                 "but instead they were {} and {}".format(image_tags_tuple[0].dtype, pixels.dtype)
             )
 
+        metadata["PixelType"] = "GRAY8" if pixels.dtype.itemsize == 1 else "GRAY16"
+
         processed_img = {
-            "pixels": image_tags_tuple[0].tobytes(),
-            "metadata": image_tags_tuple[1],
+            "pixels": pixels.tobytes(),
+            "metadata": metadata,
         }
         push_socket.send(processed_img)
 
@@ -199,9 +207,9 @@ def _processor_startup_fn(
 
         if type(processed) == list:
             for image in processed:
-                process_and_sendoff(image)
+                process_and_sendoff(image, pixels.dtype)
         else:
-            process_and_sendoff(processed)
+            process_and_sendoff(processed, pixels.dtype)
 
 
 class Acquisition(object):
