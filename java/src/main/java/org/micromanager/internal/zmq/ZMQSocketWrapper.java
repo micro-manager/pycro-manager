@@ -131,9 +131,10 @@ public abstract class ZMQSocketWrapper {
             String key = keys.next();
             Object o = ((JSONObject) json).get(key);
             if (o instanceof String && ((String) o).contains("@")) {
-               int i = Integer.parseInt(((String) o).substring(1));
-               if (i == hash) {
-                  ((JSONObject) json).put(key, value);
+               int intID = Integer.parseInt(((String) o).substring(1).split("_")[0]);
+               int bytesPerEntry = Integer.parseInt(((String) o).substring(1).split("_")[1]);
+               if (intID == hash) {
+                  ((JSONObject) json).put(key, decodeByteArray(value, bytesPerEntry));
                   return;
                }
             } else if (o instanceof JSONObject) {
@@ -146,9 +147,10 @@ public abstract class ZMQSocketWrapper {
          for (int i = 0; i < ((JSONArray) json).length(); i++) {
             Object o = ((JSONArray) json).get(i);
             if (o instanceof String && ((String) o).contains("@")) {
-               int ii = Integer.parseInt(((String) o).substring(1));
-               if (ii == hash) {
-                  ((JSONArray) json).put(i, value);
+               int intID = Integer.parseInt(((String) o).substring(1).split("_")[0]);
+               int bytesPerEntry = Integer.parseInt(((String) o).substring(1).split("_")[1]);
+               if (intID == hash) {
+                  ((JSONArray) json).put(i, decodeByteArray(value, bytesPerEntry));
                   return;
                }
             } else if (o instanceof JSONObject) {
@@ -158,6 +160,26 @@ public abstract class ZMQSocketWrapper {
             }
          }
       }
+   }
+
+   //TODO: this is redundant to a function in ZMQUtil.
+   // There are multiple mechanisms for byte data to be decoded. these should be consolidated
+   // and consistent with the outgoing messages
+   private Object decodeByteArray(byte[] value, int bytesPerEntry) {
+      if (bytesPerEntry == 0) {
+         return value; // it was sent over as raw binary. Might get converted at a high level
+      } else if (bytesPerEntry == 1) {
+         return value;
+      } else if (bytesPerEntry == 2) {
+         short[] shorts = new short[value.length / 2];
+         ByteBuffer.wrap(value).order(ByteOrder.nativeOrder()).asShortBuffer().get(shorts);
+         return shorts;
+      } else if (bytesPerEntry == 4) {
+         int[] ints = new int[value.length / 4];
+         ByteBuffer.wrap(value).order(ByteOrder.nativeOrder()).asIntBuffer().get(ints);
+         return ints;
+      }
+      throw new RuntimeException("unknown bytes per pixel");
    }
 
    public JSONObject receiveMessage() {
