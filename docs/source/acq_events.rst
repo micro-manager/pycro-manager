@@ -10,7 +10,7 @@ The :class:`Acquisition<pycromanager.Acquisition>` class enables both simple mut
 Multi-dimensional acquisitions
 ##############################
 
-Multi-dimensional acquisitions are a common type of acquisition in which images are collected across some set of time, z-stack, channel, and xy position. The :meth:`multi_d_acquisition_events<pycromanager.multi_d_acquisition_events>` function can be used to automatically generate the required :ref:`acquisition events<acq_event_spec>`. For a full tutorial on how to use this function see `MDA Tutorial <multi-d-acq-tutorial.ipynb>`_
+Multi-dimensional acquisitions are a common type of acquisition in which images are collected across some set of time, z-stack, channel, and xy position. The :meth:`multi_d_acquisition_events<pycromanager.multi_d_acquisition_events>` function can be used to automatically generate the required :ref:`acquisition events<acq_event_spec>`. For a full tutorial on how to use this function see `MDA Tutorial <application_notebooks/multi-d-acq-tutorial.ipynb>`_
 
 
 The following shows a the simple example of acquiring a single z-stack:
