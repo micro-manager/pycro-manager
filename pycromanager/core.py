@@ -72,8 +72,9 @@ class DataSocket:
         identifier = np.random.randint(-(2 ** 31), 2 ** 31 - 1, 1, dtype=np.int32)[0]
         # '@{some_number}_{bytes_per_pixel}'
         # if its a numpy array, include bytes per pixel, otherwise just interpret it as raw byts
-        return identifier, "@" + str(int(identifier)) + '_' + str(
-            0 if isinstance(entry, bytes) else entry.dtype.itemsize)
+        return identifier, "@" + str(int(identifier)) + "_" + str(
+            0 if isinstance(entry, bytes) else entry.dtype.itemsize
+        )
 
     def _remove_bytes(self, bytes_data, structure):
         if isinstance(structure, list):
