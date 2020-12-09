@@ -28,9 +28,11 @@ def img_process_fn(image, metadata):
         return image, metadata
 
 
-events = multi_d_acquisition_events(num_time_points=10, time_interval_s=2, z_start=0, z_end=10, z_step=1)
+events = multi_d_acquisition_events(
+    num_time_points=10, time_interval_s=2, z_start=0, z_end=10, z_step=1
+)
 # read the number of z steps
-num_z_steps = len(set([event['axes']['z'] for event in events]))
+num_z_steps = len(set([event["axes"]["z"] for event in events]))
 save_dir = "/Users/henrypinkard/tmp"
 save_name = "max_intesnity_acq"
 

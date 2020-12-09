@@ -506,17 +506,17 @@ class Dataset:
 
                 if "position" in self.axes and "GridPixelOverlapX" in self.summary_metadata:
                     # Make an n x 2 array with nan's where no positions actually exist
-                    self.row_col_array = np.ones((len(self.axes['position']), 2)) * np.nan
-                    self.position_centers = np.ones((len(self.axes['position']), 2)) * np.nan
+                    self.row_col_array = np.ones((len(self.axes["position"]), 2)) * np.nan
+                    self.position_centers = np.ones((len(self.axes["position"]), 2)) * np.nan
                     row_cols = []
                     for c_index in c_z_t_p_tree.keys():
                         for z_index in c_z_t_p_tree[c_index].keys():
                             for t_index in c_z_t_p_tree[c_index][z_index].keys():
                                 p_indices = c_z_t_p_tree[c_index][z_index][t_index].keys()
                                 for p_index in p_indices:
-                                    #in case position index doesn't start at 0, pos_index_index is index
-                                    #into self.axes['position']
-                                    pos_index_index = list(self.axes['position']).index(p_index)
+                                    # in case position index doesn't start at 0, pos_index_index is index
+                                    # into self.axes['position']
+                                    pos_index_index = list(self.axes["position"]).index(p_index)
                                     if not np.isnan(self.row_col_array[pos_index_index, 0]):
                                         # already figured this one out
                                         continue
@@ -543,9 +543,14 @@ class Dataset:
                                             z_index=z_index,
                                         )
                                         self.row_col_array[pos_index_index] = np.array(
-                                            [md["GridRowIndex"], md["GridColumnIndex"]])
+                                            [md["GridRowIndex"], md["GridColumnIndex"]]
+                                        )
                                         self.position_centers[pos_index_index] = np.array(
-                                            [md["XPosition_um_Intended"], md["YPosition_um_Intended"]])
+                                            [
+                                                md["XPosition_um_Intended"],
+                                                md["YPosition_um_Intended"],
+                                            ]
+                                        )
 
             else:
                 self.res_levels[int(np.log2(int(res_dir.split("x")[1])))] = res_level

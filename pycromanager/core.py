@@ -63,23 +63,36 @@ class DataSocket:
             elif np.issubdtype(type(v), np.integer):
                 d[k] = int(v)
 
+    def _make_array_identifier(self, entry):
+        """
+        make a string to replace bytes data or numpy array in message, which encode data type if numpy
+        """
+        # make up a random 32 bit int as the identifier
+        # TODO: change to simple counting
+        identifier = np.random.randint(-(2 ** 31), 2 ** 31 - 1, 1, dtype=np.int32)[0]
+        # '@{some_number}_{bytes_per_pixel}'
+        # if its a numpy array, include bytes per pixel, otherwise just interpret it as raw byts
+        return identifier, "@" + str(int(identifier)) + "_" + str(
+            0 if isinstance(entry, bytes) else entry.dtype.itemsize
+        )
+
     def _remove_bytes(self, bytes_data, structure):
         if isinstance(structure, list):
             for i, entry in enumerate(structure):
-                if isinstance(entry, bytes):
-                    identifier = np.random.randint(-(2 ** 31), 2 ** 31 - 1, 1, dtype=np.int32)[0]
-                    structure[i] = "@" + str(int(identifier))
-                    bytes_data.append((identifier, entry))
+                if isinstance(entry, bytes) or isinstance(entry, np.ndarray):
+                    int_id, str_id = self._make_array_identifier(entry)
+                    structure[i] = str_id
+                    bytes_data.append((int_id, entry))
                 elif isinstance(entry, list) or isinstance(entry, dict):
                     self._remove_bytes(bytes_data, entry)
         elif isinstance(structure, dict):
             for key in structure.keys():
-                if isinstance(structure[key], bytes):
-                    # make up a random 32 bit int as the identifier
-                    identifier = np.random.randint(-(2 ** 31), 2 ** 31 - 1, 1, dtype=np.int32)[0]
-                    bytes_data.append((identifier, structure[key]))
-                    structure[key] = "@" + str(int(identifier))
-                elif isinstance(structure[key], list) or isinstance(structure[key], dict):
+                entry = structure[key]
+                if isinstance(entry, bytes) or isinstance(entry, np.ndarray):
+                    int_id, str_id = self._make_array_identifier(entry)
+                    structure[key] = str_id
+                    bytes_data.append((int_id, entry))
+                elif isinstance(entry, list) or isinstance(entry, dict):
                     self._remove_bytes(bytes_data, structure[key])
 
     def send(self, message, timeout=0):
