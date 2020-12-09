@@ -16,11 +16,13 @@ Have an application you'd like to contribute to this page? Please `reach out <ht
 	application_notebooks/convert_MM_MDA_data_into_zarr.ipynb
 	application_notebooks/pycro_manager_imjoy_tutorial.ipynb
 	application_notebooks/Denoising acquired images using deep learning.ipynb
+	application_notebooks/Single_shot_autofocus_pycromanager.ipynb
 	application_notebooks/pycro_manager_tie_demo.ipynb
 	application_notebooks/guiding_acq_with_neural_network_attention.ipynb
 	application_notebooks/Auto_CycIF.ipynb
 	application_notebooks/closedloop_headless_demo.ipynb
 	application_notebooks/external_master_tutorial.ipynb
+	application_notebooks/Learned_adaptive_multiphoton_illumination.ipynb
 
 
 :doc:`application_notebooks/intermittent_Z_T`
@@ -42,6 +44,9 @@ Have an application you'd like to contribute to this page? Please `reach out <ht
 :doc:`application_notebooks/Denoising acquired images using deep learning`
 	 This tutorial demonstrates how to train a deep learning model for image denoising using data aquired by Pycro-Manager. This training is performed on Google Colab, which provides free usage of GPUs in the cloud, so no specialized hardware is required to implement it. The trained model will then be used to denoise images in real time using a Pycro-Manager image processor. 
 
+:doc:`application_notebooks/Single_shot_autofocus_pycromanager`
+	This notebook shows how to use Pycro-Manager/Micro-Magellan to implement machine learning-powered, image-based autofocus. It shows how to set up and use Micro-Magellan to collect training data, and how to use an acquisition hook to apply focus corrections during an experiment.
+
 :doc:`application_notebooks/pycro_manager_tie_demo`
 	This example shows how to compute 2D quantitative phase images from collected focal stacks, without the need for specialized optics, using computational imaging. Specifically, we will solve and inverse problem based on the `Transport of Intensity Equation (TIE) <https://en.wikipedia.org/wiki/Transport-of-intensity_equation>`_. The inverse problem is implemented in an image processor, to enable on-the-fly quantitative phase imaging during acquisition.
 
@@ -56,3 +61,8 @@ Have an application you'd like to contribute to this page? Please `reach out <ht
 
 :doc:`application_notebooks/external_master_tutorial`
 	This tutorial shows how to setup Pycro-Manager to run a microscope that utilizes an external controller as the master clock. Specifically, this tutorial controls a light-sheet microscope where a sample with fluorescent labels is scanned at a constant speed through an oblique light sheet. The stage controller provides the TTL signals that ensure the camera is synchronized to the scanning stage. This approach makes use of `post hardware` and `post camera` hook functions built into Pycro-Manager. Using these hook functions, it is possible to rapidly build and acquire a multiple terabyte acquisition consisting of millions of images.
+
+:doc:`application_notebooks/Learned_adaptive_multiphoton_illumination`
+	This tutorial demonstrates how to implement Learned Adaptive Multiphoton Illumination microscopy using Pycro-Manager/Micro-Magellan. This technique enables automatic sample-dependent adjustment of excitation laser power in real time while imaging a sample on a 2-photon microscope in order to compensate for attenuation of fluorescence when imaging deep into intact tissue.
+	
+
