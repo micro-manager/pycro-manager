@@ -4,7 +4,9 @@
 Fast acquisition with hardware triggering
 ********************************************
 
-For the fastest acquisition data acquisition speeds, hardware triggering using TTL pulses is essential. In such setups, hardware components are loaded with sequences of instructions (e.g. physical positions on a stage or a sequence of exposures on a camera). The sequence can then be executed independently of the computer, except for frames being read off a camera as fast as possible.
+A standard acquisition is accomplished by sending commands from the computer to the devices each time a change (in, e.g., stage position or illumination) is required. This communication can add unnecessary latency (up to 100 ms) between image frames. Much faster and accurately timed operation is possible with most cameras (when acquiring a preset sequence of frames) as well as many other devices (when executing a pre-programmed sequence of commands).
+
+For the fastest data acquisition speeds, routing TTL (Transistor-Transistor Logic) pulses over signal cables between hardware devices is essential. In such setups, hardware components are loaded with sequences of instructions (e.g. physical positions on a stage or a sequence of exposures on a camera). The sequence can then be executed independently of the computer, except for frames being read off a camera as fast as possible.
 
 The :class:`Acquisition<pycromanager.Acquisition>` class has built in support for hardware sequencing, and it will automatically applied whenever it is supported by the hardware being used. There are two general synchronization strategies supported, which differ depending on what hardware device is the "master" (i.e. the one sending out TTL pulses) and which one is the "slave" (i.e. the one receiving them).
 
