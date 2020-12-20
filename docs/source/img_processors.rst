@@ -10,30 +10,30 @@ The simplest image processor function takes two arguments: the pixel data (a num
 
 .. code-block:: python
 
-	def img_process_fn(image, metadata):
+    def img_process_fn(image, metadata):
 		
-		#add in some new metadata
-		metadata['a_new_metadata_key'] = 'a new value'
+        #add in some new metadata
+        metadata['a_new_metadata_key'] = 'a new value'
 
-		#modify the pixels by setting a 100 pixel square at the top left to 0
-		image[:100, :100] = 0
+        #modify the pixels by setting a 100 pixel square at the top left to 0
+        image[:100, :100] = 0
 
-		#propogate the image and metadata to the default viewer and saving classes
-		return image, metadata
+        #propogate the image and metadata to the default viewer and saving classes
+        return image, metadata
 
-	# run an acquisition using this image processor
-	with Acquisition(directory='/path/to/saving/dir', name='acquisition_name',
+    # run an acquisition using this image processor
+    with Acquisition(directory='/path/to/saving/dir', name='acquisition_name',
     				image_process_fn=img_process_fn) as acq:
-    		### acquire some stuff ###
+        ### acquire some stuff ###
 
 
 One particularly useful metadata key is ``'Axes'`` which recovers the ``'axes'`` key that was in the **Acquisition event** in this image.
 
 .. code-block:: python
 
-	def img_process_fn(image, metadata):
-		#get the time point index
-		time_index = metadata['Axes']['time']
+    def img_process_fn(image, metadata):
+        # get the time point index
+        time_index = metadata['Axes']['time']
 
 
 Returning multiple or zero images
@@ -42,22 +42,22 @@ Returning multiple or zero images
 Image processors are not required to take in one image and return one image. They can also return multiple images or no images. In the case of multiple images, they should be returned as a list of ``(image, metadata)`` tuples. The ``'Axes'`` or ``Channel`` metadata fields will need to be modified to uniquely identify the two images for the purposes of saving or the image viewer.
 
 .. code-block:: python
-	
-	import copy
 
-	def img_process_fn(image, metadata):
+    import copy
+
+    def img_process_fn(image, metadata):
 		
-		# copy pixels in this example, but in reality
-		# you might want to compute something different
-        
-		image_2 = np.array(image, copy=True)
+        # copy pixels in this example, but in reality
+        # you might want to compute something different
 
-		metadata_2 = copy.deepcopy(metadata)
+        image_2 = np.array(image, copy=True)
 
-		metadata_2['Channel'] = 'A_new_channel'
+        metadata_2 = copy.deepcopy(metadata)
 
-		#return as a list of tuples
-		return [(image, metadata), (image2, md_2)]
+        metadata_2['Channel'] = 'A_new_channel'
+
+        #return as a list of tuples
+        return [(image, metadata), (image2, md_2)]
 
 
 
@@ -66,13 +66,13 @@ Rather than returning one or more ``image, metadata`` tuples to propogate the im
 
 .. code-block:: python
 
-	def img_process_fn(image, metadata):
-		
-		### send image and metadata somewhere ###
+    def img_process_fn(image, metadata):
 
-	# this acquisition won't show a viewer or save data
-	with Acquisition(image_process_fn=img_process_fn) as acq:
-    		### acquire some stuff ###
+        ### send image and metadata somewhere ###
+
+    # this acquisition won't show a viewer or save data
+    with Acquisition(image_process_fn=img_process_fn) as acq:
+        ### acquire some stuff ###
 
 
 Adapting acquisition from image processors
@@ -82,32 +82,32 @@ In certain cases one may want to either control something on the Java side or cr
 
 .. code-block:: python
 
-	def img_process_fn_events(image, metadata, bridge, event_queue):
-		
-		### create a new acquisition event in response to something in the image ###
-		#event =
-		event_queue.put(event)
-		
-		return image, metadata
+    def img_process_fn_events(image, metadata, bridge, event_queue):
+
+        ### create a new acquisition event in response to something in the image ###
+        # event =
+        event_queue.put(event)
+
+        return image, metadata
 
 In the case of using feedback from the image to control acquisition, the typical syntax of ``with Acquisition...`` cannot be used because it will automatically close the acquisition too soon. Instead the acquisition should be created as:
 
 .. code-block:: python
-	
-	acq = Acquisition(directory='/path/to/saving/dir', name='acquisition_name',
-    				image_process_fn=img_process_fn)
+
+    acq = Acquisition(directory='/path/to/saving/dir', name='acquisition_name',
+              image_process_fn=img_process_fn)
 
 When it is finished, it can be closed and cleaned up by passing an ``None`` to the ``event_queue``.
 
 .. code-block:: python
 
-	def img_process_fn_events(image, metadata, bridge, event_queue):
-		
-		if acq_end_condition:
-			event_queue.put(None)
-		else:
-			#continue adding more events
-	
+    def img_process_fn_events(image, metadata, bridge, event_queue):
+
+        if acq_end_condition:
+            event_queue.put(None)
+        else:
+            #continue adding more events
+
 
 Processing multiple images at once
 ====================================
