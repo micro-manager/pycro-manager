@@ -36,6 +36,9 @@ One particularly useful metadata key is ``'Axes'`` which recovers the ``'axes'``
 		time_index = metadata['Axes']['time']
 
 
+Returning multiple or zero images
+====================================
+
 Image processors are not required to take in one image and return one image. They can also return multiple images or no images. In the case of multiple images, they should be returned as a list of ``(image, metadata)`` tuples. The ``'Axes'`` or ``Channel`` metadata fields will need to be modified to uniquely identify the two images for the purposes of saving or the image viewer.
 
 .. code-block:: python
@@ -72,6 +75,9 @@ Rather than returning one or more ``image, metadata`` tuples to propogate the im
     		### acquire some stuff ###
 
 
+Adapting acquisition from image processors
+============================================
+
 In certain cases one may want to either control something on the Java side or create addition **acquisition events** in response to one of the images. A four argument processing function can be used for this purpose. This gives access to the :class:`Bridge<pycromanager.Bridge>` for interacting with the Java side, and an ``event_queue`` to which additional acquisition events can be added
 
 .. code-block:: python
@@ -103,5 +109,27 @@ When it is finished, it can be closed and cleaned up by passing an ``None`` to t
 			#continue adding more events
 	
 
+Processing multiple images at once
+====================================
 
+In many cases, it is useful to process multiple images at a time, rather than just a single image. For example, this could be useful when processing should only occur after collecting a 3D volume at the end of a Z-stack. To accomplish
+this, the function can hold onto a list of images until it contains a full Z-stack before processing.
 
+.. code-block:: python
+
+	# The number of images per a full Z-stack
+	num_z_steps = 10
+
+	def img_process_fn(image, metadata):
+	    # accumulate individual Z images
+	    if not hasattr(img_process_fn, "images"):
+	        img_process_fn.images = []
+	    img_process_fn.images.append(image)
+
+	    if len(img_process_fn.images) == num_z_steps:
+	        # if last image in z stack, combine into a ZYX array
+	        zyx_array = np.stack(img_process_fn.images, axis=0)
+	        
+	        ### Do some processing on the 3D stack ###
+
+	    return image, metadata
