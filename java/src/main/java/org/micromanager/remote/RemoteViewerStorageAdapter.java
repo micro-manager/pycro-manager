@@ -17,14 +17,20 @@ import org.micromanager.acqj.api.AcqEngMetadata;
 import org.micromanager.acqj.api.DataSink;
 import org.micromanager.acqj.api.Acquisition;
 import org.micromanager.multiresstorage.MultiResMultipageTiffStorage;
+import org.micromanager.multiresstorage.MultiresStorageAPI;
+import org.micromanager.multiresstorage.StorageAPI;
 import org.micromanager.ndviewer.api.DataSourceInterface;
 import org.micromanager.ndviewer.api.ViewerInterface;
 import org.micromanager.ndviewer.main.NDViewer;
 import org.micromanager.ndviewer.api.ViewerAcquisitionInterface;
 
 /**
- * Manages where images go after being acquired (i.e. to some storage class)
- * and alerting the viewer (if applicable) to new data
+ * The class is the glue needed in order for Acquisition engine, viewer, and data storage
+ * to be able to be used together, since they are independent libraries that do not know about one
+ * another. It implements the Acquisition engine API for a {@link DataSink} interface, dispatching acquired images
+ * to viewer and storage as appropriate. It implements viewers {@link DataSourceInterface} interface, so
+ * that images in storage can be passed to the viewer to display.
+ *
  * @author henrypinkard
  */
 public class RemoteViewerStorageAdapter implements DataSourceInterface, DataSink {
@@ -33,7 +39,7 @@ public class RemoteViewerStorageAdapter implements DataSourceInterface, DataSink
 
    private volatile ViewerInterface viewer_;
    private volatile RemoteAcquisition acq_;
-   private volatile MultiResMultipageTiffStorage storage_;
+   private volatile MultiresStorageAPI storage_;
    private CopyOnWriteArrayList<String> channelNames_ = new CopyOnWriteArrayList<String>();
 
    private final boolean showViewer_, storeData_, xyTiled_;
@@ -42,6 +48,16 @@ public class RemoteViewerStorageAdapter implements DataSourceInterface, DataSink
    private String name_;
    private Integer maxResLevel_;
 
+   /**
+    *
+    * @param showViewer create and show a viewer
+    * @param dataStorageLocation where should data be saved to disk
+    * @param name name for data storage and viewer
+    * @param xyTiled true if using XY tiling/multiresolution features
+    * @param tileOverlapX X pixel overlap between adjacent tiles if using XY tiling/multiresolution
+    * @param tileOverlapY Y pixel overlap between adjacent tiles if using XY tiling/multiresolution
+    * @param maxResLevel The maximum resolution level index if using XY tiling/multiresolution
+    */
    public RemoteViewerStorageAdapter(boolean showViewer,  String dataStorageLocation,
                                      String name, boolean xyTiled, int tileOverlapX, int tileOverlapY,
                                      Integer maxResLevel) {
@@ -71,10 +87,9 @@ public class RemoteViewerStorageAdapter implements DataSourceInterface, DataSink
       if (showViewer_) {
          createDisplay(summaryMetadata);
       }
-
    }
 
-   public MultiResMultipageTiffStorage getStorage() {
+   public StorageAPI getStorage() {
       return storage_;
    }
 
@@ -118,7 +133,7 @@ public class RemoteViewerStorageAdapter implements DataSourceInterface, DataSink
                if (newChannel) {
                   //Insert a preferred color. Make a copy just in case concurrency issues
                   String chName = AcqEngMetadata.getChannelName(taggedImg.tags);
-//                  Color c = Color.white; //TODO could add color memory here
+//                  Color c = Color.white; //TODO could add color memory here (or maybe viewer already handles it...)
                   int bitDepth = AcqEngMetadata.getBitDepth(taggedImg.tags);
                   viewer_.setChannelDisplaySettings(chName, null, bitDepth);
                }
@@ -143,9 +158,8 @@ public class RemoteViewerStorageAdapter implements DataSourceInterface, DataSink
    public TaggedImage getImageForDisplay(HashMap<String, Integer> axes, int resolutionindex,
            double xOffset, double yOffset, int imageWidth, int imageHeight) {
 
-       int resIndex = 0;
       return storage_.getStitchedImage(
-              axes, resIndex, (int) xOffset, (int) yOffset,
+              axes, resolutionindex, (int) xOffset, (int) yOffset,
               imageWidth, imageHeight);
    }
 

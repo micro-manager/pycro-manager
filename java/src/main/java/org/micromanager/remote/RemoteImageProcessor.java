@@ -19,6 +19,8 @@ import org.micromanager.internal.zmq.ZMQPushSocket;
 import org.micromanager.internal.zmq.ZMQUtil;
 
 /**
+ * Implements an ImageProcessor that sends/recieves images from a remote source
+ * using ZMQ push/pull sockets. This enables image processing in Python/NumPy
  *
  * @author henrypinkard
  */
