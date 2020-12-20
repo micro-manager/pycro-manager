@@ -17,7 +17,7 @@ import org.micromanager.acqj.api.AcquisitionEvent;
 import org.micromanager.internal.zmq.ZMQPullSocket;
 
 /**
- *
+ * A source of acquisition events that comes from elsewhere via a ZMQ pull socket
  * @author henrypinkard
  */
 public class RemoteEventSource {
@@ -29,23 +29,20 @@ public class RemoteEventSource {
    });
 
    public RemoteEventSource() {
-      pullSocket_ = new ZMQPullSocket<List<AcquisitionEvent>>(
-              new Function<JSONObject, List<AcquisitionEvent>>() {
-         @Override
-         public List<AcquisitionEvent> apply(JSONObject t) {
-            try {
-               List<AcquisitionEvent> eventList = new ArrayList<AcquisitionEvent>();
-               JSONArray events = t.getJSONArray("events");
-               for (int i = 0; i < events.length(); i++) {
-                  JSONObject e = events.getJSONObject(i);
-                  eventList.add(AcquisitionEvent.fromJSON(e, acq_));
-               }
-               return eventList;
-            } catch (JSONException ex) {
-               throw new RuntimeException("Incorrect format for acquisitio event");
-            }
-         }
-      });
+      pullSocket_ = new ZMQPullSocket<>(
+              t -> {
+                 try {
+                    List<AcquisitionEvent> eventList = new ArrayList<>();
+                    JSONArray events = t.getJSONArray("events");
+                    for (int i = 0; i < events.length(); i++) {
+                       JSONObject e = events.getJSONObject(i);
+                       eventList.add(AcquisitionEvent.fromJSON(e, acq_));
+                    }
+                    return eventList;
+                 } catch (JSONException ex) {
+                    throw new RuntimeException("Incorrect format for acquisitio event");
+                 }
+              });
       //constantly poll the socket for more event sequences to submit
       executor_.submit(() -> {
          while (true) {

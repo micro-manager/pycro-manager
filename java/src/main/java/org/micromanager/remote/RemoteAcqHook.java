@@ -12,9 +12,9 @@ import java.util.function.Function;
 import mmcorej.org.json.JSONArray;
 import mmcorej.org.json.JSONException;
 import mmcorej.org.json.JSONObject;
+import org.micromanager.acqj.api.AcquisitionAPI;
 import org.micromanager.acqj.api.AcquisitionEvent;
 import org.micromanager.acqj.api.AcquisitionHook;
-import org.micromanager.acqj.api.AcquisitionInterface;
 import org.micromanager.internal.zmq.ZMQPullSocket;
 import org.micromanager.internal.zmq.ZMQPushSocket;
 
@@ -27,7 +27,7 @@ public class RemoteAcqHook implements AcquisitionHook {
    ZMQPushSocket<AcquisitionEvent> pushSocket_;
    ZMQPullSocket<List<AcquisitionEvent>> pullSocket_;
 
-   public RemoteAcqHook(AcquisitionInterface acq) {
+   public RemoteAcqHook(AcquisitionAPI acq) {
       pushSocket_ = new ZMQPushSocket<AcquisitionEvent>(
               new Function<AcquisitionEvent, JSONObject>() {
          @Override
