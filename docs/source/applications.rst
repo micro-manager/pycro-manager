@@ -23,7 +23,7 @@ Have an application you'd like to contribute to this page? Please `reach out <ht
 	application_notebooks/closedloop_headless_demo.ipynb
 	application_notebooks/external_master_tutorial.ipynb
 	application_notebooks/Learned_adaptive_multiphoton_illumination.ipynb
-	application_notebooks/PSF_Viewer.ipynb
+	application_notebooks/PSF_viewer.ipynb
 
 
 :doc:`application_notebooks/intermittent_Z_T`
@@ -67,5 +67,4 @@ Have an application you'd like to contribute to this page? Please `reach out <ht
 	This tutorial demonstrates how to implement Learned Adaptive Multiphoton Illumination microscopy using Pycro-Manager/Micro-Magellan. This technique enables automatic sample-dependent adjustment of excitation laser power in real time while imaging a sample on a 2-photon microscope in order to compensate for attenuation of fluorescence when imaging deep into intact tissue.
 
 :doc:`application_notebooks/PSF_viewer`
-	This tutorial shows how to acquire data using micromanager, then use pycro-manager to stream it to napari. Buttons to start and stop data acquisition are added to napari using the magic-gui package.
-In this example, the data displayed in napari resliced to get a live PSF viewer. However, reslicing is only a small example for the data analysis possible using napari.
+	This tutorial shows how to acquire data using micromanager, then use pycro-manager to stream it to napari. Buttons to start and stop data acquisition are added to napari using the magic-gui package. In this example, the data displayed in napari resliced to get a live PSF viewer. However, reslicing is only a small example for the data analysis possible using napari.
