@@ -23,7 +23,7 @@ Have an application you'd like to contribute to this page? Please `reach out <ht
 	application_notebooks/closedloop_headless_demo.ipynb
 	application_notebooks/external_master_tutorial.ipynb
 	application_notebooks/Learned_adaptive_multiphoton_illumination.ipynb
-	application_notebooks/PSF_Viewer.ipynb
+	application_notebooks/PSF_viewer.ipynb
 
 
 :doc:`application_notebooks/intermittent_Z_T`
