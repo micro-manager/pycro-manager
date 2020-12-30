@@ -554,6 +554,10 @@ class Dataset:
 
             else:
                 self.res_levels[int(np.log2(int(res_dir.split("x")[1])))] = res_level
+
+        if self._remote_storage is None:
+            self._tile_width = self.summary_metadata["Width"] - self.summary_metadata["GridPixelOverlapX"]
+            self._tile_height = self.summary_metadata["Height"] - self.summary_metadata["GridPixelOverlapY"]
         print("\rDataset opened")
 
     def as_array(self, stitched=False, verbose=False):
@@ -578,10 +582,12 @@ class Dataset:
         """
         if self._remote_storage is not None:
             raise Exception("Method not yet implemented for in progress acquisitions")
+        w = self.image_width if not stitched else self._tile_width
+        h = self.image_height if not stitched else self._tile_height
         self._empty_tile = (
-            np.zeros((self.image_height, self.image_width), self.dtype)
+            np.zeros((h, w), self.dtype)
             if not self.rgb
-            else np.zeros((self.image_height, self.image_width, 3), self.dtype)
+            else np.zeros((h, w, 3), self.dtype)
         )
         self._count = 1
         total = np.prod([len(v) for v in self.axes.values()])
@@ -592,7 +598,11 @@ class Dataset:
                     print("\rAdding data chunk {} of {}".format(self._count, total), end="")
                 self._count += 1
                 if None not in point_axes.values() and self.has_image(**point_axes):
-                    return self.read_image(**point_axes, memmapped=True)
+                    if stitched:
+                        return self.read_image(**point_axes, memmapped=True)[
+                               self.half_overlap:-self.half_overlap, self.half_overlap:-self.half_overlap,]
+                    else:
+                        return self.read_image(**point_axes, memmapped=True)
                 else:
                     # return np.zeros((self.image_height, self.image_width), self.dtype)
                     return self._empty_tile
