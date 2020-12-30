@@ -599,8 +599,11 @@ class Dataset:
                 self._count += 1
                 if None not in point_axes.values() and self.has_image(**point_axes):
                     if stitched:
-                        return self.read_image(**point_axes, memmapped=True)[
-                               self.half_overlap:-self.half_overlap, self.half_overlap:-self.half_overlap,]
+                        img = self.read_image(**point_axes, memmapped=True)
+                        if self.half_overlap[0] != 0:
+                            img = img[self.half_overlap[0]:-self.half_overlap[0],
+                                  self.half_overlap[1]:-self.half_overlap[1],]
+                        return img
                     else:
                         return self.read_image(**point_axes, memmapped=True)
                 else:
@@ -617,7 +620,7 @@ class Dataset:
                 del remaining_axes[axis]
                 if axis == "position" and stitched:
                     # Stitch tiles acquired in a grid
-                    self.half_overlap = self.overlap[0] // 2
+                    self.half_overlap = (self.overlap[0] // 2, self.overlap[1] // 2)
 
                     # get spatial layout of position indices
                     zero_min_row_col = self.row_col_array - np.nanmin(self.row_col_array, axis=0)
