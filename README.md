@@ -5,6 +5,10 @@
 [![PyPI - Downloads](https://img.shields.io/pypi/dm/pycromanager.svg)](https://pypistats.org/packages/pycromanager)
 [![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
 
+.. |Downloads| image:: pycromanager
+   :target: pycromanager
+   
+   
 <img src="docs/source/pycromanager_banner.png" width="600">
 
 `pycromanager` is a Python library for customized microscope hardware control and integration with image processing. It works together with [Micro-manager](https://micro-manager.org/) and [Micro-magellan](https://micro-manager.org/wiki/MicroMagellan).
