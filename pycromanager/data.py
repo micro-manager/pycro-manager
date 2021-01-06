@@ -556,12 +556,17 @@ class Dataset:
                 self.res_levels[int(np.log2(int(res_dir.split("x")[1])))] = res_level
 
         if self._remote_storage is None:
-            self._tile_width = (
-                self.summary_metadata["Width"] - self.summary_metadata["GridPixelOverlapX"]
-            )
-            self._tile_height = (
-                self.summary_metadata["Height"] - self.summary_metadata["GridPixelOverlapY"]
-            )
+            if "GridPixelOverlapX" in self.summary_metadata:
+                self._tile_width = (
+                    self.summary_metadata["Width"] - self.summary_metadata["GridPixelOverlapX"]
+                )
+                self._tile_height = (
+                    self.summary_metadata["Height"] - self.summary_metadata["GridPixelOverlapY"]
+                )
+            else:
+                self._tile_width = self.summary_metadata["Width"]
+                self._tile_height = self.summary_metadata["Height"]
+
         print("\rDataset opened")
 
     def as_array(self, stitched=False, verbose=False):
