@@ -117,6 +117,13 @@ class _MultipageTiffReader:
         )
         index_map_keys = index_map_raw[:, :4].view(np.int32)
         index_map_byte_offsets = index_map_raw[:, 4].view(np.uint32)
+        # If index map contains an offset value of 0, something has gone wrong
+        invalid_entries = np.flatnonzero(index_map_byte_offsets == 0)
+        if invalid_entries.size > 0:
+            warnings.warn('Invalid entires found in index map, file {}'.format(self.tiff_path))
+        index_map_keys = index_map_keys[index_map_byte_offsets != 0]
+        index_map_byte_offsets = index_map_byte_offsets[index_map_byte_offsets != 0]
+
         # for super fast reading of pixels: skip IFDs alltogether
         entries_per_ifd = 13
         num_entries = np.ones(index_map_byte_offsets.shape) * entries_per_ifd
