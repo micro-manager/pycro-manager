@@ -16,11 +16,7 @@ The figure figure below gives an overview of all of the features this class prov
    :width: 800
    :alt: Overview figure of pycro-manager Acquisitions
 
-   **Overview of pycro-manager Acquisitions.** The blue boxes show acquisitions starting with some source of ”acquisition events”, instructions for image collection and associated hardware changes. Green boxes represent acquisition events that are optimized, then used to move hardware and collect images. ”Acquisition hooks” can be used to execute arbitrary code synchronously or modify/delete instructions on-the-fly. Magenta boxes represent acquired images going straight to the default image saving and display, or being diverted through ”image processors”, which allow for modification of images or diversion to external saving and visualization.
-
-
-
-
+   **Pycro-Manager's high-level programming interface.** The data acquisition process in Pycro-Manager starts with (blue) a source of acquisition events (from either a programming or GUI). These events are passed to (green) the acquisition engine, which optimizes them to take advantage of hardware triggering where available, sends instructions to hardware, and acquires images. (Magenta) The resulting images are then saved and displayed in the GUI. The three main abstractions of the Pycro-Manager high-level programming interface (acquisition events, acquisition hooks, and image processors) enable fine-grained control and customization of this process.
 
 
 

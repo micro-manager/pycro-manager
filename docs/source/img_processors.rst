@@ -133,3 +133,14 @@ this, the function can hold onto a list of images until it contains a full Z-sta
 	        ### Do some processing on the 3D stack ###
 
 	    return image, metadata
+
+
+Applications
+====================================
+
+Image processors can be used to enable advanced applications, such as: 
+
+-  :doc:`application_notebooks/Denoising acquired images using deep learning`
+-  :doc:`application_notebooks/pycro_manager_tie_demo`
+-  :doc:`application_notebooks/PSF_viewer`
+

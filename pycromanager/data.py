@@ -120,7 +120,7 @@ class _MultipageTiffReader:
         # If index map contains an offset value of 0, something has gone wrong
         invalid_entries = np.flatnonzero(index_map_byte_offsets == 0)
         if invalid_entries.size > 0:
-            warnings.warn('Invalid entires found in index map, file {}'.format(self.tiff_path))
+            warnings.warn("Invalid entires found in index map, file {}".format(self.tiff_path))
         index_map_keys = index_map_keys[index_map_byte_offsets != 0]
         index_map_byte_offsets = index_map_byte_offsets[index_map_byte_offsets != 0]
 

@@ -4,9 +4,11 @@
 Controlling Micro-Magellan
 ****************************************************************
 
+Micro-Magellan is a plugin for imaging large samples that span multiple fields of view (e.g. tissue sections, whole slides, multi-well plates). It provides a graphical user interface for navigating around samples in X,Y, and Z called "explore acquisitions", as well as features for defining and imaging arbitrarily shaped regions of interest ("Surfaces" and "grids"). More information can be found `here <https://micro-manager.org/wiki/MicroMagellan>`_.
+
 In addition to launching :ref:`magellan_acq_launch`, other aspects of Micro-Magellan can be controlled programatically through Python. 
 
-For example, Magellan acquisitions can be created or removed, and have their setting changed:
+For example, multiple acquisitions can be created or removed programatically, and have their setting changed:
 
 
 .. code-block:: python
