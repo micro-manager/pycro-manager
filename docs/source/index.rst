@@ -9,7 +9,7 @@
    :width: 800
    :alt: Overview of pycro-manager
 
-   **Pycro-manager overview.** The grey boxes denote the C++ and Java components of µManager, including the GUI, Java APIs, and a hardware abstraction layer that enables generic microscope control code to work on a variety of hardware components. The red box shows Pycro-Manager, which is built upon a high speed data transfer layer that can operate within a machine or over a network. This layer enables access to the existing capabilities of µManager as if they were written in Python. In addition, a new Acquisition API provides powerful automation of data collection combined with easy ways to inter-operate with Python libraries (purple boxes) for hardware control, data visualization, scientific computing, etc.
+   **Pycro-manager architecture overview.** (Grey) The existing parts of µManager provide generic microscope control abstracted from specific hardware, a graphical user interface (GUI), a Java plugin interface, and an acquisition engine, which automates various aspects of data collection. (Orange) Pycro-Manager enables access to these components through Python over a network-compatible transport layer, as well as a concise, high-level programming interface for acquiring data. These provide integration of data acquisition with  (purple) Python libraries for hardware control, data visualization, scientific computing, etc. 
 
 
 
