@@ -11,6 +11,7 @@ import dask.array as da
 import dask
 import warnings
 from pycromanager.core import Bridge
+import struct
 
 
 class _MultipageTiffReader:
@@ -475,42 +476,93 @@ class Dataset:
                     self._POSITION_AXIS: set(),
                     self._CHANNEL_AXIS: set(),
                 }
-                for c in c_z_t_p_tree.keys():
-                    for z in c_z_t_p_tree[c]:
-                        self.axes[self._Z_AXIS].add(z)
-                        for t in c_z_t_p_tree[c][z]:
-                            self.axes[self._TIME_AXIS].add(t)
-                            for p in c_z_t_p_tree[c][z][t]:
-                                self.axes[self._POSITION_AXIS].add(p)
-                                if c not in self.axes["channel"]:
-                                    metadata = self.res_levels[0].read_metadata(
-                                        channel_index=c, z_index=z, t_index=t, pos_index=p
-                                    )
-                                    current_axes = metadata["Axes"]
-                                    non_zpt_axes = {}
-                                    for axis in current_axes:
-                                        if axis not in [
-                                            self._Z_AXIS,
-                                            self._TIME_AXIS,
-                                            self._POSITION_AXIS,
-                                        ]:
-                                            if axis not in self.axes:
-                                                self.axes[axis] = set()
-                                            self.axes[axis].add(current_axes[axis])
-                                            non_zpt_axes[axis] = current_axes[axis]
 
-                                    self._channel_names[metadata["Channel"]] = non_zpt_axes[
-                                        self._CHANNEL_AXIS
-                                    ]
-                                    self._extra_axes_to_storage_channel[
-                                        frozenset(non_zpt_axes.items())
-                                    ] = c
+                # Need to map "super channels", which absorb all non channel/z/time/position axes to channel indices
+                # used by underlying storage
+                def parse_axes(current_axes, channel_index):
+                    non_zpt_axes = {}
+                    for axis_name in current_axes:
+                        if axis_name not in [
+                            self._Z_AXIS,
+                            self._TIME_AXIS,
+                            self._POSITION_AXIS,
+                        ]:
+                            if axis_name not in self.axes:
+                                self.axes[axis_name] = set()
+                            self.axes[axis_name].add(current_axes[axis_name])
+                            non_zpt_axes[axis_name] = current_axes[axis_name]
+
+                    self._extra_axes_to_storage_channel[
+                        frozenset(non_zpt_axes.items())
+                    ] = channel_index
+                    return non_zpt_axes
+
+                print("Parsing metadata\r", end="")
+                if "Axes_metedata" in os.listdir(dataset_path):
+                    # newer version with a metadata file where this is written explicitly
+                    with open(
+                        dataset_path
+                        + (os.sep if dataset_path[-1] != os.sep else "")
+                        + "Axes_metedata",
+                        "rb",
+                    ) as axes_metadata_file:
+                        content = axes_metadata_file.read()
+                    while len(content) > 0:
+                        (flag,) = struct.unpack("i", content[:4])
+                        if flag == -1:
+                            channel_index, length = struct.unpack("ii", content[4:12])
+                            channel_name = content[12 : 12 + length].decode("iso-8859-1")
+                            # contains channel name metadata
+                            self._channel_names[channel_name] = channel_index
+                            content = content[12 + length :]
+                        else:
+                            channel_index = flag
+                            (length,) = struct.unpack("i", content[4:8])
+                            # contains super channel metadata
+                            other_axes = content[8 : 8 + length].decode("iso-8859-1")
+                            current_axes = {
+                                axis_pos.split("_")[0]: int(axis_pos.split("_")[1])
+                                for axis_pos in other_axes.split("Axis_")
+                                if len(axis_pos) > 0
+                            }
+                            parse_axes(current_axes, channel_index)
+                            content = content[8 + length :]
+                    # add standard time position z axes as well
+                    for c in c_z_t_p_tree.keys():
+                        for z in c_z_t_p_tree[c]:
+                            self.axes[self._Z_AXIS].add(z)
+                            for t in c_z_t_p_tree[c][z]:
+                                self.axes[self._TIME_AXIS].add(t)
+                                for p in c_z_t_p_tree[c][z][t]:
+                                    self.axes[self._POSITION_AXIS].add(p)
+
+                else:
+                    # older version of NDTiffStorage, recover by brute force search through image metadata (slow)
+                    for c in c_z_t_p_tree.keys():
+                        for z in c_z_t_p_tree[c]:
+                            self.axes[self._Z_AXIS].add(z)
+                            for t in c_z_t_p_tree[c][z]:
+                                self.axes[self._TIME_AXIS].add(t)
+                                for p in c_z_t_p_tree[c][z][t]:
+                                    self.axes[self._POSITION_AXIS].add(p)
+                                    if c not in self.axes["channel"]:
+                                        metadata = self.res_levels[0].read_metadata(
+                                            channel_index=c, z_index=z, t_index=t, pos_index=p
+                                        )
+                                        current_axes = metadata["Axes"]
+                                        non_zpt_axes = parse_axes(current_axes, c)
+                                        # make a map of channel names to channel indices
+                                        self._channel_names[metadata["Channel"]] = non_zpt_axes[
+                                            self._CHANNEL_AXIS
+                                        ]
+                print("Parsing metadata complete\r", end="")
 
                 # remove axes with no variation
                 single_axes = [axis for axis in self.axes if len(self.axes[axis]) == 1]
                 for axis in single_axes:
                     del self.axes[axis]
 
+                # If the dataset uses XY stitching, map out the row and col indices
                 if "position" in self.axes and "GridPixelOverlapX" in self.summary_metadata:
                     # Make an n x 2 array with nan's where no positions actually exist
                     self.row_col_array = np.ones((len(self.axes["position"]), 2)) * np.nan
@@ -562,19 +614,18 @@ class Dataset:
             else:
                 self.res_levels[int(np.log2(int(res_dir.split("x")[1])))] = res_level
 
-        if self._remote_storage is None:
-            if "GridPixelOverlapX" in self.summary_metadata:
-                self._tile_width = (
-                    self.summary_metadata["Width"] - self.summary_metadata["GridPixelOverlapX"]
-                )
-                self._tile_height = (
-                    self.summary_metadata["Height"] - self.summary_metadata["GridPixelOverlapY"]
-                )
-            else:
-                self._tile_width = self.summary_metadata["Width"]
-                self._tile_height = self.summary_metadata["Height"]
+        if "GridPixelOverlapX" in self.summary_metadata:
+            self._tile_width = (
+                self.summary_metadata["Width"] - self.summary_metadata["GridPixelOverlapX"]
+            )
+            self._tile_height = (
+                self.summary_metadata["Height"] - self.summary_metadata["GridPixelOverlapY"]
+            )
+        else:
+            self._tile_width = self.summary_metadata["Width"]
+            self._tile_height = self.summary_metadata["Height"]
 
-        print("\rDataset opened")
+        print("\rDataset opened          ")
 
     def as_array(self, stitched=False, verbose=False):
         """
