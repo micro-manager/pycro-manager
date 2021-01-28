@@ -477,8 +477,6 @@ class Dataset:
                     self._CHANNEL_AXIS: set(),
                 }
 
-
-
                 # Need to map "super channels", which absorb all non channel/z/time/position axes to channel indices
                 # used by underlying storage
                 def parse_axes(current_axes, channel_index):
@@ -499,30 +497,37 @@ class Dataset:
                     ] = channel_index
                     return non_zpt_axes
 
-                print('Parsing metadata\r', end='')
-                if 'Axes_metedata' in os.listdir(dataset_path):
-                    #newer version with a metadata file where this is written explicitly
-                    with open(dataset_path + (os.sep if dataset_path[-1] != os.sep else '') +
-                              'Axes_metedata', "rb") as axes_metadata_file:
+                print("Parsing metadata\r", end="")
+                if "Axes_metedata" in os.listdir(dataset_path):
+                    # newer version with a metadata file where this is written explicitly
+                    with open(
+                        dataset_path
+                        + (os.sep if dataset_path[-1] != os.sep else "")
+                        + "Axes_metedata",
+                        "rb",
+                    ) as axes_metadata_file:
                         content = axes_metadata_file.read()
                     while len(content) > 0:
-                        flag, = struct.unpack("i", content[:4])
+                        (flag,) = struct.unpack("i", content[:4])
                         if flag == -1:
                             channel_index, length = struct.unpack("ii", content[4:12])
-                            channel_name = content[12:12 + length].decode('iso-8859-1')
-                            #contains channel name metadata
+                            channel_name = content[12 : 12 + length].decode("iso-8859-1")
+                            # contains channel name metadata
                             self._channel_names[channel_name] = channel_index
-                            content = content[12 + length:]
+                            content = content[12 + length :]
                         else:
                             channel_index = flag
-                            length, = struct.unpack("i", content[4:8])
-                            #contains super channel metadata
-                            other_axes = content[8:8 + length].decode('iso-8859-1')
-                            current_axes = {axis_pos.split('_')[0]: int(axis_pos.split('_')[1])
-                                            for axis_pos in other_axes.split('Axis_') if len(axis_pos) > 0}
+                            (length,) = struct.unpack("i", content[4:8])
+                            # contains super channel metadata
+                            other_axes = content[8 : 8 + length].decode("iso-8859-1")
+                            current_axes = {
+                                axis_pos.split("_")[0]: int(axis_pos.split("_")[1])
+                                for axis_pos in other_axes.split("Axis_")
+                                if len(axis_pos) > 0
+                            }
                             parse_axes(current_axes, channel_index)
-                            content = content[8 + length:]
-                    #add standard time position z axes as well
+                            content = content[8 + length :]
+                    # add standard time position z axes as well
                     for c in c_z_t_p_tree.keys():
                         for z in c_z_t_p_tree[c]:
                             self.axes[self._Z_AXIS].add(z)
@@ -532,7 +537,7 @@ class Dataset:
                                     self.axes[self._POSITION_AXIS].add(p)
 
                 else:
-                    #older version of NDTiffStorage, recover by brute force search through image metadata (slow)
+                    # older version of NDTiffStorage, recover by brute force search through image metadata (slow)
                     for c in c_z_t_p_tree.keys():
                         for z in c_z_t_p_tree[c]:
                             self.axes[self._Z_AXIS].add(z)
@@ -550,8 +555,7 @@ class Dataset:
                                         self._channel_names[metadata["Channel"]] = non_zpt_axes[
                                             self._CHANNEL_AXIS
                                         ]
-                print('Parsing metadata complete\r', end='')
-
+                print("Parsing metadata complete\r", end="")
 
                 # remove axes with no variation
                 single_axes = [axis for axis in self.axes if len(self.axes[axis]) == 1]
