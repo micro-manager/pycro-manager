@@ -24,8 +24,9 @@ public class RemoteAcquisition extends Acquisition
 
    private RemoteEventSource eventSource_;
 
-   public RemoteAcquisition(RemoteEventSource eventSource, RemoteViewerStorageAdapter sink) {
+   public RemoteAcquisition(RemoteEventSource eventSource, RemoteViewerStorageAdapter sink, boolean debug) {
       super(sink);
+      this.setDebugMode(debug);
       if (dataSink_ != null && ((RemoteViewerStorageAdapter)dataSink_).isXYTiled()) {
          initialize(((RemoteViewerStorageAdapter) dataSink_).getOverlapX(),
                  ((RemoteViewerStorageAdapter) dataSink_).getOverlapY());
@@ -49,7 +50,15 @@ public class RemoteAcquisition extends Acquisition
       super.abort();
       eventSource_.abort();
    }
-   
+
+   @Override
+   public boolean isFinished() {
+      if (dataSink_ != null) {
+         return dataSink_.isFinished();
+      }
+      return true;
+   }
+
    @Override
    public void addToSummaryMetadata(JSONObject summaryMetadata) {
 
@@ -59,6 +68,6 @@ public class RemoteAcquisition extends Acquisition
    public void addToImageMetadata(JSONObject tags) {
 
    }
-    
+
 
 }
