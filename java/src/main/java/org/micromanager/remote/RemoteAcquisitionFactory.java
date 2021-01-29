@@ -27,14 +27,15 @@ public class RemoteAcquisitionFactory {
    }
 
    public RemoteAcquisition createAcquisition(String dir, String name, boolean showViewer,
-                                              boolean xyTiled, int tileOverlapX, int tileOverlapY, int maxResLevel) {
+                                              boolean xyTiled, int tileOverlapX, int tileOverlapY, int maxResLevel,
+                                              boolean debug) {
       RemoteEventSource eventSource = new RemoteEventSource();
       RemoteViewerStorageAdapter adapter = null;
       if (name != null && dir != null) {
          adapter = new RemoteViewerStorageAdapter(showViewer, dir, name, xyTiled, tileOverlapX, tileOverlapY,
                  maxResLevel == -1 ? null : maxResLevel);
       }
-      return new RemoteAcquisition(eventSource, adapter);
+      return new RemoteAcquisition(eventSource, adapter, debug);
    }
 
    

@@ -5,17 +5,19 @@
  */
 package org.micromanager.remote;
 
-import java.awt.*;
 import java.util.HashMap;
 import java.util.Set;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.function.Consumer;
+
 import mmcorej.TaggedImage;
 import mmcorej.org.json.JSONObject;
 import org.micromanager.acqj.api.AcqEngMetadata;
 import org.micromanager.acqj.api.DataSink;
 import org.micromanager.acqj.api.Acquisition;
+import org.micromanager.acqj.internal.acqengj.Engine;
 import org.micromanager.multiresstorage.MultiResMultipageTiffStorage;
 import org.micromanager.multiresstorage.MultiresStorageAPI;
 import org.micromanager.multiresstorage.StorageAPI;
@@ -79,8 +81,13 @@ public class RemoteViewerStorageAdapter implements DataSourceInterface, DataSink
                  summaryMetadata, tileOverlapX_, tileOverlapY_,
                  AcqEngMetadata.getWidth(summaryMetadata),
                  AcqEngMetadata.getHeight(summaryMetadata),
-                 AcqEngMetadata.isRGB(summaryMetadata) ? 1 :AcqEngMetadata.getBytesPerPixel(summaryMetadata),
-                 xyTiled_, maxResLevel_, AcqEngMetadata.isRGB(summaryMetadata));
+                 AcqEngMetadata.isRGB(summaryMetadata) ? 1 : AcqEngMetadata.getBytesPerPixel(summaryMetadata),
+                 xyTiled_, maxResLevel_, AcqEngMetadata.isRGB(summaryMetadata),
+                 //Debug logging function without storage having to directly depend on core
+                 acq_.isDebugMode() ? ((Consumer<String>) s -> {
+                    Engine.getCore().logMessage(s);
+                 }) : null
+                 );
          name_ = storage_.getUniqueAcqName();
       }
 
@@ -102,7 +109,7 @@ public class RemoteViewerStorageAdapter implements DataSourceInterface, DataSink
               summaryMetadata, AcqEngMetadata.getPixelSizeUm(summaryMetadata), AcqEngMetadata.isRGB(summaryMetadata));
 
       viewer_.setWindowTitle(name_ + (acq_ != null
-              ? (acq_.isFinished()? " (Finished)" : " (Running)") : " (Loaded)"));
+              ? (acq_.areEventsFinished()? " (Finished)" : " (Running)") : " (Loaded)"));
       //add functions so display knows how to parse time and z infomration from image tags
       viewer_.setReadTimeMetadataFunction((JSONObject tags) -> AcqEngMetadata.getElapsedTimeMs(tags));
       viewer_.setReadZMetadataFunction((JSONObject tags) -> AcqEngMetadata.getZPositionUm(tags));
@@ -118,14 +125,14 @@ public class RemoteViewerStorageAdapter implements DataSourceInterface, DataSink
          storage_.putImage(taggedImg, axes);
       }
 
-      //Check if new viewer to init display settings
-      String channelName = AcqEngMetadata.getChannelName(taggedImg.tags);
-      boolean newChannel = !channelNames_.contains(channelName);
-      if (newChannel) {
-         channelNames_.add(channelName);
-      }
-
       if (showViewer_) {
+         //Check if new viewer to init display settings
+         String channelName = AcqEngMetadata.getChannelName(taggedImg.tags);
+         boolean newChannel = !channelNames_.contains(channelName);
+         if (newChannel) {
+            channelNames_.add(channelName);
+         }
+
          //put on different thread to not slow down acquisition
          displayCommunicationExecutor_.submit(new Runnable() {
             @Override
@@ -200,6 +207,14 @@ public class RemoteViewerStorageAdapter implements DataSourceInterface, DataSink
          viewer_.setWindowTitle(name_ + " (Finished)");
          displayCommunicationExecutor_.shutdown();
       }   
+   }
+
+   @Override
+   public boolean isFinished() {
+      if (storage_ != null) {
+         return storage_.isFinished();
+      }
+      return true;
    }
 
    @Override
