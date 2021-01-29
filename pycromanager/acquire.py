@@ -341,7 +341,7 @@ class Acquisition(object):
                 x_overlap,
                 y_overlap,
                 max_multi_res_index if max_multi_res_index is not None else -1,
-                debug
+                debug,
             )
         storage = self._remote_acq.get_data_sink()
         if storage is not None:
