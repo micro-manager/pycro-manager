@@ -1,5 +1,6 @@
 from pycromanager import Acquisition, multi_d_acquisition_events
 
+
 def event_edit_fn(event):
     row = event["row"]
     col = event["col"]
@@ -7,6 +8,7 @@ def event_edit_fn(event):
     # TODO: if you want to cancel, dont return anything
 
     return event
+
 
 def image_callback_fn(image, metadata):
     row = metadata["GridRowIndex"]
@@ -20,6 +22,7 @@ def image_callback_fn(image, metadata):
     # TODO: run callback function
 
     return image, metadata
+
 
 with Acquisition(
     "/Users/henrypinkard/tmp",
