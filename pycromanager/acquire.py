@@ -230,6 +230,7 @@ class Acquisition(object):
         magellan_acq_index=None,
         magellan_explore=False,
         process=False,
+        saving_queue_size=20,
         debug=False,
     ):
         """
@@ -292,6 +293,10 @@ class Acquisition(object):
             processors. This can be used to speed up CPU-bounded processing by eliminating bottlenecks
             caused by Python's Global Interpreter Lock, but also creates complications on Windows-based
             systems
+        saving_queue_size : int
+            The number of images to queue (in memory) while waiting to write to disk. Higher values should
+            in theory allow sequence acquisitions to go faster, but requires the RAM to hold images while
+            they are waiting to save
         debug : bool
             whether to print debug messages
         """
@@ -341,6 +346,7 @@ class Acquisition(object):
                 x_overlap,
                 y_overlap,
                 max_multi_res_index if max_multi_res_index is not None else -1,
+                saving_queue_size,
                 debug,
             )
         storage = self._remote_acq.get_data_sink()

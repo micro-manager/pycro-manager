@@ -14,7 +14,7 @@ dataset = Dataset(data_path)
 # img is a numpy array and md is a python dictionary
 img, img_metadata = dataset.read_image(l=10, read_metadata=True)
 
-dask_array = dataset.as_array(stitched=True)
+dask_array = dataset.as_array(stitched=True, verbose=True)
 
 with napari.gui_qt():
     v = napari.Viewer()

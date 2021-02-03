@@ -7,9 +7,7 @@ package org.micromanager.remote;
 
 import java.util.HashMap;
 import java.util.Set;
-import java.util.concurrent.CopyOnWriteArrayList;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
+import java.util.concurrent.*;
 import java.util.function.Consumer;
 
 import mmcorej.TaggedImage;
@@ -49,6 +47,7 @@ public class RemoteViewerStorageAdapter implements DataSourceInterface, DataSink
    private String dir_;
    private String name_;
    private Integer maxResLevel_;
+   private int savingQueueSize_;
 
    /**
     *
@@ -62,7 +61,7 @@ public class RemoteViewerStorageAdapter implements DataSourceInterface, DataSink
     */
    public RemoteViewerStorageAdapter(boolean showViewer,  String dataStorageLocation,
                                      String name, boolean xyTiled, int tileOverlapX, int tileOverlapY,
-                                     Integer maxResLevel) {
+                                     Integer maxResLevel, int savingQueueSize) {
       showViewer_ = showViewer;
       storeData_ = dataStorageLocation != null;
       xyTiled_ = xyTiled;
@@ -71,6 +70,7 @@ public class RemoteViewerStorageAdapter implements DataSourceInterface, DataSink
       tileOverlapX_ = tileOverlapX;
       tileOverlapY_ = tileOverlapY;
       maxResLevel_ = maxResLevel;
+      savingQueueSize_ = savingQueueSize;
    }
 
    public void initialize(Acquisition acq, JSONObject summaryMetadata) {
@@ -79,10 +79,9 @@ public class RemoteViewerStorageAdapter implements DataSourceInterface, DataSink
       if (storeData_) {
          storage_ = new MultiResMultipageTiffStorage(dir_, name_,
                  summaryMetadata, tileOverlapX_, tileOverlapY_,
-                 AcqEngMetadata.getWidth(summaryMetadata),
-                 AcqEngMetadata.getHeight(summaryMetadata),
-                 AcqEngMetadata.isRGB(summaryMetadata) ? 1 : AcqEngMetadata.getBytesPerPixel(summaryMetadata),
-                 xyTiled_, maxResLevel_, AcqEngMetadata.isRGB(summaryMetadata),
+                 (int) Engine.getCore().getImageWidth(),
+                 (int) Engine.getCore().getImageHeight(),
+                 xyTiled_, maxResLevel_, savingQueueSize_,
                  //Debug logging function without storage having to directly depend on core
                  acq_.isDebugMode() ? ((Consumer<String>) s -> {
                     Engine.getCore().logMessage(s);
@@ -117,13 +116,24 @@ public class RemoteViewerStorageAdapter implements DataSourceInterface, DataSink
 
    public void putImage(final TaggedImage taggedImg) {
       HashMap<String, Integer> axes = AcqEngMetadata.getAxes(taggedImg.tags);
+      final Future added;
       if (xyTiled_) {
-         int row = AcqEngMetadata.getGridRow(taggedImg.tags);
-         int col = AcqEngMetadata.getGridCol(taggedImg.tags);
-         storage_.putImage(taggedImg, axes, row, col);
+         //Convert event row/col to image row/col
+         axes.put(AcqEngMetadata.AXES_GRID_COL , AcqEngMetadata.getGridCol(taggedImg.tags));
+         axes.put(AcqEngMetadata.AXES_GRID_ROW , AcqEngMetadata.getGridRow(taggedImg.tags));
+
+         added = storage_.putImageMultiRes(taggedImg, axes,
+                 AcqEngMetadata.isRGB(taggedImg.tags),
+                 AcqEngMetadata.getHeight(taggedImg.tags),
+                 AcqEngMetadata.getWidth(taggedImg.tags));
       } else {
-         storage_.putImage(taggedImg, axes);
+         added = null;
+         storage_.putImage(taggedImg, axes,
+                 AcqEngMetadata.isRGB(taggedImg.tags),
+                 AcqEngMetadata.getHeight(taggedImg.tags),
+                 AcqEngMetadata.getWidth(taggedImg.tags));
       }
+
 
       if (showViewer_) {
          //Check if new viewer to init display settings
@@ -137,6 +147,14 @@ public class RemoteViewerStorageAdapter implements DataSourceInterface, DataSink
          displayCommunicationExecutor_.submit(new Runnable() {
             @Override
             public void run() {
+               try {
+                  if (added != null) {
+                     added.get(); //needed to make sure multi res data at higher resolutions kept up to date
+                  }
+               } catch (Exception e) {
+                  e.printStackTrace();
+                  throw new RuntimeException(e);
+               }
                if (newChannel) {
                   //Insert a preferred color. Make a copy just in case concurrency issues
                   String chName = AcqEngMetadata.getChannelName(taggedImg.tags);
@@ -147,7 +165,8 @@ public class RemoteViewerStorageAdapter implements DataSourceInterface, DataSink
                HashMap<String, Integer> axes = AcqEngMetadata.getAxes(taggedImg.tags);
                if (xyTiled_) {
                   //remove this so the viewer doesn't show it
-                  axes.remove(AcqEngMetadata.POSITION_AXIS);
+                  axes.remove(AcqEngMetadata.AXES_GRID_ROW);
+                  axes.remove(AcqEngMetadata.AXES_GRID_COL);
                }
                viewer_.newImageArrived(axes, AcqEngMetadata.getChannelName(taggedImg.tags));
             }
@@ -165,7 +184,7 @@ public class RemoteViewerStorageAdapter implements DataSourceInterface, DataSink
    public TaggedImage getImageForDisplay(HashMap<String, Integer> axes, int resolutionindex,
            double xOffset, double yOffset, int imageWidth, int imageHeight) {
 
-      return storage_.getStitchedImage(
+      return storage_.getDisplayImage(
               axes, resolutionindex, (int) xOffset, (int) yOffset,
               imageWidth, imageHeight);
    }
