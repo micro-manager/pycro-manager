@@ -43,7 +43,8 @@ Once opened, individual tiles can be accessed using :meth:`read_image<pycromanag
 
 .. code-block:: python
 
-	img, img_metadata = dataset.read_image(z=0, read_metadata=True)
+	img = dataset.read_image(z=0)
+	img_metadata dataset.read_metadata(z=0)
 
 	#img is a numpy array, img_metadata is a dict
 

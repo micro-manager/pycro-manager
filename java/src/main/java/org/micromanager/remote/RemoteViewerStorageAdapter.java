@@ -10,6 +10,7 @@ import java.util.Set;
 import java.util.concurrent.*;
 import java.util.function.Consumer;
 
+import mmcorej.MMCoreJ;
 import mmcorej.TaggedImage;
 import mmcorej.org.json.JSONObject;
 import org.micromanager.acqj.api.AcqEngMetadata;
@@ -152,7 +153,7 @@ public class RemoteViewerStorageAdapter implements DataSourceInterface, DataSink
                      added.get(); //needed to make sure multi res data at higher resolutions kept up to date
                   }
                } catch (Exception e) {
-                  e.printStackTrace();
+                  Engine.getCore().logMessage(e.getMessage());
                   throw new RuntimeException(e);
                }
                if (newChannel) {
