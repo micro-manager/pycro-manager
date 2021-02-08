@@ -157,6 +157,9 @@ class _ResolutionLevel:
             axes = json.loads(axes_str)
             data = data[4 + axes_length :]
             (filename_length,) = struct.unpack("I", data[:4])
+            if filename_length == 0:
+                warnings.warn("Index appears to not have been properly terminated (the dataset may still work)")
+                break
             index_entry["filename"] = data[4 : 4 + filename_length].decode("utf-8")
             data = data[4 + filename_length :]
             (
