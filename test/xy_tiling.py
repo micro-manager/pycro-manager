@@ -30,7 +30,7 @@ with Acquisition(
     tile_overlap=10,
     image_process_fn=image_callback_fn,
     pre_hardware_hook_fn=event_edit_fn,
-    debug=True
+    debug=True,
 ) as acq:
     # 10 pixel overlap between adjacent tiles
     acq.acquire({"row": 0, "col": 0, "Channel": {"group": "channel", "config": "DAPI"}})
