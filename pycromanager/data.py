@@ -156,15 +156,15 @@ class _ResolutionLevel:
                 100 * ( 1 - (len(data) - position) / len(data))), end="")
             index_entry = {}
             (axes_length,) = struct.unpack("I", data[position:position + 4])
-            axes_str = data[position + 4 : position + 4 + axes_length].decode("utf-8")
-            axes = json.loads(axes_str)
-            position += axes_length + 4
-            (filename_length,) = struct.unpack("I", data[position: position + 4])
-            if filename_length == 0:
+            if axes_length == 0:
                 warnings.warn(
                     "Index appears to not have been properly terminated (the dataset may still work)"
                 )
                 break
+            axes_str = data[position + 4 : position + 4 + axes_length].decode("utf-8")
+            axes = json.loads(axes_str)
+            position += axes_length + 4
+            (filename_length,) = struct.unpack("I", data[position: position + 4])
             index_entry["filename"] = data[position + 4 : position + 4 + filename_length].decode("utf-8")
             position += 4 + filename_length
             (
