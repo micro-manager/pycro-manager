@@ -231,6 +231,7 @@ class Acquisition(object):
         magellan_explore=False,
         process=False,
         saving_queue_size=20,
+        mem_map_index=False,
         debug=False,
     ):
         """
@@ -297,6 +298,8 @@ class Acquisition(object):
             The number of images to queue (in memory) while waiting to write to disk. Higher values should
             in theory allow sequence acquisitions to go faster, but requires the RAM to hold images while
             they are waiting to save
+        debug : mem_map_index
+            (Experimental) Use memory mapping for index file
         debug : bool
             whether to print debug messages
         """
@@ -347,6 +350,7 @@ class Acquisition(object):
                 y_overlap,
                 max_multi_res_index if max_multi_res_index is not None else -1,
                 saving_queue_size,
+                mem_map_index,
                 debug,
             )
         storage = self._remote_acq.get_data_sink()
