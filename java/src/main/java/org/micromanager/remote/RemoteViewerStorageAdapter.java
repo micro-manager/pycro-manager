@@ -10,7 +10,6 @@ import java.util.Set;
 import java.util.concurrent.*;
 import java.util.function.Consumer;
 
-import mmcorej.MMCoreJ;
 import mmcorej.TaggedImage;
 import mmcorej.org.json.JSONObject;
 import org.micromanager.acqj.api.AcqEngMetadata;
@@ -49,7 +48,7 @@ public class RemoteViewerStorageAdapter implements DataSourceInterface, DataSink
    private String name_;
    private Integer maxResLevel_;
    private int savingQueueSize_;
-   private boolean memMapIndex_;
+   private boolean omitIndex_;
 
    /**
     *
@@ -63,7 +62,7 @@ public class RemoteViewerStorageAdapter implements DataSourceInterface, DataSink
     */
    public RemoteViewerStorageAdapter(boolean showViewer,  String dataStorageLocation,
                                      String name, boolean xyTiled, int tileOverlapX, int tileOverlapY,
-                                     Integer maxResLevel, int savingQueueSize, boolean memMapIndex) {
+                                     Integer maxResLevel, int savingQueueSize, boolean omitIndex) {
       showViewer_ = showViewer;
       storeData_ = dataStorageLocation != null;
       xyTiled_ = xyTiled;
@@ -73,7 +72,7 @@ public class RemoteViewerStorageAdapter implements DataSourceInterface, DataSink
       tileOverlapY_ = tileOverlapY;
       maxResLevel_ = maxResLevel;
       savingQueueSize_ = savingQueueSize;
-      memMapIndex_ = memMapIndex;
+      omitIndex_ = omitIndex;
    }
 
    public void initialize(Acquisition acq, JSONObject summaryMetadata) {
@@ -84,7 +83,7 @@ public class RemoteViewerStorageAdapter implements DataSourceInterface, DataSink
                  summaryMetadata, tileOverlapX_, tileOverlapY_,
                  (int) Engine.getCore().getImageWidth(),
                  (int) Engine.getCore().getImageHeight(),
-                 xyTiled_, maxResLevel_, savingQueueSize_, memMapIndex_,
+                 xyTiled_, maxResLevel_, savingQueueSize_, omitIndex_,
                  //Debug logging function without storage having to directly depend on core
                  acq_.isDebugMode() ? ((Consumer<String>) s -> {
                     Engine.getCore().logMessage(s);
