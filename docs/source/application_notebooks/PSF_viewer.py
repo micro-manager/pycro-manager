@@ -1,3 +1,40 @@
+"""
+Streaming data from micro-manager to napari: PSF Viewer
+
+developed by Wiebke Jahr, Danzl lab, IST Austria, (c) 2020
+https://danzl-lab.pages.ist.ac.at/
+latest version on github: https://github.com/wiebkejahr/pycro-manager  
+
+This notebook shows how to acquire data using `micromanager`, then use `pycro-manager` 
+to stream it to `napari`.  
+Buttons to start and stop data acquisition are added to the `napari` window using the 
+`magic-gui` package. In this example, the data displayed in `napari` is resliced to 
+get a live PSF viewer. However, reslicing is only a small example for the data analysis 
+possible using `napari`.  
+
+Here are two videos showing the PSF viewer in action:  
+https://seafile.ist.ac.at/d/57e6f950b4af4fbaa174/  
+- PSFViewer-ExternalStageControl_1080p.mp4: z-stage controlled via `micromanager`  
+- PSFViewer-InternalStageControl_1080p.mp4: z-stage controlled via external DAQ control  
+
+Since the amount of data that can be transferred between `micromanager` and `pycro-manager` 
+is currently limited to 100 MB/s, it's important that no more data is transferred to ensure 
+smooth execution of the software.  
+For both movies, camera acquisition parameters in `micromanager` were set to:  
+- 11-bit depth,  
+- chip-size cropped to the central 512x512 px.  
+- external trigger start (trigger comming at 45 Hz)  
+- exposure time set to 0.01 ms  
+
+Tested on:
+- macOS Catalina using `micromanager` `2.0.0-gamma1-20201206`  
+- Windows 10 using `2.0.0-gamma1-20201208`  
+
+# required packages: 
+# has been tested with the indicated package versions, will certainly break for magicgui > v0.2.0
+#!pip install queue pycromanager=0.7.6 napari=0.3.6 pyqt5=5.15.1 magicgui=0.1.6 yappi=1.3.2
+"""
+
 import time
 import numpy as np
 import queue
