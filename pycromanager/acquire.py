@@ -232,6 +232,8 @@ class Acquisition(object):
         process=False,
         saving_queue_size=20,
         omit_index=False,
+            ifd_off=False,
+            metadata_off=False,
         debug=False,
     ):
         """
@@ -351,6 +353,8 @@ class Acquisition(object):
                 max_multi_res_index if max_multi_res_index is not None else -1,
                 saving_queue_size,
                 omit_index,
+                ifd_off,
+                metadata_off,
                 debug,
             )
         storage = self._remote_acq.get_data_sink()
