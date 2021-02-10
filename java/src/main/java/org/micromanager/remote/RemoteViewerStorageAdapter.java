@@ -62,8 +62,7 @@ public class RemoteViewerStorageAdapter implements DataSourceInterface, DataSink
     */
    public RemoteViewerStorageAdapter(boolean showViewer,  String dataStorageLocation,
                                      String name, boolean xyTiled, int tileOverlapX, int tileOverlapY,
-                                     Integer maxResLevel, int savingQueueSize,
-                                     boolean omitIndex, boolean metadataOff, boolean ifdOff) {
+                                     Integer maxResLevel, int savingQueueSize) {
       showViewer_ = showViewer;
       storeData_ = dataStorageLocation != null;
       xyTiled_ = xyTiled;
@@ -73,9 +72,6 @@ public class RemoteViewerStorageAdapter implements DataSourceInterface, DataSink
       tileOverlapY_ = tileOverlapY;
       maxResLevel_ = maxResLevel;
       savingQueueSize_ = savingQueueSize;
-      omitIndex_ = omitIndex;
-      ifdOff_ = ifdOff;
-      metadataOff_ = metadataOff;
    }
 
    public void initialize(Acquisition acq, JSONObject summaryMetadata) {
@@ -86,7 +82,7 @@ public class RemoteViewerStorageAdapter implements DataSourceInterface, DataSink
                  summaryMetadata, tileOverlapX_, tileOverlapY_,
                  (int) Engine.getCore().getImageWidth(),
                  (int) Engine.getCore().getImageHeight(),
-                 xyTiled_, maxResLevel_, savingQueueSize_, omitIndex_, metadataOff_, ifdOff_,
+                 xyTiled_, maxResLevel_, savingQueueSize_,
                  //Debug logging function without storage having to directly depend on core
                  acq_.isDebugMode() ? ((Consumer<String>) s -> {
                     Engine.getCore().logMessage(s);
