@@ -232,6 +232,7 @@ class Acquisition(object):
         process=False,
         saving_queue_size=20,
         debug=False,
+        core_log_debug=False,
     ):
         """
         Parameters
@@ -299,6 +300,8 @@ class Acquisition(object):
             they are waiting to save
         debug : bool
             whether to print debug messages
+        core_log_debug : bool
+            Print debug messages on java side in the micro-manager core log
         """
         self.bridge = Bridge(debug=debug)
         self._debug = debug
@@ -347,7 +350,7 @@ class Acquisition(object):
                 y_overlap,
                 max_multi_res_index if max_multi_res_index is not None else -1,
                 saving_queue_size,
-                debug,
+                core_log_debug,
             )
         storage = self._remote_acq.get_data_sink()
         if storage is not None:
