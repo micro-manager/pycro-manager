@@ -58,7 +58,7 @@ The third argument, ``event_queue``, can be used for submitting additional acqui
 		return event
 
 
-If additional events will be submitted here, the typical syntax of ``with Acquisition..`` cannot be used because it will automatically close the acquisition too soon. Instead the acquisition should be created as:
+If additional events will be submitted here, the typical syntax of ``with Acquisition...`` cannot be used because it will automatically close the acquisition too soon. Instead the acquisition should be created as:
 
 .. code-block:: python
 
@@ -77,4 +77,13 @@ When it is finished, it can be closed and cleaned up by passing an ``None`` to t
 		else:
 			return event
 
+
+Applications
+====================================
 	
+Acquisition hooks can be used to enable advanced applications, such as: 
+
+-  :doc:`application_notebooks/Single_shot_autofocus_pycromanager`
+-  :doc:`application_notebooks/external_master_tutorial`
+-  :doc:`application_notebooks/Learned_adaptive_multiphoton_illumination`
+

@@ -11,31 +11,22 @@ import dask.array as da
 import dask
 import warnings
 from pycromanager.core import Bridge
+import struct
+from pycromanager.legacy_data import Legacy_NDTiff_Dataset
 
 
 class _MultipageTiffReader:
-    # Class corresponsing to a single multipage tiff file in a Micro-Magellan dataset. Pass the full path of the TIFF to
-    # instantiate and call close() when finished
-    # TIFF constants
-    WIDTH = 256
-    HEIGHT = 257
-    BITS_PER_SAMPLE = 258
-    COMPRESSION = 259
-    PHOTOMETRIC_INTERPRETATION = 262
-    IMAGE_DESCRIPTION = 270
-    STRIP_OFFSETS = 273
-    SAMPLES_PER_PIXEL = 277
-    ROWS_PER_STRIP = 278
-    STRIP_BYTE_COUNTS = 279
-    X_RESOLUTION = 282
-    Y_RESOLUTION = 283
-    RESOLUTION_UNIT = 296
-    MM_METADATA = 51123
+    """
+    Class corresponsing to a single multipage tiff file in a Micro-Magellan dataset.
+    Pass the full path of the TIFF to instantiate and call close() when finished
+    """
 
     # file format constants
-    INDEX_MAP_OFFSET_HEADER = 54773648
-    INDEX_MAP_HEADER = 3453623
     SUMMARY_MD_HEADER = 2355492
+    EIGHT_BIT = 0
+    SIXTEEN_BIT = 1
+    EIGHT_BIT_RGB = 2
+    UNCOMPRESSED = 0
 
     def __init__(self, tiff_path):
         self.tiff_path = tiff_path
@@ -44,19 +35,9 @@ class _MultipageTiffReader:
             self.mmap_file = mmap.mmap(self.file.fileno(), 0, access=mmap.ACCESS_READ)
         else:
             self.mmap_file = mmap.mmap(self.file.fileno(), 0, prot=mmap.PROT_READ)
-        self.summary_md, self.index_tree, self.first_ifd_offset = self._read_header()
+        self.summary_md, self.first_ifd_offset = self._read_header()
         self.mmap_file.close()
         self.np_memmap = np.memmap(self.file, dtype=np.uint8, mode="r")
-
-        # get important metadata fields
-        self.rgb = "RGB" in self.summary_md["PixelType"]
-        self.width = self.summary_md["Width"]
-        self.height = self.summary_md["Height"]
-        self.dtype = (
-            np.uint8
-            if self.summary_md["PixelType"] == "GRAY8" or self.summary_md["PixelType"] == "RGB32"
-            else np.uint16
-        )
 
     def close(self):
         """ """
@@ -87,68 +68,15 @@ class _MultipageTiffReader:
             raise Exception("Tiff magic 42 missing")
         first_ifd_offset = np.frombuffer(self.mmap_file[4:8], dtype=np.uint32)[0]
 
-        # read custom stuff: summary md, index map
-        index_map_offset_header, index_map_offset = np.frombuffer(
-            self.mmap_file[8:16], dtype=np.uint32
-        )
-        if index_map_offset_header != self.INDEX_MAP_OFFSET_HEADER:
-            raise Exception("Index map offset header wrong")
+        # read custom stuff: header, summary md
         # int.from_bytes(self.mmap_file[24:28], sys.byteorder) # should be equal to 483729 starting in version 1
-        self._major_version = int.from_bytes(self.mmap_file[28:32], sys.byteorder)
+        self._major_version = int.from_bytes(self.mmap_file[12:16], sys.byteorder)
 
-        summary_md_header, summary_md_length = np.frombuffer(self.mmap_file[32:40], dtype=np.uint32)
+        summary_md_header, summary_md_length = np.frombuffer(self.mmap_file[16:24], dtype=np.uint32)
         if summary_md_header != self.SUMMARY_MD_HEADER:
-            raise Exception("Index map offset header wrong")
-        summary_md = json.loads(self.mmap_file[40 : 40 + summary_md_length])
-        index_map_header, index_map_length = np.frombuffer(
-            self.mmap_file[40 + summary_md_length : 48 + summary_md_length], dtype=np.uint32
-        )
-        if index_map_header != self.INDEX_MAP_HEADER:
-            raise Exception("Index map header incorrect")
-        # get index map as nested list of ints
-        index_map_raw = np.reshape(
-            np.frombuffer(
-                self.mmap_file[
-                    48 + summary_md_length : 48 + summary_md_length + index_map_length * 20
-                ],
-                dtype=np.int32,
-            ),
-            [-1, 5],
-        )
-        index_map_keys = index_map_raw[:, :4].view(np.int32)
-        index_map_byte_offsets = index_map_raw[:, 4].view(np.uint32)
-        # for super fast reading of pixels: skip IFDs alltogether
-        entries_per_ifd = 13
-        num_entries = np.ones(index_map_byte_offsets.shape) * entries_per_ifd
-        # num_entries[0] += 4 #first one has 4 extra IFDs----Not anymore
-        index_map_pixel_byte_offsets = 2 + num_entries * 12 + 4 + index_map_byte_offsets
-        # unpack into a tree (i.e. nested dicts)
-        index_tree = {}
-        c_indices, z_indices, t_indices, p_indices = [
-            np.unique(index_map_keys[:, i]) for i in range(4)
-        ]
-        for c_index in c_indices:
-            for z_index in z_indices:
-                for t_index in t_indices:
-                    for p_index in p_indices:
-                        entry_index = np.flatnonzero(
-                            (index_map_keys == np.array([c_index, z_index, t_index, p_index])).all(
-                                -1
-                            )
-                        )
-                        if entry_index.size != 0:
-                            # fill out tree as needed
-                            if c_index not in index_tree.keys():
-                                index_tree[c_index] = {}
-                            if z_index not in index_tree[c_index].keys():
-                                index_tree[c_index][z_index] = {}
-                            if t_index not in index_tree[c_index][z_index].keys():
-                                index_tree[c_index][z_index][t_index] = {}
-                            index_tree[c_index][z_index][t_index][p_index] = (
-                                int(index_map_byte_offsets[entry_index[-1]]),
-                                int(index_map_pixel_byte_offsets[entry_index[-1]]),
-                            )
-        return summary_md, index_tree, first_ifd_offset
+            raise Exception("Summary metadata header wrong")
+        summary_md = json.loads(self.mmap_file[24 : 24 + summary_md_length])
+        return summary_md, first_ifd_offset
 
     def _read(self, start, end):
         """
@@ -156,112 +84,37 @@ class _MultipageTiffReader:
         """
         return self.np_memmap[int(start) : int(end)].tobytes()
 
-    def _read_ifd(self, byte_offset):
-        """
-        Read image file directory. First two bytes are number of entries (n), next n*12 bytes are individual IFDs, final 4
-        bytes are next IFD offset location
-
-        Parameters
-        ----------
-        byte_offset :
-
-        Returns
-        -------
-        dict :
-            dictionary with fields needed for reading
-
-        """
-        num_entries = np.frombuffer(self._read(byte_offset, byte_offset + 2), dtype=np.uint16)[0]
-        info = {}
-        for i in range(num_entries):
-            tag, type = np.frombuffer(
-                self._read(byte_offset + 2 + i * 12, byte_offset + 2 + i * 12 + 4), dtype=np.uint16
+    def read_metadata(self, index):
+        return json.loads(
+            self._read(
+                index["metadata_offset"], index["metadata_offset"] + index["metadata_length"]
             )
-            count = np.frombuffer(
-                self._read(byte_offset + 2 + i * 12 + 4, byte_offset + 2 + i * 12 + 8),
-                dtype=np.uint32,
-            )[0]
-            if type == 3 and count == 1:
-                value = np.frombuffer(
-                    self._read(byte_offset + 2 + i * 12 + 8, byte_offset + 2 + i * 12 + 10),
-                    dtype=np.uint16,
-                )[0]
-            else:
-                value = np.frombuffer(
-                    self._read(byte_offset + 2 + i * 12 + 8, byte_offset + 2 + i * 12 + 12),
-                    dtype=np.uint32,
-                )[0]
-            # save important tags for reading images
-            if tag == self.MM_METADATA:
-                info["md_offset"] = value
-                info["md_length"] = count
-            elif tag == self.STRIP_OFFSETS:
-                info["pixel_offset"] = value
-            elif tag == self.STRIP_BYTE_COUNTS:
-                info["bytes_per_image"] = value
-        info["next_ifd_offset"] = np.frombuffer(
-            self._read(byte_offset + num_entries * 12 + 2, byte_offset + num_entries * 12 + 6),
-            dtype=np.uint32,
-        )[0]
-        if "bytes_per_image" not in info or "pixel_offset" not in info:
-            raise Exception("Missing tags in IFD entry, file may be corrupted")
-        return info
-
-    # def _read_pixels(self, offset, length, memmapped):
-    #     if self.width * self.height * 2 == length:
-    #         pixel_type = np.uint16
-    #     elif self.width * self.height == length:
-    #         pixel_type = np.uint8
-    #     else:
-    #         raise Exception('Unknown pixel type')
-    #
-    #     if memmapped:
-    #         return np.reshape(self.np_memmap[offset:offset + self.height * self.width * (2 if \
-    #                             pixel_type == np.uint16 else 1)].view(pixel_type), (self.height, self.width))
-    #     else:
-    #         pixels = np.frombuffer(self._read(offset, offset + length), dtype=pixel_type)
-    #         return np.reshape(pixels, [self.height, self.width])
-
-    def read_metadata(self, channel_index, z_index, t_index, pos_index):
-        ifd_offset, pixels_offset = self.index_tree[channel_index][z_index][t_index][pos_index]
-        ifd_data = self._read_ifd(ifd_offset)
-        metadata = json.loads(
-            self._read(ifd_data["md_offset"], ifd_data["md_offset"] + ifd_data["md_length"])
         )
-        return metadata
 
-    def read_image(
-        self, channel_index, z_index, t_index, pos_index, read_metadata=False, memmapped=False
-    ):
-        ifd_offset, pixels_offset = self.index_tree[channel_index][z_index][t_index][pos_index]
+    def read_image(self, index, memmapped=True):
+        if index["pixel_type"] == self.EIGHT_BIT_RGB:
+            bytes_per_pixel = 3
+            dtype = np.uint8
+        elif index["pixel_type"] == self.EIGHT_BIT:
+            bytes_per_pixel = 1
+            dtype = np.uint8
+        elif index["pixel_type"] == self.SIXTEEN_BIT:
+            bytes_per_pixel = 2
+            dtype = np.uint16
+        else:
+            raise Exception("unrecognized pixel type")
+        width = index["image_width"]
+        height = index["image_height"]
+
         image = np.reshape(
             self.np_memmap[
-                pixels_offset : pixels_offset
-                + self.width
-                * self.height
-                * (3 if self.rgb else 1)
-                * (2 if self.dtype == np.uint16 else 1)
-            ].view(self.dtype),
-            [self.height, self.width, 3] if self.rgb else [self.height, self.width],
+                index["pixel_offset"] : index["pixel_offset"] + width * height * bytes_per_pixel
+            ].view(dtype),
+            [height, width, 3] if bytes_per_pixel == 3 else [height, width],
         )
         if not memmapped:
             image = np.copy(image)
-        # image = self._read_pixels(ifd_data['pixel_offset'], ifd_data['bytes_per_image'], memmapped)
-        if read_metadata:
-            ifd_data = self._read_ifd(ifd_offset)
-            metadata = json.loads(
-                self._read(ifd_data["md_offset"], ifd_data["md_offset"] + ifd_data["md_length"])
-            )
-            return image, metadata
         return image
-
-    def check_ifd(self, channel_index, z_index, t_index, pos_index):
-        ifd_offset, pixels_offset = self.index_tree[channel_index][z_index][t_index][pos_index]
-        try:
-            ifd_data = self._read_ifd(ifd_offset)
-            return True
-        except:
-            return False
 
 
 class _ResolutionLevel:
@@ -276,53 +129,69 @@ class _ResolutionLevel:
         max_count : int
 
         """
+        self.index = self._read_index(path)
         tiff_names = [
             os.path.join(path, tiff) for tiff in os.listdir(path) if tiff.endswith(".tif")
         ]
-        self.reader_list = []
-        self.reader_tree = {}
+        self._readers_by_filename = {}
         # populate list of readers and tree mapping indices to readers
         for tiff in tiff_names:
-            print("\rOpening file {} of {}".format(count + 1, max_count), end="")
+            print("\rOpening file {} of {}...".format(count + 1, max_count), end="")
             count += 1
-            reader = _MultipageTiffReader(tiff)
-            self.reader_list.append(reader)
-            it = reader.index_tree
-            for c in it.keys():
-                if c not in self.reader_tree.keys():
-                    self.reader_tree[c] = {}
-                for z in it[c].keys():
-                    if z not in self.reader_tree[c].keys():
-                        self.reader_tree[c][z] = {}
-                    for t in it[c][z].keys():
-                        if t not in self.reader_tree[c][z].keys():
-                            self.reader_tree[c][z][t] = {}
-                        for p in it[c][z][t].keys():
-                            self.reader_tree[c][z][t][p] = reader
+            self._readers_by_filename[tiff.split(os.sep)[-1]] = _MultipageTiffReader(tiff)
+        self.summary_metadata = list(self._readers_by_filename.values())[0].summary_md
+
+    def has_image(self, axes):
+        key = frozenset(axes.items())
+        return key in self.index
+
+    def _read_index(self, path):
+        print("\rReading index...          ", end="")
+        with open(path + os.sep + "NDTiff.index", "rb") as index_file:
+            data = index_file.read()
+        entries = {}
+        position = 0
+        while position < len(data):
+            print("\rReading index... {:.1f}%       ".format(
+                100 * ( 1 - (len(data) - position) / len(data))), end="")
+            index_entry = {}
+            (axes_length,) = struct.unpack("I", data[position:position + 4])
+            if axes_length == 0:
+                warnings.warn(
+                    "Index appears to not have been properly terminated (the dataset may still work)"
+                )
+                break
+            axes_str = data[position + 4 : position + 4 + axes_length].decode("utf-8")
+            axes = json.loads(axes_str)
+            position += axes_length + 4
+            (filename_length,) = struct.unpack("I", data[position: position + 4])
+            index_entry["filename"] = data[position + 4 : position + 4 + filename_length].decode("utf-8")
+            position += 4 + filename_length
+            (
+                index_entry["pixel_offset"],
+                index_entry["image_width"],
+                index_entry["image_height"],
+                index_entry["pixel_type"],
+                index_entry["pixel_compression"],
+                index_entry["metadata_offset"],
+                index_entry["metadata_length"],
+                index_entry["metadata_compression"],
+            ) = struct.unpack("IIIIIIII", data[position: position + 32])
+            position += 32
+            entries[frozenset(axes.items())] = index_entry
+        print("\rFinshed reading index          ", end="")
+        return entries
 
     def read_image(
         self,
-        channel_index=0,
-        z_index=0,
-        t_index=0,
-        pos_index=0,
-        read_metadata=False,
-        memmapped=False,
+        axes,
+        memmapped=True,
     ):
         """
 
         Parameters
         ----------
-        channel_index : int
-             (Default value = 0)
-        z_index : int
-             (Default value = 0)
-        t_index : int
-             (Default value = 0)
-        pos_index : int
-             (Default value = 0)
-        read_metadata : bool
-             (Default value = False)
+        axes : dict
         memmapped : bool
              (Default value = False)
 
@@ -331,56 +200,33 @@ class _ResolutionLevel:
         image :
         """
         # determine which reader contains the image
-        reader = self.reader_tree[channel_index][z_index][t_index][pos_index]
-        return reader.read_image(
-            channel_index, z_index, t_index, pos_index, read_metadata, memmapped
-        )
+        key = frozenset(axes.items())
+        if key not in self.index:
+            raise Exception("image with keys {} not present in data set".format(key))
+        index = self.index[key]
+        reader = self._readers_by_filename[index["filename"]]
+        return reader.read_image(index, memmapped)
 
-    def read_metadata(self, channel_index=0, z_index=0, t_index=0, pos_index=0):
+    def read_metadata(self, axes):
         """
 
         Parameters
         ----------
-        channel_index : int
-             (Default value = 0)
-        z_index : int
-             (Default value = 0)
-        t_index : int
-             (Default value = 0)
-        pos_index : int
-             (Default value = 0)
+        axes : dict
 
         Returns
         -------
         image_metadata
         """
-        # determine which reader contains the image
-        reader = self.reader_tree[channel_index][z_index][t_index][pos_index]
-        return reader.read_metadata(channel_index, z_index, t_index, pos_index)
-
-    def check_ifd(self, channel_index=0, z_index=0, t_index=0, pos_index=0):
-        """
-
-        Parameters
-        ----------
-        channel_index : int
-             (Default value = 0)
-        z_index : int
-             (Default value = 0)
-        t_index : int
-             (Default value = 0)
-        pos_index : int
-             (Default value = 0)
-
-        Returns
-        -------
-        """
-        # determine which reader contains the image
-        reader = self.reader_tree[channel_index][z_index][t_index][pos_index]
-        return reader.check_ifd(channel_index, z_index, t_index, pos_index)
+        key = frozenset(axes.items())
+        if key not in self.index:
+            raise Exception("image with keys {} not present in data set".format(key))
+        index = self.index[key]
+        reader = self._readers_by_filename[index["filename"]]
+        return reader.read_metadata(index)
 
     def close(self):
-        for reader in self.reader_list:
+        for reader in self._readers_by_filename.values():
             reader.close()
 
 
@@ -388,9 +234,32 @@ class Dataset:
     """Class that opens a single NDTiffStorage dataset"""
 
     _POSITION_AXIS = "position"
+    _ROW_AXIS = "roq"
+    _COLUMN_AXIS = "column"
     _Z_AXIS = "z"
     _TIME_AXIS = "time"
     _CHANNEL_AXIS = "channel"
+
+    def __new__(cls, dataset_path=None, full_res_only=True, remote_storage=None):
+        if dataset_path is None:
+            return super(Dataset, cls).__new__(Dataset)
+        # Search for Full resolution dir, check for index
+        res_dirs = [
+            dI for dI in os.listdir(dataset_path) if os.path.isdir(os.path.join(dataset_path, dI))
+        ]
+        if "Full resolution" not in res_dirs:
+            raise Exception(
+                "Couldn't find full resolution directory. Is this the correct path to a dataset?"
+            )
+        fullres_path = (
+            dataset_path + ("" if dataset_path[-1] == os.sep else os.sep) + "Full resolution"
+        )
+        if "NDTiff.index" in os.listdir(fullres_path):
+            return super(Dataset, cls).__new__(Dataset)
+        else:
+            obj = Legacy_NDTiff_Dataset.__new__(Legacy_NDTiff_Dataset)
+            obj.__init__(dataset_path, full_res_only, remote_storage)
+            return obj
 
     def __init__(self, dataset_path=None, full_res_only=True, remote_storage=None):
         self._tile_width = None
@@ -429,26 +298,10 @@ class Dataset:
             res_dir_path = os.path.join(dataset_path, res_dir)
             res_level = _ResolutionLevel(res_dir_path, count, num_tiffs)
             if res_dir == "Full resolution":
-                # TODO: might want to move this within the resolution level class to facilitate loading pyramids
                 self.res_levels[0] = res_level
                 # get summary metadata and index tree from full resolution image
-                self.summary_metadata = res_level.reader_list[0].summary_md
-                self.rgb = res_level.reader_list[0].rgb
-                self._channel_names = {}  # read them from image metadata
-                self._extra_axes_to_storage_channel = {}
+                self.summary_metadata = res_level.summary_metadata
 
-                # store some fields explicitly for easy access
-                self.dtype = (
-                    np.uint16 if self.summary_metadata["PixelType"] == "GRAY16" else np.uint8
-                )
-                self.pixel_size_xy_um = self.summary_metadata["PixelSize_um"]
-                self.pixel_size_z_um = (
-                    self.summary_metadata["z-step_um"]
-                    if "z-step_um" in self.summary_metadata
-                    else None
-                )
-                self.image_width = res_level.reader_list[0].width
-                self.image_height = res_level.reader_list[0].height
                 self.overlap = (
                     np.array(
                         [
@@ -459,104 +312,68 @@ class Dataset:
                     if "GridPixelOverlapY" in self.summary_metadata
                     else None
                 )
-                c_z_t_p_tree = res_level.reader_tree
-                # the c here refers to super channels, encompassing all non-tzp axes in addition to channels
-                # map of axis names to values where data exists
-                self.axes = {
-                    self._Z_AXIS: set(),
-                    self._TIME_AXIS: set(),
-                    self._POSITION_AXIS: set(),
-                    self._CHANNEL_AXIS: set(),
-                }
-                for c in c_z_t_p_tree.keys():
-                    for z in c_z_t_p_tree[c]:
-                        self.axes[self._Z_AXIS].add(z)
-                        for t in c_z_t_p_tree[c][z]:
-                            self.axes[self._TIME_AXIS].add(t)
-                            for p in c_z_t_p_tree[c][z][t]:
-                                self.axes[self._POSITION_AXIS].add(p)
-                                if c not in self.axes["channel"]:
-                                    metadata = self.res_levels[0].read_metadata(
-                                        channel_index=c, z_index=z, t_index=t, pos_index=p
-                                    )
-                                    current_axes = metadata["Axes"]
-                                    non_zpt_axes = {}
-                                    for axis in current_axes:
-                                        if axis not in [
-                                            self._Z_AXIS,
-                                            self._TIME_AXIS,
-                                            self._POSITION_AXIS,
-                                        ]:
-                                            if axis not in self.axes:
-                                                self.axes[axis] = set()
-                                            self.axes[axis].add(current_axes[axis])
-                                            non_zpt_axes[axis] = current_axes[axis]
 
-                                    self._channel_names[metadata["Channel"]] = non_zpt_axes[
-                                        self._CHANNEL_AXIS
-                                    ]
-                                    self._extra_axes_to_storage_channel[
-                                        frozenset(non_zpt_axes.items())
-                                    ] = c
+                self.axes = {}
+                for axes_combo in res_level.index.keys():
+                    for axis, position in axes_combo:
+                        if axis not in self.axes.keys():
+                            self.axes[axis] = set()
+                        self.axes[axis].add(position)
+
+                # figure out the mapping of channel name to position by reading image metadata
+                print("\rReading channel names...", end="")
+                if self._CHANNEL_AXIS in self.axes.keys():
+                    self._channel_names = {}
+                    for key in res_level.index.keys():
+                        axes = {axis: position for axis, position in key}
+                        if (
+                            self._CHANNEL_AXIS in axes.keys()
+                            and axes[self._CHANNEL_AXIS] not in self._channel_names.values()
+                        ):
+                            channel_name = res_level.read_metadata(axes)["Channel"]
+                            self._channel_names[channel_name] = axes[self._CHANNEL_AXIS]
+                        if len(self._channel_names.values()) == len(self.axes[self._CHANNEL_AXIS]):
+                            break
+                print("\rFinished reading channel names", end="")
 
                 # remove axes with no variation
                 single_axes = [axis for axis in self.axes if len(self.axes[axis]) == 1]
                 for axis in single_axes:
                     del self.axes[axis]
 
-                if "position" in self.axes and "GridPixelOverlapX" in self.summary_metadata:
+                # If the dataset uses XY stitching, map out the row and col indices
+                if (
+                    "TiledImageStorage" in self.summary_metadata
+                    and self.summary_metadata["TiledImageStorage"]
+                ):
                     # Make an n x 2 array with nan's where no positions actually exist
-                    self.row_col_array = np.ones((len(self.axes["position"]), 2)) * np.nan
-                    self.position_centers = np.ones((len(self.axes["position"]), 2)) * np.nan
-                    row_cols = []
-                    for c_index in c_z_t_p_tree.keys():
-                        for z_index in c_z_t_p_tree[c_index].keys():
-                            for t_index in c_z_t_p_tree[c_index][z_index].keys():
-                                p_indices = c_z_t_p_tree[c_index][z_index][t_index].keys()
-                                for p_index in p_indices:
-                                    # in case position index doesn't start at 0, pos_index_index is index
-                                    # into self.axes['position']
-                                    pos_index_index = list(self.axes["position"]).index(p_index)
-                                    if not np.isnan(self.row_col_array[pos_index_index, 0]):
-                                        # already figured this one out
-                                        continue
-                                    if not res_level.check_ifd(
-                                        channel_index=c_index,
-                                        z_index=z_index,
-                                        t_index=t_index,
-                                        pos_index=p_index,
-                                    ):
-                                        row_cols.append(
-                                            np.array([np.nan, np.nan])
-                                        )  # this position is corrupted
-                                        warnings.warn(
-                                            "Corrupted image p: {} c: {} t: {} z: {}".format(
-                                                p_index, c_index, t_index, z_index
-                                            )
-                                        )
-                                        row_cols.append(np.array([np.nan, np.nan]))
-                                    else:
-                                        md = res_level.read_metadata(
-                                            channel_index=c_index,
-                                            pos_index=p_index,
-                                            t_index=t_index,
-                                            z_index=z_index,
-                                        )
-                                        self.row_col_array[pos_index_index] = np.array(
-                                            [md["GridRowIndex"], md["GridColumnIndex"]]
-                                        )
-                                        self.position_centers[pos_index_index] = np.array(
-                                            [
-                                                md["XPosition_um_Intended"],
-                                                md["YPosition_um_Intended"],
-                                            ]
-                                        )
+                    pass
 
             else:
                 self.res_levels[int(np.log2(int(res_dir.split("x")[1])))] = res_level
-        print("\rDataset opened")
 
-    def as_array(self, stitched=False, verbose=False):
+        # get information about image width and height, assuming that they are consistent for whole dataset
+        # (which isn't strictly neccesary)
+        first_index = list(self.res_levels[0].index.values())[0]
+        if first_index["pixel_type"] == _MultipageTiffReader.EIGHT_BIT_RGB:
+            self.bytes_per_pixel = 3
+            self.dtype = np.uint8
+        elif first_index["pixel_type"] == _MultipageTiffReader.EIGHT_BIT:
+            self.bytes_per_pixel = 1
+            self.dtype = np.uint8
+        elif first_index["pixel_type"] == _MultipageTiffReader.SIXTEEN_BIT:
+            self.bytes_per_pixel = 2
+            self.dtype = np.uint16
+
+        self.image_width = first_index["image_width"]
+        self.image_height = first_index["image_height"]
+        if "GridPixelOverlapX" in self.summary_metadata:
+            self._tile_width = self.image_width - self.summary_metadata["GridPixelOverlapX"]
+            self._tile_height = self.image_height - self.summary_metadata["GridPixelOverlapY"]
+
+        print("\rDataset opened                ")
+
+    def as_array(self, stitched=False, verbose=True):
         """
         Read all data image data as one big Dask array with last two axes as y, x and preceeding axes depending on data.
         The dask array is made up of memory-mapped numpy arrays, so the dataset does not need to be able to fit into RAM.
@@ -578,10 +395,13 @@ class Dataset:
         """
         if self._remote_storage is not None:
             raise Exception("Method not yet implemented for in progress acquisitions")
+
+        w = self.image_height if not stitched else self._tile_width
+        h = self.image_height if not stitched else self._tile_height
         self._empty_tile = (
-            np.zeros((self.image_height, self.image_width), self.dtype)
-            if not self.rgb
-            else np.zeros((self.image_height, self.image_width, 3), self.dtype)
+            np.zeros((h, w), self.dtype)
+            if self.bytes_per_pixel != 3
+            else np.zeros((h, w, 3), self.dtype)
         )
         self._count = 1
         total = np.prod([len(v) for v in self.axes.values()])
@@ -592,7 +412,16 @@ class Dataset:
                     print("\rAdding data chunk {} of {}".format(self._count, total), end="")
                 self._count += 1
                 if None not in point_axes.values() and self.has_image(**point_axes):
-                    return self.read_image(**point_axes, memmapped=True)
+                    if stitched:
+                        img = self.read_image(**point_axes, memmapped=True)
+                        if self.half_overlap[0] != 0:
+                            img = img[
+                                self.half_overlap[0] : -self.half_overlap[0],
+                                self.half_overlap[1] : -self.half_overlap[1],
+                            ]
+                        return img
+                    else:
+                        return self.read_image(**point_axes, memmapped=True)
                 else:
                     # return np.zeros((self.image_height, self.image_width), self.dtype)
                     return self._empty_tile
@@ -607,7 +436,7 @@ class Dataset:
                 del remaining_axes[axis]
                 if axis == "position" and stitched:
                     # Stitch tiles acquired in a grid
-                    self.half_overlap = self.overlap[0] // 2
+                    self.half_overlap = (self.overlap[0] // 2, self.overlap[1] // 2)
 
                     # get spatial layout of position indices
                     zero_min_row_col = self.row_col_array - np.nanmin(self.row_col_array, axis=0)
@@ -662,46 +491,20 @@ class Dataset:
 
         if verbose:
             print(
-                " Stacking tiles"
+                "\rStacking tiles...         "
             )  # extra space otherwise there is no space after the "Adding data chunk {} {}"
-        array = da.stack(blocks)
+        # import time
+        # s = time.time()
+        array = da.stack(blocks, allow_unknown_chunksizes=False)
+        # e = time.time()
+        # print(e - s)
         if verbose:
             print("\rDask array opened")
         return array
 
-    def _convert_to_storage_axes(self, axes, channel_name=None):
-        """Convert an abitrary set of axes to cztp axes as in the underlying storage
-
-        Parameters
-        ----------
-        axes
-        channel_name
-        """
-        if channel_name is not None:
-            if channel_name not in self._channel_names.keys():
-                raise Exception("Channel name {} not found".format(channel_name))
-            axes[self._CHANNEL_AXIS] = self._channel_names[channel_name]
-        if self._CHANNEL_AXIS not in axes:
-            axes[self._CHANNEL_AXIS] = 0
-
-        z_index = axes[self._Z_AXIS] if self._Z_AXIS in axes else 0
-        t_index = axes[self._TIME_AXIS] if self._TIME_AXIS in axes else 0
-        p_index = axes[self._POSITION_AXIS] if self._POSITION_AXIS in axes else 0
-
-        non_zpt_axes = {
-            key: axes[key]
-            for key in axes.keys()
-            if key not in [self._TIME_AXIS, self._POSITION_AXIS, self._Z_AXIS]
-        }
-        for axis in non_zpt_axes.keys():
-            if axis not in self.axes.keys() and axis != "channel":
-                raise Exception("Unknown axis: {}".format(axis))
-        c_index = self._extra_axes_to_storage_channel[frozenset(non_zpt_axes.items())]
-        return c_index, t_index, p_index, z_index
-
     def has_image(
         self,
-        channel=None,
+        channel=0,
         z=None,
         time=None,
         position=None,
@@ -740,15 +543,6 @@ class Dataset:
         bool :
             indicating whether the dataset has an image matching the specifications
         """
-        if channel is not None:
-            kwargs["channel"] = channel
-        if z is not None:
-            kwargs["z"] = z
-        if time is not None:
-            kwargs["time"] = time
-        if position is not None:
-            kwargs["position"] = position
-
         if self._remote_storage is not None:
             axes = self._bridge.construct_java_object("java.util.HashMap")
             for key in kwargs.keys():
@@ -758,37 +552,20 @@ class Dataset:
             else:
                 return self._remote_storage.has_image(axes, resolution_level)
 
-        if row is not None or col is not None:
-            raise Exception("row col lookup not yet implmented for saved datasets")
-            # self.row_col_array #TODO: find position index in here
-
-        storage_c_index, t_index, p_index, z_index = self._convert_to_storage_axes(
-            kwargs, channel_name=channel_name
+        return self.res_levels[0].has_image(
+            self._consolidate_axes(channel, channel_name, z, position, time, row, col, kwargs)
         )
-        c_z_t_p_tree = self.res_levels[resolution_level].reader_tree
-        if (
-            storage_c_index in c_z_t_p_tree
-            and z_index in c_z_t_p_tree[storage_c_index]
-            and t_index in c_z_t_p_tree[storage_c_index][z_index]
-            and p_index in c_z_t_p_tree[storage_c_index][z_index][t_index]
-        ):
-            res_level = self.res_levels[resolution_level]
-            return res_level.check_ifd(
-                channel_index=storage_c_index, z_index=z_index, t_index=t_index, pos_index=p_index
-            )
-        return False
 
     def read_image(
         self,
-        channel=None,
+        channel=0,
         z=None,
         time=None,
         position=None,
-        channel_name=None,
-        read_metadata=False,
-        resolution_level=0,
         row=None,
         col=None,
+        channel_name=None,
+        resolution_level=0,
         memmapped=False,
         **kwargs
     ):
@@ -814,8 +591,6 @@ class Dataset:
         resolution_level :
             0 is full resolution, otherwise represents downampling of pixels
             at 2 ** (resolution_level) (Default value = 0)
-        read_metadata : bool
-             (Default value = False)
         memmapped : bool
              (Default value = False)
         **kwargs :
@@ -827,31 +602,17 @@ class Dataset:
             image as a 2D numpy array, or tuple with image and image metadata as dict
 
         """
-        if channel is not None:
-            kwargs["channel"] = channel
-        if z is not None:
-            kwargs["z"] = z
-        if time is not None:
-            kwargs["time"] = time
-        if position is not None:
-            kwargs["position"] = position
+        axes = self._consolidate_axes(channel, channel_name, z, position, time, row, col, kwargs)
 
         if self._remote_storage is not None:
             if memmapped:
                 raise Exception("Memory mapping not available for in progress acquisitions")
-            axes = self._bridge.construct_java_object("java.util.HashMap")
-            for key in kwargs.keys():
-                axes.put(key, kwargs[key])
-            if not self._remote_storage.has_image(axes, resolution_level):
+            java_axes = self._bridge.construct_java_object("java.util.HashMap")
+            for key in axes:
+                java_axes.put(key, kwargs[key])
+            if not self._remote_storage.has_image(java_axes, resolution_level):
                 return None
-            if row is not None and col is not None:
-                tagged_image = self._remote_storage.get_tile_by_row_col(
-                    axes, resolution_level, row, col
-                )
-            else:
-                tagged_image = self._remote_storage.get_image(axes, resolution_level)
-            if tagged_image is None:
-                return None
+            tagged_image = self._remote_storage.get_image(axes, resolution_level)
             if resolution_level == 0:
                 image = np.reshape(
                     tagged_image.pix,
@@ -869,42 +630,14 @@ class Dataset:
                     ]
             else:
                 image = np.reshape(tagged_image.pix, newshape=[self._tile_height, self._tile_width])
-            if read_metadata:
-                return image, tagged_image.tags
             return image
-
-        if row is not None or col is not None:
-            raise Exception("row col lookup not yet implmented for saved datasets")
-            # self.row_col_array #TODO: find position index in here
-
-        storage_c_index, t_index, p_index, z_index = self._convert_to_storage_axes(
-            kwargs, channel_name=channel_name
-        )
-        res_level = self.res_levels[resolution_level]
-        return res_level.read_image(
-            storage_c_index, z_index, t_index, p_index, read_metadata, memmapped
-        )
-
-    def read_first_image_metadata(self):
-        """
-        Get the first image metadata in the dataset (according to position along axes).
-        This is useful if you want to access the image metadata in a dataset sparse, nonzero azes
-
-        Returns
-        -------
-        metadata : dict
-
-        """
-        cztp_tree = self.res_levels[0].reader_tree
-        c = list(cztp_tree.keys())[0]
-        z = list(cztp_tree[c].keys())[0]
-        t = list(cztp_tree[c][z].keys())[0]
-        p = list(cztp_tree[c][z][t].keys())[0]
-        return self.res_levels[0].read_metadata(c, z, t, p)
+        else:
+            res_level = self.res_levels[resolution_level]
+            return res_level.read_image(axes, memmapped)
 
     def read_metadata(
         self,
-        channel=None,
+        channel=0,
         z=None,
         time=None,
         position=None,
@@ -944,35 +677,20 @@ class Dataset:
         metadata : dict
 
         """
-        if channel is not None:
-            kwargs["channel"] = channel
-        if z is not None:
-            kwargs["z"] = z
-        if time is not None:
-            kwargs["time"] = time
-        if position is not None:
-            kwargs["position"] = position
+        axes = self._consolidate_axes(channel, channel_name, z, position, time, row, col, kwargs)
 
         if self._remote_storage is not None:
-            # read the tagged image because no funciton in Java API rn for metadata only
-            return self.read_image(
-                channel=channel,
-                z=z,
-                time=time,
-                position=position,
-                channel_name=channel_name,
-                read_metadata=True,
-                resolution_level=resolution_level,
-                row=row,
-                col=col,
-                **kwargs
-            )[1]
+            java_axes = self._bridge.construct_java_object("java.util.HashMap")
+            for key in axes:
+                java_axes.put(key, kwargs[key])
+            if not self._remote_storage.has_image(java_axes, resolution_level):
+                return None
+            # TODO: could speed this up a lot on the Java side by only reading metadata instead of pixels too
+            return self._remote_storage.get_image(axes, resolution_level).tags
 
-        storage_c_index, t_index, p_index, z_index = self._convert_to_storage_axes(
-            kwargs, channel_name=channel_name
-        )
-        res_level = self.res_levels[resolution_level]
-        return res_level.read_metadata(storage_c_index, z_index, t_index, p_index)
+        else:
+            res_level = self.res_levels[resolution_level]
+            return res_level.read_metadata(axes)
 
     def close(self):
         if self._remote_storage is not None:
@@ -985,3 +703,23 @@ class Dataset:
         if self._remote_storage is not None:
             raise Exception("Not implemented for in progress datasets")
         return self._channel_names.keys()
+
+    def _consolidate_axes(self, channel, channel_name, z, position, time, row, col, kwargs):
+        axes = {}
+        if channel is not None:
+            axes[self._CHANNEL_AXIS] = channel
+        if channel_name is not None:
+            axes[self._CHANNEL_AXIS] = self._channel_names[channel_name]
+        if z is not None:
+            axes[self._Z_AXIS] = z
+        if position is not None:
+            axes[self._POSITION_AXIS] = position
+        if time is not None:
+            axes[self._TIME_AXIS] = time
+        if row is not None:
+            axes[self._ROW_AXIS] = row
+        if col is not None:
+            axes[self._COLUMN_AXIS] = col
+        for other_axis_name in kwargs.keys():
+            axes[other_axis_name] = kwargs[other_axis_name]
+        return axes

@@ -49,6 +49,6 @@ jobs:
         run: |
           pytest --color=yes
 
-      - name: Formatting
-        run: |
-          black . --check
+      # - name: Formatting
+      #   run: |
+      #     black . --check

@@ -1,7 +1,7 @@
 from pycromanager import Acquisition, multi_d_acquisition_events
 
 
-with Acquisition(directory="/Users/henrypinkard/megllandump", name="tcz_acq", debug=True) as acq:
+with Acquisition(directory="/Users/henrypinkard/tmp", name="tcz_acq", debug=True) as acq:
     # Generate the events for a single z-stack
     events = multi_d_acquisition_events(
         num_time_points=5,
