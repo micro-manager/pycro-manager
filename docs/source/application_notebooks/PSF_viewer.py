@@ -27,8 +27,8 @@ For both movies, camera acquisition parameters in `micromanager` were set to:
 - exposure time set to 0.01 ms  
 
 Tested on:
-- macOS Catalina using `micromanager` `2.0.0-gamma1-20201206`  
-- Windows 10 using `2.0.0-gamma1-20201208`  
+- macOS Catalina using `micromanager 2.0.0-gamma1-20201206`  
+- Windows 10 using `micromanager 2.0.0-gamma1-20201208`  
 
 # required packages: 
 # has been tested with the indicated package versions, will certainly break for magicgui > v0.2.0
