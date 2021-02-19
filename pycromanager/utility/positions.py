@@ -1,21 +1,4 @@
-# Copyright 2018-2020 Nick Anthony, Backman Biophotonics Lab, Northwestern University
-#
-# This file is part of PWSpy.
-#
-# PWSpy is free software: you can redistribute it and/or modify
-# it under the terms of the GNU General Public License as published by
-# the Free Software Foundation, either version 3 of the License, or
-# (at your option) any later version.
-#
-# PWSpy is distributed in the hope that it will be useful,
-# but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-# GNU General Public License for more details.
-#
-# You should have received a copy of the GNU General Public License
-# along with PWSpy.  If not, see <https://www.gnu.org/licenses/>.
 
-# -*- coding: utf-8 -*-
 """
 Created on Mon Dec  3 17:53:24 2018
 
@@ -30,8 +13,7 @@ import numpy as np
 import copy
 import matplotlib.pyplot as plt
 import matplotlib as mpl
-import scipy.io as spio
-from .PropertyMap import PropertyMap, PropertyMapArray, Property, PropertyArray
+from pycromanager.utility.PropertyMap import PropertyMap, PropertyMapArray, Property, PropertyArray
 
 
 @dataclass
@@ -363,43 +345,6 @@ class PositionList:
         """Returns the position list as a PropertyMap that is formatted just like a `PropertyMap` from Micro-Manager."""
         pmap = PropertyMap({"StagePositions": PropertyMapArray([i.toPropertyMap() for i in self.positions])})
         return pmap
-
-    @classmethod
-    def fromNanoMatFile(cls, path: str, xyStageName: str):
-        """Load an instance of the `PositionList` from a file saved by NanoCytomics MATLAB acquisition software.
-
-        Args:
-            path: The file path to the .mat file.
-            xyStageName: To adapt the MATLAB file format to the Micro-Manager we need to manually supply a name for the
-            XY stage
-
-        Returns:
-            A new instance of `PositionList`
-        """
-        mat = spio.loadmat(path)
-        l = mat['list']
-        positions = []
-        for i in range(l.shape[0]):
-            coordString: str = l[i][0][0]
-            x, y = coordString[1:-1].split(',')
-            x, y = float(x), float(y)
-            pos = Position2d(x, y, xyStageName)
-            positions.append(MultiStagePosition(str(i), xyStageName, '', [pos]))
-        return PositionList(positions)
-
-    def toNanoMatFile(self, path: str):
-        """Save this object to a .mat file in the format saved by NanoCytomics MATLAB acquistion software.
-
-        Args:
-            path: The file path for the new .mat file.
-        """
-        matPositions = []
-        for pos in self.positions:
-            pos = pos.getXYPosition()
-            matPositions.append(f"({pos.x}, {pos.y})")
-        matPositions = np.asarray(matPositions, dtype=np.object)
-        print(matPositions.shape)
-        spio.savemat(path, {'list': matPositions[:,None]})
     
     def getAffineTransform(self, otherList: PositionList) -> np.ndarray:
         """
