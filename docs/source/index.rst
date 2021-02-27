@@ -2,7 +2,7 @@
   :width: 600
   :alt: Alternative text
 
-``pycromanager`` is a python package that enables python control of `micro-manager <https://micro-manager.org/>`_ as well as the simple development of customized experiments that invlolve microscope hardware control and/or image processing. More information can be found in the `pre-print <https://arxiv.org/abs/2006.11330>`_. 
+``pycromanager`` is a python package that enables control of `micro-manager <https://micro-manager.org/>`_ as well as the simple development of customized experiments that involve microscope hardware control integrated with real-time image processing. More information can be found in the `pre-print <https://arxiv.org/abs/2006.11330>`_. 
 
 
 .. figure:: overview_figure.png
