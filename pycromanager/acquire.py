@@ -390,8 +390,11 @@ class Acquisition(object):
             self._remote_acq.add_hook(hook, self._remote_acq.AFTER_CAMERA_HOOK)
 
         self._remote_acq.start()
-        self._dataset_disk_location = self._remote_acq.get_storage().get_disk_location() if \
-            self._remote_acq.get_storage() is not None else None
+        self._dataset_disk_location = (
+            self._remote_acq.get_storage().get_disk_location()
+            if self._remote_acq.get_storage() is not None
+            else None
+        )
 
         if magellan_acq_index is None and not magellan_explore:
             self.event_port = self._remote_acq.get_event_port()
