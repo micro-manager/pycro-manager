@@ -306,6 +306,7 @@ class Acquisition(object):
         self.bridge = Bridge(debug=debug)
         self._debug = debug
         self._dataset = None
+        self._finished = False
 
         if directory is not None:
             # Expend ~ in path
@@ -417,15 +418,25 @@ class Acquisition(object):
         return self._remote_acq.get_storage().get_disk_location()
 
     def get_dataset(self):
-        """ """
-        if self._dataset is None:
+        """
+        Get access to the dataset backing this acquisition. If the acquisition is in progress,
+        return a Dataset object that wraps the java class containing it. If the acquisition is finished,
+        load the dataset from disk on the Python side for better performance
+        """
+        if self._finished:
+            if self._dataset is None or self._dataset._remote_storage is not None:
+                self._dataset = Dataset(self.get_disk_location())
+        elif self._dataset is None:
+            # Load remote storage
             self._dataset = Dataset(remote_storage=self._remote_acq.get_storage())
+
         return self._dataset
 
     def await_completion(self):
         """Wait for acquisition to finish and resources to be cleaned up"""
         while not self._remote_acq.is_finished():
             time.sleep(0.1)
+        self._finished = True
 
     def acquire(self, events, keep_shutter_open=False):
         """Submit an event or a list of events for acquisition. Optimizations (i.e. taking advantage of
