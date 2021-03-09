@@ -678,7 +678,7 @@ def multi_d_acquisition_events(
                 new_event = copy.deepcopy(event)
                 new_event["channel"] = {"group": channel_group, "config": channels[i]}
                 if channel_exposures_ms is not None:
-                    new_event["exposure"] = i
+                    new_event["exposure"] = channel_exposures_ms[i]
                 if keep_shutter_open_between_channels:
                     new_event["keep_shutter_open"] = True
                 yield generate_events(new_event, order[1:])
