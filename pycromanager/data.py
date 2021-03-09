@@ -152,10 +152,14 @@ class _ResolutionLevel:
         entries = {}
         position = 0
         while position < len(data):
-            print("\rReading index... {:.1f}%       ".format(
-                100 * ( 1 - (len(data) - position) / len(data))), end="")
+            print(
+                "\rReading index... {:.1f}%       ".format(
+                    100 * (1 - (len(data) - position) / len(data))
+                ),
+                end="",
+            )
             index_entry = {}
-            (axes_length,) = struct.unpack("I", data[position:position + 4])
+            (axes_length,) = struct.unpack("I", data[position : position + 4])
             if axes_length == 0:
                 warnings.warn(
                     "Index appears to not have been properly terminated (the dataset may still work)"
@@ -164,8 +168,10 @@ class _ResolutionLevel:
             axes_str = data[position + 4 : position + 4 + axes_length].decode("utf-8")
             axes = json.loads(axes_str)
             position += axes_length + 4
-            (filename_length,) = struct.unpack("I", data[position: position + 4])
-            index_entry["filename"] = data[position + 4 : position + 4 + filename_length].decode("utf-8")
+            (filename_length,) = struct.unpack("I", data[position : position + 4])
+            index_entry["filename"] = data[position + 4 : position + 4 + filename_length].decode(
+                "utf-8"
+            )
             position += 4 + filename_length
             (
                 index_entry["pixel_offset"],
@@ -176,7 +182,7 @@ class _ResolutionLevel:
                 index_entry["metadata_offset"],
                 index_entry["metadata_length"],
                 index_entry["metadata_compression"],
-            ) = struct.unpack("IIIIIIII", data[position: position + 32])
+            ) = struct.unpack("IIIIIIII", data[position : position + 32])
             position += 32
             entries[frozenset(axes.items())] = index_entry
         print("\rFinshed reading index          ", end="")

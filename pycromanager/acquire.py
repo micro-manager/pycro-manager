@@ -427,7 +427,7 @@ class Acquisition(object):
             if self._dataset is None or self._dataset._remote_storage is not None:
                 self._dataset = Dataset(self.get_disk_location())
         elif self._dataset is None:
-            #Load remote storage
+            # Load remote storage
             self._dataset = Dataset(remote_storage=self._remote_acq.get_storage())
 
         return self._dataset
