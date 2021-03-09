@@ -390,6 +390,11 @@ class Acquisition(object):
             self._remote_acq.add_hook(hook, self._remote_acq.AFTER_CAMERA_HOOK)
 
         self._remote_acq.start()
+        self._dataset_disk_location = (
+            self._remote_acq.get_storage().get_disk_location()
+            if self._remote_acq.get_storage() is not None
+            else None
+        )
 
         if magellan_acq_index is None and not magellan_explore:
             self.event_port = self._remote_acq.get_event_port()
@@ -415,7 +420,7 @@ class Acquisition(object):
         """
         Return the path where the dataset is on disk
         """
-        return self._remote_acq.get_storage().get_disk_location()
+        return self._dataset_disk_location
 
     def get_dataset(self):
         """
@@ -425,7 +430,7 @@ class Acquisition(object):
         """
         if self._finished:
             if self._dataset is None or self._dataset._remote_storage is not None:
-                self._dataset = Dataset(self.get_disk_location())
+                self._dataset = Dataset(self._dataset_disk_location)
         elif self._dataset is None:
             # Load remote storage
             self._dataset = Dataset(remote_storage=self._remote_acq.get_storage())
@@ -436,6 +441,7 @@ class Acquisition(object):
         """Wait for acquisition to finish and resources to be cleaned up"""
         while not self._remote_acq.is_finished():
             time.sleep(0.1)
+        self._remote_acq = None
         self._finished = True
 
     def acquire(self, events, keep_shutter_open=False):
