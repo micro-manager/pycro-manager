@@ -413,7 +413,7 @@ class Dataset:
 
             :param loop_axes: The remaining axes that need to be looped over (i.e. the innermost ones)
             :param point_axes: The axes that have been assigned values already by a previous call of this function
-            
+
             :return: Nested list of images
             """
             if len(loop_axes.values()) == 0:
@@ -444,13 +444,13 @@ class Dataset:
                 elif "column" in loop_axes.keys() and stitched:
                     axis = "column"
                 else:
-                    #Take the next axis in the list that needs to be looped over
+                    # Take the next axis in the list that needs to be looped over
                     axis = list(loop_axes.keys())[0]
 
-                #copy so multiple calls dont collide on the same data structure
+                # copy so multiple calls dont collide on the same data structure
                 remaining_loop_axes = loop_axes.copy()
                 if axis == "row" or axis == "column":
-                    #do these both at once
+                    # do these both at once
                     del remaining_loop_axes["row"]
                     del remaining_loop_axes["column"]
                 else:
@@ -461,8 +461,8 @@ class Dataset:
                     self.half_overlap = (self.overlap[0] // 2, self.overlap[1] // 2)
 
                     # get spatial layout of position indices
-                    row_values = np.array(list(self.axes['row']))
-                    column_values = np.array(list(self.axes['column']))
+                    row_values = np.array(list(self.axes["row"]))
+                    column_values = np.array(list(self.axes["column"]))
 
                     blocks = []
                     for row in row_values:
@@ -477,7 +477,9 @@ class Dataset:
                             valed_axes["row"] = row
                             valed_axes["column"] = column
 
-                            blocks[-1].append(da.stack(recurse_axes(remaining_loop_axes, valed_axes)))
+                            blocks[-1].append(
+                                da.stack(recurse_axes(remaining_loop_axes, valed_axes))
+                            )
 
                     rgb = self.bytes_per_pixel == 3 and self.dtype == np.uint8
                     if rgb:
