@@ -240,7 +240,7 @@ class Dataset:
     """Class that opens a single NDTiffStorage dataset"""
 
     _POSITION_AXIS = "position"
-    _ROW_AXIS = "roq"
+    _ROW_AXIS = "row"
     _COLUMN_AXIS = "column"
     _Z_AXIS = "z"
     _TIME_AXIS = "time"
@@ -343,17 +343,9 @@ class Dataset:
                 print("\rFinished reading channel names", end="")
 
                 # remove axes with no variation
-                single_axes = [axis for axis in self.axes if len(self.axes[axis]) == 1]
-                for axis in single_axes:
-                    del self.axes[axis]
-
-                # If the dataset uses XY stitching, map out the row and col indices
-                if (
-                    "TiledImageStorage" in self.summary_metadata
-                    and self.summary_metadata["TiledImageStorage"]
-                ):
-                    # Make an n x 2 array with nan's where no positions actually exist
-                    pass
+                # single_axes = [axis for axis in self.axes if len(self.axes[axis]) == 1]
+                # for axis in single_axes:
+                #     del self.axes[axis]
 
             else:
                 self.res_levels[int(np.log2(int(res_dir.split("x")[1])))] = res_level
@@ -413,7 +405,21 @@ class Dataset:
         total = np.prod([len(v) for v in self.axes.values()])
 
         def recurse_axes(loop_axes, point_axes):
+            """
+            Used to create a nested list of images, with each nesting level corresponding to a particular axis.
+            Each time this function is recursively called, it will descend one level deeper. The recursive calls
+            can be thought of as a tree structure, where each depth level of the tree is one axis, and it has a
+            branch (i.e. a subsequent call of recurse_axes) corresponding to every value of the the next axis.
+
+            :param loop_axes: The remaining axes that need to be looped over (i.e. the innermost ones)
+            :param point_axes: The axes that have been assigned values already by a previous call of this function
+
+            :return: Nested list of images
+            """
             if len(loop_axes.values()) == 0:
+                # There are no more axes over which to loop (i.e. we're at the maximum depth), so return
+                # the image defined by point_axes, or a blank image if it is undefined (so that the full
+                # nested list will have the expected rectangular shape)
                 if verbose:
                     print("\rAdding data chunk {} of {}".format(self._count, total), end="")
                 self._count += 1
@@ -432,49 +438,51 @@ class Dataset:
                     # return np.zeros((self.image_height, self.image_width), self.dtype)
                     return self._empty_tile
             else:
-                # do position first because it makes stitching faster
-                axis = (
-                    "position"
-                    if "position" in loop_axes.keys() and stitched
-                    else list(loop_axes.keys())[0]
-                )
-                remaining_axes = loop_axes.copy()
-                del remaining_axes[axis]
-                if axis == "position" and stitched:
-                    # Stitch tiles acquired in a grid
+                # do row and col first because it makes stitching faster
+                if "row" in loop_axes.keys() and stitched:
+                    axis = "row"
+                elif "column" in loop_axes.keys() and stitched:
+                    axis = "column"
+                else:
+                    # Take the next axis in the list that needs to be looped over
+                    axis = list(loop_axes.keys())[0]
+
+                # copy so multiple calls dont collide on the same data structure
+                remaining_loop_axes = loop_axes.copy()
+                if axis == "row" or axis == "column":
+                    # do these both at once
+                    del remaining_loop_axes["row"]
+                    del remaining_loop_axes["column"]
+                else:
+                    # remove because this axis is now being assigned a point value
+                    del remaining_loop_axes[axis]
+                if (axis == "row" or axis == "column") and stitched:
+                    # Stitch tiles acquired in a grid (i.e. data acquired by Micro-Magellan or in multi-res mode)
                     self.half_overlap = (self.overlap[0] // 2, self.overlap[1] // 2)
 
                     # get spatial layout of position indices
-                    zero_min_row_col = self.row_col_array - np.nanmin(self.row_col_array, axis=0)
-                    row_col_mat = np.nan * np.ones(
-                        [
-                            int(np.nanmax(zero_min_row_col[:, 0])) + 1,
-                            int(np.nanmax(zero_min_row_col[:, 1])) + 1,
-                        ]
-                    )
-                    positions_indices = np.array(list(loop_axes["position"]))
-                    rows = zero_min_row_col[positions_indices][:, 0]
-                    cols = zero_min_row_col[positions_indices][:, 1]
-                    # mask in case some positions were corrupted
-                    mask = np.logical_not(np.isnan(rows))
-                    row_col_mat[
-                        rows[mask].astype(np.int), cols[mask].astype(np.int)
-                    ] = positions_indices[mask]
+                    row_values = np.array(list(self.axes["row"]))
+                    column_values = np.array(list(self.axes["column"]))
 
                     blocks = []
-                    for row in row_col_mat:
+                    for row in row_values:
                         blocks.append([])
-                        for p_index in row:
+                        for column in column_values:
+                            valed_axes = point_axes.copy()
                             if verbose:
                                 print(
                                     "\rAdding data chunk {} of {}".format(self._count, total),
                                     end="",
                                 )
-                            valed_axes = point_axes.copy()
-                            valed_axes[axis] = int(p_index) if not np.isnan(p_index) else None
-                            blocks[-1].append(da.stack(recurse_axes(remaining_axes, valed_axes)))
+                            valed_axes["row"] = row
+                            valed_axes["column"] = column
 
-                    if self.rgb:
+                            blocks[-1].append(
+                                da.stack(recurse_axes(remaining_loop_axes, valed_axes))
+                            )
+
+                    rgb = self.bytes_per_pixel == 3 and self.dtype == np.uint8
+                    if rgb:
                         stitched_array = np.concatenate(
                             [
                                 np.concatenate(row, axis=len(blocks[0][0].shape) - 2)
@@ -487,10 +495,13 @@ class Dataset:
                     return stitched_array
                 else:
                     blocks = []
+                    # Loop through every value of the next axis (i.e. create new branches of the tree)
                     for val in loop_axes[axis]:
+                        # Copy to avoid unexpected errors by multiple calls
                         valed_axes = point_axes.copy()
+                        # Move this axis from one that needs to be looped over to one that has a discrete value.
                         valed_axes[axis] = val
-                        blocks.append(recurse_axes(remaining_axes, valed_axes))
+                        blocks.append(recurse_axes(remaining_loop_axes, valed_axes))
                     return blocks
 
         blocks = recurse_axes(self.axes, {})
