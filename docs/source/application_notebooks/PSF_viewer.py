@@ -2,37 +2,39 @@
 Streaming data from micro-manager to napari: PSF Viewer
 
 developed by Wiebke Jahr, Danzl lab, IST Austria, (c) 2020
-https://danzl-lab.pages.ist.ac.at/
-latest version on github: https://github.com/wiebkejahr/pycro-manager  
+latest version on github: https://github.com/wiebkejahr/pycro-manager
 
-This notebook shows how to acquire data using `micromanager`, then use `pycro-manager` 
-to stream it to `napari`.  
-Buttons to start and stop data acquisition are added to the `napari` window using the 
-`magic-gui` package. In this example, the data displayed in `napari` is resliced to 
-get a live PSF viewer. However, reslicing is only a small example for the data analysis 
-possible using `napari`.  
+If you use this tool, please cite:
+pycro-manager: Pinkard, H., Stuurman, N., Ivanov, I.E. et al. Pycro-Manager: open-source software for customized and reproducible microscope control. Nat Methods (2021). https://doi.org/10.1038/s41592-021-01087-6
+napari: napari contributors (2019). napari: a multi-dimensional image viewer for python. https://doi.org/10.5281/zenodo.3555620
 
-Here are two videos showing the PSF viewer in action:  
-https://seafile.ist.ac.at/d/57e6f950b4af4fbaa174/  
-- PSFViewer-ExternalStageControl_1080p.mp4: z-stage controlled via `micromanager`  
-- PSFViewer-InternalStageControl_1080p.mp4: z-stage controlled via external DAQ control  
+This notebook shows how to acquire data using micromanager, then use pycro-manager to stream it to napari. Buttons to start and stop data acquisition are added to the napari window using the magic-gui package. In this example, the data displayed in napari is resliced to get a live PSF viewer. However, reslicing is only a small example for the data analysis possible using napari.
 
-Since the amount of data that can be transferred between `micromanager` and `pycro-manager` 
-is currently limited to 100 MB/s, it's important that no more data is transferred to ensure 
-smooth execution of the software.  
-For both movies, camera acquisition parameters in `micromanager` were set to:  
-- 11-bit depth,  
-- chip-size cropped to the central 512x512 px.  
-- external trigger start (trigger comming at 45 Hz)  
-- exposure time set to 0.01 ms  
+Here are two videos showing the PSF viewer in action:
+https://www.dropbox.com/sh/fpr2nitlhfb68od/AAArXxDLclfXWhsyF0x_fP7Ja?dl=0
+
+    PSFViewer-ExternalStageControl_1080p.mp4: z-stage controlled via micromanager
+    PSFViewer-InternalStageControl_1080p.mp4: z-stage controlled via external DAQ control
+
+Since the amount of data that can be transferred between micromanager and pycro-manager is currently limited to 100 MB/s, it's important that no more data is transferred to ensure smooth execution of the software.
+For both movies, camera acquisition parameters in micromanager were set to:
+
+    11-bit depth,
+    chip-size cropped to the central 512x512 px.
+    external trigger start (trigger comming at 45 Hz)
+    exposure time set to 0.01 ms
 
 Tested on:
-- macOS Catalina using `micromanager` `2.0.0-gamma1-20201206`  
-- Windows 10 using `2.0.0-gamma1-20201208`  
+
+    macOS Catalina using micromanager 2.0.0-gamma1-20201206
+    Windows 10 using micromanager 2.0.0-gamma1-20201208
+
 
 # required packages: 
-# has been tested with the indicated package versions, will certainly break for magicgui > v0.2.0
-#!pip install queue pycromanager=0.7.6 napari=0.3.6 pyqt5=5.15.1 magicgui=0.1.6 yappi=1.3.2
+# only execute first time to install all required packages
+# has been tested with the indicated package versions
+#!pip install pycromanager==0.10.9 napari==0.4.5 pyqt5==5.15.1 magicgui==0.2.5 yappi==1.3.2
+# newest: magicgui==0.2.6, but there's an error message when connecting the buttons
 """
 
 import time
@@ -297,16 +299,16 @@ def stop_acq():
     print("stopping threads")
     # set global acq_running to False to stop other workers
     global acq_running
+    global core
     acq_running = False
     if not(simulate) and not(z_stack_external):
-        print('z stage: ', core.get_position())
-        core.stop() # this doesnt work, just continues moving
-        print('z stage: ', core.get_position())        
+        print('z stage stopping: ', core.get_position())
+        core.stop("Z") # this doesnt work, just continues moving. eventually micromanager memory overflows
+        print('z stage stopped: ', core.get_position())        
         core.set_position(z_range[0]) # this also doesn't work
-        time.sleep(5)
-        print('z stage: ', core.get_position())
-    # comment in when benchmarking
-    # yappi.stop()
+        core.wait_for_device("Z")
+        #time.sleep(5)
+        print('z stage zeroed: ', core.get_position())
     
     
     
