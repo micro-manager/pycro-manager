@@ -182,7 +182,7 @@ public class ZMQServer extends ZMQSocketWrapper {
             argVals[i] = ZMQUtil.convertToPrimitiveClass(primitive, c);
          } else if (ZMQUtil.PRIMITIVE_ARRAY_NAME_CLASS_MAP.containsKey(message.getJSONArray("argument-deserialization-types").get(i))) {
             Class c = ZMQUtil.PRIMITIVE_ARRAY_NAME_CLASS_MAP.get(message.getJSONArray("argument-deserialization-types").get(i));
-            argVals[i] = ZMQUtil.convertToPrimitiveArray(c, message.getJSONArray("arguments").getString(i));
+            argVals[i] = message.getJSONArray("arguments").get(i);
          } else if (message.getJSONArray("argument-deserialization-types").get(i).equals("java.lang.String")) {
             //Strings are a special case because they're like a primitive but not quite
             if (message.getJSONArray("arguments").get(i) == JSONObject.NULL) {
