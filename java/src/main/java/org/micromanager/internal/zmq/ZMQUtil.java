@@ -412,18 +412,21 @@ public class ZMQUtil {
                   // This ZipEntry represents a class. Now, what class does it represent?
                   String className = entry.getName().replace('/', '.');
                   className = className.substring(0, className.length() - 6); // including ".class"
-                  Class clazz = loadClass(className);
                   try {
-                     if (clazz.getPackage() != null) {
-                        packages.add(clazz.getPackage().getName());
+                     Class clazz = loadClass(className);
+                     try {
+                        if (clazz.getPackage() != null) {
+                           packages.add(clazz.getPackage().getName());
+                        }
+                     } catch (Exception sdf) {
                      }
-                  } catch (Exception sdf) {
-                     sdf.printStackTrace();
+                  } catch (IllegalAccessError e) {
+                      //Don't know why this happens but it doesnt seem to matter
                   }
                }
             }
          } catch (Exception e) {
-            e.printStackTrace();
+//            e.printStackTrace();
             continue;
          }
       }
@@ -446,6 +449,8 @@ public class ZMQUtil {
          try {
             return cl.loadClass(path);
          } catch (ClassNotFoundException e) {
+            //On to the next one
+         } catch (NoClassDefFoundError e) {
             //On to the next one
          }
       }

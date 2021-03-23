@@ -10,9 +10,30 @@ from pycromanager.data import Dataset
 import warnings
 import os.path
 import queue
+import subprocess
+
+def start_headless(mm_app_path, config_file, core_log_path=None, buffer_size_mb=1024):
+    # TODO: add docstring
+
+    jar_directory = mm_app_path + '/plugins/micro-manager'
+    #TODO: how to determine right java version?
+    subprocess.Popen(['java', '-classpath', '"{}/*"'.format(jar_directory), 'org.micromanager.remote.HeadlessLauncher'])
+
+    bridge = Bridge()
+    core = bridge.get_core()
+
+    core.wait_for_system()
+    core.load_system_configuration(config_file)
+
+    core.set_circular_buffer_memory_footprint(buffer_size_mb)
+
+    if core_log_path is not None:
+        core.enable_stderr_log(True)
+        core.enable_debug_log(True)
+        core.set_primary_log_file(core_log_path)
+
 
 ### These functions outside class to prevent problems with pickling when running them in differnet process
-
 
 def _event_sending_fn(event_port, event_queue, debug=False):
     """
