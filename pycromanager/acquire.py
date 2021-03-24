@@ -15,6 +15,7 @@ import subprocess
 def start_headless(mm_app_path, config_file, core_log_path=None, buffer_size_mb=1024):
     # TODO: add docstring
 
+    # TODO: argument for java memory
     jar_directory = mm_app_path + '/plugins/micro-manager'
     #TODO: how to determine right java version?
     subprocess.Popen(['java', '-classpath', '"{}/*"'.format(jar_directory), 'org.micromanager.remote.HeadlessLauncher'])
