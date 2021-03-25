@@ -40,7 +40,18 @@ public class RemoteAcquisition extends Acquisition
    public StorageAPI getStorage() {
       return dataSink_ == null ? null : ((RemoteViewerStorageAdapter) dataSink_).getStorage();
    }
-   
+
+   /**
+    * Called by python side
+    * @return
+    */
+   public RemoteStorageMonitor getStorageMonitor() {
+      return ((RemoteViewerStorageAdapter) dataSink_).getStorageMonitor();
+   }
+
+   /**
+    * Called by python side
+    */
    public int getEventPort() {
       return eventSource_.getPort();
    }

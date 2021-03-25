@@ -13,6 +13,7 @@ import warnings
 from pycromanager.core import Bridge
 import struct
 from pycromanager.legacy_data import Legacy_NDTiff_Dataset
+import threading
 
 
 class _MultipageTiffReader:
@@ -118,7 +119,7 @@ class _MultipageTiffReader:
 
 
 class _ResolutionLevel:
-    def __init__(self, path, count, max_count):
+    def __init__(self, path=None, count=None, max_count=None, remote=False, summary_metadata=False):
         """
         Open all tiff files in directory, keep them in a list, and a tree based on image indices
 
@@ -129,23 +130,72 @@ class _ResolutionLevel:
         max_count : int
 
         """
-        self.index = self._read_index(path)
-        tiff_names = [
-            os.path.join(path, tiff) for tiff in os.listdir(path) if tiff.endswith(".tif")
-        ]
-        self._readers_by_filename = {}
-        # populate list of readers and tree mapping indices to readers
-        for tiff in tiff_names:
-            print("\rOpening file {} of {}...".format(count + 1, max_count), end="")
-            count += 1
-            self._readers_by_filename[tiff.split(os.sep)[-1]] = _MultipageTiffReader(tiff)
-        self.summary_metadata = list(self._readers_by_filename.values())[0].summary_md
+        self.path_root = path + ("" if path[-1] == os.sep else os.sep)
+        if remote:
+            self.summary_metadata = summary_metadata
+            self.index = {}
+            self._readers_by_filename = {}
+        else:
+            self.index = self.read_index(path)
+            tiff_names = [
+                os.path.join(path, tiff) for tiff in os.listdir(path) if tiff.endswith(".tif")
+            ]
+            self._readers_by_filename = {}
+            # populate list of readers and tree mapping indices to readers
+            for tiff in tiff_names:
+                print("\rOpening file {} of {}...".format(count + 1, max_count), end="")
+                count += 1
+                self._readers_by_filename[tiff.split(os.sep)[-1]] = _MultipageTiffReader(tiff)
+            self.summary_metadata = list(self._readers_by_filename.values())[0].summary_md
 
     def has_image(self, axes):
         key = frozenset(axes.items())
         return key in self.index
 
-    def _read_index(self, path):
+    def add_index_entry(self, data):
+        """
+        Manually add a single index entry
+        :param data: bytes object of a single index entry
+        """
+        _, axes, index_entry = self.read_single_index_entry(data, self.index)
+
+        if index_entry["filename"] not in self._readers_by_filename:
+            self._readers_by_filename[index_entry["filename"]] = _MultipageTiffReader(
+                self.path_root + index_entry["filename"]
+            )
+        return axes, index_entry
+
+    def read_single_index_entry(self, data, entries, position=0):
+        index_entry = {}
+        (axes_length,) = struct.unpack("I", data[position : position + 4])
+        if axes_length == 0:
+            warnings.warn(
+                "Index appears to not have been properly terminated (the dataset may still work)"
+            )
+            return None
+        axes_str = data[position + 4 : position + 4 + axes_length].decode("utf-8")
+        axes = json.loads(axes_str)
+        position += axes_length + 4
+        (filename_length,) = struct.unpack("I", data[position : position + 4])
+        index_entry["filename"] = data[position + 4 : position + 4 + filename_length].decode(
+            "utf-8"
+        )
+        position += 4 + filename_length
+        (
+            index_entry["pixel_offset"],
+            index_entry["image_width"],
+            index_entry["image_height"],
+            index_entry["pixel_type"],
+            index_entry["pixel_compression"],
+            index_entry["metadata_offset"],
+            index_entry["metadata_length"],
+            index_entry["metadata_compression"],
+        ) = struct.unpack("IIIIIIII", data[position : position + 32])
+        position += 32
+        entries[frozenset(axes.items())] = index_entry
+        return position, axes, index_entry
+
+    def read_index(self, path):
         print("\rReading index...          ", end="")
         with open(path + os.sep + "NDTiff.index", "rb") as index_file:
             data = index_file.read()
@@ -158,33 +208,10 @@ class _ResolutionLevel:
                 ),
                 end="",
             )
-            index_entry = {}
-            (axes_length,) = struct.unpack("I", data[position : position + 4])
-            if axes_length == 0:
-                warnings.warn(
-                    "Index appears to not have been properly terminated (the dataset may still work)"
-                )
+            position, axes, index_entry = self.read_single_index_entry(data, entries, position)
+            if position is None:
                 break
-            axes_str = data[position + 4 : position + 4 + axes_length].decode("utf-8")
-            axes = json.loads(axes_str)
-            position += axes_length + 4
-            (filename_length,) = struct.unpack("I", data[position : position + 4])
-            index_entry["filename"] = data[position + 4 : position + 4 + filename_length].decode(
-                "utf-8"
-            )
-            position += 4 + filename_length
-            (
-                index_entry["pixel_offset"],
-                index_entry["image_width"],
-                index_entry["image_height"],
-                index_entry["pixel_type"],
-                index_entry["pixel_compression"],
-                index_entry["metadata_offset"],
-                index_entry["metadata_length"],
-                index_entry["metadata_compression"],
-            ) = struct.unpack("IIIIIIII", data[position : position + 32])
-            position += 32
-            entries[frozenset(axes.items())] = index_entry
+
         print("\rFinshed reading index          ", end="")
         return entries
 
@@ -236,6 +263,32 @@ class _ResolutionLevel:
             reader.close()
 
 
+### This function outside class to prevent problems with pickling when running them in differnet process
+
+
+def _storage_monitor_fn(
+    dataset, storage_monitor_push_port, connected_event, callback_fn, debug=False
+):
+    bridge = Bridge(debug=debug)
+    monitor_socket = bridge._connect_pull(storage_monitor_push_port)
+
+    connected_event.set()
+
+    while True:
+        message = monitor_socket.receive()
+
+        if "finished" in message:
+            # Poison, time to shut down
+            monitor_socket.close()
+            return
+
+        index_entry = message["index_entry"]
+        axes = dataset._add_index_entry(index_entry)
+
+        if callback_fn is not None:
+            callback_fn(axes)
+
+
 class Dataset:
     """Class that opens a single NDTiffStorage dataset"""
 
@@ -246,7 +299,7 @@ class Dataset:
     _TIME_AXIS = "time"
     _CHANNEL_AXIS = "channel"
 
-    def __new__(cls, dataset_path=None, full_res_only=True, remote_storage=None):
+    def __new__(cls, dataset_path=None, full_res_only=True, remote_storage_monitor=None):
         if dataset_path is None:
             return super(Dataset, cls).__new__(Dataset)
         # Search for Full resolution dir, check for index
@@ -264,30 +317,59 @@ class Dataset:
             return super(Dataset, cls).__new__(Dataset)
         else:
             obj = Legacy_NDTiff_Dataset.__new__(Legacy_NDTiff_Dataset)
-            obj.__init__(dataset_path, full_res_only, remote_storage)
+            obj.__init__(dataset_path, full_res_only, remote_storage=None)
             return obj
 
-    def __init__(self, dataset_path=None, full_res_only=True, remote_storage=None):
+    def __init__(self, dataset_path=None, full_res_only=True, remote_storage_monitor=None):
+        """
+        Creat a Object providing access to and NDTiffStorage dataset, either one currently being acquired or one on disk
+
+        Parameters
+        ----------
+        dataset_path : str
+            Abosolute path of top level folder of a dataset on disk
+        full_res_only : bool
+            One open the full resolution data, if it is multi-res
+        remote_storage_monitor : JavaObjectShadow
+            Object that allows callbacks from remote NDTiffStorage
+        """
         self._tile_width = None
         self._tile_height = None
-        if remote_storage is not None:
+        self._lock = threading.Lock()
+        if remote_storage_monitor is not None:
             # this dataset is a view of an active acquisiiton. The storage exists on the java side
-            self._remote_storage = remote_storage
+            self._remote_storage_monitor = remote_storage_monitor
             self._bridge = Bridge()
-            smd = self._remote_storage.get_summary_metadata()
-            if "GridPixelOverlapX" in smd.keys():
-                self._tile_width = smd["Width"] - smd["GridPixelOverlapX"]
-                self._tile_height = smd["Height"] - smd["GridPixelOverlapY"]
+            self.summary_metadata = self._remote_storage_monitor.get_summary_metadata()
+            if "GridPixelOverlapX" in self.summary_metadata.keys():
+                self._tile_width = (
+                    self.summary_metadata["Width"] - self.summary_metadata["GridPixelOverlapX"]
+                )
+                self._tile_height = (
+                    self.summary_metadata["Height"] - self.summary_metadata["GridPixelOverlapY"]
+                )
+
+            dataset_path = remote_storage_monitor.get_disk_location()
+            dataset_path += "" if dataset_path[-1] == os.sep else os.sep
+            full_res_path = dataset_path + "Full resolution"
+            with self._lock:
+                self.res_levels = {
+                    0: _ResolutionLevel(
+                        remote=True, summary_metadata=self.summary_metadata, path=full_res_path
+                    )
+                }
+            self.axes = {}
             return
         else:
-            self._remote_storage = None
+            self._remote_storage_monitor = None
 
         self.path = dataset_path
         res_dirs = [
             dI for dI in os.listdir(dataset_path) if os.path.isdir(os.path.join(dataset_path, dI))
         ]
         # map from downsample factor to datset
-        self.res_levels = {}
+        with self._lock:
+            self.res_levels = {}
         if "Full resolution" not in res_dirs:
             raise Exception(
                 "Couldn't find full resolution directory. Is this the correct path to a dataset?"
@@ -304,7 +386,8 @@ class Dataset:
             res_dir_path = os.path.join(dataset_path, res_dir)
             res_level = _ResolutionLevel(res_dir_path, count, num_tiffs)
             if res_dir == "Full resolution":
-                self.res_levels[0] = res_level
+                with self._lock:
+                    self.res_levels[0] = res_level
                 # get summary metadata and index tree from full resolution image
                 self.summary_metadata = res_level.summary_metadata
 
@@ -328,18 +411,7 @@ class Dataset:
 
                 # figure out the mapping of channel name to position by reading image metadata
                 print("\rReading channel names...", end="")
-                if self._CHANNEL_AXIS in self.axes.keys():
-                    self._channel_names = {}
-                    for key in res_level.index.keys():
-                        axes = {axis: position for axis, position in key}
-                        if (
-                            self._CHANNEL_AXIS in axes.keys()
-                            and axes[self._CHANNEL_AXIS] not in self._channel_names.values()
-                        ):
-                            channel_name = res_level.read_metadata(axes)["Channel"]
-                            self._channel_names[channel_name] = axes[self._CHANNEL_AXIS]
-                        if len(self._channel_names.values()) == len(self.axes[self._CHANNEL_AXIS]):
-                            break
+                self._read_channel_names()
                 print("\rFinished reading channel names", end="")
 
                 # remove axes with no variation
@@ -348,11 +420,13 @@ class Dataset:
                 #     del self.axes[axis]
 
             else:
-                self.res_levels[int(np.log2(int(res_dir.split("x")[1])))] = res_level
+                with self._lock:
+                    self.res_levels[int(np.log2(int(res_dir.split("x")[1])))] = res_level
 
         # get information about image width and height, assuming that they are consistent for whole dataset
         # (which isn't strictly neccesary)
-        first_index = list(self.res_levels[0].index.values())[0]
+        with self._lock:
+            first_index = list(self.res_levels[0].index.values())[0]
         if first_index["pixel_type"] == _MultipageTiffReader.EIGHT_BIT_RGB:
             self.bytes_per_pixel = 3
             self.dtype = np.uint8
@@ -370,6 +444,74 @@ class Dataset:
             self._tile_height = self.image_height - self.summary_metadata["GridPixelOverlapY"]
 
         print("\rDataset opened                ")
+
+    def _read_channel_names(self):
+        if self._CHANNEL_AXIS in self.axes.keys():
+            self._channel_names = {}
+            for key in self.res_levels[0].index.keys():
+                axes = {axis: position for axis, position in key}
+                if (
+                    self._CHANNEL_AXIS in axes.keys()
+                    and axes[self._CHANNEL_AXIS] not in self._channel_names.values()
+                ):
+                    channel_name = self.res_levels[0].read_metadata(axes)["Channel"]
+                    self._channel_names[channel_name] = axes[self._CHANNEL_AXIS]
+                if len(self._channel_names.values()) == len(self.axes[self._CHANNEL_AXIS]):
+                    break
+
+    def _add_index_entry(self, index_entry):
+        """
+        Add entry for a image that has been recieved and is now on disk
+        """
+        with self._lock:
+            axes, index_entry = self.res_levels[0].add_index_entry(index_entry)
+
+            # update the axes that have been seen
+            for axis_name in axes.keys():
+                if axis_name not in self.axes.keys():
+                    self.axes[axis_name] = set()
+                self.axes[axis_name].add(axes[axis_name])
+
+            # update the map of channel names to channel indices
+            self._read_channel_names()
+
+        return axes
+
+    def _add_storage_monitor_fn(self, callback_fn=None, debug=False):
+        """
+        Add a callback function that gets called whenever a new image is writtern to disk (for acquisitions in
+        progress only)
+
+        Parameters
+        ----------
+        callback_fn : Callable
+            callable with that takes 1 argument, the axes dict of the image just written
+        """
+        if self._remote_storage_monitor is None:
+            raise Exception("Only valid for datasets with writing in progress")
+
+        connected_event = threading.Event()
+
+        push_port = self._remote_storage_monitor.get_port()
+        processor_thread = threading.Thread(
+            target=_storage_monitor_fn,
+            args=(
+                self,
+                push_port,
+                connected_event,
+                callback_fn,
+                debug,
+            ),
+            name="ImageProcessor",
+        )
+
+        processor_thread.start()
+
+        # not sure if this is neccesary, copied from acq hook
+        connected_event.wait()  # wait for push/pull sockets to connect
+
+        # start pushing out all the image written events (including ones that have already accumulated)
+        self._remote_storage_monitor.start()
 
     def as_array(self, stitched=False, verbose=True):
         """
@@ -391,8 +533,6 @@ class Dataset:
         -------
         dataset : dask array
         """
-        if self._remote_storage is not None:
-            raise Exception("Method not yet implemented for in progress acquisitions")
 
         w = self.image_height if not stitched else self._tile_width
         h = self.image_height if not stitched else self._tile_height
@@ -560,18 +700,10 @@ class Dataset:
         bool :
             indicating whether the dataset has an image matching the specifications
         """
-        if self._remote_storage is not None:
-            axes = self._bridge.construct_java_object("java.util.HashMap")
-            for key in kwargs.keys():
-                axes.put(key, kwargs[key])
-            if row is not None and col is not None:
-                return self._remote_storage.has_tile_by_row_col(axes, resolution_level, row, col)
-            else:
-                return self._remote_storage.has_image(axes, resolution_level)
-
-        return self.res_levels[0].has_image(
-            self._consolidate_axes(channel, channel_name, z, position, time, row, col, kwargs)
-        )
+        with self._lock:
+            return self.res_levels[0].has_image(
+                self._consolidate_axes(channel, channel_name, z, position, time, row, col, kwargs)
+            )
 
     def read_image(
         self,
@@ -619,36 +751,11 @@ class Dataset:
             image as a 2D numpy array, or tuple with image and image metadata as dict
 
         """
-        axes = self._consolidate_axes(channel, channel_name, z, position, time, row, col, kwargs)
+        with self._lock:
+            axes = self._consolidate_axes(
+                channel, channel_name, z, position, time, row, col, kwargs
+            )
 
-        if self._remote_storage is not None:
-            if memmapped:
-                raise Exception("Memory mapping not available for in progress acquisitions")
-            java_axes = self._bridge.construct_java_object("java.util.HashMap")
-            for key in axes:
-                java_axes.put(key, kwargs[key])
-            if not self._remote_storage.has_image(java_axes, resolution_level):
-                return None
-            tagged_image = self._remote_storage.get_image(axes, resolution_level)
-            if resolution_level == 0:
-                image = np.reshape(
-                    tagged_image.pix,
-                    newshape=[tagged_image.tags["Height"], tagged_image.tags["Width"]],
-                )
-                if (self._tile_height is not None) and (self._tile_width is not None):
-                    # crop down to just the part that shows (i.e. no overlap)
-                    image = image[
-                        (image.shape[0] - self._tile_height)
-                        // 2 : -(image.shape[0] - self._tile_height)
-                        // 2,
-                        (image.shape[1] - self._tile_width)
-                        // 2 : -(image.shape[1] - self._tile_width)
-                        // 2,
-                    ]
-            else:
-                image = np.reshape(tagged_image.pix, newshape=[self._tile_height, self._tile_width])
-            return image
-        else:
             res_level = self.res_levels[resolution_level]
             return res_level.read_image(axes, memmapped)
 
@@ -694,32 +801,22 @@ class Dataset:
         metadata : dict
 
         """
-        axes = self._consolidate_axes(channel, channel_name, z, position, time, row, col, kwargs)
+        with self._lock:
+            axes = self._consolidate_axes(
+                channel, channel_name, z, position, time, row, col, kwargs
+            )
 
-        if self._remote_storage is not None:
-            java_axes = self._bridge.construct_java_object("java.util.HashMap")
-            for key in axes:
-                java_axes.put(key, kwargs[key])
-            if not self._remote_storage.has_image(java_axes, resolution_level):
-                return None
-            # TODO: could speed this up a lot on the Java side by only reading metadata instead of pixels too
-            return self._remote_storage.get_image(axes, resolution_level).tags
-
-        else:
             res_level = self.res_levels[resolution_level]
             return res_level.read_metadata(axes)
 
     def close(self):
-        if self._remote_storage is not None:
-            # nothing to do, this is handled on the java side
-            return
-        for res_level in self.res_levels:
-            res_level.close()
+        with self._lock:
+            for res_level in self.res_levels:
+                res_level.close()
 
     def get_channel_names(self):
-        if self._remote_storage is not None:
-            raise Exception("Not implemented for in progress datasets")
-        return self._channel_names.keys()
+        with self._lock:
+            return self._channel_names.keys()
 
     def _consolidate_axes(self, channel, channel_name, z, position, time, row, col, kwargs):
         axes = {}
