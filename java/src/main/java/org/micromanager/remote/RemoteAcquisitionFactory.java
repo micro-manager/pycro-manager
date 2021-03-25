@@ -32,8 +32,10 @@ public class RemoteAcquisitionFactory {
       RemoteEventSource eventSource = new RemoteEventSource();
       RemoteViewerStorageAdapter adapter = null;
       if (name != null && dir != null) {
+         // Saving to disk
          adapter = new RemoteViewerStorageAdapter(showViewer, dir, name, xyTiled, tileOverlapX, tileOverlapY,
                  maxResLevel == -1 ? null : maxResLevel, savingQueueSize);
+
       }
       return new RemoteAcquisition(eventSource, adapter, debug);
    }

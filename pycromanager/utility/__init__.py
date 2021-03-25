@@ -1,4 +1,3 @@
-
 """
 Objects useful for dealing with files saved by Micro-Manager. https://micro-manager.org/
 
@@ -16,6 +15,13 @@ Classes
    MultiStagePosition
 
 """
-__all__ = ['PositionList', 'Position2d', 'Position1d', 'MultiStagePosition', 'Property', 'PropertyMap']
+__all__ = [
+    "PositionList",
+    "Position2d",
+    "Position1d",
+    "MultiStagePosition",
+    "Property",
+    "PropertyMap",
+]
 from .positions import Position1d, Position2d, PositionList, MultiStagePosition
 from .PropertyMap import Property, PropertyMap

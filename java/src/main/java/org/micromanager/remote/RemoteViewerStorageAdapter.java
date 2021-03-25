@@ -41,6 +41,7 @@ public class RemoteViewerStorageAdapter implements DataSourceInterface, DataSink
    private volatile RemoteAcquisition acq_;
    private volatile MultiresStorageAPI storage_;
    private CopyOnWriteArrayList<String> channelNames_ = new CopyOnWriteArrayList<String>();
+   private RemoteStorageMonitor storageMonitor_;
 
    private final boolean showViewer_, storeData_, xyTiled_;
    private final int tileOverlapX_, tileOverlapY_;
@@ -48,7 +49,7 @@ public class RemoteViewerStorageAdapter implements DataSourceInterface, DataSink
    private String name_;
    private Integer maxResLevel_;
    private int savingQueueSize_;
-   private boolean omitIndex_, metadataOff_, ifdOff_;
+
 
    /**
     *
@@ -89,11 +90,18 @@ public class RemoteViewerStorageAdapter implements DataSourceInterface, DataSink
                  }) : null
                  );
          name_ = storage_.getUniqueAcqName();
+
+         storageMonitor_ = new RemoteStorageMonitor(summaryMetadata, storage_.getDiskLocation());
+         storage_.addImageWrittenListener(storageMonitor_);
       }
 
       if (showViewer_) {
          createDisplay(summaryMetadata);
       }
+   }
+
+   public RemoteStorageMonitor getStorageMonitor() {
+      return storageMonitor_;
    }
 
    public StorageAPI getStorage() {
