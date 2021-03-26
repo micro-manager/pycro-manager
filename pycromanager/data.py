@@ -517,7 +517,9 @@ class Dataset:
         """
         Return a list of every combination of axes that has a image in this dataset
         """
-        return list(self.res_levels[res_level].index.keys())
+        frozen_set_list =  list(self.res_levels[res_level].index.keys())
+        #convert to dict
+        return [{axis_name: position for axis_name, position in key} for key in frozen_set_list]
 
     def as_array(self, stitched=False, verbose=True):
         """
