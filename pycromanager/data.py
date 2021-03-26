@@ -589,7 +589,7 @@ class Dataset:
 
                 # copy so multiple calls dont collide on the same data structure
                 remaining_loop_axes = loop_axes.copy()
-                if axis == "row" or axis == "column":
+                if (axis == "row" or axis == "column") and stitched:
                     # do these both at once
                     del remaining_loop_axes["row"]
                     del remaining_loop_axes["column"]
