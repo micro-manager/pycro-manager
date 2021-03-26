@@ -457,12 +457,6 @@ class Acquisition(object):
         # now wait on it to finish
         self.await_completion()
 
-    def get_disk_location(self):
-        """
-        Return the path where the dataset is on disk
-        """
-        return self._dataset_disk_location
-
     def get_dataset(self):
         """
         Get access to the dataset backing this acquisition. If the acquisition is in progress,
