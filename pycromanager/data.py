@@ -513,6 +513,12 @@ class Dataset:
         # start pushing out all the image written events (including ones that have already accumulated)
         self._remote_storage_monitor.start()
 
+    def get_index_keys(self, res_level=0):
+        """
+        Return a list of every combination of axes that has a image in this dataset
+        """
+        return list(self.res_levels[res_level].index.keys())
+
     def as_array(self, stitched=False, verbose=True):
         """
         Read all data image data as one big Dask array with last two axes as y, x and preceeding axes depending on data.
