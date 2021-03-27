@@ -517,11 +517,11 @@ class Dataset:
         """
         Return a list of every combination of axes that has a image in this dataset
         """
-        frozen_set_list =  list(self.res_levels[res_level].index.keys())
+        frozen_set_list = list(self.res_levels[res_level].index.keys())
         #convert to dict
         return [{axis_name: position for axis_name, position in key} for key in frozen_set_list]
 
-    def as_array(self, stitched=False, verbose=True, **kwargs):
+    def as_array(self, axes=None, stitched=False, verbose=True, **kwargs):
         """
         Read all data image data as one big Dask array with last two axes as y, x and preceeding axes depending on data.
         The dask array is made up of memory-mapped numpy arrays, so the dataset does not need to be able to fit into RAM.
@@ -533,6 +533,8 @@ class Dataset:
 
         Parameters
         ----------
+        axes : list
+            list of axes names over which to iterate and merge into a stacked array. If None, all axes will be used
         stitched : bool
             If true and tiles were acquired in a grid, lay out adjacent tiles next to one another (Default value = False)
         verbose : bool
@@ -654,7 +656,9 @@ class Dataset:
                         blocks.append(recurse_axes(remaining_loop_axes, valed_axes))
                     return blocks
 
-        blocks = recurse_axes(self.axes, kwargs)
+        if axes is None:
+            axes = self.axes.keys()
+        blocks = recurse_axes({key: self.axes[key] for key in axes if key not in kwargs.keys()}, kwargs)
 
         if verbose:
             print(
@@ -667,6 +671,8 @@ class Dataset:
         # print(e - s)
         if verbose:
             print("\rDask array opened")
+        # remove singleton axes
+        array = da.squeeze(array)
         return array
 
     def has_image(
