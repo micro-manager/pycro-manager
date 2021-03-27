@@ -576,6 +576,7 @@ class Dataset:
                     print("\rAdding data chunk {} of {}".format(self._count, total), end="")
                 self._count += 1
                 if None not in point_axes.values() and self.has_image(**point_axes):
+                    recurse_axes.empty = False # track that actual data was read
                     if stitched:
                         img = self.read_image(**point_axes, memmapped=True)
                         if self.half_overlap[0] != 0:
@@ -590,6 +591,7 @@ class Dataset:
                     # return np.zeros((self.image_height, self.image_width), self.dtype)
                     return self._empty_tile
             else:
+                # Still have axes over which to loop
                 # do row and col first because it makes stitching faster
                 if "row" in loop_axes.keys() and stitched:
                     axis = "row"
@@ -609,6 +611,7 @@ class Dataset:
                     # remove because this axis is now being assigned a point value
                     del remaining_loop_axes[axis]
                 if (axis == "row" or axis == "column") and stitched:
+                    # Do stitching along existing axis
                     # Stitch tiles acquired in a grid (i.e. data acquired by Micro-Magellan or in multi-res mode)
                     self.half_overlap = (self.overlap[0] // 2, self.overlap[1] // 2)
 
@@ -616,6 +619,7 @@ class Dataset:
                     row_values = np.array(list(self.axes["row"]))
                     column_values = np.array(list(self.axes["column"]))
 
+                    #make nested list of rows and columns
                     blocks = []
                     for row in row_values:
                         blocks.append([])
@@ -646,6 +650,7 @@ class Dataset:
                         stitched_array = da.block(blocks)
                     return stitched_array
                 else:
+                    # Do stacking along new axis (i.e. not stiching along exisitng)
                     blocks = []
                     # Loop through every value of the next axis (i.e. create new branches of the tree)
                     for val in loop_axes[axis]:
@@ -658,7 +663,14 @@ class Dataset:
 
         if axes is None:
             axes = self.axes.keys()
-        blocks = recurse_axes({key: self.axes[key] for key in axes if key not in kwargs.keys()}, kwargs)
+        axes_to_slice = kwargs
+        axes_to_stack_or_stitch = {key: self.axes[key] for key in axes if key not in kwargs.keys()}
+
+        recurse_axes.empty = True
+        blocks = recurse_axes(axes_to_stack_or_stitch, axes_to_slice)
+        if recurse_axes.empty:
+            # No actual data in any of the tiles
+            return None
 
         if verbose:
             print(
