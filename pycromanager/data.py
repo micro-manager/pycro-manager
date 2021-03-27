@@ -521,7 +521,7 @@ class Dataset:
         #convert to dict
         return [{axis_name: position for axis_name, position in key} for key in frozen_set_list]
 
-    def as_array(self, stitched=False, verbose=True):
+    def as_array(self, stitched=False, verbose=True, **kwargs):
         """
         Read all data image data as one big Dask array with last two axes as y, x and preceeding axes depending on data.
         The dask array is made up of memory-mapped numpy arrays, so the dataset does not need to be able to fit into RAM.
@@ -537,6 +537,8 @@ class Dataset:
             If true and tiles were acquired in a grid, lay out adjacent tiles next to one another (Default value = False)
         verbose : bool
             If True print updates on progress loading the image
+        **kwargs :
+            names and integer positions of axes on which to slice data
         Returns
         -------
         dataset : dask array
@@ -652,7 +654,7 @@ class Dataset:
                         blocks.append(recurse_axes(remaining_loop_axes, valed_axes))
                     return blocks
 
-        blocks = recurse_axes(self.axes, {})
+        blocks = recurse_axes(self.axes, kwargs)
 
         if verbose:
             print(
@@ -700,8 +702,8 @@ class Dataset:
         resolution_level :
             0 is full resolution, otherwise represents downampling of pixels
             at 2 ** (resolution_level) (Default value = 0)
-        **kwargs
-            Arbitrary keyword arguments
+        **kwargs :
+            names and integer positions of any other axes
 
         Returns
         -------
