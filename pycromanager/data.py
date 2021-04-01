@@ -518,7 +518,7 @@ class Dataset:
         Return a list of every combination of axes that has a image in this dataset
         """
         frozen_set_list = list(self.res_levels[res_level].index.keys())
-        #convert to dict
+        # convert to dict
         return [{axis_name: position for axis_name, position in key} for key in frozen_set_list]
 
     def as_array(self, axes=None, stitched=False, verbose=True, **kwargs):
@@ -576,7 +576,7 @@ class Dataset:
                     print("\rAdding data chunk {} of {}".format(self._count, total), end="")
                 self._count += 1
                 if None not in point_axes.values() and self.has_image(**point_axes):
-                    recurse_axes.empty = False # track that actual data was read
+                    recurse_axes.empty = False  # track that actual data was read
                     if stitched:
                         img = self.read_image(**point_axes, memmapped=True)
                         if self.half_overlap[0] != 0:
@@ -619,7 +619,7 @@ class Dataset:
                     row_values = np.array(list(self.axes["row"]))
                     column_values = np.array(list(self.axes["column"]))
 
-                    #make nested list of rows and columns
+                    # make nested list of rows and columns
                     blocks = []
                     for row in row_values:
                         blocks.append([])
