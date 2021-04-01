@@ -11,23 +11,39 @@ import warnings
 import os.path
 import queue
 import subprocess
-
+import platform
+import atexit
 
 def start_headless(mm_app_path, config_file, core_log_path=None, buffer_size_mb=1024):
-    # TODO: add docstring
+    """
+    Start a Java process that contains the neccessary libraries for pycro-manager to run,
+    so that it can be run independently of the Micro-Manager GUI/application.
+    """
 
-    # TODO: argument for java memory
-    jar_directory = mm_app_path + "/plugins/micro-manager"
-    # TODO: how to determine right java version?
-    subprocess.Popen(
+    classpath = mm_app_path + "/plugins/Micro-Manager/*"
+    if platform.system() == "Windows":
+        # windows comes with its own JRE
+        java_loc = mm_app_path + "/jre/bin/javaw.exe"
+    else:
+        java_loc = "java"
+    # This starts Java process and instantiates essential objects (core,
+    # acquisition engine, ZMQServer)
+    p = subprocess.Popen(
         [
-            "java",
+            java_loc,
             "-classpath",
-            '"{}/*"'.format(jar_directory),
+            classpath,
+            "-Dsun.java2d.dpiaware=false",
+            "-Xmx2000m",
+            "-XX:MaxDirectMemorySize=1000",
             "org.micromanager.remote.HeadlessLauncher",
         ]
     )
+    # make sure Java process cleans up when Python process exits
+    #TODO is this needed on non windows platforms?
+    atexit.register(lambda: p.kill())
 
+    # Initialize core
     bridge = Bridge()
     core = bridge.get_core()
 
@@ -43,7 +59,6 @@ def start_headless(mm_app_path, config_file, core_log_path=None, buffer_size_mb=
 
 
 ### These functions outside class to prevent problems with pickling when running them in differnet process
-
 
 def _event_sending_fn(event_port, event_queue, debug=False):
     """
