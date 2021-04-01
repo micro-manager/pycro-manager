@@ -14,18 +14,40 @@ import subprocess
 import platform
 import atexit
 
-def start_headless(mm_app_path, config_file, core_log_path=None, buffer_size_mb=1024):
+def start_headless(mm_app_path, config_file, java_loc=None, core_log_path=None, buffer_size_mb=1024):
     """
     Start a Java process that contains the neccessary libraries for pycro-manager to run,
-    so that it can be run independently of the Micro-Manager GUI/application.
+    so that it can be run independently of the Micro-Manager GUI/application. This call
+    will create and initialize MMCore with the configuration file provided.
+
+    On windows plaforms, the Java Runtime Environment will be grabbed automatically
+    as it is installed along with the Micro-Manager application.
+
+    On non-windows platforms, it may need to be installed/specified manually in order to ensure compatibility.
+    This can be checked by looking at the "maven.compiler.source" entry which the java parts of
+    pycro-manager were compiled with. See here: https://github.com/micro-manager/pycro-manager/blob/29b584bfd71f0d05750f5d39600318902186a06a/java/pom.xml#L8
+
+    Parameters
+        ----------
+        mm_app_path : str
+            Path to top level folder of Micro-Manager installation (made with graphical installer)
+        config_file : str
+            Path to micro-manager config file, with which core will be initialized
+        java_loc: str
+            Path to the java version that it should be run with
+        core_log_path : str
+            Path to where core log files should be created
+        buffer_size_mb : int
+            Size of circular buffer in MB in MMCore
     """
 
-    classpath = mm_app_path + "/plugins/Micro-Manager/*"
-    if platform.system() == "Windows":
-        # windows comes with its own JRE
-        java_loc = mm_app_path + "/jre/bin/javaw.exe"
-    else:
-        java_loc = "java"
+    classpath = "\"" + mm_app_path + "/plugins/Micro-Manager/*\""
+    if java_loc is None:
+        if platform.system() == "Windows":
+            # windows comes with its own JRE
+            java_loc = mm_app_path + "/jre/bin/javaw.exe"
+        else:
+            java_loc = "java"
     # This starts Java process and instantiates essential objects (core,
     # acquisition engine, ZMQServer)
     p = subprocess.Popen(
@@ -35,13 +57,13 @@ def start_headless(mm_app_path, config_file, core_log_path=None, buffer_size_mb=
             classpath,
             "-Dsun.java2d.dpiaware=false",
             "-Xmx2000m",
-            "-XX:MaxDirectMemorySize=1000",
+            # This is used by MM desktop app but breaks things on MacOS...Don't think its neccessary
+            # "-XX:MaxDirectMemorySize=1000",
             "org.micromanager.remote.HeadlessLauncher",
         ]
     )
     # make sure Java process cleans up when Python process exits
-    #TODO is this needed on non windows platforms?
-    atexit.register(lambda: p.kill())
+    atexit.register(lambda: p.terminate())
 
     # Initialize core
     bridge = Bridge()
