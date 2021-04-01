@@ -14,7 +14,10 @@ import subprocess
 import platform
 import atexit
 
-def start_headless(mm_app_path, config_file, java_loc=None, core_log_path=None, buffer_size_mb=1024):
+
+def start_headless(
+    mm_app_path, config_file, java_loc=None, core_log_path=None, buffer_size_mb=1024
+):
     """
     Start a Java process that contains the neccessary libraries for pycro-manager to run,
     so that it can be run independently of the Micro-Manager GUI/application. This call
@@ -41,7 +44,7 @@ def start_headless(mm_app_path, config_file, java_loc=None, core_log_path=None, 
             Size of circular buffer in MB in MMCore
     """
 
-    classpath = "\"" + mm_app_path + "/plugins/Micro-Manager/*\""
+    classpath = '"' + mm_app_path + '/plugins/Micro-Manager/*"'
     if java_loc is None:
         if platform.system() == "Windows":
             # windows comes with its own JRE
@@ -81,6 +84,7 @@ def start_headless(mm_app_path, config_file, java_loc=None, core_log_path=None, 
 
 
 ### These functions outside class to prevent problems with pickling when running them in differnet process
+
 
 def _event_sending_fn(event_port, event_queue, debug=False):
     """
