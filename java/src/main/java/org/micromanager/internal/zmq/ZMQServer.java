@@ -411,6 +411,9 @@ public class ZMQServer extends ZMQSocketWrapper {
             //TODO this is defined in superclass, maybe it would be good to merge these?
 //            System.out.println("remove object: " + hashCode);
             Object removed = EXTERNAL_OBJECTS.remove(hashCode);
+            if (debug_) {
+               System.out.println("Object ready for garbage collection: " + removed);
+            }
             reply = new JSONObject();
 
             reply.put("type", "none");

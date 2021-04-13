@@ -214,7 +214,7 @@ public class RemoteViewerStorageAdapter implements DataSourceInterface, DataSink
    }
    
    public void close() {
-      //anything should be done here? cant think of it now...
+      storage_.close();
    }
 
    ///////////// Data sink interface required by acq eng /////////////
@@ -228,6 +228,10 @@ public class RemoteViewerStorageAdapter implements DataSourceInterface, DataSink
                storage_.setDisplaySettings(displaySettings);
             }
             storage_.finishedWriting();
+         }
+         if (!showViewer_) {
+            //If there's no viewer, shutdown of acquisition == shutdown of storage
+            close();
          }
       }
       
