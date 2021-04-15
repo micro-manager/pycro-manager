@@ -1,20 +1,17 @@
 package org.micromanager.internal.zmq;
 
-import java.io.File;
 import java.io.PrintWriter;
 import java.io.StringWriter;
 import java.io.UnsupportedEncodingException;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
-import java.net.MalformedURLException;
 import java.net.URISyntaxException;
-import java.net.URL;
 import java.net.URLClassLoader;
-import java.nio.charset.StandardCharsets;
 import java.util.*;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.function.Consumer;
 import java.util.function.Function;
 import mmcorej.org.json.JSONException;
 import mmcorej.org.json.JSONObject;
@@ -39,6 +36,7 @@ public class ZMQServer extends ZMQSocketWrapper {
    private static Function<Class, Object> classMapper_;
    private static ZMQServer masterServer_;
    static boolean debug_ = false;
+   private Consumer<String> debugLogger_;
 
    //for testing
 //   public static void main(String[] args) {
@@ -65,7 +63,7 @@ public class ZMQServer extends ZMQSocketWrapper {
    }
 
    public ZMQServer(Collection<ClassLoader> cls, Function<Class, Object> classMapper,
-                    String[] excludePaths) throws URISyntaxException, UnsupportedEncodingException {
+                    String[] excludePaths, Consumer<String> debugLogger) throws URISyntaxException, UnsupportedEncodingException {
       super(SocketType.REP);
       classMapper_ = classMapper;
       util_ = new ZMQUtil(cls, excludePaths);
@@ -75,6 +73,7 @@ public class ZMQServer extends ZMQSocketWrapper {
       for (ClassLoader cl : cls) {
          packages_.addAll(ZMQUtil.getPackagesFromJars((URLClassLoader) cl));
       }
+      debugLogger_ = debugLogger;
    }
 
    public static ZMQServer getMasterServer() {
@@ -97,6 +96,7 @@ public class ZMQServer extends ZMQSocketWrapper {
             JSONObject message = receiveMessage();
             if (debug_) {
                System.out.println("Recieved message: \t" + message);
+               debugLogger_.accept("Recieved message: \t" + message);
             }
             JSONObject reply = null;
             try {
@@ -121,10 +121,12 @@ public class ZMQServer extends ZMQSocketWrapper {
 
             if (debug_) {
                System.out.println("Sending message: \t" + reply.toString());
+               debugLogger_.accept("Sending message: \t" + reply.toString());
             }
             sendMessage(reply);
             if (debug_) {
                System.out.println("Message sent");
+               debugLogger_.accept("Message sent");
             }
          }
       });
