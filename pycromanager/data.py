@@ -546,7 +546,7 @@ class Dataset:
         dataset : dask array
         """
 
-        w = self.image_height if not stitched else self._tile_width
+        w = self.image_width if not stitched else self._tile_width
         h = self.image_height if not stitched else self._tile_height
         self._empty_tile = (
             np.zeros((h, w), self.dtype)

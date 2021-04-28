@@ -2,7 +2,7 @@
     <modelVersion>4.0.0</modelVersion>
     <groupId>org.micro-manager.pycro-manager</groupId>
     <artifactId>PycroManagerJava</artifactId>
-    <version>0.21.3</version>
+    <version>0.21.5</version>
     <packaging>jar</packaging>
     <name>Pycro-Manager Java</name>
     <description>The Java components of Pycro-Manager</description>
@@ -122,6 +122,7 @@
          </execution>
         </executions>
        </plugin>
+
        <plugin>
       <groupId>org.sonatype.plugins</groupId>
       <artifactId>nexus-staging-maven-plugin</artifactId>
@@ -138,10 +139,10 @@
 
 
     <distributionManagement>
-      <snapshotRepository>
+<!--       <snapshotRepository>
         <id>ossrh</id>
         <url>https://s01.oss.sonatype.org/content/repositories/snapshots</url>
-      </snapshotRepository>
+      </snapshotRepository> -->
       <repository>
         <id>ossrh</id>
         <url>https://s01.oss.sonatype.org/service/local/staging/deploy/maven2/</url>
