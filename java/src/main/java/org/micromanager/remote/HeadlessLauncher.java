@@ -7,6 +7,7 @@ import org.micromanager.internal.zmq.ZMQServer;
 import java.io.UnsupportedEncodingException;
 import java.net.URISyntaxException;
 import java.util.HashSet;
+import java.util.function.Consumer;
 import java.util.function.Function;
 
 public class HeadlessLauncher {
@@ -37,7 +38,13 @@ public class HeadlessLauncher {
       try {
          HashSet<ClassLoader> classLoaders = new HashSet<ClassLoader>();
          classLoaders.add(core.getClass().getClassLoader());
-         zmqServer_ = new ZMQServer(classLoaders, instanceGrabberFunction, new String[]{});
+         zmqServer_ = new ZMQServer(classLoaders, instanceGrabberFunction, new String[]{},
+                 new Consumer<String>() {
+                    @Override
+                    public void accept(String s) {
+                       System.out.println(s);
+                    }
+                 });
       } catch (URISyntaxException e) {
          throw new RuntimeException();
       } catch (UnsupportedEncodingException e) {
