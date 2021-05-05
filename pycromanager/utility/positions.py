@@ -45,7 +45,7 @@ class Position1d:
     def fromPropertyMap(pmap: PropertyMap) -> Position1d:
         if len(pmap["Position_um"]) != 1:
             raise Exception("RERAR")
-        return Position1d(z=pmap["Position_um"][0].value, stageName=pmap["Device"].value)
+        return Position1d(z=pmap['Position_um'][0].value, zStage=pmap['Device'].value)
 
     def __repr__(self):
         return f"Position1d({self.stageName}, {self.z})"
@@ -144,9 +144,8 @@ class MultiStagePosition:
         label: A name for the position
         xyStage: The name of the 2D stage
         zStage: The name of the 1D stage
-        positions: A list of `Position1d` and `Position2D` objects, usually just one of each.
+        stagePositions: A list of `Position1d` and `Position2D` objects, usually just one of each.
     """
-
     label: str
     defaultXYStage: str
     defaultZStage: str
@@ -249,9 +248,7 @@ class MultiStagePosition:
             positions = copy.copy(self.stagePositions)
             positions.remove(self.getXYPosition())
             positions.append(newPos)
-            return MultiStagePosition(
-                self.label, self.defaultXYStage, self.defaultZStage, positions=positions
-            )
+            return MultiStagePosition(self.label, self.defaultXYStage, self.defaultZStage, stagePositions=positions)
         elif isinstance(other, MultiStagePosition):
             return self.__add__(other.getXYPosition())
         elif isinstance(other, PositionList):
@@ -272,7 +269,7 @@ class MultiStagePosition:
                 self.label, self.defaultXYStage, self.defaultZStage, positions=positions
             )
         elif isinstance(other, MultiStagePosition):
-            self.__sub__(other.getXYPosition())
+            return self.__sub__(other.getXYPosition())
         elif isinstance(other, PositionList):
             return other.copy().mirrorX().mirrorY().__add__(self)  # a-b == -b + a
         else:
@@ -388,11 +385,12 @@ class PositionList:
             np.ndarray: A 2x3 array representing the partial affine transform (rotation, scaling, and translation, but no skew)
 
         Examples:
-            a = PositionList.fromNanoMatFile(r'F:/Data/AirDryingSystemComparison/NanoPreDry/corners/positions.mat', "TIXYDRIVE")
-            b = PositionList.fromNanoMatFile(r'F:/Data/AirDryingSystemComparison/NanoPostDry/corners/positions.mat',"TIXYDRIVE")
-            t = a.getAffineTransform(b)
-            origPos = PositionList.fromNanoMatFile(r'F:/Data/AirDryingSystemComparison/NanoPreDry/0_8NA/position_list1.mat',"TIXYDRIVE")
-            newPos = origPos.applyAffineTransform(t)
+            a = PositionList.load(r'F:/Data1/referencepositions.pos')  # Reference positions for experiment 1
+            b = PositionList.load(r'F:/Data2/referencepositions.pos')  # The same reference positions on a separate instrument in experiment 2.
+            t = a.getAffineTransform(b)  # Calculate the transform between instruments.
+            origPos = PositionList.load(r'F:/Data1/samplepositions.pos')  # Points of interest from experiment 1.
+            newPos = origPos.applyAffineTransform(t)  # Generate matching points for experiment 2.
+            newPos.toPropertyMap().toJson(r'F:/Data2/samplepositions.pos')  # Now save to a file that Micro-Manager can load.
         """
         import cv2
 
@@ -433,21 +431,23 @@ class PositionList:
         s += "])"
         return s
 
-    def __add__(self, other: Union[Position2d, MultiStagePosition]) -> PositionList:
+    def __add__(self, other: Union[Position2d, MultiStagePosition, PositionList]) -> PositionList:
         if isinstance(other, Position2d):
             return PositionList([i + other for i in self.positions])
         elif isinstance(other, MultiStagePosition):
             self.__add__(other.getXYPosition())
         else:
-            raise NotImplementedError
+            assert len(other) == len(self), "Cannot subtract position lists of different sizes"
+            return PositionList([a + b for a, b in zip(self.positions, other.positions)])
 
-    def __sub__(self, other: Union[Position2d, MultiStagePosition]) -> PositionList:
+    def __sub__(self, other: Union[Position2d, MultiStagePosition, PositionList]) -> PositionList:
         if isinstance(other, Position2d):
             return PositionList([i - other for i in self.positions])
         elif isinstance(other, MultiStagePosition):
             return self.__sub__(other.getXYPosition())
         else:
-            raise NotImplementedError
+            assert len(other) == len(self), "Cannot subtract position lists of different sizes"
+            return PositionList([a - b for a, b in zip(self.positions, other.positions)])
 
     def __len__(self):
         return len(self.positions)
@@ -521,13 +521,19 @@ if __name__ == "__main__":
     with open(path1) as f1, open(path2) as f2:
         assert f1.read() == f2.read()
 
-    def generateList(data: np.ndarray):
-        """Example function to create a brand new position list in python."""
+
+    def generateList(data: np.ndarray) -> PositionList:
+        """Example function to create a brand new position list in python.
+
+        Args:
+            data: An Nx2 array of xy coordinates. These coordinates will be converted to a PositionList which can be
+                saved and then loaded by Micro-Manager.
+        """
         assert isinstance(data, np.ndarray)
         assert len(data.shape) == 2
         assert data.shape[1] == 2
         positions = []
         for n, i in enumerate(data):
-            positions.append(Position2d(*i, "TIXYDrive", f"Cell{n + 1}"))
+            positions.append(MultiStagePosition(f'Cell{n + 1}', 'TIXYDrive', 'TIZDrive', stagePositions=[Position2d(i[0], i[1], 'TIXYDrive')]))
         plist = PositionList(positions)
         return plist
