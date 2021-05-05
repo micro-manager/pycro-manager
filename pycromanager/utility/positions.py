@@ -44,7 +44,7 @@ class Position1d:
     @staticmethod
     def fromPropertyMap(pmap: PropertyMap) -> Position1d:
         if len(pmap["Position_um"]) != 1:
-            raise Exception("RERAR")
+            raise ValueException("The PropertyMap has more that one coordinate.")
         return Position1d(z=pmap['Position_um'][0].value, zStage=pmap['Device'].value)
 
     def __repr__(self):
@@ -86,7 +86,7 @@ class Position2d:
     @staticmethod
     def fromPropertyMap(pmap: PropertyMap) -> Position2d:
         if len(pmap["Position_um"]) != 2:
-            raise Exception("Errr")
+            raise ValueException("The PropertyMap must have two coordinates")
         x, y = pmap["Position_um"][0].value, pmap["Position_um"][1].value
         return Position2d(x=x, y=y, stageName=pmap["Device"].value)
 
