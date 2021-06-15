@@ -493,7 +493,7 @@ class Dataset:
         connected_event = threading.Event()
 
         push_port = self._remote_storage_monitor.get_port()
-        processor_thread = threading.Thread(
+        monitor_thread = threading.Thread(
             target=_storage_monitor_fn,
             args=(
                 self,
@@ -505,13 +505,14 @@ class Dataset:
             name="ImageProcessor",
         )
 
-        processor_thread.start()
+        monitor_thread.start()
 
         # not sure if this is neccesary, copied from acq hook
         connected_event.wait()  # wait for push/pull sockets to connect
 
         # start pushing out all the image written events (including ones that have already accumulated)
         self._remote_storage_monitor.start()
+        return monitor_thread
 
     def get_index_keys(self, res_level=0):
         """
