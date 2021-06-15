@@ -434,35 +434,36 @@ class Acquisition(object):
             self.disk_location = storage.get_disk_location()
 
         if image_process_fn is not None:
-            processor = self.bridge.construct_java_object(
+            java_processor = self.bridge.construct_java_object(
                 "org.micromanager.remote.RemoteImageProcessor"
             )
-            self._remote_acq.add_image_processor(processor)
-            self._start_processor(processor, image_process_fn, self._event_queue, process=process)
+            self._remote_acq.add_image_processor(java_processor)
+            self._processor_thread = self._start_processor(java_processor, image_process_fn, self._event_queue, process=process)
 
+        self._hook_threads = []
         if event_generation_hook_fn is not None:
             hook = self.bridge.construct_java_object(
                 "org.micromanager.remote.RemoteAcqHook", args=[self._remote_acq]
             )
-            self._start_hook(hook, event_generation_hook_fn, self._event_queue, process=process)
+            self._hook_threads.append(self._start_hook(hook, event_generation_hook_fn, self._event_queue, process=process))
             self._remote_acq.add_hook(hook, self._remote_acq.EVENT_GENERATION_HOOK)
         if pre_hardware_hook_fn is not None:
             hook = self.bridge.construct_java_object(
                 "org.micromanager.remote.RemoteAcqHook", args=[self._remote_acq]
             )
-            self._start_hook(hook, pre_hardware_hook_fn, self._event_queue, process=process)
+            self._hook_threads.append(self._start_hook(hook, pre_hardware_hook_fn, self._event_queue, process=process))
             self._remote_acq.add_hook(hook, self._remote_acq.BEFORE_HARDWARE_HOOK)
         if post_hardware_hook_fn is not None:
             hook = self.bridge.construct_java_object(
                 "org.micromanager.remote.RemoteAcqHook", args=[self._remote_acq]
             )
-            self._start_hook(hook, post_hardware_hook_fn, self._event_queue, process=process)
+            self._hook_threads.append(self._start_hook(hook, post_hardware_hook_fn, self._event_queue, process=process))
             self._remote_acq.add_hook(hook, self._remote_acq.AFTER_HARDWARE_HOOK)
         if post_camera_hook_fn is not None:
             hook = self.bridge.construct_java_object(
                 "org.micromanager.remote.RemoteAcqHook", args=[self._remote_acq]
             )
-            self._start_hook(hook, post_camera_hook_fn, self._event_queue, process=process)
+            self._hook_threads.append(self._start_hook(hook, post_camera_hook_fn, self._event_queue, process=process))
             self._remote_acq.add_hook(hook, self._remote_acq.AFTER_CAMERA_HOOK)
 
         self._remote_acq.start()
@@ -475,16 +476,16 @@ class Acquisition(object):
         if magellan_acq_index is None and not magellan_explore:
             self.event_port = self._remote_acq.get_event_port()
 
-            self.event_process = threading.Thread(
+            self._event_thread = threading.Thread(
                 target=_event_sending_fn,
                 args=(self.event_port, self._event_queue, self._debug),
                 name="Event sending",
             )
-            self.event_process.start()
+            self._event_thread.start()
 
         if storage_monitor_callback_fn is not None:
             self._dataset = Dataset(remote_storage_monitor=self._remote_acq.get_storage_monitor())
-            self._dataset._add_storage_monitor_fn(
+            self._storage_monitor_thread =  self._dataset._add_storage_monitor_fn(
                 callback_fn=storage_monitor_callback_fn, debug=self._debug
             )
 
@@ -511,7 +512,7 @@ class Acquisition(object):
             # Load remote storage
             self._dataset = Dataset(remote_storage_monitor=self._remote_acq.get_storage_monitor())
             # Monitor image arrival so they can be loaded on python side, but with no callback function
-            self._dataset._add_storage_monitor_fn(callback_fn=None, debug=self._debug)
+            self._storage_monitor_thread = self._dataset._add_storage_monitor_fn(callback_fn=None, debug=self._debug)
 
         return self._dataset
 
@@ -520,6 +521,21 @@ class Acquisition(object):
         while not self._remote_acq.is_finished():
             time.sleep(0.1)
         self._remote_acq = None
+
+        # Wait on all the other threads to shut down properly
+        if hasattr(self, '_storage_monitor_thread'):
+            self._storage_monitor_thread.join()
+
+        for hook_thread in self._hook_threads:
+            hook_thread.join()
+
+        if hasattr(self, '_event_thread'):
+            self._event_thread.join()
+
+        if hasattr(self, '_storage_monitor_thread'):
+            self._storage_monitor_thread.join()
+
+
         self._finished = True
 
     def acquire(self, events, keep_shutter_open=False):
@@ -592,6 +608,7 @@ class Acquisition(object):
         hook_thread.start()
 
         hook_connected_evt.wait()  # wait for push/pull sockets to connect
+        return hook_thread
 
     def _start_processor(self, processor, process_fn, event_queue, process):
         """
@@ -619,7 +636,7 @@ class Acquisition(object):
         pull_port = processor.get_pull_port()
         push_port = processor.get_push_port()
 
-        self.processor_thread = (multiprocessing.Process if process else threading.Thread)(
+        processor_thread = (multiprocessing.Process if process else threading.Thread)(
             target=_processor_startup_fn,
             args=(
                 pull_port,
@@ -631,10 +648,11 @@ class Acquisition(object):
             ),
             name="ImageProcessor",
         )
-        self.processor_thread.start()
+        processor_thread.start()
 
         sockets_connected_evt.wait()  # wait for push/pull sockets to connect
         processor.start_push()
+        return processor_thread
 
 
 def multi_d_acquisition_events(

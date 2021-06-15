@@ -1,5 +1,7 @@
 Icon
 
+venv
+
 test/sandbox.py
 test/sandbox2.py
 
