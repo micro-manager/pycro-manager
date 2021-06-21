@@ -6,8 +6,8 @@ def storage_monitor_fn(axes):
     pixels = dataset.read_image(**axes)
     print(pixels)
 
-
-with Acquisition(directory="/Users/henrypinkard/tmp", name="tcz_acq", debug=False,
+dire = 'C:\\Users\\henry\\Desktop\\datadump'
+with Acquisition(directory=dire, name="tcz_acq", debug=False,
                  storage_monitor_callback_fn=None) as acq:
     events = multi_d_acquisition_events(
         num_time_points=5,
