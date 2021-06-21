@@ -38,7 +38,6 @@ class _MultipageTiffReader:
             self.mmap_file = mmap.mmap(self.file.fileno(), 0, prot=mmap.PROT_READ)
         self.summary_md, self.first_ifd_offset = self._read_header()
         self.mmap_file.close()
-        self.np_memmap = np.memmap(self.file, dtype=np.uint8, mode="r")
 
     def close(self):
         """ """
@@ -55,35 +54,37 @@ class _MultipageTiffReader:
             int byte offset of first image IFD
         """
         # read standard tiff header
-        if self.mmap_file[:2] == b"\x4d\x4d":
+        if self._read(0,2) == b"\x4d\x4d":
             # Big endian
             if sys.byteorder != "big":
                 raise Exception("Potential issue with mismatched endian-ness")
-        elif self.mmap_file[:2] == b"\x49\x49":
+        elif self._read(0,2) == b"\x49\x49":
             # little endian
             if sys.byteorder != "little":
                 raise Exception("Potential issue with mismatched endian-ness")
         else:
             raise Exception("Endian type not specified correctly")
-        if np.frombuffer(self.mmap_file[2:4], dtype=np.uint16)[0] != 42:
+        if np.frombuffer(self._read(2,4), dtype=np.uint16)[0] != 42:
             raise Exception("Tiff magic 42 missing")
-        first_ifd_offset = np.frombuffer(self.mmap_file[4:8], dtype=np.uint32)[0]
+        first_ifd_offset = np.frombuffer(self._read(4,8), dtype=np.uint32)[0]
 
         # read custom stuff: header, summary md
         # int.from_bytes(self.mmap_file[24:28], sys.byteorder) # should be equal to 483729 starting in version 1
-        self._major_version = int.from_bytes(self.mmap_file[12:16], sys.byteorder)
+        self._major_version = int.from_bytes(self._read(12,16), sys.byteorder)
 
-        summary_md_header, summary_md_length = np.frombuffer(self.mmap_file[16:24], dtype=np.uint32)
+        summary_md_header, summary_md_length = np.frombuffer(self._read(16,24), dtype=np.uint32)
         if summary_md_header != self.SUMMARY_MD_HEADER:
             raise Exception("Summary metadata header wrong")
-        summary_md = json.loads(self.mmap_file[24 : 24 + summary_md_length])
+        summary_md = json.loads(self._read(24, 24 + summary_md_length))
         return summary_md, first_ifd_offset
 
     def _read(self, start, end):
         """
         convert to python ints
         """
-        return self.np_memmap[int(start) : int(end)].tobytes()
+        self.file.seek(int(start), 0)
+        return self.file.read(end - start)
+        # return self.np_memmap[int(start) : int(end)].tobytes()
 
     def read_metadata(self, index):
         return json.loads(
@@ -92,7 +93,7 @@ class _MultipageTiffReader:
             )
         )
 
-    def read_image(self, index, memmapped=True):
+    def read_image(self, index, memmapped=False):
         if index["pixel_type"] == self.EIGHT_BIT_RGB:
             bytes_per_pixel = 3
             dtype = np.uint8
@@ -107,14 +108,21 @@ class _MultipageTiffReader:
         width = index["image_width"]
         height = index["image_height"]
 
-        image = np.reshape(
-            self.np_memmap[
-                index["pixel_offset"] : index["pixel_offset"] + width * height * bytes_per_pixel
-            ].view(dtype),
-            [height, width, 3] if bytes_per_pixel == 3 else [height, width],
-        )
-        if not memmapped:
-            image = np.copy(image)
+        if memmapped:
+            np_memmap = np.memmap(self.file, dtype=np.uint8, mode="r")
+            image = np.reshape(
+                np_memmap[
+                    index["pixel_offset"] : index["pixel_offset"] + width * height * bytes_per_pixel
+                ].view(dtype),
+                [height, width, 3] if bytes_per_pixel == 3 else [height, width],
+            )
+        else:
+            image = np.reshape(
+                np.frombuffer(self._read(
+                index["pixel_offset"], index["pixel_offset"] + width * height * bytes_per_pixel)
+                    , dtype=dtype),
+                [height, width, 3] if bytes_per_pixel == 3 else [height, width],
+            )
         return image
 
 
@@ -218,7 +226,7 @@ class _ResolutionLevel:
     def read_image(
         self,
         axes,
-        memmapped=True,
+        memmapped=False,
     ):
         """
 
