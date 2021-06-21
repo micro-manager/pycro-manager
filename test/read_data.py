@@ -3,7 +3,7 @@ from pycromanager import Dataset
 import napari
 
 # This path is to the top level of the magellan dataset (i.e. the one that contains the Full resolution folder)
-data_path = "/Users/henrypinkard/tmp/tcz_acq_33"
+data_path = "/Users/henrypinkard/tmp/tcz_acq_1"
 
 # open the dataset
 dataset = Dataset(data_path)
