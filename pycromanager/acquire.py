@@ -16,7 +16,7 @@ import atexit
 
 
 def start_headless(
-    mm_app_path, config_file, java_loc=None, core_log_path=None, buffer_size_mb=1024
+    mm_app_path, config_file, java_loc=None, core_log_path=None, buffer_size_mb=1024, port=Bridge.DEFAULT_PORT
 ):
     """
     Start a Java process that contains the neccessary libraries for pycro-manager to run,
@@ -42,6 +42,8 @@ def start_headless(
             Path to where core log files should be created
         buffer_size_mb : int
             Size of circular buffer in MB in MMCore
+        port : int
+            Default port to use for ZMQServer
     """
 
     classpath = '"' + mm_app_path + '/plugins/Micro-Manager/*"'
@@ -60,16 +62,18 @@ def start_headless(
             classpath,
             "-Dsun.java2d.dpiaware=false",
             "-Xmx2000m",
+
             # This is used by MM desktop app but breaks things on MacOS...Don't think its neccessary
             # "-XX:MaxDirectMemorySize=1000",
             "org.micromanager.remote.HeadlessLauncher",
+            str(port)
         ]
     )
     # make sure Java process cleans up when Python process exits
     atexit.register(lambda: p.terminate())
 
     # Initialize core
-    bridge = Bridge()
+    bridge = Bridge(port=port)
     core = bridge.get_core()
 
     core.wait_for_system()
@@ -86,7 +90,7 @@ def start_headless(
 ### These functions outside class to prevent problems with pickling when running them in differnet process
 
 
-def _event_sending_fn(event_port, event_queue, debug=False):
+def _event_sending_fn(bridge_port, event_port, event_queue, debug=False):
     """
 
     Parameters
@@ -102,7 +106,7 @@ def _event_sending_fn(event_port, event_queue, debug=False):
     -------
 
     """
-    bridge = Bridge(debug=debug)
+    bridge = Bridge(debug=debug, port=bridge_port)
     event_socket = bridge._connect_push(event_port)
     while True:
         events = event_queue.get(block=True)
@@ -118,7 +122,7 @@ def _event_sending_fn(event_port, event_queue, debug=False):
             print("sent events")
 
 
-def _acq_hook_startup_fn(pull_port, push_port, hook_connected_evt, event_queue, hook_fn, debug):
+def _acq_hook_startup_fn(bridge_port, pull_port, push_port, hook_connected_evt, event_queue, hook_fn, debug):
     """
 
     Parameters
@@ -140,7 +144,7 @@ def _acq_hook_startup_fn(pull_port, push_port, hook_connected_evt, event_queue, 
     -------
 
     """
-    bridge = Bridge(debug=debug)
+    bridge = Bridge(debug=debug, port=bridge_port)
 
     push_socket = bridge._connect_push(pull_port)
     pull_socket = bridge._connect_pull(push_port)
@@ -178,7 +182,7 @@ def _acq_hook_startup_fn(pull_port, push_port, hook_connected_evt, event_queue, 
 
 
 def _processor_startup_fn(
-    pull_port, push_port, sockets_connected_evt, process_fn, event_queue, debug
+    bridge_port, pull_port, push_port, sockets_connected_evt, process_fn, event_queue, debug
 ):
     """
 
@@ -201,7 +205,7 @@ def _processor_startup_fn(
     -------
 
     """
-    bridge = Bridge(debug=debug)
+    bridge = Bridge(debug=debug, port=bridge_port)
     push_socket = bridge._connect_push(pull_port)
     pull_socket = bridge._connect_pull(push_port)
     if debug:
@@ -304,6 +308,7 @@ class Acquisition(object):
         magellan_explore=False,
         process=False,
         saving_queue_size=20,
+        port=Bridge.DEFAULT_PORT,
         debug=False,
         core_log_debug=False,
     ):
@@ -374,12 +379,15 @@ class Acquisition(object):
             The number of images to queue (in memory) while waiting to write to disk. Higher values should
             in theory allow sequence acquisitions to go faster, but requires the RAM to hold images while
             they are waiting to save
+        port :
+            Allows overriding the defualt port for using Java side servers on a different port
         debug : bool
             whether to print debug messages
         core_log_debug : bool
             Print debug messages on java side in the micro-manager core log
         """
-        self.bridge = Bridge(debug=debug)
+        self.bridge = Bridge(debug=debug, port=port)
+        self._bridge_port = port
         self._debug = debug
         self._dataset = None
         self._finished = False
@@ -478,7 +486,7 @@ class Acquisition(object):
 
             self._event_thread = threading.Thread(
                 target=_event_sending_fn,
-                args=(self.event_port, self._event_queue, self._debug),
+                args=(self._bridge_port, self.event_port, self._event_queue, self._debug),
                 name="Event sending",
             )
             self._event_thread.start()
@@ -596,6 +604,7 @@ class Acquisition(object):
             target=_acq_hook_startup_fn,
             name="AcquisitionHook",
             args=(
+                self._bridge_port,
                 pull_port,
                 push_port,
                 hook_connected_evt,
@@ -639,6 +648,7 @@ class Acquisition(object):
         processor_thread = (multiprocessing.Process if process else threading.Thread)(
             target=_processor_startup_fn,
             args=(
+                self._bridge_port,
                 pull_port,
                 push_port,
                 sockets_connected_evt,

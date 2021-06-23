@@ -190,7 +190,7 @@ class Bridge:
     This enables construction and interaction with arbitrary java objects
     """
 
-    _DEFAULT_PORT = 4827
+    DEFAULT_PORT = 4827
     _EXPECTED_ZMQ_SERVER_VERSION = "4.0.0"
 
     thread_local = threading.local()
@@ -205,7 +205,7 @@ class Bridge:
             return super(Bridge, cls).__new__(cls)
 
     def __init__(
-        self, port=_DEFAULT_PORT, convert_camel_case=True, debug=False, ip_address="127.0.0.1"
+        self, port=DEFAULT_PORT, convert_camel_case=True, debug=False, ip_address="127.0.0.1"
     ):
         """
         Parameters
