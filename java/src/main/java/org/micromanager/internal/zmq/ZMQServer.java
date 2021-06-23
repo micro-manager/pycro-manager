@@ -64,7 +64,12 @@ public class ZMQServer extends ZMQSocketWrapper {
 
    public ZMQServer(Collection<ClassLoader> cls, Function<Class, Object> classMapper,
                     String[] excludePaths, Consumer<String> debugLogger) throws URISyntaxException, UnsupportedEncodingException {
-      super(SocketType.REP);
+      this(cls, classMapper, excludePaths, debugLogger, ZMQSocketWrapper.STARTING_PORT_NUMBER);
+   }
+
+   public ZMQServer(Collection<ClassLoader> cls, Function<Class, Object> classMapper,
+                    String[] excludePaths, Consumer<String> debugLogger, int port) throws URISyntaxException, UnsupportedEncodingException {
+      super(SocketType.REP, port);
       classMapper_ = classMapper;
       util_ = new ZMQUtil(cls, excludePaths);
 

@@ -2,14 +2,10 @@ package org.micromanager.internal.zmq;
 
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
-import java.nio.LongBuffer;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
-import java.util.Collections;
-import java.util.HashMap;
 import java.util.Iterator;
 import java.util.concurrent.ConcurrentHashMap;
-import static org.micromanager.internal.zmq.ZMQServer.DEFAULT_MASTER_PORT_NUMBER;
 
 import mmcorej.org.json.JSONArray;
 import mmcorej.org.json.JSONException;
@@ -27,14 +23,15 @@ public abstract class ZMQSocketWrapper {
    //map of port numbers to servers, each of which has its own thread and base class
    private static ConcurrentHashMap<Integer, ZMQSocketWrapper> portSocketMap_
            = new ConcurrentHashMap<Integer, ZMQSocketWrapper>();
-   public static final int DEFAULT_MASTER_PORT_NUMBER = 4827;
+   public static int STARTING_PORT_NUMBER = 4827;
 //   public static int nextPort_ = DEFAULT_MASTER_PORT_NUMBER;
 
    protected SocketType type_;
    protected volatile ZMQ.Socket socket_;
    protected int port_;
 
-   public ZMQSocketWrapper(SocketType type) {
+   public ZMQSocketWrapper(SocketType type, int port) {
+      STARTING_PORT_NUMBER = port;
       type_ = type;
       if (context_ == null) {
          context_ = new ZContext();
@@ -44,8 +41,12 @@ public abstract class ZMQSocketWrapper {
       initialize(port_);
    }
 
+   public ZMQSocketWrapper(SocketType type) {
+      this(type, STARTING_PORT_NUMBER);
+   }
+
    private static synchronized int nextPortNumber(ZMQSocketWrapper t) {
-      int port = DEFAULT_MASTER_PORT_NUMBER;
+      int port = STARTING_PORT_NUMBER;
       while (portSocketMap_.containsKey(port)) {
          port++;
       }
