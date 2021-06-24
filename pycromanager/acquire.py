@@ -46,7 +46,7 @@ def start_headless(
             Default port to use for ZMQServer
     """
 
-    classpath = '"' + mm_app_path + '/plugins/Micro-Manager/*"'
+    classpath =   mm_app_path + '/plugins/Micro-Manager/*'
     if java_loc is None:
         if platform.system() == "Windows":
             # windows comes with its own JRE
