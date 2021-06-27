@@ -16,7 +16,8 @@ import atexit
 
 
 def start_headless(
-    mm_app_path, config_file, java_loc=None, core_log_path=None, buffer_size_mb=1024, port=Bridge.DEFAULT_PORT
+    mm_app_path, config_file, java_loc=None, core_log_path=None, buffer_size_mb=1024,
+        port=Bridge.DEFAULT_PORT,timeout=Bridge.DEFAULT_TIMEOUT
 ):
     """
     Start a Java process that contains the neccessary libraries for pycro-manager to run,
@@ -73,7 +74,7 @@ def start_headless(
     atexit.register(lambda: p.terminate())
 
     # Initialize core
-    bridge = Bridge(port=port)
+    bridge = Bridge(port=port, timeout=timeout)
     core = bridge.get_core()
 
     core.wait_for_system()
