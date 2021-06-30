@@ -180,7 +180,9 @@ class DataSocket:
 class Bridge:
     """
     Create an object which acts as a client to a corresponding server (running in a Java process).
-    This enables construction and interaction with arbitrary java objects
+    This enables construction and interaction with arbitrary java objects. Each bridge object should
+    be run using a context manager (i.e. `with Bridge() as b:`) or bridge.close() should be explicitly
+    called when finished
     """
 
     DEFAULT_PORT = 4827
