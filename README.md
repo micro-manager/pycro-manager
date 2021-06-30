@@ -25,8 +25,8 @@ To verify everything is working, run the following code:
 ```
 from pycromanager import Bridge
 
-bridge = Bridge()
-print(bridge.get_core())
+with Bridge() as bridge:
+	print(bridge.get_core())
 ```
 which will give an output like:
 
