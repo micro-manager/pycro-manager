@@ -11,9 +11,9 @@ java_loc = "/Library/Internet Plug-Ins/JavaAppletPlugin.plugin/Contents/Home/bin
 # java_loc = None
 start_headless(mm_app_path, config_file, java_loc=java_loc, port=5000)
 
-b = Bridge(port=5000)
-b.get_core().snap_image()
-print(b.get_core().get_image())
+with Bridge(port=5000) as b:
+    b.get_core().snap_image()
+    print(b.get_core().get_image())
 
 save_dir = "/Users/henrypinkard/tmp"
 # save_dir = "C:/Users/Henry Pinkard/Desktop/datadump"
