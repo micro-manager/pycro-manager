@@ -196,11 +196,10 @@ class Bridge:
         Only one instance of Bridge per a thread
         """
         port = kwargs.get('port', Bridge.DEFAULT_PORT)
-        if hasattr(Bridge.thread_local, "bridge") and port in Bridge.thread_local.bridge:
-            Bridge.thread_local.bridge_count += 1
+        if hasattr(Bridge.thread_local, "bridge") and Bridge.thread_local.bridge is not None and port in Bridge.thread_local.bridge:
+            Bridge.thread_local.bridge_count[port] += 1
             return Bridge.thread_local.bridge[port]
         else:
-            Bridge.thread_local.bridge_count = 1
             return super(Bridge, cls).__new__(cls)
 
     def __init__(
@@ -219,13 +218,16 @@ class Bridge:
             If True print helpful stuff for debugging
         """
         self._ip_address = ip_address
+        self._port = port
+        self._closed = False
         if not hasattr(self, "_context"):
             Bridge._context = zmq.Context()
-        if hasattr(self.thread_local, "bridge") and port in self.thread_local.bridge:
-            return
-        if not hasattr(self.thread_local, "bridge"):
-            self.thread_local.bridge = {}
-        self.thread_local.bridge[port] = self  # cache a thread-local version of the bridge
+        # if hasattr(self.thread_local, "bridge") and port in self.thread_local.bridge:
+        #     return  ### What was this supposed to do?
+        if not hasattr(Bridge.thread_local, "bridge") or Bridge.thread_local.bridge is None:
+            Bridge.thread_local.bridge = {}
+            Bridge.thread_local.bridge_count = {port: 1}
+        Bridge.thread_local.bridge[port] = self  # cache a thread-local version of the bridge
         self._convert_camel_case = convert_camel_case
         self._debug = debug
         self._timeout = timeout
@@ -260,11 +262,12 @@ class Bridge:
         self.close()
 
     def close(self):
-        Bridge.thread_local.bridge_count -= 1
-        if Bridge.thread_local.bridge_count == 0:
+        Bridge.thread_local.bridge_count[self._port] -= 1
+        if Bridge.thread_local.bridge_count[self._port] == 0:
             self._master_socket.close()
             self._master_socket = None
             Bridge.thread_local.bridge = None
+            self._closed = True
 
 
 
@@ -532,6 +535,8 @@ class JavaObjectShadow:
         }
         message["arguments"] = _package_arguments(valid_method_spec, fn_args)
 
+        if self._bridge._closed:
+            raise Exception('The Bridge used to create this has been closed. Are you trying to call it outside of a "with" block?')
         self._socket.send(message)
         return self._deserialize(self._socket.receive())
 
