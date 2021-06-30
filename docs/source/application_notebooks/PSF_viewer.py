@@ -352,3 +352,4 @@ if __name__ == "__main__":
         gui_stop = stop_acq.Gui()
         viewer.window.add_dock_widget(gui_start)
         viewer.window.add_dock_widget(gui_stop)
+        bridge.close()

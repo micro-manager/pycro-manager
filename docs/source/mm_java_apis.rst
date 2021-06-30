@@ -10,9 +10,9 @@ Micro-manager Java APIs
 
 	from pycromanager import Bridge
 	
-	bridge = Bridge(convert_camel_case=False)
+	with Bridge(convert_camel_case=False) as bridge:
 
-	#get the micro-manager studio object:
-	studio = bridge.get_studio()
+        #get the micro-manager studio object:
+        studio = bridge.get_studio()
 
-	#now use the studio for something
+        #now use the studio for something

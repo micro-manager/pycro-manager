@@ -277,24 +277,25 @@ class _ResolutionLevel:
 def _storage_monitor_fn(
     dataset, storage_monitor_push_port, connected_event, callback_fn, debug=False
 ):
-    bridge = Bridge(debug=debug)
-    monitor_socket = bridge._connect_pull(storage_monitor_push_port)
+    #TODO: might need to add in support for doing this on a different port, if Acquistiion/bridge is not on default port
+    with Bridge(debug=debug) as bridge:
+        monitor_socket = bridge._connect_pull(storage_monitor_push_port)
 
-    connected_event.set()
+        connected_event.set()
 
-    while True:
-        message = monitor_socket.receive()
+        while True:
+            message = monitor_socket.receive()
 
-        if "finished" in message:
-            # Poison, time to shut down
-            monitor_socket.close()
-            return
+            if "finished" in message:
+                # Poison, time to shut down
+                monitor_socket.close()
+                return
 
-        index_entry = message["index_entry"]
-        axes = dataset._add_index_entry(index_entry)
+            index_entry = message["index_entry"]
+            axes = dataset._add_index_entry(index_entry)
 
-        if callback_fn is not None:
-            callback_fn(axes)
+            if callback_fn is not None:
+                callback_fn(axes)
 
 
 class Dataset:
@@ -347,7 +348,6 @@ class Dataset:
         if remote_storage_monitor is not None:
             # this dataset is a view of an active acquisiiton. The storage exists on the java side
             self._remote_storage_monitor = remote_storage_monitor
-            self._bridge = Bridge()
             self.summary_metadata = self._remote_storage_monitor.get_summary_metadata()
             if "GridPixelOverlapX" in self.summary_metadata.keys():
                 self._tile_width = (

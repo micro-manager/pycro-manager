@@ -23,7 +23,6 @@ class DataSocket:
         self._debug = debug
         # store these as wekrefs so that circular refs dont prevent garbage collection
         self._java_objects = WeakSet()
-        # try:
         if type == zmq.PUSH:
             if debug:
                 print("binding {}".format(port))
@@ -32,17 +31,9 @@ class DataSocket:
             if debug:
                 print("connecting {}".format(port))
             self._socket.connect("tcp://{}:{}".format(ip_address, port))
-        # except Exception as e:
-        #     print(e.__traceback__)
-        # raise Exception('Couldnt connect or bind to port {}'.format(port))
 
     def _register_java_object(self, object):
         self._java_objects.add(object)
-
-    def __del__(self):
-        # make sure all shadow objects have signaled to Java side to release references before they shut down
-        for java_object in self._java_objects:
-            java_object._close()
 
     def _convert_np_to_python(self, d):
         """
@@ -140,7 +131,7 @@ class DataSocket:
                     self._replace_bytes(dict_or_list[key], hash, value)
         elif isinstance(dict_or_list, list):
             for i, entry in enumerate(dict_or_list):
-                if isinstance(entry, str) and "@" in dict_or_list[key]:
+                if isinstance(entry, str) and "@" in dict_or_list[entry]:
                     hash_in_message = int(entry.split("@")[1], 16)  # interpret hex hash string
                     if hash == hash_in_message:
                         dict_or_list[i] = value
@@ -181,13 +172,17 @@ class DataSocket:
             raise Exception(response["value"])
 
     def close(self):
+        for java_object in self._java_objects:
+            java_object._close()
         self._socket.close()
 
 
 class Bridge:
     """
-    Create an object which acts as a client to a corresponding server running within micro-manager.
-    This enables construction and interaction with arbitrary java objects
+    Create an object which acts as a client to a corresponding server (running in a Java process).
+    This enables construction and interaction with arbitrary java objects. Each bridge object should
+    be run using a context manager (i.e. `with Bridge() as b:`) or bridge.close() should be explicitly
+    called when finished
     """
 
     DEFAULT_PORT = 4827
@@ -202,8 +197,10 @@ class Bridge:
         """
         port = kwargs.get('port', Bridge.DEFAULT_PORT)
         if hasattr(Bridge.thread_local, "bridge") and port in Bridge.thread_local.bridge:
+            Bridge.thread_local.bridge_count += 1
             return Bridge.thread_local.bridge[port]
         else:
+            Bridge.thread_local.bridge_count = 1
             return super(Bridge, cls).__new__(cls)
 
     def __init__(
@@ -254,6 +251,22 @@ class Bridge:
                     reply_json["version"], self._EXPECTED_ZMQ_SERVER_VERSION
                 )
             )
+
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        self.close()
+
+    def close(self):
+        Bridge.thread_local.bridge_count -= 1
+        if Bridge.thread_local.bridge_count == 0:
+            self._master_socket.close()
+            self._master_socket = None
+            Bridge.thread_local.bridge = None
+
+
 
     def get_class(self, serialized_object) -> typing.Type["JavaObjectShadow"]:
         return self._class_factory.create(
@@ -460,7 +473,7 @@ class JavaObjectShadow:
             return  # constructor didnt properly finish, nothing to clean up on java side
         message = {"command": "destructor", "hash-code": self._hash_code}
         if self._bridge._debug:
-            print("closing: {}".format(self))
+            "closing: {}".format(self)
         self._socket.send(message)
         reply_json = self._socket.receive()
         if reply_json["type"] == "exception":

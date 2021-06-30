@@ -73,18 +73,18 @@ def start_headless(
     atexit.register(lambda: p.terminate())
 
     # Initialize core
-    bridge = Bridge(port=port)
-    core = bridge.get_core()
+    with Bridge(port=port) as bridge:
+        core = bridge.get_core()
 
-    core.wait_for_system()
-    core.load_system_configuration(config_file)
+        core.wait_for_system()
+        core.load_system_configuration(config_file)
 
-    core.set_circular_buffer_memory_footprint(buffer_size_mb)
+        core.set_circular_buffer_memory_footprint(buffer_size_mb)
 
-    if core_log_path is not None:
-        core.enable_stderr_log(True)
-        core.enable_debug_log(True)
-        core.set_primary_log_file(core_log_path)
+        if core_log_path is not None:
+            core.enable_stderr_log(True)
+            core.enable_debug_log(True)
+            core.set_primary_log_file(core_log_path)
 
 
 ### These functions outside class to prevent problems with pickling when running them in differnet process
@@ -106,20 +106,21 @@ def _event_sending_fn(bridge_port, event_port, event_queue, debug=False):
     -------
 
     """
-    bridge = Bridge(debug=debug, port=bridge_port)
-    event_socket = bridge._connect_push(event_port)
-    while True:
-        events = event_queue.get(block=True)
-        if debug:
-            print("got event(s):", events)
-        if events is None:
-            # Poison, time to shut down
-            event_socket.send({"events": [{"special": "acquisition-end"}]})
-            event_socket.close()
-            return
-        event_socket.send({"events": events if type(events) == list else [events]})
-        if debug:
-            print("sent events")
+    with Bridge(debug=debug, port=bridge_port) as bridge:
+        bridge._test_id = 'events'
+        event_socket = bridge._connect_push(event_port)
+        while True:
+            events = event_queue.get(block=True)
+            if debug:
+                print("got event(s):", events)
+            if events is None:
+                # Poison, time to shut down
+                event_socket.send({"events": [{"special": "acquisition-end"}]})
+                event_socket.close()
+                return
+            event_socket.send({"events": events if type(events) == list else [events]})
+            if debug:
+                print("sent events")
 
 
 def _acq_hook_startup_fn(bridge_port, pull_port, push_port, hook_connected_evt, event_queue, hook_fn, debug):
@@ -144,41 +145,42 @@ def _acq_hook_startup_fn(bridge_port, pull_port, push_port, hook_connected_evt, 
     -------
 
     """
-    bridge = Bridge(debug=debug, port=bridge_port)
+    with Bridge(debug=debug, port=bridge_port) as bridge:
+        bridge._test_id = 'hook'
 
-    push_socket = bridge._connect_push(pull_port)
-    pull_socket = bridge._connect_pull(push_port)
-    hook_connected_evt.set()
+        push_socket = bridge._connect_push(pull_port)
+        pull_socket = bridge._connect_pull(push_port)
+        hook_connected_evt.set()
 
-    while True:
-        event_msg = pull_socket.receive()
+        while True:
+            event_msg = pull_socket.receive()
 
-        if "special" in event_msg and event_msg["special"] == "acquisition-end":
-            push_socket.send({})
-            push_socket.close()
-            pull_socket.close()
-            return
-        else:
-            if "events" in event_msg.keys():
-                event_msg = event_msg["events"]  # convert from sequence
-            params = signature(hook_fn).parameters
-            if len(params) == 1 or len(params) == 3:
-                try:
-                    if len(params) == 1:
-                        new_event_msg = hook_fn(event_msg)
-                    elif len(params) == 3:
-                        new_event_msg = hook_fn(event_msg, bridge, event_queue)
-                except Exception as e:
-                    warnings.warn("exception in acquisition hook: {}".format(e))
-                    continue
+            if "special" in event_msg and event_msg["special"] == "acquisition-end":
+                push_socket.send({})
+                push_socket.close()
+                pull_socket.close()
+                return
             else:
-                raise Exception("Incorrect number of arguments for hook function. Must be 1 or 3")
+                if "events" in event_msg.keys():
+                    event_msg = event_msg["events"]  # convert from sequence
+                params = signature(hook_fn).parameters
+                if len(params) == 1 or len(params) == 3:
+                    try:
+                        if len(params) == 1:
+                            new_event_msg = hook_fn(event_msg)
+                        elif len(params) == 3:
+                            new_event_msg = hook_fn(event_msg, bridge, event_queue)
+                    except Exception as e:
+                        warnings.warn("exception in acquisition hook: {}".format(e))
+                        continue
+                else:
+                    raise Exception("Incorrect number of arguments for hook function. Must be 1 or 3")
 
-        if isinstance(new_event_msg, list):
-            new_event_msg = {
-                "events": new_event_msg
-            }  # convert back to the expected format for a sequence
-        push_socket.send(new_event_msg)
+            if isinstance(new_event_msg, list):
+                new_event_msg = {
+                    "events": new_event_msg
+                }  # convert back to the expected format for a sequence
+            push_socket.send(new_event_msg)
 
 
 def _processor_startup_fn(
@@ -205,12 +207,12 @@ def _processor_startup_fn(
     -------
 
     """
-    bridge = Bridge(debug=debug, port=bridge_port)
-    push_socket = bridge._connect_push(pull_port)
-    pull_socket = bridge._connect_pull(push_port)
-    if debug:
-        print("image processing sockets connected")
-    sockets_connected_evt.set()
+    with Bridge(debug=debug, port=bridge_port) as bridge:
+        push_socket = bridge._connect_push(pull_port)
+        pull_socket = bridge._connect_pull(push_port)
+        if debug:
+            print("image processing sockets connected")
+        sockets_connected_evt.set()
 
     def process_and_sendoff(image_tags_tuple, original_dtype):
         """
@@ -507,6 +509,7 @@ class Acquisition(object):
         # now wait on it to finish
         self.await_completion()
 
+
     def get_dataset(self):
         """
         Get access to the dataset backing this acquisition. If the acquisition is in progress,
@@ -543,7 +546,7 @@ class Acquisition(object):
         if hasattr(self, '_storage_monitor_thread'):
             self._storage_monitor_thread.join()
 
-
+        self.bridge.close()
         self._finished = True
 
     def acquire(self, events, keep_shutter_open=False):
