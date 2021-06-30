@@ -91,7 +91,7 @@ def start_headless(
 ### These functions outside class to prevent problems with pickling when running them in differnet process
 
 
-def _event_sending_fn(bridge_port, event_port, event_queue, debug=False):
+def _event_sending_fn(bridge_port, event_port, event_queue, bridge_timeout=Bridge.DEFAULT_TIMEOUT, debug=False):
     """
 
     Parameters
@@ -107,7 +107,7 @@ def _event_sending_fn(bridge_port, event_port, event_queue, debug=False):
     -------
 
     """
-    bridge = Bridge(debug=debug, port=bridge_port)
+    bridge = Bridge(debug=debug, port=bridge_port, timeout=bridge_timeout)
     event_socket = bridge._connect_push(event_port)
     while True:
         events = event_queue.get(block=True)
