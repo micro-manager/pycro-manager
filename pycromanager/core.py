@@ -131,7 +131,7 @@ class DataSocket:
                     self._replace_bytes(dict_or_list[key], hash, value)
         elif isinstance(dict_or_list, list):
             for i, entry in enumerate(dict_or_list):
-                if isinstance(entry, str) and "@" in dict_or_list[key]:
+                if isinstance(entry, str) and "@" in dict_or_list[entry]:
                     hash_in_message = int(entry.split("@")[1], 16)  # interpret hex hash string
                     if hash == hash_in_message:
                         dict_or_list[i] = value
@@ -186,6 +186,7 @@ class Bridge:
     """
 
     DEFAULT_PORT = 4827
+    DEFAULT_TIMEOUT = 500
     _EXPECTED_ZMQ_SERVER_VERSION = "4.0.0"
 
     thread_local = threading.local()
@@ -194,15 +195,16 @@ class Bridge:
         """
         Only one instance of Bridge per a thread
         """
-        if hasattr(Bridge.thread_local, "bridge"):
+        port = kwargs.get('port', Bridge.DEFAULT_PORT)
+        if hasattr(Bridge.thread_local, "bridge") and port in Bridge.thread_local.bridge:
             Bridge.thread_local.bridge_count += 1
-            return Bridge.thread_local.bridge
+            return Bridge.thread_local.bridge[port]
         else:
             Bridge.thread_local.bridge_count = 1
             return super(Bridge, cls).__new__(cls)
 
     def __init__(
-        self, port=DEFAULT_PORT, convert_camel_case=True, debug=False, ip_address="127.0.0.1"
+        self, port=DEFAULT_PORT, convert_camel_case=True, debug=False, ip_address="127.0.0.1", timeout=DEFAULT_TIMEOUT
     ):
         """
         Parameters
@@ -219,21 +221,23 @@ class Bridge:
         self._ip_address = ip_address
         if not hasattr(self, "_context"):
             Bridge._context = zmq.Context()
-        if hasattr(self.thread_local, "bridge"):
+        if hasattr(self.thread_local, "bridge") and port in self.thread_local.bridge:
             return
-        self.thread_local.bridge = self  # cache a thread-local version of the bridge
-
+        if not hasattr(self.thread_local, "bridge"):
+            self.thread_local.bridge = {}
+        self.thread_local.bridge[port] = self  # cache a thread-local version of the bridge
         self._convert_camel_case = convert_camel_case
         self._debug = debug
+        self._timeout = timeout
         self._master_socket = DataSocket(
             self._context, port, zmq.REQ, debug=debug, ip_address=self._ip_address
         )
         self._master_socket.send({"command": "connect", "debug": debug})
         self._class_factory = _JavaClassFactory()
-        reply_json = self._master_socket.receive(timeout=500)
+        reply_json = self._master_socket.receive(timeout=timeout)
         if reply_json is None:
             raise TimeoutError(
-                "Socket timed out after 500 milliseconds. Is Micro-Manager running and is the ZMQ server option enabled?"
+                f"Socket timed out after {timeout} milliseconds. Is Micro-Manager running and is the ZMQ server on {port} option enabled?"
             )
         if reply_json["type"] == "exception":
             raise Exception(reply_json["message"])
