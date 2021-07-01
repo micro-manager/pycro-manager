@@ -267,11 +267,15 @@ class Bridge:
     def close(self):
         Bridge.thread_local.bridge_count[self._port] -= 1
         if Bridge.thread_local.bridge_count[self._port] == 0:
+            del Bridge.thread_local.bridge_count[self._port]
+            del Bridge.thread_local.bridge[self._port]
             self._master_socket.close()
             self._master_socket = None
-            Bridge.thread_local.bridge = None
             self._closed = True
 
+        if len(Bridge.thread_local.bridge) == 0:
+            Bridge.thread_local.bridge = None
+            Bridge.thread_local.bridge_count = None
 
 
     def get_class(self, serialized_object) -> typing.Type["JavaObjectShadow"]:
