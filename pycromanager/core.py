@@ -200,6 +200,9 @@ class Bridge:
             Bridge.thread_local.bridge_count[port] += 1
             return Bridge.thread_local.bridge[port]
         else:
+            if (not hasattr(Bridge.thread_local, "bridge_count")) or Bridge.thread_local.bridge_count is None:
+                Bridge.thread_local.bridge_count = {}
+            Bridge.thread_local.bridge_count[port] = 1
             return super(Bridge, cls).__new__(cls)
 
     def __init__(
@@ -226,8 +229,8 @@ class Bridge:
         #     return  ### What was this supposed to do?
         if not hasattr(Bridge.thread_local, "bridge") or Bridge.thread_local.bridge is None:
             Bridge.thread_local.bridge = {}
-            Bridge.thread_local.bridge_count = {port: 1}
         Bridge.thread_local.bridge[port] = self  # cache a thread-local version of the bridge
+
         self._convert_camel_case = convert_camel_case
         self._debug = debug
         self._timeout = timeout
