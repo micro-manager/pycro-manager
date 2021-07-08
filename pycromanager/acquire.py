@@ -16,7 +16,8 @@ import atexit
 
 
 def start_headless(
-    mm_app_path, config_file, java_loc=None, core_log_path=None, buffer_size_mb=1024, port=Bridge.DEFAULT_PORT
+    mm_app_path, config_file, java_loc=None, core_log_path=None, buffer_size_mb=1024,
+        port=Bridge.DEFAULT_PORT,timeout=Bridge.DEFAULT_TIMEOUT
 ):
     """
     Start a Java process that contains the neccessary libraries for pycro-manager to run,
@@ -73,7 +74,7 @@ def start_headless(
     atexit.register(lambda: p.terminate())
 
     # Initialize core
-    with Bridge(port=port) as bridge:
+    with Bridge(port=port, timeout=timeout) as bridge:
         core = bridge.get_core()
 
         core.wait_for_system()
@@ -90,7 +91,7 @@ def start_headless(
 ### These functions outside class to prevent problems with pickling when running them in differnet process
 
 
-def _event_sending_fn(bridge_port, event_port, event_queue, debug=False):
+def _event_sending_fn(bridge_port, event_port, event_queue, bridge_timeout=Bridge.DEFAULT_TIMEOUT, debug=False):
     """
 
     Parameters
@@ -106,7 +107,8 @@ def _event_sending_fn(bridge_port, event_port, event_queue, debug=False):
     -------
 
     """
-    with Bridge(debug=debug, port=bridge_port) as bridge:
+
+    with Bridge(debug=debug, port=bridge_port, timeout=bridge_timeout) as bridge:
         bridge._test_id = 'events'
         event_socket = bridge._connect_push(event_port)
         while True:
