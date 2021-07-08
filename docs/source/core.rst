@@ -19,8 +19,9 @@ An alternative mechanism for controlling the Micro-Manager core is through [pymm
 	import matplotlib.pyplot as plt
 
 	#### Setup ####
-	#establish communication with Magellan
+
     with Bridge() as bridge:
+
         #get object representing micro-manager core
         core = bridge.get_core()
 
