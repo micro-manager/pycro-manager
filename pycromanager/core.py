@@ -23,6 +23,7 @@ class DataSocket:
         self._debug = debug
         # store these as wekrefs so that circular refs dont prevent garbage collection
         self._java_objects = WeakSet()
+        self._port = port
         if type == zmq.PUSH:
             if debug:
                 print("binding {}".format(port))
@@ -175,6 +176,11 @@ class DataSocket:
         for java_object in self._java_objects:
             java_object._close()
         self._socket.close()
+        while not self._socket.closed:
+            time.sleep(0.01)
+        self._socket = None
+        if self._debug:
+            print('closed socket {}'.format(self._port))
 
 
 class Bridge:
