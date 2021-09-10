@@ -79,10 +79,14 @@ public class RemoteViewerStorageAdapter implements DataSourceInterface, DataSink
       acq_ = (RemoteAcquisition) acq;
 
       if (storeData_) {
+         if (xyTiled_) {
+            //tiled datasets have a fixed, acquisition-wide image size
+            AcqEngMetadata.setWidth(summaryMetadata, (int) Engine.getCore().getImageWidth());
+            AcqEngMetadata.setHeight(summaryMetadata, (int) Engine.getCore().getImageHeight());
+         }
+
          storage_ = new MultiResMultipageTiffStorage(dir_, name_,
                  summaryMetadata, tileOverlapX_, tileOverlapY_,
-                 (int) Engine.getCore().getImageWidth(),
-                 (int) Engine.getCore().getImageHeight(),
                  xyTiled_, maxResLevel_, savingQueueSize_,
                  //Debug logging function without storage having to directly depend on core
                  acq_.isDebugMode() ? ((Consumer<String>) s -> {
