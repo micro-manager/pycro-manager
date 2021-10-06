@@ -15,6 +15,14 @@ labels: bug
     2) are using the latest nightly build of micro-manager
     -->
 
+<!--Also, note that many times things that may appear to be bugs in pycro-manager are 
+    actually coming from the micro-manager core or the device adapters for the hardware in use.
+    If this is the case, you should instead open a bug in the main micro-manager repository 
+    (https://github.com/micro-manager/micro-manager). To check this, try reproducing your 
+    bug using the micro-manager demo configuration, which comes with every micro-manager installation
+    and provides simulated "demo" hardware. If you can't reproduce your issue with the demo configuration, 
+    it is likely unrelated to pycro-manager
+    -->
 
 **Bug summary**
 

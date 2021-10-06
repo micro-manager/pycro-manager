@@ -105,6 +105,6 @@ Try entering `file:///absolute/path/to/pycro-manager/docs/build/html/index.html`
 ## Questions, comments, and feedback
 
 If you have questions, comments, suggestions for improvement, or any other inquiries
-regarding the project, feel free to open an [issue](https://github.com/pycro-manager/pycro-manager/issues).
+regarding the project, feel free to open an [issue](https://github.com/micro-manager/pycro-manager/issues).
 
 Issues and pull-requests are written in [Markdown](https://guides.github.com/features/mastering-markdown/#what). You can find a comprehensive guide [here](https://guides.github.com/features/mastering-markdown/#syntax).
