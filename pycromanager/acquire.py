@@ -313,6 +313,7 @@ class Acquisition(object):
         magellan_explore=False,
         process=False,
         saving_queue_size=20,
+        bridge_timeout=500,
         port=Bridge.DEFAULT_PORT,
         debug=False,
         core_log_debug=False,
@@ -384,6 +385,8 @@ class Acquisition(object):
             The number of images to queue (in memory) while waiting to write to disk. Higher values should
             in theory allow sequence acquisitions to go faster, but requires the RAM to hold images while
             they are waiting to save
+        bridge_timeout :
+            Timeout in ms of all operations going throught the Bridge
         port :
             Allows overriding the defualt port for using Java side servers on a different port
         debug : bool
@@ -391,7 +394,8 @@ class Acquisition(object):
         core_log_debug : bool
             Print debug messages on java side in the micro-manager core log
         """
-        self.bridge = Bridge(debug=debug, port=port)
+        self._bridge_timeout = bridge_timeout
+        self.bridge = Bridge(debug=debug, port=port, timeout=bridge_timeout)
         self._bridge_port = port
         self._debug = debug
         self._dataset = None
@@ -491,7 +495,7 @@ class Acquisition(object):
 
             self._event_thread = threading.Thread(
                 target=_event_sending_fn,
-                args=(self._bridge_port, self.event_port, self._event_queue, self._debug),
+                args=(self._bridge_port, self.event_port, self._event_queue, self._bridge_timeout, self._debug),
                 name="Event sending",
             )
             self._event_thread.start()
