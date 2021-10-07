@@ -36,14 +36,14 @@ for lib_name in versions:
 	new_ver = versions[lib_name]
 	allf = re.findall('{}.*?\n.*?<version>(.*?)</version>'.format(lib_name), data, )
 	old_ver = allf[0]
-	# for a in allf:
-	# 	print(a)
+	for a in allf:
+		print(a)
 	print('{}:\t\tCurrent: {}\tNew: {}'.format(lib_name, old_ver, new_ver))
 	new_data = re.sub('{}.*?\n.*?<version>(.*?)</version>'.format(lib_name), new_ver, data, )
 
 # Rewrite file
-with open(f, 'w') as outfile:
-    outfile.write(data)
+# with open(f, 'w') as outfile:
+#     outfile.write(new_data)
 
 
 ####### update dependencies in micro-manager
@@ -62,7 +62,7 @@ for lib_name in versions:
 
 	# Rewrite file
 with open(f, 'w') as outfile:
-    outfile.write(data)
+    outfile.write(new_data)
 
 
 #clean and build all libraries
