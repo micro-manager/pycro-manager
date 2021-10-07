@@ -9,6 +9,7 @@ then updates version numbers in micromanager
 
 from pathlib import Path
 import re
+import os
 
 # get latest version numbers of NDTiff, AcqEngJ, NDViewer, PycormanagerJava from their repsective files
 versions = {}
