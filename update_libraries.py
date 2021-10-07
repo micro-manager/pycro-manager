@@ -50,6 +50,9 @@ with open(f, 'w') as outfile:
     outfile.write(data)
 
 
+#always redeploy pycormanage, since it wont be detected as changed by the above script but it always will change
+if 'PycroManagerJava' not in redeploys:
+	redeploys.append('PycroManagerJava')
 #maven deploys
 for lib_name in redeploys:
 	folder_name = Path(str(git_repos_dir) + poms[lib]).parent
