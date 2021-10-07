@@ -244,7 +244,13 @@ def _processor_startup_fn(
                 "but instead they were {} and {}".format(image_tags_tuple[0].dtype, pixels.dtype)
             )
 
-        metadata["PixelType"] = "GRAY8" if pixels.dtype.itemsize == 1 else "GRAY16"
+        if metadata['PixelType'] == 'RGB32':
+            if pixels.shape[-1] == 3:
+                #append 0 for alpha channel because thats whats expected
+                pixels = np.concatenate([pixels, np.zeros_like(pixels[..., 0])[..., None]], axis=2)
+        else:
+            #maybe pixel type was changed by processing?
+            metadata["PixelType"] = "GRAY8" if pixels.dtype.itemsize == 1 else "GRAY16"
 
         processed_img = {
             "pixels": pixels.tobytes(),
@@ -265,7 +271,10 @@ def _processor_startup_fn(
 
         metadata = message["metadata"]
         pixels = deserialize_array(message["pixels"])
-        image = np.reshape(pixels, [metadata["Height"], metadata["Width"]])
+        if metadata['PixelType'] == 'RGB32':
+            image = np.reshape(pixels, [metadata["Height"], metadata["Width"], 4])[..., :3]
+        else:
+            image = np.reshape(pixels, [metadata["Height"], metadata["Width"]])
 
         params = signature(process_fn).parameters
         if len(params) == 2 or len(params) == 4:
