@@ -43,21 +43,12 @@ for lib_name in versions:
 	# 	print(a)
 	print('{}:\t\tCurrent: {}\tNew: {}'.format(lib_name, old_ver, new_ver))
 	data = re.sub('{}</artifactId>\n.*?<version>(.*?)</version>'.format(lib_name),
-		'{}</artifactId>\n         <version>{}</version>'.format(lib_name, new_ver), data, )
+		'{}</artifactId>\n     <version>{}</version>'.format(lib_name, new_ver), data, )
 
 
 # Rewrite file
 with open(f, 'w') as outfile:
     outfile.write(data)
-
-
-#always redeploy pycormanage, since it wont be detected as changed by the above script but it always will change
-if 'PycroManagerJava' not in redeploys:
-	redeploys.append('PycroManagerJava')
-#maven deploys
-for lib_name in redeploys:
-	folder_name = Path(str(git_repos_dir) + poms[lib]).parent
-	os.system('cd \"{}\" && mvn clean && mvn deploy'.format(folder_name))
 
 
 ####### update dependencies in micro-manager
@@ -78,6 +69,21 @@ for lib_name in versions:
 	# Rewrite file
 with open(f, 'w') as outfile:
     outfile.write(data)
+
+
+
+### Redploy Maven files
+
+#always redeploy pycormanage, since it wont be detected as changed by the above script but it always will change
+if 'PycroManagerJava' not in redeploys:
+	redeploys.append('PycroManagerJava')
+#maven deploys
+for lib_name in redeploys:
+	folder_name = Path(str(git_repos_dir) + poms[lib]).parent
+	os.system('cd \"{}\" && mvn clean && mvn deploy'.format(folder_name))
+
+
+
 
 
 
