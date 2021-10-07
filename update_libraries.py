@@ -36,12 +36,12 @@ for lib_name in versions:
 	new_ver = versions[lib_name]
 	allf = re.findall('{}</artifactId>\n.*?<version>(.*?)</version>'.format(lib_name), data, )
 	old_ver = allf[0]
-	for a in allf:
-		print(a)
+	# for a in allf:
+	# 	print(a)
 	print('{}:\t\tCurrent: {}\tNew: {}'.format(lib_name, old_ver, new_ver))
-	data = re.sub('{}</artifactId>\n.*?<version>(.*?)</version>'.format(lib_name), new_ver, data, )
+	data = re.sub('{}</artifactId>\n.*?<version>(.*?)</version>'.format(lib_name),
+		'{}</artifactId>\n         <version>{}</version>'.format(lib_name, new_ver), data, )
 
-	
 
 # Rewrite file
 with open(f, 'w') as outfile:
@@ -60,7 +60,8 @@ for lib_name in versions:
 	# for a in allf:
 	# 	print(a)
 	print('{}:\t\tCurrent: {}\tNew: {}'.format(lib_name, old_ver, new_ver))
-	data = re.sub('{}:\tCurrent: {}\tNew: {}'.format(lib_name, old_ver, new_ver), new_ver, data, )
+	data = re.sub('name=\"{}\".*?rev=\"(.*?)\"'.format(lib_name, old_ver, new_ver),
+				'name=\"{}\" rev=\"{}\"'.format(lib_name, new_ver), data, )
 
 	# Rewrite file
 with open(f, 'w') as outfile:
