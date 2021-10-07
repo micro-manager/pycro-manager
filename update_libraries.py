@@ -57,7 +57,7 @@ if 'PycroManagerJava' not in redeploys:
 #maven deploys
 for lib_name in redeploys:
 	folder_name = Path(str(git_repos_dir) + poms[lib]).parent
-	os.system('cd {} && mvn clean && mvn deploy'.format(folder_name))
+	os.system('cd \"{}\" && mvn clean && mvn deploy'.format(folder_name))
 
 
 ####### update dependencies in micro-manager
