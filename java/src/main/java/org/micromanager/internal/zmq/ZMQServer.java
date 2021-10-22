@@ -13,6 +13,9 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.function.Consumer;
 import java.util.function.Function;
+import java.util.function.Predicate;
+import java.util.stream.Stream;
+
 import mmcorej.org.json.JSONException;
 import mmcorej.org.json.JSONObject;
 import static org.micromanager.internal.zmq.ZMQUtil.EXTERNAL_OBJECTS;
@@ -31,7 +34,7 @@ public class ZMQServer extends ZMQSocketWrapper {
    private static Set<String> packages_;
    private static ZMQUtil util_;
 
-   public static final String VERSION = "4.0.0";
+   public static final String VERSION = "4.1.0";
 
    private static Function<Class, Object> classMapper_;
    private static ZMQServer masterServer_;
@@ -327,17 +330,39 @@ public class ZMQServer extends ZMQSocketWrapper {
          matchingMethod = obj.getClass().getMethod(methodName);
       } else {
          for (LinkedList<Class> argList : paramCombos) {
-            Class[] classArray = argList.stream().toArray(Class[]::new);
-            try {
-               matchingMethod = obj.getClass().getMethod(methodName, classArray);
-               break;
-            } catch (NoSuchMethodException e) {
-               //ignore
+            Class[] parameterTypes = argList.stream().toArray(Class[]::new);
+
+            Method[] nameMatches = Stream.of(obj.getClass().getMethods()).filter(
+                    method -> method.getName().equals(methodName)).toArray(Method[]::new);
+
+            for (Method m : nameMatches) {
+               // if they dont have same number of parameters, its not a match
+               if (m.getParameters().length != parameterTypes.length) {
+                  continue;
+               }
+               // Check for equality or superclass compatibility of each parameter
+               // this is needed e.g. for the case of a method declared with a parameter List
+               // but an argument supplied ArrayList
+               // Right now it just takes the first match it finds. It might be better in the future to
+               // explicitly find the closest match (for example if it has multiple methods with
+               // LinkedList and List as arguments). See:
+               // https://stackoverflow.com/questions/2580665/java-getmethod-with-superclass-parameters-in-method
+               boolean matches = true;
+               for (int i = 0; i < parameterTypes.length; i++) {
+                  if (!m.getParameterTypes()[i].isAssignableFrom(parameterTypes[i])) {
+                     matches = false;
+                     break;
+                  }
+               }
+               if (matches) {
+                  matchingMethod = m;
+               }
             }
+
          }
       }
       if (matchingMethod == null) {
-         throw new RuntimeException("No Matching method found with argumetn types");
+         throw new RuntimeException("No Matching method found with argument types");
       }
 
       Object result;

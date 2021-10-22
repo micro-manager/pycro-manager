@@ -193,7 +193,7 @@ class Bridge:
 
     DEFAULT_PORT = 4827
     DEFAULT_TIMEOUT = 500
-    _EXPECTED_ZMQ_SERVER_VERSION = "4.0.0"
+    _EXPECTED_ZMQ_SERVER_VERSION = "4.1.0"
 
     thread_local = threading.local()
 
