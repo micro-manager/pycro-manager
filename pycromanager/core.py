@@ -17,7 +17,7 @@ class DataSocket:
     Wrapper for ZMQ socket that sends and recieves dictionaries
     """
 
-    def __init__(self, context, port, type, debug, ip_address="127.0.0.1"):
+    def __init__(self, context, port, type, debug=False, ip_address="127.0.0.1"):
         # request reply socket
         self._socket = context.socket(type)
         self._debug = debug
