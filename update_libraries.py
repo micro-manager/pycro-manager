@@ -10,6 +10,9 @@ then updates version numbers in micromanager
 from pathlib import Path
 import re
 import os
+import git 
+
+
 
 # get latest version numbers of NDTiff, AcqEngJ, NDViewer, PycormanagerJava from their repsective files
 versions = {}
@@ -39,8 +42,9 @@ for lib_name in versions:
 	old_ver = allf[0]
 	if new_ver != old_ver:
 		redeploys.append(lib_name)
-	# for a in allf:
-	# 	print(a)
+	# if lib_name == 'PycroManagerJava' && old_ver != new_ver:
+
+
 	print('{}:\t\tCurrent: {}\tNew: {}'.format(lib_name, old_ver, new_ver))
 	data = re.sub('{}</artifactId>\n.*?<version>(.*?)</version>'.format(lib_name),
 		'{}</artifactId>\n     <version>{}</version>'.format(lib_name, new_ver), data, )
@@ -53,6 +57,9 @@ with open(f, 'w') as outfile:
 
 ####### update dependencies in micro-manager
 print('\n\nUpdating micro-manager ivy')
+g = git.cmd.Git("{}/micro-manager/".format(str(git_repos_dir)))
+g.pull()
+
 f = str(git_repos_dir) + '/micro-manager/buildscripts/ivy.xml'
 with open(f, 'r') as infile:
     data = infile.read()
@@ -66,7 +73,7 @@ for lib_name in versions:
 	data = re.sub('name=\"{}\".*?rev=\"(.*?)\"'.format(lib_name, old_ver, new_ver),
 				'name=\"{}\" rev=\"{}\"'.format(lib_name, new_ver), data, )
 
-	# Rewrite file
+# Rewrite file
 with open(f, 'w') as outfile:
     outfile.write(data)
 
