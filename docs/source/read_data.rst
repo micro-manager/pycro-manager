@@ -6,7 +6,7 @@ Reading acquired data
 
 The `NDTiff format <https://github.com/micro-manager/NDTiffStorage>`_ is the default saving format of ``pycromanager`` :class:`Acquisition<pycromanager.Acquisition>`s, as well as acquisitions run using Micro-Magellan. Data saved in this format can be read either during or after an acquisition. In either case, access to the underlying data is provided by a :class:`Dataset<pycromanager.Dataset>` object.  
 
-Images can be loaded individually, or all data can be loaded simulataneously into a memory-mapped `dask <https://dask.org/>`_ array, which works like a numpy array and also allows scalable processing of large datasets and viewing data in `napari <https://github.com/napari/napari>`_. 
+Images can be loaded individually, or all data can be loaded simulataneously into a memory-mapped `dask <https://dask.org/>`_ array. This is a "virtual" array, which means the whole dataset isn't loaded into RAM at first, but is instead "lazily" brought into RAM as each sub-part of it is used. This allows for processing of large datasets and viewing data in `napari <https://github.com/napari/napari>`_. 
 
 Creating a ``Dataset`` object
 ##############################
@@ -50,8 +50,7 @@ Once opened, individual tiles can be accessed using :meth:`read_image<pycromanag
 
 To determine which axes are available, access the ``Dataset.axes`` attribute, which contains a dict with axis names as keys and a list of available indices as values.
 
-If the dataset was created by tiling multiple XY positions, tiles along the axis corresponding to XY positions can be indexed 
-by their row and column positions: 
+If the dataset was created by tiling multiple XY positions, tiles along the axis corresponding to XY positions can be indexed by their row and column positions: 
 
 .. code-block:: python
 
@@ -61,7 +60,7 @@ by their row and column positions:
 Opening data as Dask array
 ##############################
 
-Rather than reading each image individually, all data can be opened at once in a single dask array. Using dask arrays enables all_data to be held in a single memory-mapped array (i.e. the data are not loaded in RAM until they are used, enabing a convenient way to work with data larger than the computer's memory. Dask arrays also enable `https://napari.org/tutorials/applications/dask <visulization in napari>`_ and allow for code to be prototyped on a small computers and scaled up to clusters without having to rewrite code.
+Rather than reading each image individually, all data can be opened at once in a single dask array. Using dask arrays enables all_data to be held in a single memory-mapped array. This means that the data are not loaded in RAM until they are used, enabing a convenient way to work with datasets larger than the computer's RAM. Dask arrays also enable `https://napari.org/tutorials/applications/dask <visulization in napari>`_ and allow for code to be prototyped on a small computers and scaled up to clusters without having to rewrite code.
 
 .. code-block:: python
 
@@ -87,5 +86,11 @@ If the data was acquired in an XY grid of position (such as Micro-Magellan datas
 	    v = napari.Viewer()
 	    v.add_image(dask_array)
 
+
+You can also slice along particular axes when creating the dask array:
+
+.. code-block:: python
+
+	dask_array = dataset.as_array(z=0, time=2) 
 
 

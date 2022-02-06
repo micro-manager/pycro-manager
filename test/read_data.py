@@ -14,6 +14,7 @@ dataset = Dataset(data_path)
 
 dask_array = dataset.as_array(stitched=False, verbose=True)
 
-with napari.gui_qt():
-    v = napari.Viewer()
-    v.add_image(dask_array)
+v = napari.Viewer()
+v.add_image(dask_array)
+
+napari.run()
