@@ -559,9 +559,6 @@ class Acquisition(object):
         if hasattr(self, '_event_thread'):
             self._event_thread.join()
 
-        if hasattr(self, '_storage_monitor_thread'):
-            self._storage_monitor_thread.join()
-
         self.bridge.close()
         self._finished = True
 

@@ -10,6 +10,7 @@ from weakref import WeakSet
 import threading
 import copy
 import sys
+from threading import Lock
 
 
 class DataSocket:
@@ -175,6 +176,7 @@ class DataSocket:
     def close(self):
         for java_object in self._java_objects:
             java_object._close()
+            del java_object #potentially redundant, trying to fix closing race condition
         self._socket.close()
         while not self._socket.closed:
             time.sleep(0.01)
@@ -465,7 +467,7 @@ class _JavaClassFactory:
 
 class JavaObjectShadow:
     """
-    Generic class for serving as a python interface for a micromanager class using a zmq server backend
+    Generic class for serving as a python interface for a java class using a zmq server backend
     """
 
     _interfaces = (
@@ -481,20 +483,22 @@ class JavaObjectShadow:
         socket._register_java_object(self)
         self._closed = False
         # atexit.register(self._close)
+        self._close_lock = Lock()
 
     def _close(self):
-        if self._closed:
-            return
-        if not hasattr(self, "_hash_code"):
-            return  # constructor didnt properly finish, nothing to clean up on java side
-        message = {"command": "destructor", "hash-code": self._hash_code}
-        if self._bridge._debug:
-            "closing: {}".format(self)
-        self._socket.send(message)
-        reply_json = self._socket.receive()
-        if reply_json["type"] == "exception":
-            raise Exception(reply_json["value"])
-        self._closed = True
+        with self._close_lock:
+            if self._closed:
+                return
+            if not hasattr(self, "_hash_code"):
+                return  # constructor didnt properly finish, nothing to clean up on java side
+            message = {"command": "destructor", "hash-code": self._hash_code}
+            if self._bridge._debug:
+                "closing: {}".format(self)
+            self._socket.send(message)
+            reply_json = self._socket.receive()
+            if reply_json["type"] == "exception":
+                raise Exception(reply_json["value"])
+            self._closed = True
 
     def __del__(self):
         """
