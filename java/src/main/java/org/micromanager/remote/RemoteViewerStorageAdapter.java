@@ -124,7 +124,7 @@ public class RemoteViewerStorageAdapter implements DataSourceInterface, DataSink
               ? (acq_.areEventsFinished()? " (Finished)" : " (Running)") : " (Loaded)"));
       //add functions so display knows how to parse time and z infomration from image tags
       viewer_.setReadTimeMetadataFunction((JSONObject tags) -> AcqEngMetadata.getElapsedTimeMs(tags));
-      viewer_.setReadZMetadataFunction((JSONObject tags) -> AcqEngMetadata.getZPositionUm(tags));
+      viewer_.setReadZMetadataFunction((JSONObject tags) -> AcqEngMetadata.getStageZIntended(tags));
    }
 
    public void putImage(final TaggedImage taggedImg) {
