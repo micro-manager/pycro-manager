@@ -149,7 +149,6 @@ def _acq_hook_startup_fn(bridge_port, pull_port, push_port, hook_connected_evt, 
 
     """
     with Bridge(debug=debug, port=bridge_port) as bridge:
-        bridge._test_id = 'hook'
 
         push_socket = bridge._connect_push(pull_port)
         pull_socket = bridge._connect_pull(push_port)

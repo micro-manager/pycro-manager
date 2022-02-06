@@ -23,8 +23,10 @@ class DataSocket:
         self._socket = context.socket(type)
         self._debug = debug
         # store these as wekrefs so that circular refs dont prevent garbage collection
-        self._java_objects = WeakSet()
+        self._java_objects = set()
         self._port = port
+        self._close_lock = Lock()
+        self._closed = False
         if type == zmq.PUSH:
             if debug:
                 print("binding {}".format(port))
@@ -173,16 +175,23 @@ class DataSocket:
         if "type" in response and response["type"] == "exception":
             raise Exception(response["value"])
 
+    def __del__(self):
+        self.close() # make sure it closes properly
+
     def close(self):
-        for java_object in self._java_objects:
-            java_object._close()
-            del java_object #potentially redundant, trying to fix closing race condition
-        self._socket.close()
-        while not self._socket.closed:
-            time.sleep(0.01)
-        self._socket = None
-        if self._debug:
-            print('closed socket {}'.format(self._port))
+        with self._close_lock:
+            if not self._closed:
+                for java_object in self._java_objects:
+                    java_object._close()
+                    del java_object #potentially redundant, trying to fix closing race condition
+                self._java_objects = None
+                self._socket.close()
+                while not self._socket.closed:
+                    time.sleep(0.01)
+                self._socket = None
+                if self._debug:
+                    print('closed socket {}'.format(self._port))
+                self._closed = True
 
 
 class Bridge:
