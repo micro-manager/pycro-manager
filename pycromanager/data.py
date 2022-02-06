@@ -680,10 +680,10 @@ class Dataset:
         axes_to_stack_or_stitch = {key: self.axes[key] for key in axes if key not in kwargs.keys()}
 
         recurse_axes.empty = True
-        # blocks = recurse_axes(axes_to_stack_or_stitch, axes_to_slice)
-        # if recurse_axes.empty:
-        #     # No actual data in any of the tiles
-        #     return None
+        blocks = recurse_axes(axes_to_stack_or_stitch, axes_to_slice)
+        if recurse_axes.empty:
+            # No actual data in any of the tiles
+            return None
 
         if verbose:
             print(
@@ -691,27 +691,25 @@ class Dataset:
             )  # extra space otherwise there is no space after the "Adding data chunk {} {}"
         # import time
         # s = time.time()
-        # array = da.stack(blocks, allow_unknown_chunksizes=False)
+        array = da.stack(blocks, allow_unknown_chunksizes=False)
 
-        def read_one_image(block_id, axes_to_stack_or_stitch=axes_to_stack_or_stitch):
-            # a function that reads in one chunk of data
-            axes = {key: block_id[i] for i, key in enumerate(axes_to_stack_or_stitch.keys())}
-            image = self.read_image(**axes, memmapped=True)
-            for i in range(len(axes_to_stack_or_stitch.keys())):
-                image = image[None]
-            return image
+        # def read_one_image(block_id, axes_to_stack_or_stitch=axes_to_stack_or_stitch):
+        #     # a function that reads in one chunk of data
+        #     axes = {key: block_id[i] for i, key in enumerate(axes_to_stack_or_stitch.keys())}
+        #     image = self.read_image(**axes, memmapped=True)
+        #     for i in range(len(axes_to_stack_or_stitch.keys())):
+        #         image = image[None]
+        #     return image
+        #
+        # chunks = tuple([(1,) * len(axes_to_stack_or_stitch[axis]) for axis in axes_to_stack_or_stitch.keys()])
+        # chunks += (w, h)
+        # array = da.map_blocks(
+        #     read_one_image,
+        #     dtype=self.dtype,
+        #     chunks=chunks,
+        #     meta=self._empty_tile
+        # )
 
-        chunks = tuple([(1,) * len(axes_to_stack_or_stitch[axis]) for axis in axes_to_stack_or_stitch.keys()])
-        chunks += (w, h)
-        array = da.map_blocks(
-            read_one_image,
-            dtype=self.dtype,
-            chunks=chunks,
-            meta=self._empty_tile
-        )
-
-        x = np.array(array[1,1,1])
-        # array = da.map_blocks(blocks, allow_unknown_chunksizes=False)
         # e = time.time()
         # print(e - s)
         if verbose:
