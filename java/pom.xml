@@ -9,7 +9,6 @@
     <url>https://github.com/micro-manager/pycro-manager</url>
 
 
-
     <properties>
         <maven.compiler.source>1.8</maven.compiler.source>
         <maven.compiler.target>1.8</maven.compiler.target>
