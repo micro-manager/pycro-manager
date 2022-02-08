@@ -7,6 +7,8 @@ on:
   push:
     branches:
       - main
+    paths:
+      - java/pom.xml'
 
 jobs:
   release:
@@ -20,9 +22,6 @@ jobs:
         uses: actions/setup-java@v1
         with:
           java-version: 8
-
-#       - name: Build with Maven
-#         run: mvn -B package --file pom.xml
 
       - name: Set up Apache Maven Central
         uses: actions/setup-java@v1
