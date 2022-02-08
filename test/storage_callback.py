@@ -4,16 +4,15 @@ from pycromanager import Acquisition, multi_d_acquisition_events
 def storage_monitor_fn(axes):
     dataset = acq.get_dataset()
     pixels = dataset.read_image(**axes)
-    print(pixels)
+    # Do something with image pixels/metadata
 
-dire = 'C:\\Users\\henry\\Desktop\\datadump'
-with Acquisition(directory=dire, name="tcz_acq", debug=False,
-                 storage_monitor_callback_fn=None) as acq:
+dir = '/Users/henrypinkard/tmp/'
+with Acquisition(directory=dir, name="tcz_acq", debug=False,
+                 storage_monitor_callback_fn=storage_monitor_fn) as acq:
     events = multi_d_acquisition_events(
         num_time_points=5,
         time_interval_s=0,
         order="tcz",
     )
-    dataset = acq.get_dataset()
     acq.acquire(events)
 
