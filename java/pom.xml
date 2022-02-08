@@ -67,13 +67,6 @@
          <artifactId>NDTiffStorage</artifactId>
      <version>2.4.8</version>
       </dependency>
-      <!-- https://mvnrepository.com/artifact/net.imagej/ij -->
-<!--       <dependency>
-          <groupId>net.imagej</groupId>
-          <artifactId>ij</artifactId>
-          <version>1.51s</version>
-      </dependency> -->
-
   </dependencies>
 
 
