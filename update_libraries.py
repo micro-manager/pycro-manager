@@ -3,8 +3,8 @@ Script for updating pycormanager and its java libraries
 
 version number in library pom and pycromanager pom must be changed manually
 
-this script updates pycromanager to use latest libraries, maven updates all applicable, 
-then updates version numbers in micromanager
+this script updates pycromanager to use latest libraries
+then updates version numbers in micromanager ivy.xml
 """
 
 from pathlib import Path
@@ -76,20 +76,6 @@ for lib_name in versions:
 # Rewrite file
 with open(f, 'w') as outfile:
     outfile.write(data)
-
-
-
-### Redploy Maven files
-
-#always redeploy pycormanage, since it wont be detected as changed by the above script but it always will change
-if 'PycroManagerJava' not in redeploys:
-	redeploys.append('PycroManagerJava')
-#maven deploys
-for lib_name in redeploys:
-	folder_name = Path(str(git_repos_dir) + poms[lib_name]).parent
-	print ('Updating ' + lib_name + '\n\n\n')
-	os.system('cd \"{}\" && mvn clean && mvn deploy'.format(folder_name))
-
 
 
 
