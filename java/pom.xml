@@ -55,17 +55,17 @@
       <dependency>
          <groupId>org.micro-manager.acqengj</groupId>
          <artifactId>AcqEngJ</artifactId>
-     <version>0.12.5</version>
+     <version>LATEST</version>
       </dependency>
       <dependency>
          <groupId>org.micro-manager.ndviewer</groupId>
          <artifactId>NDViewer</artifactId>
-     <version>0.5.3</version>
+     <version>LATEST</version>
       </dependency>
       <dependency>
          <groupId>org.micro-manager.ndtiffstorage</groupId>
          <artifactId>NDTiffStorage</artifactId>
-     <version>2.4.8</version>
+     <version>LATEST</version>
       </dependency>
   </dependencies>
 
