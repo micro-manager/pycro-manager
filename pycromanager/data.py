@@ -597,6 +597,8 @@ class Dataset:
                     blocks.append([])
                     for column in column_values:
                         #remove overlap between tiles
+                        if not self.has_image(**axes, **axes_to_slice, row=row, column=column):
+                            return self._empty_tile
                         tile = self.read_image(**axes, **axes_to_slice, row=row, column=column, memmapped=True)
                         if self.half_overlap[0] != 0:
                             tile = tile[
