@@ -618,7 +618,10 @@ class Dataset:
                 else:
                     image = np.array(da.block(blocks))
             else:
-                image = self.read_image(**axes, **axes_to_slice, memmapped=True)
+                if not self.has_image(**axes, **axes_to_slice, memmapped=True):
+                    image = self._empty_tile
+                else:
+                    image = self.read_image(**axes, **axes_to_slice, memmapped=True)
             for i in range(len(axes_to_stack.keys())):
                 image = image[None]
             return image
