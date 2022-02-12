@@ -314,7 +314,7 @@ class Acquisition(object):
         post_hardware_hook_fn=None,
         post_camera_hook_fn=None,
         show_display=True,
-        storage_monitor_callback_fn=None,
+        image_saved_fn=None,
         tile_overlap=None,
         max_multi_res_index=None,
         magellan_acq_index=None,
@@ -376,9 +376,9 @@ class Acquisition(object):
             calculated and updated from data
         show_display : bool
             show the image viewer window
-        storage_monitor_callback_fn : Callable
-            function that takes one argument (the Axes of the image that just finished saving) and gets called
-            whenever a new image is writtent to disk
+        image_saved_fn : Callable
+            function that takes two arguments (the Axes of the image that just finished saving, and the Dataset)
+            and gets called whenever a new image is written to disk
         magellan_acq_index : int
             run this acquisition using the settings specified at this position in the main
             GUI of micro-magellan (micro-manager plugin). This index starts at 0
@@ -508,10 +508,10 @@ class Acquisition(object):
             )
             self._event_thread.start()
 
-        if storage_monitor_callback_fn is not None:
+        if image_saved_fn is not None:
             self._dataset = Dataset(remote_storage_monitor=self._remote_acq.get_storage_monitor())
             self._storage_monitor_thread =  self._dataset._add_storage_monitor_fn(
-                callback_fn=storage_monitor_callback_fn, debug=self._debug
+                callback_fn=image_saved_fn, debug=self._debug
             )
 
     def __enter__(self):
