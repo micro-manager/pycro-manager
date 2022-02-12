@@ -298,7 +298,7 @@ def _storage_monitor_fn(
             axes = dataset._add_index_entry(index_entry)
 
             if callback_fn is not None:
-                callback_fn(axes)
+                callback_fn(axes, dataset)
 
 
 class Dataset:
