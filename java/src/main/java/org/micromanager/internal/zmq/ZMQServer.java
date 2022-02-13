@@ -14,6 +14,7 @@ import java.util.concurrent.Executors;
 import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.Predicate;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 import mmcorej.org.json.JSONException;
@@ -21,6 +22,7 @@ import mmcorej.org.json.JSONObject;
 import static org.micromanager.internal.zmq.ZMQUtil.EXTERNAL_OBJECTS;
 
 import org.zeromq.SocketType;
+import sun.misc.Launcher;
 
 /**
  * implements request reply server (ie the reply part)
@@ -79,7 +81,12 @@ public class ZMQServer extends ZMQSocketWrapper {
       //get packages for current classloader (redundant?)
       packages_ = ZMQUtil.getPackages();
       for (ClassLoader cl : cls) {
-         packages_.addAll(ZMQUtil.getPackagesFromJars((URLClassLoader) cl));
+         // Dont understand the launching conditions that make each neccessary, but both needed at times
+         if (cl instanceof URLClassLoader) {
+            packages_.addAll(ZMQUtil.getPackagesFromJars((URLClassLoader) cl));
+         } else  {
+            packages_.addAll(Stream.of(Package.getPackages()).map(p -> p.getName()).collect(Collectors.toList()));
+         }
       }
       debugLogger_ = debugLogger;
    }
