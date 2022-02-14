@@ -1,7 +1,7 @@
 package org.micromanager.remote;
 
 import mmcorej.CMMCore;
-import org.micromanager.acqj.internal.acqengj.Engine;
+import org.micromanager.acqj.internal.Engine;
 import org.micromanager.internal.zmq.ZMQServer;
 
 import javax.swing.*;

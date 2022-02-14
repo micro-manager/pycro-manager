@@ -12,10 +12,10 @@ import java.util.function.Consumer;
 
 import mmcorej.TaggedImage;
 import mmcorej.org.json.JSONObject;
-import org.micromanager.acqj.api.AcqEngMetadata;
+import org.micromanager.acqj.main.AcqEngMetadata;
 import org.micromanager.acqj.api.DataSink;
-import org.micromanager.acqj.api.Acquisition;
-import org.micromanager.acqj.internal.acqengj.Engine;
+import org.micromanager.acqj.main.Acquisition;
+import org.micromanager.acqj.internal.Engine;
 import org.micromanager.multiresstorage.MultiResMultipageTiffStorage;
 import org.micromanager.multiresstorage.MultiresStorageAPI;
 import org.micromanager.multiresstorage.StorageAPI;

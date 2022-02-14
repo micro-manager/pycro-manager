@@ -13,7 +13,7 @@ import mmcorej.org.json.JSONArray;
 import mmcorej.org.json.JSONException;
 import mmcorej.org.json.JSONObject;
 import org.micromanager.acqj.api.AcquisitionAPI;
-import org.micromanager.acqj.api.AcquisitionEvent;
+import org.micromanager.acqj.main.AcquisitionEvent;
 import org.micromanager.acqj.api.AcquisitionHook;
 import org.micromanager.internal.zmq.ZMQPullSocket;
 import org.micromanager.internal.zmq.ZMQPushSocket;

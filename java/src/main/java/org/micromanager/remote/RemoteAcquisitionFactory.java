@@ -6,7 +6,7 @@
 package org.micromanager.remote;
 
 import mmcorej.CMMCore;
-import org.micromanager.acqj.internal.acqengj.Engine;
+import org.micromanager.acqj.internal.Engine;
 
 /**
  *

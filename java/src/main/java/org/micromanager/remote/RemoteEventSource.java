@@ -11,11 +11,11 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
-import java.util.function.Function;
+
 import mmcorej.org.json.JSONArray;
 import mmcorej.org.json.JSONException;
 import mmcorej.org.json.JSONObject;
-import org.micromanager.acqj.api.AcquisitionEvent;
+import org.micromanager.acqj.main.AcquisitionEvent;
 import org.micromanager.internal.zmq.ZMQPullSocket;
 
 import javax.swing.*;
