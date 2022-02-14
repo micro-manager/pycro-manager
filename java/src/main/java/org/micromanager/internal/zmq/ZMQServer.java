@@ -22,7 +22,6 @@ import mmcorej.org.json.JSONObject;
 import static org.micromanager.internal.zmq.ZMQUtil.EXTERNAL_OBJECTS;
 
 import org.zeromq.SocketType;
-import sun.misc.Launcher;
 
 /**
  * implements request reply server (ie the reply part)

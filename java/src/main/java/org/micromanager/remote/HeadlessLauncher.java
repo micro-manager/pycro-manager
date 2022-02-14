@@ -1,9 +1,7 @@
 package org.micromanager.remote;
 
 import mmcorej.CMMCore;
-import org.micromanager.ApplicationSkin;
 import org.micromanager.acqj.internal.acqengj.Engine;
-import org.micromanager.events.internal.DefaultApplicationSkinEvent;
 import org.micromanager.internal.zmq.ZMQServer;
 
 import javax.swing.*;
