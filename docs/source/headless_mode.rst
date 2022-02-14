@@ -4,7 +4,13 @@
 Headless Mode
 **************************
 
-Headless mode 
+Headless mode allows you to launch pycromanager directly from Python without having to open the Micro-Manager GUI. 
+
+It only runs the minimal libraries for PM acquisitions and core
+
+You can combine this with turning off the PM image viewer to implement your own image viewers/user interfaces that use pycromanager as a backend
+
+
 
 .. code-block:: python
 
@@ -17,14 +23,13 @@ Headless mode
         config_file = mm_app_path + "/MMConfig_demo.cfg"
 
         # If on Mac OS you need to specify the Java location.
-        # On windows Java is in the Micro-Manager install directory
-        .. java_loc = "/Users/PM/.jdk/jdk-11.0.14.1+1/Contents/Home/bin/java"
+        # On windows java is bundled with micro-manager and this is
+        # inferred from the micro-manager install directory 
+        # java_loc = "/Users/PM/.jdk/jdk-11.0.14.1+1/Contents/Home/bin/java"
         java_loc = None
 
         # Start the Java process
         start_headless(mm_app_path, config_file, java_loc=java_loc, timeout=5000)
-
-        # Open a bridge to Java and snap an image
 
         # save_dir = "/Users/henrypinkard/tmp"
         save_dir = r"C:\Users\henry\Desktop\datadump"

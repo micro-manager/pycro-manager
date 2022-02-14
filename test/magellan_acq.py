@@ -1,4 +1,4 @@
-from pycromanager import Acquisition, multi_d_acquisition_events, Bridge
+from pycromanager import MagellanAcquisition, multi_d_acquisition_events, Bridge
 import numpy as np
 
 
@@ -12,10 +12,10 @@ def img_process_fn(image, metadata):
     return image, metadata
 
 # magellan example
-acq = Acquisition(
-    magellan_acq_index=0,
-    post_hardware_hook_fn=hook_fn,
+acq = MagellanAcquisition(
+    # magellan_acq_index=0,
+    magellan_explore=True,
+    pre_hardware_hook_fn=hook_fn,
     image_process_fn=img_process_fn,
-    debug=True,
 )
 acq.await_completion()
