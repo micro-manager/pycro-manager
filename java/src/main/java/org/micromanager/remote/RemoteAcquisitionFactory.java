@@ -40,5 +40,18 @@ public class RemoteAcquisitionFactory {
       return new RemoteAcquisition(eventSource, adapter, debug);
    }
 
+   public RemoteAcquisition createTiledAcquisition(String dir, String name, boolean showViewer,
+                                              int savingQueueSize, boolean debug) {
+      RemoteEventSource eventSource = new RemoteEventSource();
+      RemoteViewerStorageAdapter adapter = null;
+      if (name != null && dir != null) {
+         // Saving to disk
+         adapter = new RemoteViewerStorageAdapter(showViewer, dir, name, false, 0,0,
+                 null, savingQueueSize);
+
+      }
+      return new RemoteAcquisition(eventSource, adapter, debug);
+   }
+
    
 }
