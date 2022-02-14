@@ -679,7 +679,7 @@ class Acquisition(object, metaclass=NumpyDocstringInheritanceMeta):
         return processor_thread
 
 
-class XYTiledAcquisition(object):
+class XYTiledAcquisition(Acquisition):
     """
     For making tiled images with an XY stage and multiresolution saving
     (e.g. for making one large contiguous image of a sample larger than the field of view)
@@ -688,9 +688,9 @@ class XYTiledAcquisition(object):
     def __init__(
             self,
             tile_overlap,
-            max_multi_res_index=None,
             directory=None,
             name=None,
+            max_multi_res_index=None,
             image_process_fn=None,
             pre_hardware_hook_fn=None,
             post_hardware_hook_fn=None,
@@ -720,6 +720,13 @@ class XYTiledAcquisition(object):
         """
         self.tile_overlap = tile_overlap
         self.max_multi_res_index = max_multi_res_index
+        # Collct all argument values except the ones specific to Magellan
+        arg_names = list(signature(self.__init__).parameters.keys())
+        arg_names.remove('tile_overlap')
+        arg_names.remove('max_multi_res_index')
+        l = locals()
+        named_args = {arg_name: l[arg_name] for arg_name in arg_names}
+        super().__init__(**named_args)
 
     def _create_remote_acquisition(self, **kwargs):
         core = self.bridge.get_core()
