@@ -71,20 +71,16 @@ Rather than reading each image individually, all data can be opened at once in a
 	max_intensity = np.max(all_data[0, 0], axis=0)
 
 	#visualize data using napari
-	with napari.gui_qt():
-	    v = napari.Viewer()
-	    v.add_image(dask_array)
+	v = napari.Viewer()
+	v.add_image(dask_array)
+	napari.run()
 
 
-If the data was acquired in an XY grid of position (such as Micro-Magellan datasets are), the array can be automatically stitched:
+If the data was acquired by an :class:`XYTiledAcquisition<pycromanager.XYTiledAcquisition>` or a :class:`MagellanAcquisition<pycromanager.MagellanAcquisition>` the grid on XY images can be automatically stitched into one contiguous image:
 
 .. code-block:: python
 
 	dask_array = dataset.as_array(stitched=True) 
-
-	with napari.gui_qt():
-	    v = napari.Viewer()
-	    v.add_image(dask_array)
 
 
 You can also slice along particular axes when creating the dask array:
