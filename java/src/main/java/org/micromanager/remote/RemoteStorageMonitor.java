@@ -6,20 +6,13 @@
 package org.micromanager.remote;
 
 import java.nio.ByteBuffer;
-import java.util.ArrayList;
-import java.util.List;
 import java.util.concurrent.*;
-import java.util.function.Function;
-import mmcorej.org.json.JSONArray;
+
 import mmcorej.org.json.JSONException;
 import mmcorej.org.json.JSONObject;
-import org.micromanager.acqj.api.AcquisitionEvent;
-import org.micromanager.internal.zmq.ZMQPullSocket;
 import org.micromanager.internal.zmq.ZMQPushSocket;
 import org.micromanager.multiresstorage.ImageWrittenListener;
 import org.micromanager.multiresstorage.IndexEntryData;
-
-import javax.swing.*;
 
 /**
  * A class that broadcasts information about images that have finsihed saving to disk

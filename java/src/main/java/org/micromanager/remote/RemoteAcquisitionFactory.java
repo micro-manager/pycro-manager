@@ -6,7 +6,7 @@
 package org.micromanager.remote;
 
 import mmcorej.CMMCore;
-import org.micromanager.acqj.internal.acqengj.Engine;
+import org.micromanager.acqj.internal.Engine;
 
 /**
  *
@@ -26,7 +26,7 @@ public class RemoteAcquisitionFactory {
       }
    }
 
-   public RemoteAcquisition createAcquisition(String dir, String name, boolean showViewer,
+   public RemoteAcquisition createTiledAcquisition(String dir, String name, boolean showViewer,
                                               boolean xyTiled, int tileOverlapX, int tileOverlapY, int maxResLevel,
                                               int savingQueueSize, boolean debug) {
       RemoteEventSource eventSource = new RemoteEventSource();
@@ -35,6 +35,19 @@ public class RemoteAcquisitionFactory {
          // Saving to disk
          adapter = new RemoteViewerStorageAdapter(showViewer, dir, name, xyTiled, tileOverlapX, tileOverlapY,
                  maxResLevel == -1 ? null : maxResLevel, savingQueueSize);
+
+      }
+      return new RemoteAcquisition(eventSource, adapter, debug);
+   }
+
+   public RemoteAcquisition createAcquisition(String dir, String name, boolean showViewer,
+                                              int savingQueueSize, boolean debug) {
+      RemoteEventSource eventSource = new RemoteEventSource();
+      RemoteViewerStorageAdapter adapter = null;
+      if (name != null && dir != null) {
+         // Saving to disk
+         adapter = new RemoteViewerStorageAdapter(showViewer, dir, name, false, 0,0,
+                 null, savingQueueSize);
 
       }
       return new RemoteAcquisition(eventSource, adapter, debug);

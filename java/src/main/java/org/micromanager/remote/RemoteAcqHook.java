@@ -13,7 +13,7 @@ import mmcorej.org.json.JSONArray;
 import mmcorej.org.json.JSONException;
 import mmcorej.org.json.JSONObject;
 import org.micromanager.acqj.api.AcquisitionAPI;
-import org.micromanager.acqj.api.AcquisitionEvent;
+import org.micromanager.acqj.main.AcquisitionEvent;
 import org.micromanager.acqj.api.AcquisitionHook;
 import org.micromanager.internal.zmq.ZMQPullSocket;
 import org.micromanager.internal.zmq.ZMQPushSocket;
@@ -28,9 +28,9 @@ public class RemoteAcqHook implements AcquisitionHook {
    ZMQPullSocket<List<AcquisitionEvent>> pullSocket_;
 
    public RemoteAcqHook(AcquisitionAPI acq) {
-      if (((RemoteAcquisition) acq).debugMode_) {
-         ((RemoteAcquisition) acq).core_.logMessage("Making push socket");
-      }
+//      if (((RemoteAcquisition) acq).debugMode_) {
+//         ((RemoteAcquisition) acq).core_.logMessage("Making push socket");
+//      }
       pushSocket_ = new ZMQPushSocket<AcquisitionEvent>(
               new Function<AcquisitionEvent, JSONObject>() {
          @Override
@@ -39,9 +39,9 @@ public class RemoteAcqHook implements AcquisitionHook {
          }
       });
 
-      if (((RemoteAcquisition) acq).debugMode_) {
-         ((RemoteAcquisition) acq).core_.logMessage("Making pull socket");
-      }
+//      if (((RemoteAcquisition) acq).debugMode_) {
+//         ((RemoteAcquisition) acq).core_.logMessage("Making pull socket");
+//      }
       pullSocket_ = new ZMQPullSocket<List<AcquisitionEvent>>(
               new Function<JSONObject, List<AcquisitionEvent>>() {
                  @Override
@@ -64,9 +64,9 @@ public class RemoteAcqHook implements AcquisitionHook {
                     }
                  }
               });
-      if (((RemoteAcquisition) acq).debugMode_) {
-         ((RemoteAcquisition) acq).core_.logMessage("made pull socket");
-      }
+//      if (((RemoteAcquisition) acq).debugMode_) {
+//         ((RemoteAcquisition) acq).core_.logMessage("made pull socket");
+//      }
    }
 
    @Override

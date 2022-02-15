@@ -301,8 +301,12 @@ def _processor_startup_fn(
             process_and_sendoff(processed, pixels.dtype)
 
 
-class Acquisition(object):
-    """ """
+from docstring_inheritance import NumpyDocstringInheritanceMeta
+
+class Acquisition(object, metaclass=NumpyDocstringInheritanceMeta):
+    """
+    Base class for Pycro-Manager acquisitions
+    """
 
     def __init__(
         self,
@@ -317,8 +321,6 @@ class Acquisition(object):
         image_saved_fn=None,
         tile_overlap=None,
         max_multi_res_index=None,
-        magellan_acq_index=None,
-        magellan_explore=False,
         process=False,
         saving_queue_size=20,
         bridge_timeout=500,
@@ -363,27 +365,11 @@ class Acquisition(object):
             startSequence. A common use case for this hook is when one want to send TTL triggers to the camera from an
             external timing device that synchronizes with other hardware. Accepts either one argument (the current
             acquisition event) or three arguments (current event, bridge, event Queue)
-        tile_overlap : int or tuple of int
-            If given, XY tiles will be laid out in a grid and multi-resolution saving will be
-            actived. Argument can be a two element tuple describing the pixel overlaps between adjacent
-            tiles. i.e. (pixel_overlap_x, pixel_overlap_y), or an integer to use the same overlap for both.
-            For these features to work, the current hardware configuration must have a valid affine transform
-            between camera coordinates and XY stage coordinates
-        max_multi_res_index : int
-            Maximum index to downsample to in multi-res pyramid mode (which is only active if a value for
-            "tile_overlap" is passed in, or if running a Micro-Magellan acquisition). 0 is no downsampling,
-            1 is downsampled up to 2x, 2 is downsampled up to 4x, etc. If not provided, it will be dynamically
-            calculated and updated from data
         show_display : bool
             show the image viewer window
         image_saved_fn : Callable
             function that takes two arguments (the Axes of the image that just finished saving, and the Dataset)
             and gets called whenever a new image is written to disk
-        magellan_acq_index : int
-            run this acquisition using the settings specified at this position in the main
-            GUI of micro-magellan (micro-manager plugin). This index starts at 0
-        magellan_explore : bool
-            Run a Micro-magellan explore acquisition
         process : bool
             Use multiprocessing instead of multithreading for acquisition hooks and image
             processors. This can be used to speed up CPU-bounded processing by eliminating bottlenecks
@@ -409,87 +395,23 @@ class Acquisition(object):
         self._dataset = None
         self._finished = False
 
+        # Get a dict of all named argument values (or default values when nothing provided)
+        arg_names = [k for k in signature(Acquisition.__init__).parameters.keys() if k != 'self']
+        l = locals()
+        named_args = {arg_name: (l[arg_name] if arg_name in l else
+                                     dict(signature(Acquisition.__init__).parameters.items())[arg_name].default)
+                                     for arg_name in arg_names }
+
         if directory is not None:
             # Expend ~ in path
             directory = os.path.expanduser(directory)
             # If path is relative, retain knowledge of the current working directory
-            directory = os.path.abspath(directory)
+            named_args['directory'] = os.path.abspath(directory)
 
-        if magellan_acq_index is not None:
-            magellan_api = self.bridge.get_magellan()
-            self._remote_acq = magellan_api.create_acquisition(magellan_acq_index)
-            self._event_queue = None
-        elif magellan_explore:
-            magellan_api = self.bridge.get_magellan()
-            self._remote_acq = magellan_api.create_explore_acquisition()
-            self._event_queue = None
-        else:
-            # Create thread safe queue for events so they can be passed from multiple processes
-            self._event_queue = multiprocessing.Queue() if process else queue.Queue()
-            core = self.bridge.get_core()
-            acq_factory = self.bridge.construct_java_object(
-                "org.micromanager.remote.RemoteAcquisitionFactory", args=[core]
-            )
-
-            show_viewer = show_display and (directory is not None and name is not None)
-            if tile_overlap is None:
-                # argument placeholders, these wont actually be used
-                x_overlap = 0
-                y_overlap = 0
-            else:
-                if type(tile_overlap) is tuple:
-                    x_overlap, y_overlap = tile_overlap
-                else:
-                    x_overlap = tile_overlap
-                    y_overlap = tile_overlap
-
-            self._remote_acq = acq_factory.create_acquisition(
-                directory,
-                name,
-                show_viewer,
-                tile_overlap is not None,
-                x_overlap,
-                y_overlap,
-                max_multi_res_index if max_multi_res_index is not None else -1,
-                saving_queue_size,
-                core_log_debug,
-            )
-        storage = self._remote_acq.get_data_sink()
-        if storage is not None:
-            self.disk_location = storage.get_disk_location()
-
-        if image_process_fn is not None:
-            java_processor = self.bridge.construct_java_object(
-                "org.micromanager.remote.RemoteImageProcessor"
-            )
-            self._remote_acq.add_image_processor(java_processor)
-            self._processor_thread = self._start_processor(java_processor, image_process_fn, self._event_queue, process=process)
-
-        self._hook_threads = []
-        if event_generation_hook_fn is not None:
-            hook = self.bridge.construct_java_object(
-                "org.micromanager.remote.RemoteAcqHook", args=[self._remote_acq]
-            )
-            self._hook_threads.append(self._start_hook(hook, event_generation_hook_fn, self._event_queue, process=process))
-            self._remote_acq.add_hook(hook, self._remote_acq.EVENT_GENERATION_HOOK)
-        if pre_hardware_hook_fn is not None:
-            hook = self.bridge.construct_java_object(
-                "org.micromanager.remote.RemoteAcqHook", args=[self._remote_acq]
-            )
-            self._hook_threads.append(self._start_hook(hook, pre_hardware_hook_fn, self._event_queue, process=process))
-            self._remote_acq.add_hook(hook, self._remote_acq.BEFORE_HARDWARE_HOOK)
-        if post_hardware_hook_fn is not None:
-            hook = self.bridge.construct_java_object(
-                "org.micromanager.remote.RemoteAcqHook", args=[self._remote_acq]
-            )
-            self._hook_threads.append(self._start_hook(hook, post_hardware_hook_fn, self._event_queue, process=process))
-            self._remote_acq.add_hook(hook, self._remote_acq.AFTER_HARDWARE_HOOK)
-        if post_camera_hook_fn is not None:
-            hook = self.bridge.construct_java_object(
-                "org.micromanager.remote.RemoteAcqHook", args=[self._remote_acq]
-            )
-            self._hook_threads.append(self._start_hook(hook, post_camera_hook_fn, self._event_queue, process=process))
-            self._remote_acq.add_hook(hook, self._remote_acq.AFTER_CAMERA_HOOK)
+        self._create_event_queue(**named_args)
+        self._create_remote_acquisition(**named_args)
+        self._initialize_image_processor(**named_args)
+        self._initialize_hooks(**named_args)
 
         self._remote_acq.start()
         self._dataset_disk_location = (
@@ -498,15 +420,7 @@ class Acquisition(object):
             else None
         )
 
-        if magellan_acq_index is None and not magellan_explore:
-            self.event_port = self._remote_acq.get_event_port()
-
-            self._event_thread = threading.Thread(
-                target=_event_sending_fn,
-                args=(self._bridge_port, self.event_port, self._event_queue, self._bridge_timeout, self._debug),
-                name="Event sending",
-            )
-            self._event_thread.start()
+        self._start_events()
 
         if image_saved_fn is not None:
             self._dataset = Dataset(remote_storage_monitor=self._remote_acq.get_storage_monitor())
@@ -523,6 +437,80 @@ class Acquisition(object):
             self._event_queue.put(None)
         # now wait on it to finish
         self.await_completion()
+
+    def _start_events(self, **kwargs):
+
+        self.event_port = self._remote_acq.get_event_port()
+
+        self._event_thread = threading.Thread(
+            target=_event_sending_fn,
+            args=(self._bridge_port, self.event_port, self._event_queue, self._bridge_timeout, self._debug),
+            name="Event sending",
+        )
+        self._event_thread.start()
+
+    def _initialize_image_processor(self, **kwargs):
+
+        if kwargs['image_process_fn'] is not None:
+            java_processor = self.bridge.construct_java_object(
+                "org.micromanager.remote.RemoteImageProcessor"
+            )
+            self._remote_acq.add_image_processor(java_processor)
+            self._processor_thread = self._start_processor(
+                java_processor, kwargs['image_process_fn'], self._event_queue, process=kwargs['process'])
+
+
+    def _initialize_hooks(self, **kwargs):
+        self._hook_threads = []
+        if kwargs['event_generation_hook_fn'] is not None:
+            hook = self.bridge.construct_java_object(
+                "org.micromanager.remote.RemoteAcqHook", args=[self._remote_acq]
+            )
+            self._hook_threads.append(self._start_hook(hook, kwargs['event_generation_hook_fn'],
+                                                       self._event_queue, process=kwargs['process']))
+            self._remote_acq.add_hook(hook, self._remote_acq.EVENT_GENERATION_HOOK)
+        if kwargs['pre_hardware_hook_fn'] is not None:
+            hook = self.bridge.construct_java_object(
+                "org.micromanager.remote.RemoteAcqHook", args=[self._remote_acq]
+            )
+            self._hook_threads.append(self._start_hook(hook,
+                                            kwargs['pre_hardware_hook_fn'], self._event_queue,
+                                                       process=kwargs['process']))
+            self._remote_acq.add_hook(hook, self._remote_acq.BEFORE_HARDWARE_HOOK)
+        if kwargs['post_hardware_hook_fn'] is not None:
+            hook = self.bridge.construct_java_object(
+                "org.micromanager.remote.RemoteAcqHook", args=[self._remote_acq]
+            )
+            self._hook_threads.append(self._start_hook(hook, kwargs['post_hardware_hook_fn'],
+                                                       self._event_queue, process=kwargs['process']))
+            self._remote_acq.add_hook(hook, self._remote_acq.AFTER_HARDWARE_HOOK)
+        if kwargs['post_camera_hook_fn'] is not None:
+            hook = self.bridge.construct_java_object(
+                "org.micromanager.remote.RemoteAcqHook", args=[self._remote_acq]
+            )
+            self._hook_threads.append(self._start_hook(hook, kwargs['post_camera_hook_fn'],
+                                                       self._event_queue, process=kwargs['process']))
+            self._remote_acq.add_hook(hook, self._remote_acq.AFTER_CAMERA_HOOK)
+
+
+    def _create_event_queue(self, **kwargs):
+        # Create thread safe queue for events so they can be passed from multiple processes
+        self._event_queue = multiprocessing.Queue() if kwargs['process'] else queue.Queue()
+
+    def _create_remote_acquisition(self, **kwargs):
+        core = self.bridge.get_core()
+        acq_factory = self.bridge.construct_java_object(
+            "org.micromanager.remote.RemoteAcquisitionFactory", args=[core]
+        )
+        show_viewer = kwargs['show_display'] and (kwargs['directory'] is not None and kwargs['name'] is not None)
+
+        self._remote_acq = acq_factory.create_acquisition(
+            kwargs['directory'],
+            kwargs['name'],
+            show_viewer,
+            kwargs['saving_queue_size'],
+            kwargs['core_log_debug'],
+        )
 
 
     def get_dataset(self):
@@ -568,8 +556,8 @@ class Acquisition(object):
 
         Parameters
         ----------
-        events
-
+        events  : list, dict
+            A single acquistion event (a dict) or a list of acquisition events
         keep_shutter_open :
              (Default value = False)
 
@@ -678,6 +666,138 @@ class Acquisition(object):
         sockets_connected_evt.wait()  # wait for push/pull sockets to connect
         processor.start_push()
         return processor_thread
+
+
+class XYTiledAcquisition(Acquisition):
+    """
+    For making tiled images with an XY stage and multiresolution saving
+    (e.g. for making one large contiguous image of a sample larger than the field of view)
+    """
+
+    def __init__(
+            self,
+            tile_overlap,
+            directory=None,
+            name=None,
+            max_multi_res_index=None,
+            image_process_fn=None,
+            pre_hardware_hook_fn=None,
+            post_hardware_hook_fn=None,
+            post_camera_hook_fn=None,
+            show_display=True,
+            image_saved_fn=None,
+            process=False,
+            saving_queue_size=20,
+            bridge_timeout=500,
+            port=Bridge.DEFAULT_PORT,
+            debug=False,
+            core_log_debug=False,
+    ):
+        """
+        Parameters
+        ----------
+         tile_overlap : int or tuple of int
+            If given, XY tiles will be laid out in a grid and multi-resolution saving will be
+            actived. Argument can be a two element tuple describing the pixel overlaps between adjacent
+            tiles. i.e. (pixel_overlap_x, pixel_overlap_y), or an integer to use the same overlap for both.
+            For these features to work, the current hardware configuration must have a valid affine transform
+            between camera coordinates and XY stage coordinates
+        max_multi_res_index : int
+            Maximum index to downsample to in multi-res pyramid mode. 0 is no downsampling,
+            1 is downsampled up to 2x, 2 is downsampled up to 4x, etc. If not provided, it will be dynamically
+            calculated and updated from data
+        """
+        self.tile_overlap = tile_overlap
+        self.max_multi_res_index = max_multi_res_index
+        # Collct all argument values except the ones specific to Magellan
+        arg_names = list(signature(self.__init__).parameters.keys())
+        arg_names.remove('tile_overlap')
+        arg_names.remove('max_multi_res_index')
+        l = locals()
+        named_args = {arg_name: l[arg_name] for arg_name in arg_names}
+        super().__init__(**named_args)
+
+    def _create_remote_acquisition(self, **kwargs):
+        core = self.bridge.get_core()
+        acq_factory = self.bridge.construct_java_object(
+            "org.micromanager.remote.RemoteAcquisitionFactory", args=[core]
+        )
+
+        show_viewer = kwargs['show_display'] and (kwargs['directory'] is not None and kwargs['name'] is not None)
+        if type(self.tile_overlap) is tuple:
+            x_overlap, y_overlap = self.tile_overlap
+        else:
+            x_overlap = self.tile_overlap
+            y_overlap = self.tile_overlap
+
+        self._remote_acq = acq_factory.create_tiled_acquisition(
+            kwargs['directory'],
+            kwargs['name'],
+            show_viewer,
+            True,
+            x_overlap,
+            y_overlap,
+            self.max_multi_res_index if self.max_multi_res_index is not None else -1,
+            kwargs['saving_queue_size'],
+            kwargs['core_log_debug'],
+        )
+
+
+class MagellanAcquisition(Acquisition):
+    """
+    Class used for launching Micro-Magellan acquisitions. Must pass either magellan_acq_index
+    or magellan_explore as an argument
+    """
+
+    def __init__(
+            self,
+            magellan_acq_index=None,
+            magellan_explore=False,
+            image_process_fn=None,
+            event_generation_hook_fn=None,
+            pre_hardware_hook_fn=None,
+            post_hardware_hook_fn=None,
+            post_camera_hook_fn=None,
+            image_saved_fn=None,
+            bridge_timeout=500,
+            port=Bridge.DEFAULT_PORT,
+            debug=False,
+            core_log_debug=False,
+    ):
+        """
+        Parameters
+        ----------
+        magellan_acq_index : int
+            run this acquisition using the settings specified at this position in the main
+            GUI of micro-magellan (micro-manager plugin). This index starts at 0
+        magellan_explore : bool
+            Run a Micro-magellan explore acquisition
+        """
+        self.magellan_acq_index = magellan_acq_index
+        self.magellan_explore = magellan_explore
+        # Collct all argument values except the ones specific to Magellan
+        arg_names = list(signature(self.__init__).parameters.keys())
+        arg_names.remove('magellan_acq_index')
+        arg_names.remove('magellan_explore')
+        l = locals()
+        named_args = {arg_name: l[arg_name] for arg_name in arg_names}
+        super().__init__(**named_args)
+
+    def _start_events(self, **kwargs):
+        pass # Magellan handles this on Java side
+
+    def _create_event_queue(self, **kwargs):
+        pass # Magellan handles this on Java side
+
+    def _create_remote_acquisition(self, **kwargs):
+        if self.magellan_acq_index is not None:
+            magellan_api = self.bridge.get_magellan()
+            self._remote_acq = magellan_api.create_acquisition(self.magellan_acq_index)
+            self._event_queue = None
+        elif self.magellan_explore:
+            magellan_api = self.bridge.get_magellan()
+            self._remote_acq = magellan_api.create_explore_acquisition()
+            self._event_queue = None
 
 
 def multi_d_acquisition_events(

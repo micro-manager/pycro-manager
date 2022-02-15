@@ -1,16 +1,49 @@
 .. _acq_events:
 
 ****************************************************************
-Specifying data to acquire
+Types of Acquisitions
 ****************************************************************
 
-The :class:`Acquisition<pycromanager.Acquisition>` class enables both simple mutli-dimensional acquisitions and complex data-adaptive acquisitions. Acquisitions take instructions in the form of :ref:`acquisition events<acq_event_spec>`, which are a set of instructions for setting hardware positions for the acquisition of a single image.
+The :class:`Acquisition<pycromanager.Acquisition>` class enables specification of common microscopy workflows (like timelapses, z-stacks, etc.) as well as a great deal of customization for more complex applications like data-adaptive acquisitions. 
+
+There are subclasses of :class:`Acquisition<pycromanager.Acquisition>` that allow for special types of acquisitions, like :ref:`xy_tiled_acq`, which can be used to stich together multiple fields of view using an XY stage and :ref:`magellan_acq_launch`, which provides an interactive GUI for navigating around a large sample.
+
+Acquisition
+========================
+
+The generic :class:`Acquisition<pycromanager.Acquisition>` is extremely flexible and can be used to implement many types of microscopy workflows.
+
+:class:`Acquisition<pycromanager.Acquisition>` take instructions in the form of :ref:`acquisition events<acq_event_spec>`, each of which is a set of instructions for the hardware settings corresponding to a single image.
+
+The general syntax for using an :class:`Acquisition<pycromanager.Acquisition>` is:
+
+.. code-block:: python
+
+	from pycromanager import Acquisition
+
+	with Acquisition(directory='/path/to/saving/dir', name='acquisition_name') as acq:
+	    
+	    # Create some acquisition events here:
+	    # events = 
+	    
+	    acq.acquire(events)
 
 
-Multi-dimensional acquisitions
-##############################
+An acquisition event is a Python ``dict`` object with a specific structure. Most importantly, it has an ``axes`` field that contains a unique identifier for the image that will be generated, formed by supplying an integer index for each of the dimensions over which images in the acquisition will vary. For example, in a timelapse of ten images would vary only over the ``time`` axis, and the first two events would be: 
 
-Multi-dimensional acquisitions are a common type of acquisition in which images are collected across some set of time, z-stack, channel, and xy position. The :meth:`multi_d_acquisition_events<pycromanager.multi_d_acquisition_events>` function can be used to automatically generate the required :ref:`acquisition events<acq_event_spec>`. For a full tutorial on how to use this function see `MDA Tutorial <application_notebooks/multi-d-acq-tutorial.ipynb>`_
+.. code-block:: python
+
+	event_0 = { 'axes': {'time': 0} }
+	event_1 = { 'axes': {'time': 1} }
+
+Acquisition events often also contain information about how to move hardware before acquiring an image (for example, an XY position for a stage), which will be described more below.
+
+You can create :ref:`manual_acq_events` from scratch, but in many cases it is easier to use the :meth:`multi_d_acquisition_events<pycromanager.multi_d_acquisition_events>` convenience function for generating events.
+
+multi_d_acquisition_events
+____________________________
+
+"Multi-dimensional acquisition" refers to a common type of acquisition in which images are collected across some set of time, z-stack, channel, and xy position axes. If additional axes beyond these 4 are needed, you'll need to manually create :ref:`manual_acq_events`. The :meth:`multi_d_acquisition_events<pycromanager.multi_d_acquisition_events>` function can be used to automatically generate the required :ref:`acquisition events<acq_event_spec>`. 
 
 
 The following shows a the simple example of acquiring a single z-stack:
@@ -35,12 +68,17 @@ In addition to z-stacks, this function can also be used to do timelapses, differ
     					z_start=0, z_end=6, z_step=0.4, 
     					order='tcz')
 
+More information on this function can be found in the `MDA Tutorial <application_notebooks/multi-d-acq-tutorial.ipynb>`_
 
-Acquisition events
-####################
 
-If more fine-grained control of the acquired data is needed, :ref:`acquisition events<acq_event_spec>` can be manually created. The following example shows the same z-stack as the example above, but with acquisition 
-events created manually:
+.. _manual_acq_events:
+
+Customized acquisition events
+_______________________________
+
+If more fine-grained control of the acquired data is needed, acquisition events can be built from scratch. A full description of all possible fields in an acquisition event can be found in the :ref:`acq_event_spec`. 
+
+The following example shows the same z-stack as the example above, but with acquisition events created from scratch:
 
 .. code-block:: python
 
@@ -100,25 +138,25 @@ For the values in provided in the micro-manager demo config, this would be:
 	}}
 
 
-A description of all possible fields in an acquisition event can be found in the :ref:`acq_event_spec`
+.. _xy_tiled_acq:
 
-
-XY tiling
-=========
-Pycro-manager has special support for acquisitions in which multiple images are tiled together to form large, high-resolution images. In this mode, data will automatically be saved in a multi-resolution pyramid, so that it can be efficiently viewed at multiple levels of zoom. These features are also available though `Micro-magellan <https://micro-manager.org/wiki/MicroMagellan>`_, which provides a GUI for using them as well as other higher level features.
+XYTiled Acquisition
+========================
+Pycro-manager has special support for acquisitions in which multiple images are tiled together to form large, high-resolution images. In this mode, data will automatically be saved in a multi-resolution pyramid, so that it can be efficiently viewed at multiple levels of zoom. These features are also available though `Micro-magellan <https://micro-manager.org/wiki/MicroMagellan>`_, which provides an interactive GUI as well as other higher level features.
 
 
 .. note::
 
    In order for this functionality to work, the current configuration must have a correctly calibrated affine transform matrix, which gives the corrspondence between the coordinate systems of the camera and the XY stage. This can be calibrated automatically in Micro-Manager by using the pixel size calibrator (under ``Devices``--``Pixel Size Calibration`` in the Micro-manager GUI).
 
-
-To enable this mode, pass in a value in for the ``tile_overlap`` argument when creating an acquisition. The value gives the number of pixels by which adjacent tiles will overlap. Specify which tiles to acquire using the ``row`` and ``col`` fields in acquisition events.
+To use these features, rather than creating an :class:`Acquisition<pycromanager.Acquisition>`, a :class:`XYTiledAcquisition<pycromanager.Acquisition>` will be used. These classes are almost identical, except that :class:`XYTiledAcquisition<pycromanager.Acquisition>` has an additional required argument ``tile_overlap``, which gives the number of pixels by which adjacent tiles will overlap. Different XY fields of view can be acquired using the ``row`` and ``col`` fields in acquisition events.
 
 
 .. code-block:: python
 
-    with Acquisition('/path/to/saving/dir', 'saving_name', tile_overlap=10) as acq:
+    from pycromanager import XYTiledAcquisition
+
+    with XYTiledAcquisition(directory='/path/to/saving/dir', name='saving_name', tile_overlap=10) as acq:
         #10 pixel overlap between adjacent tiles
 
         #acquire a 2 x 1 grid
@@ -129,21 +167,22 @@ To enable this mode, pass in a value in for the ``tile_overlap`` argument when c
 
 .. _magellan_acq_launch:
 
-Micro-Magellan Acquisitions
-###########################
-Another alternative is to launch `Micro-magellan <https://micro-manager.org/wiki/MicroMagellan>`_ acquisitions. These include both regular and `explore acquisitions <https://micro-manager.org/wiki/MicroMagellan#Explore_Acquisitions>`_. In the former case, acquisition events are generated automatically from the Micro-Magellan GUI. In the latter, they are created in response to user clicks.
+Micro-Magellan Acquisition
+===============================
+Another alternative is to launch `Micro-magellan <https://micro-manager.org/wiki/MicroMagellan>`_ acquisitions. These include both regular and `explore acquisitions <https://micro-manager.org/wiki/MicroMagellan#Explore_Acquisitions>`_, which launches an interactive GUI for navigating around a sample in XY and Z and clicking to collect images. 
 
-
-To run a regular Micro-Magellan acquisition, pass in a value to the ``magellan_acq_index`` argument, which corresponds to the position of the acquisition to be launched in the **Acquisition(s)** section of the Micro-Magellan GUI. Passing in 0 corresponds to the default acquisition. Greater numbers can be used to programatically control multiple acquisitions. Alternatively, to launch an explore acquisition, set the ``magellan_explore`` argument equal to ``True``.
+Micro-Magellan acquisitions can be run using the :class:`MagellanAcquisition<pycromanager.MagellanAcquisition>` class. The class requires as an argument either ``magellan_acq_index`` or ``magellan_explore``. The former corresponds to the position of the acquisition to be launched in the **Acquisition(s)** section of the Micro-Magellan GUI. Passing in 0 corresponds to the default acquisition. Greater numbers can be used to programatically control multiple acquisitions. The latter corresponds to explore acquisitions, which can be launched by setting the ``magellan_explore`` argument equal to ``True``.
 
 
 .. code-block:: python
-	
+
+	from pycromanager import MagellanAcquisition
+
 	# no need to use the normal "with" syntax because these acquisition are cleaned up automatically
-	acq = Acquisition(magellan_acq_index=0)
+	acq = MagellanAcquisition(magellan_acq_index=0)
 
 	# Or do this to launch an explore acquisition
-	acq = Acquisition(magellan_explore=True)
+	acq = MagellanAcquisition(magellan_explore=True)
 
 	# Optional: block here until the acquisition is finished
 	acq.await_completion()

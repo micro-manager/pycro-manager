@@ -12,7 +12,7 @@ import java.util.function.Function;
 import mmcorej.TaggedImage;
 import mmcorej.org.json.JSONException;
 import mmcorej.org.json.JSONObject;
-import org.micromanager.acqj.api.AcqEngMetadata;
+import org.micromanager.acqj.main.AcqEngMetadata;
 import org.micromanager.acqj.api.TaggedImageProcessor;
 import org.micromanager.internal.zmq.ZMQPullSocket;
 import org.micromanager.internal.zmq.ZMQPushSocket;

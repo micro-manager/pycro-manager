@@ -6,10 +6,8 @@
 package org.micromanager.remote;
 
 import mmcorej.org.json.JSONObject;
-import org.micromanager.acqj.api.Acquisition;
+import org.micromanager.acqj.main.Acquisition;
 import org.micromanager.acqj.api.AcquisitionAPI;
-import org.micromanager.multiresstorage.MultiResMultipageTiffStorage;
-import org.micromanager.multiresstorage.MultiresStorageAPI;
 import org.micromanager.multiresstorage.StorageAPI;
 import org.micromanager.ndviewer.api.ViewerAcquisitionInterface;
 

@@ -1,8 +1,35 @@
+
+*********************************************
+Calling Java code 
+*********************************************
+
+.. _studio_api:
+
+
+Calling Micro-manager Java ("Studio") API 
+================================================
+
+``pycromanager`` provides a way to control the Java/Beanshell APIs of micromanager through Python. In some cases it may be run existing `beanshell scripts <https://micro-manager.org/wiki/Example_Beanshell_scripts>`_ with little to no modifcation. Check out the `Java documentation <https://valelab4.ucsf.edu/~MM/doc-2.0.0-gamma/mmstudio/org/micromanager/Studio.html>`_ for this API for more information. Setting the ``convert_camel_case`` option to ``False`` here may be especially useful, because it keeps the function names in the Java convention of ``camelCaseCapitalization`` rather than automatically converting to the Python convention of ``names_with_underscores``.
+
+
+
+.. code-block:: python
+
+	from pycromanager import Bridge
+	
+	with Bridge(convert_camel_case=False) as bridge:
+
+        #get the micro-manager studio object:
+        studio = bridge.get_studio()
+
+        #now use the studio for something
+
+
+
 .. _magellan_api:
 
-****************************************************************
 Controlling Micro-Magellan
-****************************************************************
+================================================
 
 Micro-Magellan is a plugin for imaging large samples that span multiple fields of view (e.g. tissue sections, whole slides, multi-well plates). It provides a graphical user interface for navigating around samples in X,Y, and Z called "explore acquisitions", as well as features for defining and imaging arbitrarily shaped regions of interest ("Surfaces" and "grids"). More information can be found `here <https://micro-manager.org/wiki/MicroMagellan>`_.
 
@@ -87,3 +114,25 @@ For example, multiple acquisitions can be created or removed programatically, an
         z_position = test_surface.get_extrapolated_value(5., 200.)
 
 
+
+.. _calling_custom_java:
+
+Calling custom Java code
+================================================
+
+You can also use the :class:`Bridge<pycromanager.Bridge>` to call your own Java code (such as a micro-manager Java plugin). The construction of an arbitrary Java object is show below using Micro-Magellan as an example:
+
+.. code-block:: python
+
+	magellan_api = bridge.construct_java_object('org.micromanager.magellan.api.MagellanAPI')
+
+	#now call whatever Java methods the object has
+
+If the constructor takes arguments, they can be passed in using:
+
+.. code-block:: python
+
+	java_obj = bridge.construct_java_object('the.full.classpath.to.TheClass', args=['demo', 30])
+
+
+In either case, calling ``java_obj.`` and using IPython autocomplete to discover method names can be useful for development. Note that function names will be automatically translated from the camelCase Java convention to the Python convention of underscores between words (e.g. ``setExposure`` becomes ``set_exposure``)
