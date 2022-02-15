@@ -15,9 +15,9 @@ Calling Micro-manager Java ("Studio") API
 
 .. code-block:: python
 
-	from pycromanager import Bridge
-	
-	with Bridge(convert_camel_case=False) as bridge:
+    from pycromanager import Bridge
+
+    with Bridge(convert_camel_case=False) as bridge:
 
         #get the micro-manager studio object:
         studio = bridge.get_studio()
@@ -40,9 +40,9 @@ For example, multiple acquisitions can be created or removed programatically, an
 
 .. code-block:: python
 
-	from pycromanager import Bridge
+    from pycromanager import Bridge
 
-	with Bridge() as bridge:
+    with Bridge() as bridge:
         #get object representing micro-magellan API
         magellan = bridge.get_magellan()
 
@@ -87,7 +87,7 @@ For example, multiple acquisitions can be created or removed programatically, an
         acq_settings.set_z_end(10.1)
 
 
-    It is also possible to create Grids for acquisition:
+It is also possible to create Grids for acquisition:
 
     .. code-block:: python
 
@@ -100,7 +100,7 @@ For example, multiple acquisitions can be created or removed programatically, an
         magellan.delete_all_grids_and_surfaces()
 
 
-    Or surfaces:
+Or surfaces:
 
     .. code-block:: python
 
