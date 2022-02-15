@@ -365,17 +365,6 @@ class Acquisition(object, metaclass=NumpyDocstringInheritanceMeta):
             startSequence. A common use case for this hook is when one want to send TTL triggers to the camera from an
             external timing device that synchronizes with other hardware. Accepts either one argument (the current
             acquisition event) or three arguments (current event, bridge, event Queue)
-        tile_overlap : int or tuple of int
-            If given, XY tiles will be laid out in a grid and multi-resolution saving will be
-            actived. Argument can be a two element tuple describing the pixel overlaps between adjacent
-            tiles. i.e. (pixel_overlap_x, pixel_overlap_y), or an integer to use the same overlap for both.
-            For these features to work, the current hardware configuration must have a valid affine transform
-            between camera coordinates and XY stage coordinates
-        max_multi_res_index : int
-            Maximum index to downsample to in multi-res pyramid mode (which is only active if a value for
-            "tile_overlap" is passed in, or if running a Micro-Magellan acquisition). 0 is no downsampling,
-            1 is downsampled up to 2x, 2 is downsampled up to 4x, etc. If not provided, it will be dynamically
-            calculated and updated from data
         show_display : bool
             show the image viewer window
         image_saved_fn : Callable
@@ -567,8 +556,8 @@ class Acquisition(object, metaclass=NumpyDocstringInheritanceMeta):
 
         Parameters
         ----------
-        events
-
+        events  : list, dict
+            A single acquistion event (a dict) or a list of acquisition events
         keep_shutter_open :
              (Default value = False)
 

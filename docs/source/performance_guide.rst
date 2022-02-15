@@ -4,10 +4,19 @@
 Performance Guide
 **************************
 
+Best programming practices for performance
+================================================
+
+With a proper hardware and software setup, pycromanager is capable of handling extremely large data volumes and rates (such as those seen in light sheet microscopy). The writer for the default format of pycromanager (`NDTiff <https://github.com/micro-manager/NDTiffStorage>`_), with multiple NVMe drives in a RAID configuration, has been clocked at sustaining multiple GB/s write speeds for hours at a time.
+
+However, one performance limitation is the ~100 MB/s upper limit on data transfer over the Java-Python ``Bridge``. The current implementation of :ref:`img_processors` are bound by this limit, so if extremely fast data rates are needed, they should be avoided. One alternative is to use :ref:`image_saved_callbacks`, which do not pass image data over the ``Bridge``. Instead, after each image is written to disk, a small message is sent over the ``Bridge`` describing the location of the new data on disk. This can data can then be read natively in Python, without incurring the speed limits of the ``Bridge``.
+
+
+
 .. _hardware_triggering:
 
 Fast acquisition with hardware triggering
-====================================
+================================================
 
 A standard acquisition is accomplished by sending commands from the computer to the devices each time a change (in, e.g., stage position or illumination) is required. This communication can add unnecessary latency (up to 100 ms) between image frames. Much faster and accurately timed operation is possible with most cameras (when acquiring a preset sequence of frames) as well as many other devices (when executing a pre-programmed sequence of commands).
 

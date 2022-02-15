@@ -4,28 +4,34 @@
 Saved image callbacks
 **************************
 
-The data is saved in Java but can be read natively in python for faster performance
-These get called automatically as soon as an image finishes writing
+Saved image callbacks, allow a user-supplied ``image_saved_fn`` to be automatically called by the :class:`Acquisition<pycromanager.Acquisition>` as soon as a new image has been saved. The image can then be read directly from disk in Python. This avoids the speed limitations incurred by image processors. It is also a useful way to implement a custom user interface, because the function will be called each time there is new data and the UI should be updated. Alternatively, it can be used to start post-processing large datasets as soon as they are acquired. 
+
+
+The ``image_saved_fn`` takes two arguments, ``axes`` and ``dataset``. The first is the describe the unique identifier of the image (``z=0``, ``time=2``, etc.), and the second provides access to the :class:`Dataset<pycromanager.Dataset>` associated with the Acquisition. The pixels of the image that was just saved can be accessed by calling:
+
 
 .. code-block:: python
 
-    def img_process_fn(image, metadata):
-		
-        from pycromanager import Acquisition, multi_d_acquisition_events,
+    pixels = dataset.read_image(**axes)
 
+A full example of using this feature is below:
 
-        def image_saved_fn(axes, dataset):
-            pixels = dataset.read_image(**axes)
-            # TODO: use the pixels for something, like post-processing or a custom image viewer
+.. code-block:: python
 
-        with Acquisition(directory=save_dir, name="tcz_acq", show_display=False,
-                        image_saved_fn=image_saved_fn,
-                         ) as acq:
-            events = multi_d_acquisition_events(
-                num_time_points=5,
-                z_start=0, z_end=6, z_step=0.4,
-            )
-            acq.acquire(events)
+    from pycromanager import Acquisition, multi_d_acquisition_events,
+
+    def image_saved_fn(axes, dataset):
+        pixels = dataset.read_image(**axes)
+        # TODO: use the pixels for something, like post-processing or a custom image viewer
+
+    with Acquisition(directory=save_dir, name="tcz_acq",
+                    image_saved_fn=image_saved_fn,
+                     ) as acq:
+        events = multi_d_acquisition_events(
+            num_time_points=5,
+            z_start=0, z_end=6, z_step=0.4,
+        )
+        acq.acquire(events)
 
 
 

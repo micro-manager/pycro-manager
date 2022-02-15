@@ -50,17 +50,41 @@ The following shows all possible fields in an acquisition event (not all of whic
 	}
     
 
-High-level acquisition APIs
-#######################################################
-
+Bridge
+################################################
 .. currentmodule:: pycromanager
 .. autoclass:: Bridge
 	:members:
+
+Acquisition APIs
+#######################################################
+
+Acquisition
+==============
+.. currentmodule:: pycromanager
 .. autoclass:: Acquisition
 	:members:
+
+multi_d_acquisition_events
+===========================
 .. autofunction:: multi_d_acquisition_events
 
-Reading acquired data
+XYTiledAcquisition
+=====================
+.. autoclass:: XYTiledAcquisition
+	:members:
+
+MagellanAcquisition
+=======================
+.. autoclass:: MagellanAcquisition
+	:members:
+
+multi_d_acquisition_events
+===========================
+.. autofunction:: start_headless
+
+
+Dataset
 ##############################################
 
 .. currentmodule:: pycromanager
@@ -68,7 +92,7 @@ Reading acquired data
 	:members:
 
 
-Low-level (micro-manager core) APIs
+Micro-Manager Core
 ###################################
 
 The core API is discovered dynamically at runtime, though not every method is implemented. Typing ``core.`` and using autocomplete with ``IPython`` is the best way to discover which functions are available. Documentation on for the Java version of the core API (which ``pycromanager`` calls) can be found `here <https://valelab4.ucsf.edu/~MM/doc-2.0.0-gamma/mmcorej/mmcorej/CMMCore.html>`_.

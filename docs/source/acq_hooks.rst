@@ -12,14 +12,14 @@ The simplest type of acquisition hook is function that takes a single argument (
 
 .. code-block:: python
 
-	def hook_fn(event):
-		### Do some other stuff here ###
-		return event
+    def hook_fn(event):
+        ### Do some other stuff here ###
+        return event
 
-	# pass in the function as a post_hardware_hook
-	with Acquisition(directory='/path/to/saving/dir', name='acquisition_name',
-    				post_hardware_hook_fn=hook_fn) as acq:
-    		### acquire some stuff ###
+    # pass in the function as a post_hardware_hook
+    with Acquisition(directory='/path/to/saving/dir', name='acquisition_name',
+                    post_hardware_hook_fn=hook_fn) as acq:
+        ### acquire some stuff ###
 
 
 Acquisition hooks can also be used to modify or delete acquisition events:
@@ -31,6 +31,7 @@ Acquisition hooks can also be used to modify or delete acquisition events:
 		return event
 	# condition isn't met, so delete this event by not returning it
 
+Depending on where in the acquisition cycle the hook is, modifying or deleting the event may not have any effect. For example, modifying an event in a  ``post_camera_hook_fn`` won't have any effect since the hardware has already been moved and the camera started. In contrast, in a ``pre_hardware_hook_fn``, the event can be modified and the acquistion engine will use the modified event. For example, the z position could be changed in the hook function, which would cause the acquisition engine to move the microscope's focus drive to a different position than it otherwise woudl have prior to taking an image.
 
 A hook function that takes three arguments can also be used in cases where one wants to submit additional acquisition events or interact with classes on the Java side (such as the micro-manager core) through the :class:`Bridge<pycromanager.Bridge>`.
 
@@ -44,7 +45,6 @@ A hook function that takes three arguments can also be used in cases where one w
 		return event
 
 The third argument, ``event_queue``, can be used for submitting additional acquisition events:
-
 
 .. code-block:: python
 	
@@ -68,14 +68,14 @@ If additional events will be submitted here, the typical syntax of ``with Acquis
 When it is finished, it can be closed and cleaned up by passing an ``None`` to the ``event_queue``.
 
 .. code-block:: python
-	
-	#this hook function can control the micro-manager core
-	def hook_fn(event, bridge, event_queue):
 
-		if acq_end_condition:
-			event_queue.put(None)
-		else:
-			return event
+    # this hook function can control the micro-manager core
+    def hook_fn(event, bridge, event_queue):
+
+        if acq_end_condition:
+            event_queue.put(None)
+        else:
+            return event
 
 
 Applications

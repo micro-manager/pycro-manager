@@ -61,7 +61,7 @@ Image processors are not required to take in one image and return one image. The
 
 
 
-Rather than returning one or more ``image, metadata`` tuples to propogate the image to the default viewer and saver, the image processing function can not return anything. This can be used if one wants to delete a specific image, or divert all images to customized saving/visualization code. If the latter behavior is desired, the :class:`Acquisition<pycromanager.Acquisition>` should be created without the ``name`` and ``directory`` fields.
+Rather than returning one or more ``image, metadata`` tuples to propogate the image to the default viewer and saver, the image processing function can return nothing. This can be used if one wants to delete a specific image, or divert all images to customized saving/visualization code. If the latter behavior is desired, the :class:`Acquisition<pycromanager.Acquisition>` should be created without the ``name`` and ``directory`` fields.
 
 
 .. code-block:: python
@@ -96,6 +96,9 @@ In the case of using feedback from the image to control acquisition, the typical
 
     acq = Acquisition(directory='/path/to/saving/dir', name='acquisition_name',
               image_process_fn=img_process_fn)
+
+``acq.acquire`` will then need to be called at least once, so that there is an feedback loop between processed images and new events will be started.
+
 
 When it is finished, it can be closed and cleaned up by passing an ``None`` to the ``event_queue``.
 
@@ -133,6 +136,12 @@ this, the function can hold onto a list of images until it contains a full Z-sta
 	        ### Do some processing on the 3D stack ###
 
 	    return image, metadata
+
+Performance
+====================================
+In the current implementation, image processors pass data back and forth through the Java-Python transport layer, which requires serializing and deserializing data to pass it from one process to another. This introduces a speed limitation of ~100 MB/s for image processors.
+
+However, there is a potential workaround for this through the use of :ref:`image_saved_callbacks`. Here, rather than intercepting images after they are acquired, but before they are written to disk, the images are written to disk in Java code (which is very fast) without passing over the Java-Python Bridge, and as soon as they are written, a signal is sent across the Bridge that enables the data to be read off the disk. With fast enough hard drives, this can give access to acquired data significantly faster than image processors.
 
 
 Applications
