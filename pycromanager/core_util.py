@@ -52,10 +52,12 @@ class CMMCoreSignaler:
 
     def set_value(self, value):
         function_name = value['name']
-        function_args = value['arguments']
-        print(function_name, function_args)
-        #TODO call using relfection and function name
-        #     self.propertiesChanged.emit(self._value)
+        function_args = value['arguments'] if 'arguments' in value else None
+        # print(function_name, function_args)
+        if function_args is None:
+            getattr(self, function_name).emit()
+        else:
+            getattr(self, function_name).emit(*function_args)
 
     def close(self):
         self._closed = True
