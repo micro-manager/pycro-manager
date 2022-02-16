@@ -1,6 +1,8 @@
 name = "pycromanager"
 
-from pycromanager.acquire import Acquisition, multi_d_acquisition_events, start_headless, MagellanAcquisition, XYTiledAcquisition
-from pycromanager.core import Bridge, JavaObjectShadow
+from pycromanager.acquisitions import Acquisition,MagellanAcquisition, XYTiledAcquisition
+# from pycromanager.core_util import
+from pycromanager.acq_util import start_headless, multi_d_acquisition_events
+from pycromanager.zmq import Bridge, JavaObjectShadow
 from pycromanager.data import Dataset
 from ._version import __version__, version_info

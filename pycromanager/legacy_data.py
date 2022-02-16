@@ -10,7 +10,7 @@ import platform
 import dask.array as da
 import dask
 import warnings
-from pycromanager.core import Bridge
+from pycromanager.zmq import Bridge
 import struct
 
 
