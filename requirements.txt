@@ -7,3 +7,4 @@ pygments<3,>=2.4.1
 ipykernel
 sphinx_rtd_theme
 docstring-inheritance
+psygnal
