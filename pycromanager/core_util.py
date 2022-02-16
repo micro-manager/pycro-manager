@@ -1,6 +1,5 @@
-from pycromanager import Bridge
+from pycromanager.zmq import Bridge
 import threading
-from psygnal import Signal
 
 def _callback_recieving_fn(bridge_port, core_callback):
 
@@ -19,45 +18,29 @@ def _callback_recieving_fn(bridge_port, core_callback):
                 break
 
 
-
-class CMMCoreSignaler:
-
-    # native MMCore callback events
-    propertiesChanged = Signal()
-    propertyChanged = Signal(str, str, str)
-    channelGroupChanged = Signal(str)
-    configGroupChanged = Signal(str, str)
-    configSet = Signal(str, str)
-    systemConfigurationLoaded = Signal()
-    pixelSizeChanged = Signal(float)
-    pixelSizeAffineChanged = Signal(float, float, float, float, float, float)
-    stagePositionChanged = Signal(str, float)
-    XYStagePositionChanged = Signal(str, float, float)
-    exposureChanged = Signal(str, float)
-    SLMExposureChanged = Signal(str, float)
-
-    # this signal will emit a single string
-    value_changed = Signal(str)
-
-    def __init__(self, bridge_port=Bridge.DEFAULT_PORT):
-        self._value = None
+class CoreCallback:
+    """
+    A class for recieving callbacks from the core, which are mostly used
+    for the case where some hardware has changed
+    See (https://github.com/micro-manager/mmCoreAndDevices/blob/main/MMCore/CoreCallback.cpp)
+    """
+    def __init__(self, callback_fn=None, bridge_port=Bridge.DEFAULT_PORT):
         self._closed = False
-
         self._thread = threading.Thread(
             target=_callback_recieving_fn,
             name="CoreCallback",
             args=(bridge_port, self),
         )
+        self.callback_fn = callback_fn
         self._thread.start()
 
     def set_value(self, value):
         function_name = value['name']
-        function_args = value['arguments'] if 'arguments' in value else None
-        # print(function_name, function_args)
-        if function_args is None:
-            getattr(self, function_name).emit()
-        else:
-            getattr(self, function_name).emit(*function_args)
+        function_args = value['arguments'] if 'arguments' in value else tuple()
+
+        print(function_name, function_args)
+        if self.callback_fn is not None:
+            self.callback_fn(function_name, *function_args)
 
     def close(self):
         self._closed = True
