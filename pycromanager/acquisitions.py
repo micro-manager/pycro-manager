@@ -2,96 +2,20 @@ import numpy as np
 import multiprocessing
 import threading
 from inspect import signature
-import copy
-import types
 import time
-from pycromanager.core import deserialize_array, Bridge
+from pycromanager.zmq import deserialize_array, Bridge
 from pycromanager.data import Dataset
 import warnings
 import os.path
 import queue
-import subprocess
-import platform
-import atexit
+from docstring_inheritance import NumpyDocstringInheritanceMeta
 
-
-def start_headless(
-    mm_app_path, config_file, java_loc=None, core_log_path=None, buffer_size_mb=1024,
-        port=Bridge.DEFAULT_PORT,timeout=Bridge.DEFAULT_TIMEOUT
-):
-    """
-    Start a Java process that contains the neccessary libraries for pycro-manager to run,
-    so that it can be run independently of the Micro-Manager GUI/application. This call
-    will create and initialize MMCore with the configuration file provided.
-
-    On windows plaforms, the Java Runtime Environment will be grabbed automatically
-    as it is installed along with the Micro-Manager application.
-
-    On non-windows platforms, it may need to be installed/specified manually in order to ensure compatibility.
-    This can be checked by looking at the "maven.compiler.source" entry which the java parts of
-    pycro-manager were compiled with. See here: https://github.com/micro-manager/pycro-manager/blob/29b584bfd71f0d05750f5d39600318902186a06a/java/pom.xml#L8
-
-    Parameters
-        ----------
-        mm_app_path : str
-            Path to top level folder of Micro-Manager installation (made with graphical installer)
-        config_file : str
-            Path to micro-manager config file, with which core will be initialized
-        java_loc: str
-            Path to the java version that it should be run with
-        core_log_path : str
-            Path to where core log files should be created
-        buffer_size_mb : int
-            Size of circular buffer in MB in MMCore
-        port : int
-            Default port to use for ZMQServer
-    """
-
-    classpath = mm_app_path + '/plugins/Micro-Manager/*'
-    if java_loc is None:
-        if platform.system() == "Windows":
-            # windows comes with its own JRE
-            java_loc = mm_app_path + "/jre/bin/javaw.exe"
-        else:
-            java_loc = "java"
-    # This starts Java process and instantiates essential objects (core,
-    # acquisition engine, ZMQServer)
-    p = subprocess.Popen(
-        [
-            java_loc,
-            "-classpath",
-            classpath,
-            "-Dsun.java2d.dpiaware=false",
-            "-Xmx2000m",
-
-            # This is used by MM desktop app but breaks things on MacOS...Don't think its neccessary
-            # "-XX:MaxDirectMemorySize=1000",
-            "org.micromanager.remote.HeadlessLauncher",
-            str(port)
-        ]
-    )
-    # make sure Java process cleans up when Python process exits
-    atexit.register(lambda: p.terminate())
-
-    # Initialize core
-    with Bridge(port=port, timeout=timeout) as bridge:
-        core = bridge.get_core()
-
-        core.wait_for_system()
-        core.load_system_configuration(config_file)
-
-        core.set_circular_buffer_memory_footprint(buffer_size_mb)
-
-        if core_log_path is not None:
-            core.enable_stderr_log(True)
-            core.enable_debug_log(True)
-            core.set_primary_log_file(core_log_path)
 
 
 ### These functions outside class to prevent problems with pickling when running them in differnet process
 
 
-def _event_sending_fn(bridge_port, event_port, event_queue, bridge_timeout=Bridge.DEFAULT_TIMEOUT, debug=False):
+def _run_acq_event_source(bridge_port, event_port, event_queue, bridge_timeout=Bridge.DEFAULT_TIMEOUT, debug=False):
     """
 
     Parameters
@@ -109,7 +33,6 @@ def _event_sending_fn(bridge_port, event_port, event_queue, bridge_timeout=Bridg
     """
 
     with Bridge(debug=debug, port=bridge_port, timeout=bridge_timeout) as bridge:
-        bridge._test_id = 'events'
         event_socket = bridge._connect_push(event_port)
         while True:
             events = event_queue.get(block=True)
@@ -124,9 +47,7 @@ def _event_sending_fn(bridge_port, event_port, event_queue, bridge_timeout=Bridg
             if debug:
                 print("sent events")
 
-
-
-def _acq_hook_startup_fn(bridge_port, pull_port, push_port, hook_connected_evt, event_queue, hook_fn, debug):
+def _run_acq_hook(bridge_port, pull_port, push_port, hook_connected_evt, event_queue, hook_fn, debug):
     """
 
     Parameters
@@ -185,7 +106,7 @@ def _acq_hook_startup_fn(bridge_port, pull_port, push_port, hook_connected_evt, 
             push_socket.send(new_event_msg)
 
 
-def _processor_startup_fn(
+def _run_image_processor(
     bridge_port, pull_port, push_port, sockets_connected_evt, process_fn, event_queue, debug
 ):
     """
@@ -301,7 +222,6 @@ def _processor_startup_fn(
             process_and_sendoff(processed, pixels.dtype)
 
 
-from docstring_inheritance import NumpyDocstringInheritanceMeta
 
 class Acquisition(object, metaclass=NumpyDocstringInheritanceMeta):
     """
@@ -443,7 +363,7 @@ class Acquisition(object, metaclass=NumpyDocstringInheritanceMeta):
         self.event_port = self._remote_acq.get_event_port()
 
         self._event_thread = threading.Thread(
-            target=_event_sending_fn,
+            target=_run_acq_event_source,
             args=(self._bridge_port, self.event_port, self._event_queue, self._bridge_timeout, self._debug),
             name="Event sending",
         )
@@ -604,7 +524,7 @@ class Acquisition(object, metaclass=NumpyDocstringInheritanceMeta):
         push_port = remote_hook.get_push_port()
 
         hook_thread = (multiprocessing.Process if process else threading.Thread)(
-            target=_acq_hook_startup_fn,
+            target=_run_acq_hook,
             name="AcquisitionHook",
             args=(
                 self._bridge_port,
@@ -649,7 +569,7 @@ class Acquisition(object, metaclass=NumpyDocstringInheritanceMeta):
         push_port = processor.get_push_port()
 
         processor_thread = (multiprocessing.Process if process else threading.Thread)(
-            target=_processor_startup_fn,
+            target=_run_image_processor,
             args=(
                 self._bridge_port,
                 pull_port,
@@ -798,173 +718,3 @@ class MagellanAcquisition(Acquisition):
             magellan_api = self.bridge.get_magellan()
             self._remote_acq = magellan_api.create_explore_acquisition()
             self._event_queue = None
-
-
-def multi_d_acquisition_events(
-    num_time_points=1,
-    time_interval_s=0,
-    z_start=None,
-    z_end=None,
-    z_step=None,
-    channel_group=None,
-    channels=None,
-    channel_exposures_ms=None,
-    xy_positions=None,
-    xyz_positions=None,
-    order="tpcz",
-    keep_shutter_open_between_channels=False,
-    keep_shutter_open_between_z_steps=False,
-):
-    """Convenience function for generating the events of a typical multi-dimensional acquisition (i.e. an
-    acquisition with some combination of multiple timepoints, channels, z-slices, or xy positions)
-
-    Parameters
-    ----------
-    num_time_points : int
-        How many time points if it is a timelapse (Default value = 1)
-    time_interval_s : float
-        the minimum interval between consecutive time points in seconds. Keep at 0 to go as
-        fast as possible (Default value = 0)
-    z_start : float
-        z-stack starting position, in µm. If xyz_positions is given z_start is relative
-        to the points' z position. (Default value = None)
-    z_end : float
-        z-stack ending position, in µm. If xyz_positions is given z_start is
-        relative to the points' z position. (Default value = None)
-    z_step : float
-        step size of z-stack, in µm (Default value = None)
-    channel_group : str
-        name of the channel group (which should correspond to a config group in micro-manager) (Default value = None)
-    channels : list of strings
-        list of channel names, which correspond to possible settings of the config group
-        (e.g. ['DAPI', 'FITC']) (Default value = None)
-    channel_exposures_ms : list of floats or ints
-        list of camera exposure times corresponding to each channel. The length of this list
-        should be the same as the the length of the list of channels (Default value = None)
-    xy_positions : arraylike
-        N by 2 array where N is the number of XY stage positions, and the 2 are the X and Y
-        coordinates (Default value = None)
-    xyz_positions : arraylike
-        N by 3 array where N is the number of XY stage positions, and the 3 are the X, Y and Z coordinates.
-        If passed then z_start, z_end, and z_step will be relative to the z_position in xyz_positions. (Default value = None)
-    z_positions : arraylike
-        The z_positions for each xy point. Either 1D (shape: (N,) ) to specify the center z position for each xy point,
-        or 2D (shape: (N, n_z) ) to fully specify the xyz points.
-        If z_positions is 1D and z_start, z_end and z_step are not None then relative
-        z_positions will be created using np.arange(z_position + z_start, z_position + z_end, z_step)
-    order : str
-        string that specifies the order of different dimensions. Must have some ordering of the letters
-        c, t, p, and z. For example, 'tcz' would run a timelapse where z stacks would be acquired at each channel in
-        series. 'pt' would move to different xy stage positions and run a complete timelapse at each one before moving
-        to the next (Default value = 'tpcz')
-    keep_shutter_open_between_channels : bool
-        don't close the shutter in between channels (Default value = False)
-    keep_shutter_open_between_z_steps : bool
-        don't close the shutter during steps of a z stack (Default value = False)
-
-    Returns
-    -------
-    events : dict
-    """
-    if xy_positions is not None and xyz_positions is not None:
-        raise ValueError(
-            "xyz_positions and xy_positions are incompatible arguments that cannot be passed together"
-        )
-    order = order.lower()
-    if "p" in order and "z" in order and order.index("p") > order.index("z"):
-        raise ValueError(
-            "This function requres that the xy position come earlier in the order than z"
-        )
-    has_zsteps = z_start is not None and z_step is not None and z_end is not None
-    z_positions = None
-    if xy_positions is not None:
-        xy_positions = np.asarray(xy_positions)
-        z_positions = None
-    elif xyz_positions is not None:
-        xyz_positions = np.asarray(xyz_positions)
-        xy_positions = xyz_positions[:, :2]
-        z_positions = xyz_positions[:, 2][:, None]
-
-    if has_zsteps:
-        z_rel = np.arange(z_start, z_end + z_step, z_step)
-        if z_positions is None:
-            z_positions = z_rel
-            if xy_positions is not None:
-                z_positions = np.broadcast_to(
-                    z_positions, (xy_positions.shape[0], z_positions.shape[0])
-                )
-        else:
-            pos = []
-            for z in z_positions:
-                pos.append(z + z_rel)
-            z_positions = np.asarray(pos)
-
-    def generate_events(event, order):
-        if len(order) == 0:
-            yield event
-            return
-        elif order[0] == "t" and num_time_points != 1:
-            time_indices = np.arange(num_time_points)
-            for time_index in time_indices:
-                new_event = copy.deepcopy(event)
-                new_event["axes"]["time"] = time_index
-                if time_interval_s != 0:
-                    new_event["min_start_time"] = time_index * time_interval_s
-                yield generate_events(new_event, order[1:])
-        elif order[0] == "z" and z_positions is not None:
-            if "axes" in event and "position" in event["axes"]:
-                zs = z_positions[event["axes"]["position"]]
-            else:
-                zs = z_positions
-
-            for z_index, z in enumerate(zs):
-                new_event = copy.deepcopy(event)
-                new_event["axes"]["z"] = z_index
-                new_event["z"] = z
-                if keep_shutter_open_between_z_steps:
-                    new_event["keep_shutter_open"] = True
-                yield generate_events(new_event, order[1:])
-        elif order[0] == "p" and xy_positions is not None:
-            for p_index, xy in enumerate(xy_positions):
-                new_event = copy.deepcopy(event)
-                new_event["axes"]["position"] = p_index
-                new_event["x"] = xy[0]
-                new_event["y"] = xy[1]
-                yield generate_events(new_event, order[1:])
-        elif order[0] == "c" and channel_group is not None and channels is not None:
-            for i in range(len(channels)):
-                new_event = copy.deepcopy(event)
-                new_event["channel"] = {"group": channel_group, "config": channels[i]}
-                if channel_exposures_ms is not None:
-                    new_event["exposure"] = channel_exposures_ms[i]
-                if keep_shutter_open_between_channels:
-                    new_event["keep_shutter_open"] = True
-                yield generate_events(new_event, order[1:])
-        else:
-            # this axis appears to be missing
-            yield generate_events(event, order[1:])
-
-    # collect all events into a single list
-    base_event = {"axes": {}}
-    events = []
-
-    def appender(next):
-        """
-
-        Parameters
-        ----------
-        next :
-
-
-        Returns
-        -------
-
-        """
-        if isinstance(next, types.GeneratorType):
-            for n in next:
-                appender(n)
-        else:
-            events.append(next)
-
-    appender(generate_events(base_event, order))
-    return events
