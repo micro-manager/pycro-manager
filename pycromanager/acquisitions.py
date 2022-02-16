@@ -8,6 +8,7 @@ from pycromanager.data import Dataset
 import warnings
 import os.path
 import queue
+from pycromanager.zmq import JavaObjectShadow
 from docstring_inheritance import NumpyDocstringInheritanceMeta
 
 
@@ -230,23 +231,21 @@ class Acquisition(object, metaclass=NumpyDocstringInheritanceMeta):
 
     def __init__(
         self,
-        directory=None,
-        name=None,
-        image_process_fn=None,
-        event_generation_hook_fn=None,
-        pre_hardware_hook_fn=None,
-        post_hardware_hook_fn=None,
-        post_camera_hook_fn=None,
-        show_display=True,
-        image_saved_fn=None,
-        tile_overlap=None,
-        max_multi_res_index=None,
-        process=False,
-        saving_queue_size=20,
-        bridge_timeout=500,
-        port=Bridge.DEFAULT_PORT,
-        debug=False,
-        core_log_debug=False,
+        directory: str=None,
+        name: str=None,
+        image_process_fn : callable=None,
+        event_generation_hook_fn: callable=None,
+        pre_hardware_hook_fn: callable=None,
+        post_hardware_hook_fn: callable=None,
+        post_camera_hook_fn: callable=None,
+        show_display: bool=True,
+        image_saved_fn: callable=None,
+        process: bool=False,
+        saving_queue_size: int=20,
+        bridge_timeout: int=500,
+        port: int=Bridge.DEFAULT_PORT,
+        debug: int=False,
+        core_log_debug: int=False,
     ):
         """
         Parameters
@@ -469,7 +468,7 @@ class Acquisition(object, metaclass=NumpyDocstringInheritanceMeta):
         self.bridge.close()
         self._finished = True
 
-    def acquire(self, events, keep_shutter_open=False):
+    def acquire(self, events: dict or list, keep_shutter_open=False):
         """Submit an event or a list of events for acquisition. Optimizations (i.e. taking advantage of
         hardware synchronization, where available), will take place across this list of events, but not
         over multiple calls of this method. A single event is a python dictionary with a specific structure
@@ -500,7 +499,7 @@ class Acquisition(object, metaclass=NumpyDocstringInheritanceMeta):
             ]  # return to autoshutter, dont acquire an image
         self._event_queue.put(events)
 
-    def _start_hook(self, remote_hook, remote_hook_fn, event_queue, process):
+    def _start_hook(self, remote_hook : JavaObjectShadow, remote_hook_fn : callable, event_queue, process):
         """
 
         Parameters
@@ -596,22 +595,22 @@ class XYTiledAcquisition(Acquisition):
 
     def __init__(
             self,
-            tile_overlap,
-            directory=None,
-            name=None,
-            max_multi_res_index=None,
-            image_process_fn=None,
-            pre_hardware_hook_fn=None,
-            post_hardware_hook_fn=None,
-            post_camera_hook_fn=None,
-            show_display=True,
-            image_saved_fn=None,
-            process=False,
-            saving_queue_size=20,
-            bridge_timeout=500,
-            port=Bridge.DEFAULT_PORT,
-            debug=False,
-            core_log_debug=False,
+            tile_overlap : int or tuple,
+            directory: str=None,
+            name: str=None,
+            max_multi_res_index: int=None,
+            image_process_fn: callable=None,
+            pre_hardware_hook_fn: callable=None,
+            post_hardware_hook_fn: callable=None,
+            post_camera_hook_fn: callable=None,
+            show_display: bool=True,
+            image_saved_fn: callable=None,
+            process: bool=False,
+            saving_queue_size: int=20,
+            bridge_timeout: int=500,
+            port: int=Bridge.DEFAULT_PORT,
+            debug: bool=False,
+            core_log_debug: bool=False,
     ):
         """
         Parameters
@@ -671,18 +670,18 @@ class MagellanAcquisition(Acquisition):
 
     def __init__(
             self,
-            magellan_acq_index=None,
-            magellan_explore=False,
-            image_process_fn=None,
-            event_generation_hook_fn=None,
-            pre_hardware_hook_fn=None,
-            post_hardware_hook_fn=None,
-            post_camera_hook_fn=None,
-            image_saved_fn=None,
-            bridge_timeout=500,
-            port=Bridge.DEFAULT_PORT,
-            debug=False,
-            core_log_debug=False,
+            magellan_acq_index: int=None,
+            magellan_explore: bool=False,
+            image_process_fn: callable=None,
+            event_generation_hook_fn: callable=None,
+            pre_hardware_hook_fn: callable=None,
+            post_hardware_hook_fn: callable=None,
+            post_camera_hook_fn: callable=None,
+            image_saved_fn: callable=None,
+            bridge_timeout: int=500,
+            port: int=Bridge.DEFAULT_PORT,
+            debug: bool=False,
+            core_log_debug: bool=False,
     ):
         """
         Parameters
