@@ -19,8 +19,6 @@ package org.micromanager.remote;////////////////////////////////////////////////
 //               INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES.
 //
 
-
-
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.LinkedBlockingDeque;
@@ -30,9 +28,7 @@ import mmcorej.MMEventCallback;
 import mmcorej.org.json.JSONArray;
 import mmcorej.org.json.JSONException;
 import mmcorej.org.json.JSONObject;
-import org.micromanager.internal.zmq.ZMQPullSocket;
 import org.micromanager.internal.zmq.ZMQPushSocket;
-import org.micromanager.internal.zmq.ZMQUtil;
 
 /**
  * Class that connects core callbacks to a ZMQPush socket so they can be dispatched to external clients
@@ -97,7 +93,7 @@ public final class RemoteCoreCallback extends MMEventCallback {
    public void onPropertiesChanged() {
       try {
          JSONObject message = new JSONObject();
-         message.put("name", "onPropertiesChanged");
+         message.put("name", "propertiesChanged");
          eventList_.addLast(message);
       } catch (JSONException e) {
          e.printStackTrace();
@@ -109,7 +105,7 @@ public final class RemoteCoreCallback extends MMEventCallback {
    public void onPropertyChanged(String deviceName, String propName, String propValue) {
       try {
          JSONObject message = new JSONObject();
-         message.put("name", "onPropertyChanged");
+         message.put("name", "propertyChanged");
          JSONArray args = new JSONArray();
          args.put(deviceName);
          args.put(propName);
@@ -126,7 +122,7 @@ public final class RemoteCoreCallback extends MMEventCallback {
    public void onChannelGroupChanged(String newChannelGroupName) {
       try {
          JSONObject message = new JSONObject();
-         message.put("name", "onChannelGroupChanged");
+         message.put("name", "channelGroupChanged");
          JSONArray args = new JSONArray();
          args.put(newChannelGroupName);
          message.put("arguments", args);
@@ -141,7 +137,7 @@ public final class RemoteCoreCallback extends MMEventCallback {
    public void onConfigGroupChanged(String groupName, String newConfig) {
       try {
          JSONObject message = new JSONObject();
-         message.put("name", "onConfigGroupChanged");
+         message.put("name", "configGroupChanged");
          JSONArray args = new JSONArray();
          args.put(groupName);
          args.put(newConfig);
@@ -157,7 +153,7 @@ public final class RemoteCoreCallback extends MMEventCallback {
    public void onSystemConfigurationLoaded() {
       try {
          JSONObject message = new JSONObject();
-         message.put("name", "onSystemConfigurationLoaded");
+         message.put("name", "systemConfigurationLoaded");
          eventList_.addLast(message);
       } catch (JSONException e) {
          e.printStackTrace();
@@ -169,7 +165,7 @@ public final class RemoteCoreCallback extends MMEventCallback {
    public void onPixelSizeChanged(double newPixelSizeUm) {
       try {
          JSONObject message = new JSONObject();
-         message.put("name", "onPixelSizeChanged");
+         message.put("name", "pixelSizeChanged");
          JSONArray args = new JSONArray();
          args.put(newPixelSizeUm);
          message.put("arguments", args);
@@ -185,7 +181,7 @@ public final class RemoteCoreCallback extends MMEventCallback {
                                         double npa3, double npa4, double npa5) {
       try {
          JSONObject message = new JSONObject();
-         message.put("name", "onPixelSizeAffineChanged");
+         message.put("name", "pixelSizeAffineChanged");
          JSONArray args = new JSONArray();
          args.put(npa0);
          args.put(npa1);
@@ -205,7 +201,7 @@ public final class RemoteCoreCallback extends MMEventCallback {
    public void onStagePositionChanged(String deviceName, double pos) {
       try {
          JSONObject message = new JSONObject();
-         message.put("name", "onStagePositionChanged");
+         message.put("name", "stagePositionChanged");
          JSONArray args = new JSONArray();
          args.put(deviceName);
          args.put(pos);
@@ -221,7 +217,7 @@ public final class RemoteCoreCallback extends MMEventCallback {
    public void onXYStagePositionChanged(String deviceName, double xPos, double yPos) {
       try {
          JSONObject message = new JSONObject();
-         message.put("name", "onXYStagePositionChanged");
+         message.put("name", "XYStagePositionChanged");
          JSONArray args = new JSONArray();
          args.put(deviceName);
          args.put(xPos);
@@ -238,7 +234,7 @@ public final class RemoteCoreCallback extends MMEventCallback {
    public void onExposureChanged(String deviceName, double exposure) {
       try {
          JSONObject message = new JSONObject();
-         message.put("name", "onExposureChanged");
+         message.put("name", "exposureChanged");
          JSONArray args = new JSONArray();
          args.put(deviceName);
          args.put(exposure);
@@ -254,7 +250,7 @@ public final class RemoteCoreCallback extends MMEventCallback {
    public void onSLMExposureChanged(String deviceName, double exposure) {
       try {
          JSONObject message = new JSONObject();
-         message.put("name", "onSLMExposureChanged");
+         message.put("name", "SLMExposureChanged");
          JSONArray args = new JSONArray();
          args.put(deviceName);
          args.put(exposure);
