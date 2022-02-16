@@ -8,8 +8,8 @@ import numpy as np
 
 
 def start_headless(
-    mm_app_path, config_file, java_loc=None, core_log_path=None, buffer_size_mb=1024,
-        port=Bridge.DEFAULT_PORT,timeout=Bridge.DEFAULT_TIMEOUT
+    mm_app_path: str, config_file: str, java_loc: str=None, core_log_path: str=None, buffer_size_mb: int=1024,
+        port: int=Bridge.DEFAULT_PORT, timeout: int=Bridge.DEFAULT_TIMEOUT
 ):
     """
     Start a Java process that contains the neccessary libraries for pycro-manager to run,
@@ -83,19 +83,19 @@ def start_headless(
 
 
 def multi_d_acquisition_events(
-    num_time_points=1,
-    time_interval_s=0,
-    z_start=None,
-    z_end=None,
-    z_step=None,
-    channel_group=None,
-    channels=None,
-    channel_exposures_ms=None,
+    num_time_points: int=1,
+    time_interval_s: float=0,
+    z_start: float=None,
+    z_end: float=None,
+    z_step: float=None,
+    channel_group: str=None,
+    channels: list=None,
+    channel_exposures_ms: list=None,
     xy_positions=None,
     xyz_positions=None,
-    order="tpcz",
-    keep_shutter_open_between_channels=False,
-    keep_shutter_open_between_z_steps=False,
+    order: str="tpcz",
+    keep_shutter_open_between_channels: bool=False,
+    keep_shutter_open_between_z_steps: bool=False,
 ):
     """Convenience function for generating the events of a typical multi-dimensional acquisition (i.e. an
     acquisition with some combination of multiple timepoints, channels, z-slices, or xy positions)

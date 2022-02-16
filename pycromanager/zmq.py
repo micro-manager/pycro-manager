@@ -223,7 +223,8 @@ class Bridge:
             return super(Bridge, cls).__new__(cls)
 
     def __init__(
-        self, port=DEFAULT_PORT, convert_camel_case=True, debug=False, ip_address="127.0.0.1", timeout=DEFAULT_TIMEOUT
+        self, port: int=DEFAULT_PORT, convert_camel_case: bool=True,
+            debug: bool=False, ip_address: str="127.0.0.1", timeout: int=DEFAULT_TIMEOUT
     ):
         """
         Parameters
@@ -300,7 +301,7 @@ class Bridge:
             serialized_object, convert_camel_case=self._convert_camel_case
         )
 
-    def construct_java_object(self, classpath, new_socket=False, args=None):
+    def construct_java_object(self, classpath: str, new_socket: bool=False, args: list=None):
         """
         Create a new instance of a an object on the Java side. Returns a Python "Shadow" of the object, which behaves
         just like the object on the Java side (i.e. same methods, fields). Methods of the object can be inferred at
