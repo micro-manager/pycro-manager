@@ -35,7 +35,7 @@ public class ZMQServer extends ZMQSocketWrapper {
    private static Set<String> packages_;
    private static ZMQUtil util_;
 
-   public static final String VERSION = "4.1.0";
+   public static final String VERSION = "4.2.0";
 
    private static Function<Class, Object> classMapper_;
    private static ZMQServer masterServer_;
@@ -192,13 +192,14 @@ public class ZMQServer extends ZMQSocketWrapper {
             //Passed in a javashadow object as an argument
             argVals[i] = EXTERNAL_OBJECTS.get(
                     message.getJSONArray("arguments").getJSONObject(i).get("hash-code"));
-         } else if (ZMQUtil.PRIMITIVE_NAME_CLASS_MAP.containsKey(message.getJSONArray("argument-deserialization-types").get(i))) {
+         } else if (ZMQUtil.PRIMITIVE_NAME_CLASS_MAP.containsKey(message.getJSONArray("argument-deserialization-types").get(i) )) {
             Object primitive = message.getJSONArray("arguments").get(i); //Double, Integer, Long, Boolean
             Class c = ZMQUtil.PRIMITIVE_NAME_CLASS_MAP.get(message.getJSONArray("argument-deserialization-types").get(i));
             argVals[i] = ZMQUtil.convertToPrimitiveClass(primitive, c);
          } else if (ZMQUtil.PRIMITIVE_ARRAY_NAME_CLASS_MAP.containsKey(message.getJSONArray("argument-deserialization-types").get(i))) {
+            byte[] byteArray = (byte[]) message.getJSONArray("arguments").get(i);
             Class c = ZMQUtil.PRIMITIVE_ARRAY_NAME_CLASS_MAP.get(message.getJSONArray("argument-deserialization-types").get(i));
-            argVals[i] = message.getJSONArray("arguments").get(i);
+            argVals[i] = ZMQUtil.convertToPrimitiveArray(byteArray, c);
          } else if (message.getJSONArray("argument-deserialization-types").get(i).equals("java.lang.String")) {
             //Strings are a special case because they're like a primitive but not quite
             if (message.getJSONArray("arguments").get(i) == JSONObject.NULL) {
@@ -324,8 +325,18 @@ public class ZMQServer extends ZMQSocketWrapper {
       return mathcingConstructor.newInstance(argVals);
    }
 
-   private JSONObject runMethod(Object obj, JSONObject message) throws NoSuchMethodException, IllegalAccessException,
+   private JSONObject runMethod(Object obj, JSONObject message, boolean staticMethod) throws NoSuchMethodException, IllegalAccessException,
            JSONException, UnsupportedEncodingException {
+      /**
+       * For static methods the class is the object
+       */
+      Class clazz;
+      if (staticMethod) {
+         clazz = (Class) obj;
+      } else {
+         clazz = obj.getClass();
+      }
+
       String methodName = message.getString("name");
       Object[] argVals = new Object[message.getJSONArray("arguments").length()];
       LinkedList<LinkedList<Class>> paramCombos = getParamCombos(message, argVals);
@@ -333,12 +344,12 @@ public class ZMQServer extends ZMQSocketWrapper {
       Method matchingMethod = null;
       if (paramCombos.isEmpty()) {
          //0 argument funtion
-         matchingMethod = obj.getClass().getMethod(methodName);
+         matchingMethod = clazz.getMethod(methodName);
       } else {
          for (LinkedList<Class> argList : paramCombos) {
             Class[] parameterTypes = argList.stream().toArray(Class[]::new);
 
-            Method[] nameMatches = Stream.of(obj.getClass().getMethods()).filter(
+            Method[] nameMatches = Stream.of(clazz.getMethods()).filter(
                     method -> method.getName().equals(methodName)).toArray(Method[]::new);
 
             for (Method m : nameMatches) {
@@ -404,32 +415,55 @@ public class ZMQServer extends ZMQSocketWrapper {
             reply.put("api", ZMQUtil.parseConstructors(classpath, classMapper_));
             return reply;
          }
-         case "constructor": { //construct a new object (or grab an exisitng instance)
-            Class baseClass = util_.loadClass(request.getString("classpath"));
+//         case "get-class":
+//            // Get Java class for calling static methods
+//            Class baseStaticClass = util_.loadClass(request.getString("classpath"));
+//            if (baseStaticClass == null) {
+//               throw new RuntimeException("Couldnt find class with name" + request.getString("classpath"));
+//            }
+//
+//            ZMQServer newServer = null;
+//            if (request.has("new-port") && request.getBoolean("new-port")) {
+//               //start the server for this class and store it
+//               newServer = new ZMQServer();
+//            }
+//            reply = new JSONObject();
+//            util_.serialize(baseStaticClass, reply, newServer == null ? port_ :newServer.port_);
+//            return reply;
+         case "constructor":
+            case "get-class": {
+               //construct a new object (or grab an exisitng instance)
+               // or get a static java class
+               Class baseClass = util_.loadClass(request.getString("classpath"));
+               if (baseClass == null) {
+                  throw new RuntimeException("Couldnt find class with name" + request.getString("classpath"));
+               }
 
-            if (baseClass == null) {
-               throw new RuntimeException("Couldnt find class with name" + request.getString("classpath"));
-            }
+               Object instance;
+               if (request.getString("command").equals("constructor")) {
+                  instance = classMapper_.apply(baseClass);
+                  //if this is not one of the classes that is supposed to grab an existing
+                  //object, construct a new one
+                  if (instance == null) {
+                     instance = runConstructor(request, baseClass);
+                  }
+               } else { //just interested in the class itself
+                  instance = baseClass;
+               }
 
-            Object instance = classMapper_.apply(baseClass);
-            //if this is not one of the classes that is supposed to grab an existing 
-            //object, construct a new one
-            if (instance == null) {
-               instance = runConstructor(request, baseClass);
-            }
-
-            if (request.has("new-port") && request.getBoolean("new-port")) {
-               //start the server for this class and store it
-               new ZMQServer();
-            }
-            reply = new JSONObject();
-            util_.serialize(instance, reply, port_);
-            return reply;
+               ZMQServer newServer = null;
+               if (request.has("new-port") && request.getBoolean("new-port")) {
+                  //start the server for this class and store it
+                  newServer = new ZMQServer();
+               }
+               reply = new JSONObject();
+               util_.serialize(instance, reply, newServer == null ? port_ : newServer.port_);
+               return reply;
          }
          case "run-method": {
             String hashCode = request.getString("hash-code");
             Object target = EXTERNAL_OBJECTS.get(hashCode);
-            return runMethod(target, request);
+            return runMethod(target, request, request.getBoolean("static"));
          }
          case "get-field": {
             String hashCode = request.getString("hash-code");
