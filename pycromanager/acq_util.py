@@ -9,7 +9,7 @@ import numpy as np
 
 def start_headless(
     mm_app_path: str, config_file: str, java_loc: str=None, core_log_path: str=None, buffer_size_mb: int=1024,
-        port: int=Bridge.DEFAULT_PORT, timeout: int=Bridge.DEFAULT_TIMEOUT
+        port: int=Bridge.DEFAULT_PORT, timeout: int=5000
 ):
     """
     Start a Java process that contains the neccessary libraries for pycro-manager to run,
