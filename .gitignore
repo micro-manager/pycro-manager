@@ -4,6 +4,7 @@ venv
 
 test/sandbox.py
 test/sandbox2.py
+test/sandbox_headless.py
 
 build/
 dist/

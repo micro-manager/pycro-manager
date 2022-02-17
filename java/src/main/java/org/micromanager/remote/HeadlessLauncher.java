@@ -56,6 +56,7 @@ public class HeadlessLauncher {
                        System.out.println(s);
                     }
                  }, port);
+         System.out.println("Headless mode started");
       } catch (URISyntaxException e) {
          throw new RuntimeException();
       } catch (UnsupportedEncodingException e) {

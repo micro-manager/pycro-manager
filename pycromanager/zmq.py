@@ -16,6 +16,7 @@ from threading import Lock
 class DataSocket:
     """
     Wrapper for ZMQ socket that sends and recieves dictionaries
+    Includes ZMQ client, push, and pull sockets
     """
 
     def __init__(self, context, port, type, debug=False, ip_address="127.0.0.1"):
@@ -67,6 +68,9 @@ class DataSocket:
         identifier = np.random.randint(-(2 ** 31), 2 ** 31 - 1, 1, dtype=np.int32)[0]
         # '@{some_number}_{bytes_per_pixel}'
         # if its a numpy array, include bytes per pixel, otherwise just interpret it as raw byts
+        # TODO : I thinkg its always raw binary and the argument deserialization types handles conversion to java arrays
+        # This definitely could use some cleanup and simplification. Probably best to encode the data type here and remove
+        # argument deserialization types
         return identifier, "@" + str(int(identifier)) + "_" + str(
             0 if isinstance(entry, bytes) else entry.dtype.itemsize
         )
@@ -204,7 +208,7 @@ class Bridge:
 
     DEFAULT_PORT = 4827
     DEFAULT_TIMEOUT = 500
-    _EXPECTED_ZMQ_SERVER_VERSION = "4.1.0"
+    _EXPECTED_ZMQ_SERVER_VERSION = "4.2.0"
 
     thread_local = threading.local()
 
@@ -356,6 +360,39 @@ class Bridge:
             serialized_object, convert_camel_case=self._convert_camel_case
         )(socket=socket, serialized_object=serialized_object, bridge=self)
 
+    def get_java_class(self, classpath: str, new_socket: bool=False):
+        """
+        Get an an object corresponding to a java class, for example to be used
+        when calling static methods on the class directly
+
+        Parameters
+        ----------
+        classpath : str
+            Full classpath of the java object
+        new_socket : bool
+            If True, will create new java object on a new port so that blocking calls will not interfere
+            with the bridges master port
+        Returns
+        -------
+
+        Python  "Shadow" to the Java class
+        """
+        message = {"command": "get-class", "classpath": classpath}
+        if new_socket:
+            message["new-port"] = True
+        self._master_socket.send(message)
+        serialized_object = self._master_socket.receive()
+
+        if new_socket:
+            socket = DataSocket(
+                self._context, serialized_object["port"], zmq.REQ, ip_address=self._ip_address
+            )
+        else:
+            socket = self._master_socket
+        return self._class_factory.create(
+            serialized_object, convert_camel_case=self._convert_camel_case
+        )(socket=socket, serialized_object=serialized_object, bridge=self)
+
     def _connect_push(self, port):
         """
         Connect a push socket on the given port
@@ -441,7 +478,7 @@ class _JavaClassFactory:
                 return_type = methods_with_name[0]["return-type"]
                 fn = lambda instance, *args, signatures_list=tuple(
                     methods_with_name
-                ): instance._translate_call(signatures_list, args)
+                ): instance._translate_call(signatures_list, args, static = _java_class == 'java.lang.Class')
                 fn.__name__ = method_name_modified
                 fn.__doc__ = "{}.{}: A dynamically generated Java method.".format(
                     _java_class, method_name_modified
@@ -539,7 +576,7 @@ class JavaObjectShadow:
         self._socket.send(message)
         reply = self._deserialize(self._socket.receive())
 
-    def _translate_call(self, method_specs, fn_args: tuple):
+    def _translate_call(self, method_specs, fn_args: tuple, static: bool):
         """
         Translate to appropriate Java method, call it, and return converted python version of its result
         Parameters
@@ -555,6 +592,7 @@ class JavaObjectShadow:
         # args are good, make call through socket, casting the correct type if needed (e.g. int to float)
         message = {
             "command": "run-method",
+            "static": static,
             "hash-code": self._hash_code,
             "name": valid_method_spec["name"],
             "argument-types": valid_method_spec["arguments"],
@@ -565,7 +603,8 @@ class JavaObjectShadow:
         if self._bridge._closed:
             raise Exception('The Bridge used to create this has been closed. Are you trying to call it outside of a "with" block?')
         self._socket.send(message)
-        return self._deserialize(self._socket.receive())
+        recieved = self._socket.receive()
+        return self._deserialize(recieved)
 
     def _deserialize(self, json_return):
         """
@@ -792,34 +831,48 @@ def _camel_case_2_snake_case(name):
     s1 = re.sub("(.)([A-Z][a-z]+)", r"\1_\2", name)
     return re.sub("([a-z0-9])([A-Z])", r"\1_\2", s1).lower()
 
-
+# Used for generating type hints in arguments
 _CLASS_NAME_MAPPING = {
-    "boolean": "boolean",
     "byte[]": "uint8array",
-    "double": "float",
     "double[]": "float64_array",
+    "int[]": "uint32_array",
+    "short[]": "int16_array",
+    "char[]": "int16_array",
+    "float[]": "int16_array",
+    "long[]": "int16_array",
+    "java.lang.String": "string",
+    "boolean": "boolean",
+    "double": "float",
     "float": "float",
     "int": "int",
-    "int[]": "uint32_array",
-    "java.lang.String": "string",
     "long": "int",
     "short": "int",
     "void": "void",
 }
+#Used for deserializing java arrarys into numpy arrays
 _JAVA_ARRAY_TYPE_NUMPY_DTYPE = {
+    "boolean[]": np.bool,
     "byte[]": np.uint8,
-    "short[]": np.uint16,
+    "short[]": np.int16,
+    "char[]": np.uint16,
+    "float[]": np.float32,
     "double[]": np.float64,
     "int[]": np.int32,
+    "long[]": np.int64,
 }
+#used for figuring our which java methods to call and if python args match
 _JAVA_TYPE_NAME_TO_PYTHON_TYPE = {
     "boolean": bool,
     "double": float,
     "float": float,
+    #maybe could make these more specific to array type?
     "byte[]": np.ndarray,
     "short[]": np.ndarray,
     "double[]": np.ndarray,
     "int[]": np.ndarray,
+    "char[]": np.ndarray,
+    "float[]": np.ndarray,
+    "long[]": np.ndarray,
     "int": int,
     "java.lang.String": str,
     "long": int,
@@ -846,7 +899,8 @@ _JAVA_TYPE_NAME_TO_CASTABLE_PYTHON_TYPE = {
     "void": {None},
     "java.lang.Object": {object},
 }
-_JAVA_NON_PRIMITIVES = {"byte[]", "double[]", "int[]", "java.lang.String", "java.lang.Object"}
+_JAVA_NON_PRIMITIVES = {"byte[]", "double[]", "int[]", "short[]", "char[]", "long[]", "boolean[]",
+                        "java.lang.String", "java.lang.Object"}
 
 if __name__ == "__main__":
     # Test basic bridge operations

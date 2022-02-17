@@ -230,7 +230,13 @@ public class ZMQUtil {
             json.put("port", port);
 
             ArrayList<Class> apiInterfaces = new ArrayList<>();
-            if (o.getClass().getName().startsWith("java")) {
+            if (o.getClass().equals(Class.class)) {
+               //return the class itself, e.g. to call static methods
+               for (Class c : ((Class) o).getInterfaces()) {
+                  apiInterfaces.add(c);
+               }
+               apiInterfaces.add((Class) o);
+            } else if (o.getClass().getName().startsWith("java")) {
                //Java classes
                for (Class c : o.getClass().getInterfaces()) {
                   apiInterfaces.add(c);
@@ -626,26 +632,38 @@ public class ZMQUtil {
       }
    }
 
-   public static Object convertToPrimitiveArray(Object argClass, String value) {
-      byte[] bytes = new byte[0];
-      bytes = value.getBytes( StandardCharsets.ISO_8859_1);
-      if (argClass.equals(byte[].class)) {
+   public static Object convertToPrimitiveArray(byte[] bytes, Object clazz) {
+      if (clazz.equals(byte[].class)) {
          return bytes;
-      } else if (argClass.equals(short[].class)) {
+      }  else if (clazz.equals(short[].class)) {
          short[] shorts = new short[bytes.length / 2];
          ByteBuffer.wrap(bytes).asShortBuffer().get(shorts);
          return shorts;
-      } else if (argClass.equals(int[].class)) {
-         int[] ints = new int[bytes.length / 4];
-         ByteBuffer.wrap(bytes).asIntBuffer().get(ints);
-         return ints;
-      } else if (argClass.equals(double[].class)) {
+      } else if (clazz.equals(float[].class)) {
+         float[] floats = new float[bytes.length / 4];
+         ByteBuffer.wrap(bytes).asFloatBuffer().get(floats);
+         return floats;
+      } else if (clazz.equals(double[].class)) {
          double[] doubles = new double[bytes.length / 8];
          ByteBuffer.wrap(bytes).asDoubleBuffer().get(doubles);
          return doubles;
-      } else {
-         throw new RuntimeException("Unknown class");
+      } else if (clazz.equals(int[].class)) {
+         int[] ints = new int[bytes.length / 4];
+         ByteBuffer.wrap(bytes).asIntBuffer().get(ints);
+         return ints;
+      } else if (clazz.equals(boolean[].class)) {
+         // TODO: boolean array deserialzation
+         throw new RuntimeException("Not sure how to handle booleans yet");
+      } else if (clazz.equals(char[].class)) {
+         char[] chars = new char[bytes.length / 2];
+         ByteBuffer.wrap(bytes).asCharBuffer().get(chars);
+         return chars;
+      } else if (clazz.equals(long[].class)) {
+         long[] longs = new long[bytes.length / 8];
+         ByteBuffer.wrap(bytes).asLongBuffer().get(longs);
+         return longs;
       }
+      throw new RuntimeException("unknown type " + clazz.toString());
    }
 
 }
