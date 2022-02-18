@@ -12,6 +12,13 @@ import copy
 import sys
 from threading import Lock
 
+# create a function to iterate over iterable java objects
+#  (generators)
+def java_iter(a):
+    it = a.iterator()
+    while it.hasNext():
+        yield it.next()
+
 
 class DataSocket:
     """
@@ -633,9 +640,13 @@ class JavaObjectShadow:
                 raise Exception("Unrecognized return class")
         elif json_return["type"] == "unserialized-object":
             # inherit socket from parent object
-            return self._bridge.get_class(json_return)(
+            obj = self._bridge.get_class(json_return)(
                 socket=self._socket, serialized_object=json_return, bridge=self._bridge
             )
+            if hasattr(obj,'iterator'): 
+                return list(java_iter(obj))
+            else: 
+                return obj 
         else:
             return deserialize_array(json_return)
 
