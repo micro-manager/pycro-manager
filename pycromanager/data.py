@@ -438,21 +438,7 @@ class Dataset:
         # (which isn't strictly neccesary)
         with self._lock:
             first_index = list(self.res_levels[0].index.values())[0]
-        if first_index["pixel_type"] == _MultipageTiffReader.EIGHT_BIT_RGB:
-            self.bytes_per_pixel = 3
-            self.dtype = np.uint8
-        elif first_index["pixel_type"] == _MultipageTiffReader.EIGHT_BIT:
-            self.bytes_per_pixel = 1
-            self.dtype = np.uint8
-        elif first_index["pixel_type"] == _MultipageTiffReader.SIXTEEN_BIT:
-            self.bytes_per_pixel = 2
-            self.dtype = np.uint16
-
-        self.image_width = first_index["image_width"]
-        self.image_height = first_index["image_height"]
-        if "GridPixelOverlapX" in self.summary_metadata:
-            self._tile_width = self.image_width - self.summary_metadata["GridPixelOverlapX"]
-            self._tile_height = self.image_height - self.summary_metadata["GridPixelOverlapY"]
+        self._parse_first_index(first_index)
 
         print("\rDataset opened                ")
 
@@ -470,6 +456,26 @@ class Dataset:
                 if len(self._channel_names.values()) == len(self.axes[self._CHANNEL_AXIS]):
                     break
 
+    def _parse_first_index(self, first_index):
+        """
+        Read through first index to get some global data about images (assuming it is same for all)
+        """
+        if first_index["pixel_type"] == _MultipageTiffReader.EIGHT_BIT_RGB:
+            self.bytes_per_pixel = 3
+            self.dtype = np.uint8
+        elif first_index["pixel_type"] == _MultipageTiffReader.EIGHT_BIT:
+            self.bytes_per_pixel = 1
+            self.dtype = np.uint8
+        elif first_index["pixel_type"] == _MultipageTiffReader.SIXTEEN_BIT:
+            self.bytes_per_pixel = 2
+            self.dtype = np.uint16
+
+        self.image_width = first_index["image_width"]
+        self.image_height = first_index["image_height"]
+        if "GridPixelOverlapX" in self.summary_metadata:
+            self._tile_width = self.image_width - self.summary_metadata["GridPixelOverlapX"]
+            self._tile_height = self.image_height - self.summary_metadata["GridPixelOverlapY"]
+
     def _add_index_entry(self, index_entry):
         """
         Add entry for a image that has been recieved and is now on disk
@@ -485,6 +491,9 @@ class Dataset:
 
             # update the map of channel names to channel indices
             self._read_channel_names()
+
+        if not hasattr(self, 'image_width'):
+            self._parse_first_index(index_entry)
 
         return axes
 
@@ -619,10 +628,10 @@ class Dataset:
                 else:
                     image = np.array(da.block(blocks))
             else:
-                if not self.has_image(**axes, **axes_to_slice, memmapped=True):
+                if not self.has_image(**axes, **axes_to_slice):
                     image = self._empty_tile
                 else:
-                    image = self.read_image(**axes, **axes_to_slice, memmapped=True)
+                    image = self.read_image(**axes, **axes_to_slice)
             for i in range(len(axes_to_stack.keys())):
                 image = image[None]
             return image
