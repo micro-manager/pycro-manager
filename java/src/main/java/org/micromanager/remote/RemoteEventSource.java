@@ -54,14 +54,14 @@ public class RemoteEventSource {
                List<AcquisitionEvent> eList = pullSocket_.next();
                boolean finished = eList.get(eList.size() - 1).isAcquisitionFinishedEvent();
                Future result = acq_.submitEventIterator(eList.iterator());
-               result.get(); //propogate any exceptions
+//               result.get(); //propogate any exceptions
                if (finished || executor_.isShutdown()) {
                   executor_.shutdown();
                   pullSocket_.close();
                   return;
                }
-            } catch (ExecutionException ex) {
-               JOptionPane.showMessageDialog(null, ex.getMessage());
+//            } catch (ExecutionException ex) {
+//               JOptionPane.showMessageDialog(null, ex.getMessage());
             } catch (Exception e) {
                if (executor_.isShutdown()) {
                   return; //It was aborted

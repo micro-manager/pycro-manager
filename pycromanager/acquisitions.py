@@ -10,7 +10,8 @@ import os.path
 import queue
 from pycromanager.zmq import JavaObjectShadow
 from docstring_inheritance import NumpyDocstringInheritanceMeta
-
+import napari
+from pycromanager.napari_util import get_napari_signaller
 
 
 ### These functions outside class to prevent problems with pickling when running them in differnet process
@@ -246,6 +247,7 @@ class Acquisition(object, metaclass=NumpyDocstringInheritanceMeta):
         port: int=Bridge.DEFAULT_PORT,
         debug: int=False,
         core_log_debug: int=False,
+        napari_viewer=False,
     ):
         """
         Parameters
@@ -341,11 +343,20 @@ class Acquisition(object, metaclass=NumpyDocstringInheritanceMeta):
 
         self._start_events()
 
+        if napari_viewer:
+            viewer = napari.Viewer()
+            napari_signaller, image_saved_fn = get_napari_signaller(viewer)
+
+            # start the updater function
+            napari_signaller()
+
         if image_saved_fn is not None:
             self._dataset = Dataset(remote_storage_monitor=self._remote_acq.get_storage_monitor())
             self._storage_monitor_thread =  self._dataset._add_storage_monitor_fn(
                 callback_fn=image_saved_fn, debug=self._debug
             )
+
+
 
     def __enter__(self):
         return self
@@ -356,6 +367,7 @@ class Acquisition(object, metaclass=NumpyDocstringInheritanceMeta):
             self._event_queue.put(None)
         # now wait on it to finish
         self.await_completion()
+
 
     def _start_events(self, **kwargs):
 
@@ -485,6 +497,10 @@ class Acquisition(object, metaclass=NumpyDocstringInheritanceMeta):
 
 
         """
+        if events is None:
+            # manual shutdown
+            self._event_queue.put(None)
+            return
         if keep_shutter_open and isinstance(events, list):
             for e in events:
                 e["keep_shutter_open"] = True
