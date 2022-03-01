@@ -10,8 +10,6 @@ import os.path
 import queue
 from pycromanager.zmq import JavaObjectShadow
 from docstring_inheritance import NumpyDocstringInheritanceMeta
-import napari
-from pycromanager.napari_util import get_napari_signaller
 
 
 ### These functions outside class to prevent problems with pickling when running them in differnet process
@@ -36,18 +34,18 @@ def _run_acq_event_source(bridge_port, event_port, event_queue, bridge_timeout=B
 
     with Bridge(debug=debug, port=bridge_port, timeout=bridge_timeout) as bridge:
         event_socket = bridge._connect_push(event_port)
-        while True:
-            events = event_queue.get(block=True)
-            if debug:
-                print("got event(s):", events)
-            if events is None:
-                # Poison, time to shut down
-                event_socket.send({"events": [{"special": "acquisition-end"}]})
-                event_socket.close()
-                return
-            event_socket.send({"events": events if type(events) == list else [events]})
-            if debug:
-                print("sent events")
+    while True:
+        events = event_queue.get(block=True)
+        if debug:
+            print("got event(s):", events)
+        if events is None:
+            # Poison, time to shut down
+            event_socket.send({"events": [{"special": "acquisition-end"}]})
+            event_socket.close()
+            return
+        event_socket.send({"events": events if type(events) == list else [events]})
+        if debug:
+            print("sent events")
 
 def _run_acq_hook(bridge_port, pull_port, push_port, hook_connected_evt, event_queue, hook_fn, debug):
     """
@@ -135,9 +133,9 @@ def _run_image_processor(
     with Bridge(debug=debug, port=bridge_port) as bridge:
         push_socket = bridge._connect_push(pull_port)
         pull_socket = bridge._connect_pull(push_port)
-        if debug:
-            print("image processing sockets connected")
-        sockets_connected_evt.set()
+    if debug:
+        print("image processing sockets connected")
+    sockets_connected_evt.set()
 
     def process_and_sendoff(image_tags_tuple, original_dtype):
         """
@@ -239,7 +237,7 @@ class Acquisition(object, metaclass=NumpyDocstringInheritanceMeta):
         pre_hardware_hook_fn: callable=None,
         post_hardware_hook_fn: callable=None,
         post_camera_hook_fn: callable=None,
-        show_display: bool=True,
+        show_display: bool or str=True,
         image_saved_fn: callable=None,
         process: bool=False,
         saving_queue_size: int=20,
@@ -247,7 +245,6 @@ class Acquisition(object, metaclass=NumpyDocstringInheritanceMeta):
         port: int=Bridge.DEFAULT_PORT,
         debug: int=False,
         core_log_debug: int=False,
-        napari_viewer=False,
     ):
         """
         Parameters
@@ -286,8 +283,8 @@ class Acquisition(object, metaclass=NumpyDocstringInheritanceMeta):
             startSequence. A common use case for this hook is when one want to send TTL triggers to the camera from an
             external timing device that synchronizes with other hardware. Accepts either one argument (the current
             acquisition event) or three arguments (current event, bridge, event Queue)
-        show_display : bool
-            show the image viewer window
+        show_display : bool or str
+            If True, show the image viewer window. If False, show no viewer. If 'napari', show napari as the viewer
         image_saved_fn : Callable
             function that takes two arguments (the Axes of the image that just finished saving, and the Dataset)
             and gets called whenever a new image is written to disk
@@ -343,18 +340,17 @@ class Acquisition(object, metaclass=NumpyDocstringInheritanceMeta):
 
         self._start_events()
 
-        if napari_viewer:
-            viewer = napari.Viewer()
-            napari_signaller, image_saved_fn = get_napari_signaller(viewer)
-
-            # start the updater function
-            napari_signaller()
-
         if image_saved_fn is not None:
             self._dataset = Dataset(remote_storage_monitor=self._remote_acq.get_storage_monitor())
-            self._storage_monitor_thread =  self._dataset._add_storage_monitor_fn(
+            self._storage_monitor_thread = self._dataset._add_storage_monitor_fn(
                 callback_fn=image_saved_fn, debug=self._debug
             )
+
+        if show_display == 'napari':
+            import napari
+            from pycromanager.napari_util import start_napari_signalling
+            viewer = napari.Viewer()
+            start_napari_signalling(viewer, self.get_dataset())
 
 
 
@@ -362,9 +358,7 @@ class Acquisition(object, metaclass=NumpyDocstringInheritanceMeta):
         return self
 
     def __exit__(self, exc_type, exc_val, exc_tb):
-        if self._event_queue is not None:  # magellan acquisitions dont have this
-            # this should shut down storage and viewer as apporpriate
-            self._event_queue.put(None)
+        self.mark_finished()
         # now wait on it to finish
         self.await_completion()
 
@@ -433,7 +427,7 @@ class Acquisition(object, metaclass=NumpyDocstringInheritanceMeta):
         acq_factory = self.bridge.construct_java_object(
             "org.micromanager.remote.RemoteAcquisitionFactory", args=[core]
         )
-        show_viewer = kwargs['show_display'] and (kwargs['directory'] is not None and kwargs['name'] is not None)
+        show_viewer = kwargs['show_display'] == True and (kwargs['directory'] is not None and kwargs['name'] is not None)
 
         self._remote_acq = acq_factory.create_acquisition(
             kwargs['directory'],
@@ -461,10 +455,19 @@ class Acquisition(object, metaclass=NumpyDocstringInheritanceMeta):
 
         return self._dataset
 
+    def mark_finished(self):
+        """
+        Signal to acquisition that no more events will be added and it is time to initiate shutdown.
+        This is only needed if the context manager (i.e. "with Acquisition...") is not used
+        """
+        if self._event_queue is not None:  # magellan acquisitions dont have this
+            # this should shut down storage and viewer as apporpriate
+            self._event_queue.put(None)
+
     def await_completion(self):
         """Wait for acquisition to finish and resources to be cleaned up"""
         while not self._remote_acq.is_finished():
-            time.sleep(0.1)
+            time.sleep(0.01)
         self._remote_acq = None
 
         # Wait on all the other threads to shut down properly

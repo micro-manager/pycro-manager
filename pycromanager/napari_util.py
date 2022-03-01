@@ -4,19 +4,14 @@ import time
 
 
 
-def get_napari_signaller(viewer):
-
-    def image_saved_callback(axes, d):
-        """
-        Callback function that will be used to signal to napari that a new image is ready
-        """
-        image_saved_callback.dataset = d
-        d.update_ready = True
-
-    def get_dataset_fn():
-        if hasattr(image_saved_callback, 'dataset'):
-            return image_saved_callback.dataset
-        return None
+def start_napari_signalling(viewer, dataset):
+    """
+    Start up a threadworker, which will check for new images arrived in the dataset
+    and then signal to napari to update or refresh as needed
+    :param viewer: the napari Viewer
+    :param dataset: the Datatset being acquired
+    :return:
+    """
 
     def update_layer(image):
         """
@@ -37,16 +32,16 @@ def get_napari_signaller(viewer):
         update napari appropriately
         """
         while True:
-            dataset = get_dataset_fn()
-            if dataset is not None and hasattr(dataset, 'update_ready') and dataset.update_ready:
-                dataset.update_ready = False
+            # dataset = get_dataset_fn()
+            if dataset is not None and hasattr(dataset, 'new_image_arrived') and dataset.new_image_arrived:
+                dataset.new_image_arrived = False
                 # A new image has arrived, but we only need to regenerate the dask array
                 # if its shape has changed
                 shape = np.array([len(dataset.axes[name]) for name in dataset.axes.keys()])
                 if not hasattr(napari_signaller, 'old_shape') or \
                         napari_signaller.old_shape.size != shape.size or \
                         np.any(napari_signaller.old_shape != shape):
-                    image = np.array(dataset.as_array())
+                    image = dataset.as_array()
                     napari_signaller.old_shape = shape
                     yield image
                 else:
@@ -56,4 +51,4 @@ def get_napari_signaller(viewer):
                 time.sleep(1 / 60) # 60 hz refresh
 
 
-    return napari_signaller, image_saved_callback
+    napari_signaller()
