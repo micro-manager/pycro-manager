@@ -12,12 +12,6 @@ import copy
 import sys
 from threading import Lock
 
-# create a function to iterate over iterable java objects
-#  (generators)
-def java_iter(a):
-    it = a.iterator()
-    while it.hasNext():
-        yield it.next()
 
 
 class DataSocket:
@@ -643,8 +637,14 @@ class JavaObjectShadow:
             obj = self._bridge.get_class(json_return)(
                 socket=self._socket, serialized_object=json_return, bridge=self._bridge
             )
-            if hasattr(obj,'iterator'): 
-                return list(java_iter(obj))
+            # if object is iterable, go through the elements
+            if hasattr(obj,'iterator'):
+                it = obj.iterator()
+                elts = []
+                has_next = it.hasNext if hasattr(it,'hasNext') else it.has_next 
+                while(has_next()):
+                    elts.append(it.next())
+                return elts
             else: 
                 return obj 
         else:
