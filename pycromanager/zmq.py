@@ -747,8 +747,7 @@ def _check_single_method_spec(method_spec, fn_args):
                 for acceptable_type in _JAVA_TYPE_NAME_TO_CASTABLE_PYTHON_TYPE[arg_java_type]
             ]
         ) and not (
-            arg_val is None and arg_java_type in _JAVA_NON_PRIMITIVES
-        ):  # could be null if its an object
+            arg_val is None and arg_java_type in _JAVA_NON_PRIMITIVES):  # could be null if its an object
             # if a type that gets converted
             return False
     return True
@@ -883,9 +882,25 @@ _JAVA_ARRAY_TYPE_NUMPY_DTYPE = {
 #used for figuring our which java methods to call and if python args match
 _JAVA_TYPE_NAME_TO_PYTHON_TYPE = {
     "boolean": bool,
+    "java.lang.Boolean": bool,
     "double": float,
+    "java.lang.Double": float,
     "float": float,
-    #maybe could make these more specific to array type?
+    "java.lang.Float": float,
+    "int": int,
+    "java.lang.Integer": int,
+    "long": int,
+    "java.lang.Long": int,
+    "short": int,
+    "java.lang.Short": int,
+    "char": int,
+    "java.lang.Character": int,
+    "byte": int,
+    "java.lang.Byte": int,
+    "java.lang.String": str,
+    "void": None,
+    "java.lang.Object": object,
+    # maybe could make these more specific to array dtype?
     "byte[]": np.ndarray,
     "short[]": np.ndarray,
     "double[]": np.ndarray,
@@ -893,29 +908,29 @@ _JAVA_TYPE_NAME_TO_PYTHON_TYPE = {
     "char[]": np.ndarray,
     "float[]": np.ndarray,
     "long[]": np.ndarray,
-    "int": int,
-    "java.lang.String": str,
-    "long": int,
-    "short": int,
-    "char": int,
-    "byte": int,
-    "void": None,
-    "java.lang.Object": object,
 }
 # type conversions that allow for autocasting
 _JAVA_TYPE_NAME_TO_CASTABLE_PYTHON_TYPE = {
     "boolean": {bool},
-    "byte[]": {np.ndarray},
+    "java.lang.Boolean": {bool},
     "double": {float, int},
-    "double[]": {np.ndarray},
-    "float": {float},
-    "int": {int},
-    "int[]": {np.ndarray},
-    "java.lang.String": {str},
+    "java.lang.Double": {float, int},
     "long": {int},
+    "java.lang.Long": {int},
     "short": {int},
+    "java.lang.Short": {int},
     "char": {int},
+    "java.lang.Character": {int},
     "byte": {int},
+    "java.lang.Byte": {int},
+    "float": {float, int},
+    "java.lang.Float": {float, int},
+    "int": {int},
+    "java.lang.Integer": {int},
+    "int[]": {np.ndarray},
+    "byte[]": {np.ndarray},
+    "double[]": {np.ndarray},
+    "java.lang.String": {str},
     "void": {None},
     "java.lang.Object": {object},
 }
