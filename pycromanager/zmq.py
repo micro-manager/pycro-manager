@@ -13,6 +13,7 @@ import sys
 from threading import Lock
 
 
+
 class DataSocket:
     """
     Wrapper for ZMQ socket that sends and recieves dictionaries
@@ -228,7 +229,7 @@ class Bridge:
 
     def __init__(
         self, port: int=DEFAULT_PORT, convert_camel_case: bool=True,
-            debug: bool=False, ip_address: str="127.0.0.1", timeout: int=DEFAULT_TIMEOUT
+            debug: bool=False, ip_address: str="127.0.0.1", timeout: int=DEFAULT_TIMEOUT, iterate: bool = False
     ):
         """
         Parameters
@@ -241,6 +242,8 @@ class Bridge:
             becomes class.method_name()
         debug : bool
             If True print helpful stuff for debugging
+        iterate : bool
+            If True, ListArray will be iterated and give lists
         """
         self._ip_address = ip_address
         self._port = port
@@ -256,6 +259,7 @@ class Bridge:
         self._convert_camel_case = convert_camel_case
         self._debug = debug
         self._timeout = timeout
+        self._iterate = iterate
         self._master_socket = DataSocket(
             self._context, port, zmq.REQ, debug=debug, ip_address=self._ip_address
         )
@@ -641,10 +645,17 @@ class JavaObjectShadow:
             obj = self._bridge.get_class(json_return)(
                 socket=self._socket, serialized_object=json_return, bridge=self._bridge
             )
-            if hasattr(obj, 'iterator'):
-                return list(java_iter(obj))
-            else:
-                return obj
+
+            # if object is iterable, go through the elements
+            if self._bridge._iterate and hasattr(obj,'iterator') :
+                it = obj.iterator()
+                elts = []
+                has_next = it.hasNext if hasattr(it,'hasNext') else it.has_next 
+                while(has_next()):
+                    elts.append(it.next())
+                return elts
+            else: 
+                return obj 
         else:
             return deserialize_array(json_return)
 
