@@ -217,6 +217,7 @@ class Bridge:
         """
         Only one instance of Bridge per a thread
         """
+        print('new bridge')
         port = kwargs.get('port', Bridge.DEFAULT_PORT)
         if hasattr(Bridge.thread_local, "bridge") and Bridge.thread_local.bridge is not None and port in Bridge.thread_local.bridge:
             Bridge.thread_local.bridge_count[port] += 1
@@ -226,6 +227,7 @@ class Bridge:
                 Bridge.thread_local.bridge_count = {}
             Bridge.thread_local.bridge_count[port] = 1
             return super(Bridge, cls).__new__(cls)
+        return super(Bridge, cls).__new__(cls)
 
     def __init__(
         self, port: int=DEFAULT_PORT, convert_camel_case: bool=True,
@@ -245,11 +247,15 @@ class Bridge:
         iterate : bool
             If True, ListArray will be iterated and give lists
         """
+        if hasattr(self, '_ip_address'):
+            return # Existing object already initialized
+        print('init bridge')
         self._ip_address = ip_address
         self._port = port
         self._closed = False
-        if not hasattr(self, "_context"):
-            Bridge._context = zmq.Context()
+        self._close_lock = Lock()
+        # if not hasattr(self, "_context"):
+        #     self._context = zmq.Context()
         # if hasattr(self.thread_local, "bridge") and port in self.thread_local.bridge:
         #     return  ### What was this supposed to do?
         if not hasattr(Bridge.thread_local, "bridge") or Bridge.thread_local.bridge is None:
@@ -261,7 +267,7 @@ class Bridge:
         self._timeout = timeout
         self._iterate = iterate
         self._master_socket = DataSocket(
-            self._context, port, zmq.REQ, debug=debug, ip_address=self._ip_address
+            zmq.Context.instance(), port, zmq.REQ, debug=debug, ip_address=self._ip_address
         )
         self._master_socket.send({"command": "connect", "debug": debug})
         self._class_factory = _JavaClassFactory()
@@ -290,18 +296,27 @@ class Bridge:
     def __exit__(self, exc_type, exc_val, exc_tb):
         self.close()
 
-    def close(self):
-        Bridge.thread_local.bridge_count[self._port] -= 1
-        if Bridge.thread_local.bridge_count[self._port] == 0:
-            del Bridge.thread_local.bridge_count[self._port]
-            del Bridge.thread_local.bridge[self._port]
-            self._master_socket.close()
-            self._master_socket = None
-            self._closed = True
+    def __del__(self):
+        print('Bridge: del called')
+        self.close()
 
-        if len(Bridge.thread_local.bridge) == 0:
-            Bridge.thread_local.bridge = None
-            Bridge.thread_local.bridge_count = None
+    def close(self):
+        print('Bridge: closing')
+        with self._close_lock:
+            if self._closed:
+                return
+            self._closed = True
+            # Bridge.thread_local.bridge_count[self._port] -= 1
+            # if Bridge.thread_local.bridge_count[self._port] == 0:
+            #     del Bridge.thread_local.bridge_count[self._port]
+            #     del Bridge.thread_local.bridge[self._port]
+            #     self._master_socket.close()
+            #     self._master_socket = None
+            #     self._closed = True
+            #
+            # if len(Bridge.thread_local.bridge) == 0:
+            #     Bridge.thread_local.bridge = None
+            #     Bridge.thread_local.bridge_count = None
 
 
     def get_class(self, serialized_object) -> typing.Type["JavaObjectShadow"]:
@@ -356,7 +371,7 @@ class Bridge:
         serialized_object = self._master_socket.receive()
         if new_socket:
             socket = DataSocket(
-                self._context, serialized_object["port"], zmq.REQ, ip_address=self._ip_address
+                zmq.Context.instance(), serialized_object["port"], zmq.REQ, ip_address=self._ip_address
             )
         else:
             socket = self._master_socket
@@ -389,7 +404,7 @@ class Bridge:
 
         if new_socket:
             socket = DataSocket(
-                self._context, serialized_object["port"], zmq.REQ, ip_address=self._ip_address
+                zmq.Context.instance(), serialized_object["port"], zmq.REQ, ip_address=self._ip_address
             )
         else:
             socket = self._master_socket
@@ -404,7 +419,7 @@ class Bridge:
         :return:
         """
         return DataSocket(
-            self._context, port, zmq.PUSH, debug=self._debug, ip_address=self._ip_address
+            zmq.Context.instance(), port, zmq.PUSH, debug=self._debug, ip_address=self._ip_address
         )
 
     def _connect_pull(self, port):
@@ -414,7 +429,7 @@ class Bridge:
         :return:
         """
         return DataSocket(
-            self._context, port, zmq.PULL, debug=self._debug, ip_address=self._ip_address
+            zmq.Context.instance(), port, zmq.PULL, debug=self._debug, ip_address=self._ip_address
         )
 
     def get_magellan(self):
@@ -555,6 +570,7 @@ class JavaObjectShadow:
         """
         Tell java side this object is garbage collected so it can do the same if needed
         """
+        print('__del java obj')
         self._close()
 
     def _access_field(self, name):

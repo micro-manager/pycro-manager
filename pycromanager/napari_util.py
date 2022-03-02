@@ -32,7 +32,6 @@ def start_napari_signalling(viewer, dataset):
         update napari appropriately
         """
         while True:
-            # dataset = get_dataset_fn()
             if dataset is not None and hasattr(dataset, 'new_image_arrived') and dataset.new_image_arrived:
                 dataset.new_image_arrived = False
                 # A new image has arrived, but we only need to regenerate the dask array
