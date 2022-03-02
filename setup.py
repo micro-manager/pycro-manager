@@ -21,7 +21,12 @@ setuptools.setup(
     long_description_content_type="text/markdown",
     url="https://github.com/micro-manager/pycro-manager",
     packages=setuptools.find_packages(),
-    install_requires=["numpy", "dask[array]>=2.4.0", "zmq"],
+    install_requires=[
+        "numpy",
+        "dask[array]>=2022.2.1",
+        "zmq",
+        "docstring-inheritance",
+    ],
     python_requires=">=3.6",
     extras_require={
         "test": [
