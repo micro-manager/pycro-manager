@@ -5,6 +5,7 @@ from pycromanager.zmq import Bridge
 import copy
 import types
 import numpy as np
+import os
 
 
 def start_headless(
@@ -48,6 +49,8 @@ def start_headless(
             java_loc = "java"
     # This starts Java process and instantiates essential objects (core,
     # acquisition engine, ZMQServer)
+    if not os.path.isfile(java_loc):
+        raise Exception(java_loc + ' does not exist')
     p = subprocess.Popen(
         [
             java_loc,
@@ -250,3 +253,6 @@ def multi_d_acquisition_events(
 
     appender(generate_events(base_event, order))
     return events
+
+
+

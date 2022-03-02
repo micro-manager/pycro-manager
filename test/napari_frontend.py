@@ -1,3 +1,7 @@
+"""
+Use the Acquisition class with Napari as an image viewer. This is tested in an IDE.
+In other python environments (i.e. notebook), the relevant calls to napari might be different
+"""
 from pycromanager import start_headless
 from pycromanager import Acquisition, multi_d_acquisition_events
 from napari.qt.threading import thread_worker

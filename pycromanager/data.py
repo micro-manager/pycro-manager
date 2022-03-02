@@ -284,21 +284,22 @@ def _storage_monitor_fn(
     with Bridge(debug=debug) as bridge:
         monitor_socket = bridge._connect_pull(storage_monitor_push_port)
 
-        connected_event.set()
+    connected_event.set()
 
-        while True:
-            message = monitor_socket.receive()
+    while True:
+        message = monitor_socket.receive()
 
-            if "finished" in message:
-                # Poison, time to shut down
-                monitor_socket.close()
-                return
+        if "finished" in message:
+            # Poison, time to shut down
+            monitor_socket.close()
+            return
 
-            index_entry = message["index_entry"]
-            axes = dataset._add_index_entry(index_entry)
+        index_entry = message["index_entry"]
+        axes = dataset._add_index_entry(index_entry)
+        dataset.new_image_arrived = True
 
-            if callback_fn is not None:
-                callback_fn(axes, dataset)
+        if callback_fn is not None:
+            callback_fn(axes, dataset)
 
 
 class Dataset:
@@ -350,6 +351,7 @@ class Dataset:
         self._lock = threading.Lock()
         if remote_storage_monitor is not None:
             # this dataset is a view of an active acquisiiton. The storage exists on the java side
+            self.new_image_arrived = False # used by napari viewer to check for updates. Will be reset to false by them
             self._remote_storage_monitor = remote_storage_monitor
             self.summary_metadata = self._remote_storage_monitor.get_summary_metadata()
             if "GridPixelOverlapX" in self.summary_metadata.keys():
@@ -522,7 +524,7 @@ class Dataset:
                 callback_fn,
                 debug,
             ),
-            name="ImageProcessor",
+            name="ImageSavedCallbackThread",
         )
 
         monitor_thread.start()

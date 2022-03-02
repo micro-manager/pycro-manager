@@ -636,10 +636,16 @@ class JavaObjectShadow:
             else:
                 raise Exception("Unrecognized return class")
         elif json_return["type"] == "unserialized-object":
+            def java_iter(a):
+                it = a.iterator()
+                while it.has_next():
+                    yield it.next()
+
             # inherit socket from parent object
             obj = self._bridge.get_class(json_return)(
                 socket=self._socket, serialized_object=json_return, bridge=self._bridge
             )
+
             # if object is iterable, go through the elements
             if self._bridge._iterate and hasattr(obj,'iterator') :
                 it = obj.iterator()

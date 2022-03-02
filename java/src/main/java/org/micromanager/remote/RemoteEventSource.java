@@ -60,8 +60,8 @@ public class RemoteEventSource {
                   pullSocket_.close();
                   return;
                }
-            } catch (ExecutionException ex) {
-               JOptionPane.showMessageDialog(null, ex.getMessage());
+//            } catch (ExecutionException ex) {
+//               JOptionPane.showMessageDialog(null, ex.getMessage());
             } catch (Exception e) {
                if (executor_.isShutdown()) {
                   return; //It was aborted
