@@ -67,13 +67,21 @@ public class ZMQUtil {
       PRIMITIVES.add(Double.class);
 
       PRIMITIVE_NAME_CLASS_MAP.put("boolean", boolean.class);
+      PRIMITIVE_NAME_CLASS_MAP.put("java.lang.Boolean", Boolean.class);
       PRIMITIVE_NAME_CLASS_MAP.put("byte", byte.class);
+      PRIMITIVE_NAME_CLASS_MAP.put("java.lang.Byte", Byte.class);
       PRIMITIVE_NAME_CLASS_MAP.put("short", short.class);
+      PRIMITIVE_NAME_CLASS_MAP.put("java.lang.Short", Short.class);
       PRIMITIVE_NAME_CLASS_MAP.put("char", char.class);
+      PRIMITIVE_NAME_CLASS_MAP.put("java.lang.Character", Character.class);
       PRIMITIVE_NAME_CLASS_MAP.put("int", int.class);
+      PRIMITIVE_NAME_CLASS_MAP.put("java.lang.Integer", Integer.class);
       PRIMITIVE_NAME_CLASS_MAP.put("long", long.class);
+      PRIMITIVE_NAME_CLASS_MAP.put("java.lang.Long", Long.class);
       PRIMITIVE_NAME_CLASS_MAP.put("float", float.class);
+      PRIMITIVE_NAME_CLASS_MAP.put("java.lang.Float", Float.class);
       PRIMITIVE_NAME_CLASS_MAP.put("double", double.class);
+      PRIMITIVE_NAME_CLASS_MAP.put("java.lang.Double", Double.class);
 
       PRIMITIVE_ARRAY_NAME_CLASS_MAP.put("boolean[]", boolean[].class);
       PRIMITIVE_ARRAY_NAME_CLASS_MAP.put("byte[]", byte[].class);
@@ -611,21 +619,21 @@ public class ZMQUtil {
    }
 
    static Object convertToPrimitiveClass(Object primitive, Class argClass) {
-      if (argClass.equals(boolean.class)) {
+      if (argClass.equals(boolean.class) || argClass.equals(Boolean.class)) {
          return primitive;
-      } else if (argClass.equals(char.class)) {
+      } else if (argClass.equals(char.class) || argClass.equals(Character.class)) {
          return (char) ((Number) primitive).intValue();
-      } else if (argClass.equals(byte.class)) {
+      } else if (argClass.equals(byte.class) || argClass.equals(Byte.class)) {
          return ((Number) primitive).byteValue();
-      } else if (argClass.equals(short.class)) {
+      } else if (argClass.equals(short.class) || argClass.equals(Short.class)) {
          return ((Number) primitive).shortValue();
-      } else if (argClass.equals(int.class)) {
+      } else if (argClass.equals(int.class) || argClass.equals(Integer.class)) {
          return ((Number) primitive).intValue();
-      } else if (argClass.equals(long.class)) {
+      } else if (argClass.equals(long.class) || argClass.equals(Long.class)) {
          return ((Number) primitive).longValue();
-      } else if (argClass.equals(float.class)) {
+      } else if (argClass.equals(float.class) || argClass.equals(Float.class)) {
          return ((Number) primitive).floatValue();
-      } else if (argClass.equals(double.class)) {
+      } else if (argClass.equals(double.class) || argClass.equals(Double.class)) {
          return ((Number) primitive).doubleValue();
       } else {
          throw new RuntimeException("Unknown class");
