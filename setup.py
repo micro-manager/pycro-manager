@@ -23,7 +23,7 @@ setuptools.setup(
     packages=setuptools.find_packages(),
     install_requires=[
         "numpy",
-        "dask[array]>=2.4.0",
+        "dask[array]>=2022.2.1",
         "zmq",
         "docstring-inheritance",
     ],
