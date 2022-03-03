@@ -1,5 +1,5 @@
 numpy
-dask>=2022.2.0
+dask[array]>=2022.2.0
 pyzmq
 Sphinx==2.1.0
 nbsphinx
