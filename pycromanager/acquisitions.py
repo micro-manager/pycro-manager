@@ -3,12 +3,12 @@ import multiprocessing
 import threading
 from inspect import signature
 import time
-from pycromanager.zmq import deserialize_array, Bridge
+from pycromanager.bridge import deserialize_array, Bridge
 from pycromanager.data import Dataset
 import warnings
 import os.path
 import queue
-from pycromanager.zmq import JavaObjectShadow
+from pycromanager.bridge import _JavaObjectShadow
 from docstring_inheritance import NumpyDocstringInheritanceMeta
 
 
@@ -377,7 +377,7 @@ class Acquisition(object, metaclass=NumpyDocstringInheritanceMeta):
     def _initialize_image_processor(self, **kwargs):
 
         if kwargs['image_process_fn'] is not None:
-            java_processor = self.bridge.construct_java_object(
+            java_processor = self.bridge._construct_java_object(
                 "org.micromanager.remote.RemoteImageProcessor"
             )
             self._remote_acq.add_image_processor(java_processor)
@@ -388,14 +388,14 @@ class Acquisition(object, metaclass=NumpyDocstringInheritanceMeta):
     def _initialize_hooks(self, **kwargs):
         self._hook_threads = []
         if kwargs['event_generation_hook_fn'] is not None:
-            hook = self.bridge.construct_java_object(
+            hook = self.bridge._construct_java_object(
                 "org.micromanager.remote.RemoteAcqHook", args=[self._remote_acq]
             )
             self._hook_threads.append(self._start_hook(hook, kwargs['event_generation_hook_fn'],
                                                        self._event_queue, process=kwargs['process']))
             self._remote_acq.add_hook(hook, self._remote_acq.EVENT_GENERATION_HOOK)
         if kwargs['pre_hardware_hook_fn'] is not None:
-            hook = self.bridge.construct_java_object(
+            hook = self.bridge._construct_java_object(
                 "org.micromanager.remote.RemoteAcqHook", args=[self._remote_acq]
             )
             self._hook_threads.append(self._start_hook(hook,
@@ -403,14 +403,14 @@ class Acquisition(object, metaclass=NumpyDocstringInheritanceMeta):
                                                        process=kwargs['process']))
             self._remote_acq.add_hook(hook, self._remote_acq.BEFORE_HARDWARE_HOOK)
         if kwargs['post_hardware_hook_fn'] is not None:
-            hook = self.bridge.construct_java_object(
+            hook = self.bridge._construct_java_object(
                 "org.micromanager.remote.RemoteAcqHook", args=[self._remote_acq]
             )
             self._hook_threads.append(self._start_hook(hook, kwargs['post_hardware_hook_fn'],
                                                        self._event_queue, process=kwargs['process']))
             self._remote_acq.add_hook(hook, self._remote_acq.AFTER_HARDWARE_HOOK)
         if kwargs['post_camera_hook_fn'] is not None:
-            hook = self.bridge.construct_java_object(
+            hook = self.bridge._construct_java_object(
                 "org.micromanager.remote.RemoteAcqHook", args=[self._remote_acq]
             )
             self._hook_threads.append(self._start_hook(hook, kwargs['post_camera_hook_fn'],
@@ -424,7 +424,7 @@ class Acquisition(object, metaclass=NumpyDocstringInheritanceMeta):
 
     def _create_remote_acquisition(self, **kwargs):
         core = self.bridge.get_core()
-        acq_factory = self.bridge.construct_java_object(
+        acq_factory = self.bridge._construct_java_object(
             "org.micromanager.remote.RemoteAcquisitionFactory", args=[core]
         )
         show_viewer = kwargs['show_display'] == True and (kwargs['directory'] is not None and kwargs['name'] is not None)
@@ -518,7 +518,7 @@ class Acquisition(object, metaclass=NumpyDocstringInheritanceMeta):
             ]  # return to autoshutter, dont acquire an image
         self._event_queue.put(events)
 
-    def _start_hook(self, remote_hook : JavaObjectShadow, remote_hook_fn : callable, event_queue, process):
+    def _start_hook(self, remote_hook : _JavaObjectShadow, remote_hook_fn : callable, event_queue, process):
         """
 
         Parameters
@@ -657,7 +657,7 @@ class XYTiledAcquisition(Acquisition):
 
     def _create_remote_acquisition(self, **kwargs):
         core = self.bridge.get_core()
-        acq_factory = self.bridge.construct_java_object(
+        acq_factory = self.bridge._construct_java_object(
             "org.micromanager.remote.RemoteAcquisitionFactory", args=[core]
         )
 

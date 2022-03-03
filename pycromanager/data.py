@@ -10,7 +10,7 @@ import platform
 import dask.array as da
 import dask
 import warnings
-from pycromanager.zmq import Bridge
+from pycromanager.bridge import Bridge
 import struct
 from pycromanager.legacy_data import Legacy_NDTiff_Dataset
 import threading

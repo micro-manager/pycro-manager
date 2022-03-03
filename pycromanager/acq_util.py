@@ -1,7 +1,7 @@
 import subprocess
 import platform
 import atexit
-from pycromanager.zmq import Bridge
+from pycromanager.bridge import Bridge
 import copy
 import types
 import numpy as np

@@ -3,7 +3,6 @@ import numpy as np
 import time
 
 
-
 def start_napari_signalling(viewer, dataset):
     """
     Start up a threadworker, which will check for new images arrived in the dataset
