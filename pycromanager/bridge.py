@@ -8,8 +8,10 @@ import numpy as np
 import zmq
 import copy
 import sys
-from threading import Lock
+from threading import Lock, local
+import threading
 from warnings import warn
+import weakref
 
 class DataSocket:
     """
@@ -208,6 +210,29 @@ class Bridge:
     DEFAULT_TIMEOUT = 500
     _EXPECTED_ZMQ_SERVER_VERSION = "4.2.0"
 
+    def __new__(cls, *args, **kwargs):
+        """
+        Only one instance of Bridge per a thread/port combo
+        """
+        port = kwargs.get('port', Bridge.DEFAULT_PORT)
+        if not hasattr(Bridge, 'local'):
+            Bridge.local = threading.local()
+        if not hasattr(Bridge.local, 'bridges'):
+            Bridge.local.bridges = {}
+        if port not in Bridge.local.bridges.keys():
+            Bridge.local.bridges[port] = []
+            return super(Bridge, cls).__new__(cls)
+        # clear old old refs that have been GCed
+        remaining = []
+        for i in range(len(Bridge.local.bridges[port])):
+            if Bridge.local.bridges[port][i]() is not None:
+                remaining.append(Bridge.local.bridges[port][i])
+        Bridge.local.bridges[port] = remaining
+        if len(Bridge.local.bridges[port]) == 0:
+            return super(Bridge, cls).__new__(cls)
+        return Bridge.local.bridges[port][0]()
+
+
     def __init__(
         self, port: int=DEFAULT_PORT, convert_camel_case: bool=True,
             debug: bool=False, ip_address: str="127.0.0.1", timeout: int=DEFAULT_TIMEOUT, iterate: bool = False
@@ -226,6 +251,10 @@ class Bridge:
         iterate : bool
             If True, ListArray will be iterated and give lists
         """
+        self._weak_self_ref = weakref.ref(self)
+        Bridge.local.bridges[port].append(self._weak_self_ref)
+        if hasattr(self, '_ip_address'):
+            return #already initialized
         self._ip_address = ip_address
         self._port = port
         self._convert_camel_case = convert_camel_case
@@ -567,8 +596,6 @@ class _JavaObjectShadow:
         }
         message["arguments"] = _package_arguments(valid_method_spec, fn_args)
 
-        if self._bridge._closed:
-            raise Exception('The Bridge used to create this has been closed. Are you trying to call it outside of a "with" block?')
         self._socket.send(message)
         recieved = self._socket.receive()
         return self._deserialize(recieved)

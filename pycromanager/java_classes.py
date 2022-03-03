@@ -86,6 +86,8 @@ class Core(_JavaObjectShadow):
         """
         return _CoreCallback(callback_fn=callback_fn, bridge_port=bridge_port)
 
+    def __del__(self):
+        print('deleting core')
 
 
 class Magellan(_JavaObjectShadow):
