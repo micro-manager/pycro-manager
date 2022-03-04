@@ -50,11 +50,6 @@ The following shows all possible fields in an acquisition event (not all of whic
 	}
     
 
-Bridge
-################################################
-.. currentmodule:: pycromanager
-.. autoclass:: Bridge
-	:members:
 
 Acquisition APIs
 #######################################################
@@ -79,7 +74,7 @@ MagellanAcquisition
 .. autoclass:: MagellanAcquisition
 	:members:
 
-multi_d_acquisition_events
+start_headless
 ===========================
 .. autofunction:: start_headless
 
@@ -96,3 +91,27 @@ Micro-Manager Core
 ###################################
 
 The core API is discovered dynamically at runtime, though not every method is implemented. Typing ``core.`` and using autocomplete with ``IPython`` is the best way to discover which functions are available. Documentation on for the Java version of the core API (which ``pycromanager`` calls) can be found `here <https://valelab4.ucsf.edu/~MM/doc-2.0.0-gamma/mmcorej/mmcorej/CMMCore.html>`_.
+
+.. currentmodule:: pycromanager
+.. autoclass:: Core
+	:members:
+
+
+Java objects and classes
+###################################
+
+.. autoclass:: JavaObject
+	:members:
+
+.. autoclass:: JavaClass
+	:members:
+
+
+Convenience classes for special Java objects
+===============================================
+
+.. autoclass:: Magellan
+	:members:
+
+.. autoclass:: Studio
+	:members:

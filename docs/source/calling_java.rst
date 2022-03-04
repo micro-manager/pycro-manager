@@ -3,6 +3,40 @@
 Calling Java code 
 *********************************************
 
+
+
+.. _calling_custom_java:
+
+Calling custom Java code
+================================================
+
+You can also use the :class:`Bridge<pycromanager.Bridge>` to call your own Java code (such as a micro-manager Java plugin). The construction of an arbitrary Java object is show below using Micro-Magellan as an example:
+
+.. code-block:: python
+
+    from pycromanager import JavaObject
+
+    magellan_api = JavaObject('org.micromanager.magellan.api.MagellanAPI')
+
+    # now call whatever Java methods the object has
+
+If the constructor takes arguments, they can be passed in using:
+
+.. code-block:: python
+
+    java_obj = JavaObject('the.full.classpath.to.TheClass', args=['demo', 30])
+
+
+In either case, calling ``java_obj.`` and using IPython autocomplete to discover method names can be useful for development. Note that function names will be automatically translated from the camelCase Java convention to the Python convention of underscores between words (e.g. ``setExposure`` becomes ``set_exposure``)
+
+If you want to call a static methods on static Java classes, this can be accomlished with ``JavaClass``:
+
+.. code-block:: python
+
+    java_obj = JavaClass('the.full.classpath.to.TheStaticClass')
+
+
+
 .. _studio_api:
 
 
@@ -15,14 +49,11 @@ Calling Micro-manager Java ("Studio") API
 
 .. code-block:: python
 
-    from pycromanager import Bridge
+    from pycromanager import Studio
 
-    with Bridge(convert_camel_case=False) as bridge:
+    studio = Studio(convert_camel_case=False)
 
-        #get the micro-manager studio object:
-        studio = bridge.get_studio()
-
-        #now use the studio for something
+    #now use the studio for something
 
 
 
@@ -40,99 +71,78 @@ For example, multiple acquisitions can be created or removed programatically, an
 
 .. code-block:: python
 
-    from pycromanager import Bridge
+    from pycromanager import Magellan
 
-    with Bridge() as bridge:
-        #get object representing micro-magellan API
-        magellan = bridge.get_magellan()
+    magellan = Magellan()
+    #get object representing micro-magellan API
+    magellan = bridge.get_magellan()
 
-        #get the first acquisition appearing in the magellan acquisitions list
-        acq_settings = magellan.get_acquisition_settings(0)
+    #get the first acquisition appearing in the magellan acquisitions list
+    acq_settings = magellan.get_acquisition_settings(0)
 
-        #add a new one to the list
-        magellan.create_acquisition_settings()
-        #remove the one you just added
-        magellan.remove_acquisition_settings(1)
+    #add a new one to the list
+    magellan.create_acquisition_settings()
+    #remove the one you just added
+    magellan.remove_acquisition_settings(1)
 
 
-        #Edit the acquisition's settings (i.e. same thing as the controls in the magellan GUI)
-        #Below is a comprhensive list of all possible settings that be changed. In practice
-        #only a subset of them will need to be explicitly called
+    #Edit the acquisition's settings (i.e. same thing as the controls in the magellan GUI)
+    #Below is a comprhensive list of all possible settings that be changed. In practice
+    #only a subset of them will need to be explicitly called
 
-        #saving name and path
-        acq_settings.set_acquisition_name('experiment_1')
-        acq_settings.set_saving_dir('{}path{}to{}dir'.format(os.sep, os.sep, os.sep))
-        acq_settings.set_tile_overlap_percent(5)
+    #saving name and path
+    acq_settings.set_acquisition_name('experiment_1')
+    acq_settings.set_saving_dir('{}path{}to{}dir'.format(os.sep, os.sep, os.sep))
+    acq_settings.set_tile_overlap_percent(5)
 
-        #time settings
-        acq_settings.set_time_enabled(True)
-        acq_settings.set_time_interval(9.1, 's') # 'ms', 's', or 'min'
-        acq_settings.set_num_time_points(20)
+    #time settings
+    acq_settings.set_time_enabled(True)
+    acq_settings.set_time_interval(9.1, 's') # 'ms', 's', or 'min'
+    acq_settings.set_num_time_points(20)
 
-        #channel settings
-        acq_settings.set_channel_group('Channel')
-        acq_settings.set_use_channel('DAPI', False) #channel_name, use
-        acq_settings.set_channel_exposure('DAPI', 5.0) #channel_name, exposure in ms
-        acq_settings.set_channel_z_offset('DAPI', -0.5) #channel_name, offset in um
+    #channel settings
+    acq_settings.set_channel_group('Channel')
+    acq_settings.set_use_channel('DAPI', False) #channel_name, use
+    acq_settings.set_channel_exposure('DAPI', 5.0) #channel_name, exposure in ms
+    acq_settings.set_channel_z_offset('DAPI', -0.5) #channel_name, offset in um
 
-        #space settings
-        # '3d_cuboid', '3d_between_surfaces', '3d_distance_from_surface', '2d_flat', '2d_surface'
-        acq_settings.set_acquisition_space_type('3d_cuboid')
-        acq_settings.set_xy_position_source('New Surface 1')
-        acq_settings.set_z_step(4.5)
-        acq_settings.set_surface('New Surface 1')
-        acq_settings.set_bottom_surface('New Surface 1')
-        acq_settings.set_top_surface('New Surface 1')
-        acq_settings.set_z_start(4.1)
-        acq_settings.set_z_end(10.1)
+    #space settings
+    # '3d_cuboid', '3d_between_surfaces', '3d_distance_from_surface', '2d_flat', '2d_surface'
+    acq_settings.set_acquisition_space_type('3d_cuboid')
+    acq_settings.set_xy_position_source('New Surface 1')
+    acq_settings.set_z_step(4.5)
+    acq_settings.set_surface('New Surface 1')
+    acq_settings.set_bottom_surface('New Surface 1')
+    acq_settings.set_top_surface('New Surface 1')
+    acq_settings.set_z_start(4.1)
+    acq_settings.set_z_end(10.1)
 
 
 It is also possible to create Grids for acquisition:
 
-    .. code-block:: python
+.. code-block:: python
 
-        magellan = bridge.get_magellan()
+    magellan = bridge.get_magellan()
 
-        #create 3x3 grid centered at 0.0 stage coordinates
-        magellan.create_grid('New_grid', 3, 3, 0.0, 0.0)
+    #create 3x3 grid centered at 0.0 stage coordinates
+    magellan.create_grid('New_grid', 3, 3, 0.0, 0.0)
 
-        #delete it (and anything else)
-        magellan.delete_all_grids_and_surfaces()
+    #delete it (and anything else)
+    magellan.delete_all_grids_and_surfaces()
 
 
 Or surfaces:
 
-    .. code-block:: python
-
-        magellan = bridge.get_magellan()
-
-        test_surface = magellan.create_surface('Test surface')
-
-        #Use the magellan GUI to add interpolation points
-
-        #get the z position of the surface at this XY location
-        z_position = test_surface.get_extrapolated_value(5., 200.)
-
-
-
-.. _calling_custom_java:
-
-Calling custom Java code
-================================================
-
-You can also use the :class:`Bridge<pycromanager.Bridge>` to call your own Java code (such as a micro-manager Java plugin). The construction of an arbitrary Java object is show below using Micro-Magellan as an example:
-
 .. code-block:: python
 
-	magellan_api = bridge.construct_java_object('org.micromanager.magellan.api.MagellanAPI')
+    magellan = bridge.get_magellan()
 
-	#now call whatever Java methods the object has
+    test_surface = magellan.create_surface('Test surface')
 
-If the constructor takes arguments, they can be passed in using:
+    #Use the magellan GUI to add interpolation points
 
-.. code-block:: python
+    #get the z position of the surface at this XY location
+    z_position = test_surface.get_extrapolated_value(5., 200.)
 
-	java_obj = bridge.construct_java_object('the.full.classpath.to.TheClass', args=['demo', 30])
 
 
-In either case, calling ``java_obj.`` and using IPython autocomplete to discover method names can be useful for development. Note that function names will be automatically translated from the camelCase Java convention to the Python convention of underscores between words (e.g. ``setExposure`` becomes ``set_exposure``)

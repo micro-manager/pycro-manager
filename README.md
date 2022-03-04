@@ -23,10 +23,10 @@ Have a cool example of something you've done with `pycromanager` or an idea for 
 To verify everything is working, run the following code: 
 
 ```
-from pycromanager import Bridge
+from pycromanager import Core
 
-with Bridge() as bridge:
-	print(bridge.get_core())
+core = Core()
+print(core)
 ```
 which will give an output like:
 

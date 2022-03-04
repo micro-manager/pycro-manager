@@ -19,6 +19,7 @@ def img_process_fn(image, metadata):
         projection_metadata = {
             "Axes": {"time": metadata["Axes"]["time"]},
             "Channel": "max_intensity_projection",
+            "PixelType": metadata["PixelType"],
         }
         # clear list of accumulated images
         img_process_fn.images = []

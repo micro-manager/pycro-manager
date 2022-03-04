@@ -3,12 +3,13 @@ import multiprocessing
 import threading
 from inspect import signature
 import time
-from pycromanager.zmq import deserialize_array, Bridge
+from pycromanager.bridge import deserialize_array, Bridge
+from pycromanager.java_classes import Core, JavaObject, Magellan
 from pycromanager.data import Dataset
 import warnings
 import os.path
 import queue
-from pycromanager.zmq import JavaObjectShadow
+from pycromanager.bridge import _JavaObjectShadow
 from docstring_inheritance import NumpyDocstringInheritanceMeta
 
 
@@ -32,8 +33,8 @@ def _run_acq_event_source(bridge_port, event_port, event_queue, bridge_timeout=B
 
     """
 
-    with Bridge(debug=debug, port=bridge_port, timeout=bridge_timeout) as bridge:
-        event_socket = bridge._connect_push(event_port)
+    bridge = Bridge(debug=debug, port=bridge_port, timeout=bridge_timeout)
+    event_socket = bridge._connect_push(event_port)
     while True:
         events = event_queue.get(block=True)
         if debug:
@@ -69,41 +70,41 @@ def _run_acq_hook(bridge_port, pull_port, push_port, hook_connected_evt, event_q
     -------
 
     """
-    with Bridge(debug=debug, port=bridge_port) as bridge:
+    bridge = Bridge(debug=debug, port=bridge_port)
 
-        push_socket = bridge._connect_push(pull_port)
-        pull_socket = bridge._connect_pull(push_port)
-        hook_connected_evt.set()
+    push_socket = bridge._connect_push(pull_port)
+    pull_socket = bridge._connect_pull(push_port)
+    hook_connected_evt.set()
 
-        while True:
-            event_msg = pull_socket.receive()
+    while True:
+        event_msg = pull_socket.receive()
 
-            if "special" in event_msg and event_msg["special"] == "acquisition-end":
-                push_socket.send({})
-                push_socket.close()
-                pull_socket.close()
-                return
+        if "special" in event_msg and event_msg["special"] == "acquisition-end":
+            push_socket.send({})
+            push_socket.close()
+            pull_socket.close()
+            return
+        else:
+            if "events" in event_msg.keys():
+                event_msg = event_msg["events"]  # convert from sequence
+            params = signature(hook_fn).parameters
+            if len(params) == 1 or len(params) == 3:
+                try:
+                    if len(params) == 1:
+                        new_event_msg = hook_fn(event_msg)
+                    elif len(params) == 3:
+                        new_event_msg = hook_fn(event_msg, bridge, event_queue)
+                except Exception as e:
+                    warnings.warn("exception in acquisition hook: {}".format(e))
+                    continue
             else:
-                if "events" in event_msg.keys():
-                    event_msg = event_msg["events"]  # convert from sequence
-                params = signature(hook_fn).parameters
-                if len(params) == 1 or len(params) == 3:
-                    try:
-                        if len(params) == 1:
-                            new_event_msg = hook_fn(event_msg)
-                        elif len(params) == 3:
-                            new_event_msg = hook_fn(event_msg, bridge, event_queue)
-                    except Exception as e:
-                        warnings.warn("exception in acquisition hook: {}".format(e))
-                        continue
-                else:
-                    raise Exception("Incorrect number of arguments for hook function. Must be 1 or 3")
+                raise Exception("Incorrect number of arguments for hook function. Must be 1 or 3")
 
-            if isinstance(new_event_msg, list):
-                new_event_msg = {
-                    "events": new_event_msg
-                }  # convert back to the expected format for a sequence
-            push_socket.send(new_event_msg)
+        if isinstance(new_event_msg, list):
+            new_event_msg = {
+                "events": new_event_msg
+            }  # convert back to the expected format for a sequence
+        push_socket.send(new_event_msg)
 
 
 def _run_image_processor(
@@ -130,9 +131,9 @@ def _run_image_processor(
     -------
 
     """
-    with Bridge(debug=debug, port=bridge_port) as bridge:
-        push_socket = bridge._connect_push(pull_port)
-        pull_socket = bridge._connect_pull(push_port)
+    bridge = Bridge(debug=debug, port=bridge_port)
+    push_socket = bridge._connect_push(pull_port)
+    pull_socket = bridge._connect_pull(push_port)
     if debug:
         print("image processing sockets connected")
     sockets_connected_evt.set()
@@ -259,7 +260,7 @@ class Acquisition(object, metaclass=NumpyDocstringInheritanceMeta):
             image processing function that will be called on each image that gets acquired.
             Can either take two arguments (image, metadata) where image is a numpy array and metadata is a dict
             containing the corresponding iamge metadata. Or a 4 argument version is accepted, which accepts (image,
-            metadata, bridge, queue), where bridge and queue are an instance of the pycromanager.acquire.Bridge
+            metadata, bridge, queue), where bridge and queue are an instance of the pycromanager.bridge.Bridge
             object for the purposes of interacting with arbitrary code on the Java side (such as the micro-manager
             core), and queue is a Queue objects that holds upcomning acquisition events. Both version must either
             return
@@ -377,7 +378,7 @@ class Acquisition(object, metaclass=NumpyDocstringInheritanceMeta):
     def _initialize_image_processor(self, **kwargs):
 
         if kwargs['image_process_fn'] is not None:
-            java_processor = self.bridge.construct_java_object(
+            java_processor = JavaObject(
                 "org.micromanager.remote.RemoteImageProcessor"
             )
             self._remote_acq.add_image_processor(java_processor)
@@ -388,14 +389,14 @@ class Acquisition(object, metaclass=NumpyDocstringInheritanceMeta):
     def _initialize_hooks(self, **kwargs):
         self._hook_threads = []
         if kwargs['event_generation_hook_fn'] is not None:
-            hook = self.bridge.construct_java_object(
+            hook = JavaObject(
                 "org.micromanager.remote.RemoteAcqHook", args=[self._remote_acq]
             )
             self._hook_threads.append(self._start_hook(hook, kwargs['event_generation_hook_fn'],
                                                        self._event_queue, process=kwargs['process']))
             self._remote_acq.add_hook(hook, self._remote_acq.EVENT_GENERATION_HOOK)
         if kwargs['pre_hardware_hook_fn'] is not None:
-            hook = self.bridge.construct_java_object(
+            hook = JavaObject(
                 "org.micromanager.remote.RemoteAcqHook", args=[self._remote_acq]
             )
             self._hook_threads.append(self._start_hook(hook,
@@ -403,14 +404,14 @@ class Acquisition(object, metaclass=NumpyDocstringInheritanceMeta):
                                                        process=kwargs['process']))
             self._remote_acq.add_hook(hook, self._remote_acq.BEFORE_HARDWARE_HOOK)
         if kwargs['post_hardware_hook_fn'] is not None:
-            hook = self.bridge.construct_java_object(
+            hook = JavaObject(
                 "org.micromanager.remote.RemoteAcqHook", args=[self._remote_acq]
             )
             self._hook_threads.append(self._start_hook(hook, kwargs['post_hardware_hook_fn'],
                                                        self._event_queue, process=kwargs['process']))
             self._remote_acq.add_hook(hook, self._remote_acq.AFTER_HARDWARE_HOOK)
         if kwargs['post_camera_hook_fn'] is not None:
-            hook = self.bridge.construct_java_object(
+            hook = JavaObject(
                 "org.micromanager.remote.RemoteAcqHook", args=[self._remote_acq]
             )
             self._hook_threads.append(self._start_hook(hook, kwargs['post_camera_hook_fn'],
@@ -423,8 +424,8 @@ class Acquisition(object, metaclass=NumpyDocstringInheritanceMeta):
         self._event_queue = multiprocessing.Queue() if kwargs['process'] else queue.Queue()
 
     def _create_remote_acquisition(self, **kwargs):
-        core = self.bridge.get_core()
-        acq_factory = self.bridge.construct_java_object(
+        core = Core()
+        acq_factory = JavaObject(
             "org.micromanager.remote.RemoteAcquisitionFactory", args=[core]
         )
         show_viewer = kwargs['show_display'] == True and (kwargs['directory'] is not None and kwargs['name'] is not None)
@@ -480,7 +481,6 @@ class Acquisition(object, metaclass=NumpyDocstringInheritanceMeta):
         if hasattr(self, '_event_thread'):
             self._event_thread.join()
 
-        self.bridge.close()
         self._finished = True
 
     def acquire(self, events: dict or list, keep_shutter_open=False):
@@ -518,7 +518,7 @@ class Acquisition(object, metaclass=NumpyDocstringInheritanceMeta):
             ]  # return to autoshutter, dont acquire an image
         self._event_queue.put(events)
 
-    def _start_hook(self, remote_hook : JavaObjectShadow, remote_hook_fn : callable, event_queue, process):
+    def _start_hook(self, remote_hook : _JavaObjectShadow, remote_hook_fn : callable, event_queue, process):
         """
 
         Parameters
@@ -656,8 +656,8 @@ class XYTiledAcquisition(Acquisition):
         super().__init__(**named_args)
 
     def _create_remote_acquisition(self, **kwargs):
-        core = self.bridge.get_core()
-        acq_factory = self.bridge.construct_java_object(
+        core = Core()
+        acq_factory = JavaObject(
             "org.micromanager.remote.RemoteAcquisitionFactory", args=[core]
         )
 
@@ -729,10 +729,10 @@ class MagellanAcquisition(Acquisition):
 
     def _create_remote_acquisition(self, **kwargs):
         if self.magellan_acq_index is not None:
-            magellan_api = self.bridge.get_magellan()
+            magellan_api = Magellan()
             self._remote_acq = magellan_api.create_acquisition(self.magellan_acq_index)
             self._event_queue = None
         elif self.magellan_explore:
-            magellan_api = self.bridge.get_magellan()
+            magellan_api = Magellan()
             self._remote_acq = magellan_api.create_explore_acquisition()
             self._event_queue = None

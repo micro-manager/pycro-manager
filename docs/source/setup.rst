@@ -16,10 +16,10 @@ Run the following code:
 
 .. code-block:: python
 
-	from pycromanager import Bridge
+	from pycromanager import Core
 
-	with Bridge() as bridge:
-	    print(bridge.get_core())
+	core = Core()
+	print(core)
 
 which will give an output like:
 

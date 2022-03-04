@@ -12,7 +12,7 @@ The example below shows headless mode in combination with an saved image callbac
 
 .. code-block:: python
 
-    from pycromanager import Acquisition, multi_d_acquisition_events, Bridge, start_headless
+    from pycromanager import Acquisition, multi_d_acquisition_events, start_headless
 
     mm_app_path = '/path/to/micromanager'
     config_file = mm_app_path + "/MMConfig_demo.cfg"
