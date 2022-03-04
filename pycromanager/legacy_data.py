@@ -8,9 +8,8 @@ import sys
 import json
 import platform
 import dask.array as da
-import dask
 import warnings
-from pycromanager.zmq import Bridge
+from pycromanager.bridge import Bridge
 import struct
 
 
@@ -830,7 +829,7 @@ class Legacy_NDTiff_Dataset:
             kwargs["position"] = position
 
         if self._remote_storage is not None:
-            axes = self._bridge.construct_java_object("java.util.HashMap")
+            axes = self._bridge._construct_java_object("java.util.HashMap")
             for key in kwargs.keys():
                 axes.put(key, kwargs[key])
             if row is not None and col is not None:
@@ -919,7 +918,7 @@ class Legacy_NDTiff_Dataset:
         if self._remote_storage is not None:
             if memmapped:
                 raise Exception("Memory mapping not available for in progress acquisitions")
-            axes = self._bridge.construct_java_object("java.util.HashMap")
+            axes = self._bridge._construct_java_object("java.util.HashMap")
             for key in kwargs.keys():
                 axes.put(key, kwargs[key])
             if not self._remote_storage.has_image(axes, resolution_level):

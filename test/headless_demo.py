@@ -1,4 +1,4 @@
-from pycromanager import Acquisition, multi_d_acquisition_events, Bridge, start_headless
+from pycromanager import Acquisition, multi_d_acquisition_events, Core, start_headless
 import numpy as np
 import time
 
@@ -11,12 +11,12 @@ config_file = mm_app_path + "/MMConfig_demo.cfg"
 java_loc = "/Library/Internet Plug-Ins/JavaAppletPlugin.plugin/Contents/Home/bin/java"
 java_loc = "/Users/henrypinkard/.jdk/jdk-11.0.14.1+1/Contents/Home/bin/java"
 # java_loc = r"C:\Users\henry\.jdk\jdk8u322-b06\jre\bin\java.exe"
-java_loc = None
+# java_loc = None
 start_headless(mm_app_path, config_file, java_loc=java_loc, timeout=5000)
 
-with Bridge(timeout=5000) as b:
-    b.get_core().snap_image()
-    print(b.get_core().get_image())
+core = Core()
+core.snap_image()
+print(core.get_image())
 
 save_dir = "/Users/henrypinkard/tmp"
 # save_dir = r"C:\Users\henry\Desktop\datadump"

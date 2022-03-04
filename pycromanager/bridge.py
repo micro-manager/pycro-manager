@@ -6,13 +6,12 @@ import warnings
 import inspect
 import numpy as np
 import zmq
-from weakref import WeakSet
-import threading
 import copy
 import sys
-from threading import Lock
-
-
+from threading import Lock, local
+import threading
+from warnings import warn
+import weakref
 
 class DataSocket:
     """
@@ -211,21 +210,28 @@ class Bridge:
     DEFAULT_TIMEOUT = 500
     _EXPECTED_ZMQ_SERVER_VERSION = "4.2.0"
 
-    thread_local = threading.local()
-
     def __new__(cls, *args, **kwargs):
         """
-        Only one instance of Bridge per a thread
+        Only one instance of Bridge per a thread/port combo
         """
         port = kwargs.get('port', Bridge.DEFAULT_PORT)
-        if hasattr(Bridge.thread_local, "bridge") and Bridge.thread_local.bridge is not None and port in Bridge.thread_local.bridge:
-            Bridge.thread_local.bridge_count[port] += 1
-            return Bridge.thread_local.bridge[port]
-        else:
-            if (not hasattr(Bridge.thread_local, "bridge_count")) or Bridge.thread_local.bridge_count is None:
-                Bridge.thread_local.bridge_count = {}
-            Bridge.thread_local.bridge_count[port] = 1
+        if not hasattr(Bridge, 'local'):
+            Bridge.local = threading.local()
+        if not hasattr(Bridge.local, 'bridges'):
+            Bridge.local.bridges = {}
+        if port not in Bridge.local.bridges.keys():
+            Bridge.local.bridges[port] = []
             return super(Bridge, cls).__new__(cls)
+        # clear old old refs that have been GCed
+        remaining = []
+        for i in range(len(Bridge.local.bridges[port])):
+            if Bridge.local.bridges[port][i]() is not None:
+                remaining.append(Bridge.local.bridges[port][i])
+        Bridge.local.bridges[port] = remaining
+        if len(Bridge.local.bridges[port]) == 0:
+            return super(Bridge, cls).__new__(cls)
+        return Bridge.local.bridges[port][0]()
+
 
     def __init__(
         self, port: int=DEFAULT_PORT, convert_camel_case: bool=True,
@@ -245,27 +251,22 @@ class Bridge:
         iterate : bool
             If True, ListArray will be iterated and give lists
         """
+        self._weak_self_ref = weakref.ref(self)
+        Bridge.local.bridges[port].append(self._weak_self_ref)
+        if hasattr(self, '_ip_address'):
+            return #already initialized
         self._ip_address = ip_address
         self._port = port
-        self._closed = False
-        if not hasattr(self, "_context"):
-            Bridge._context = zmq.Context()
-        # if hasattr(self.thread_local, "bridge") and port in self.thread_local.bridge:
-        #     return  ### What was this supposed to do?
-        if not hasattr(Bridge.thread_local, "bridge") or Bridge.thread_local.bridge is None:
-            Bridge.thread_local.bridge = {}
-        Bridge.thread_local.bridge[port] = self  # cache a thread-local version of the bridge
-
         self._convert_camel_case = convert_camel_case
         self._debug = debug
         self._timeout = timeout
         self._iterate = iterate
-        self._master_socket = DataSocket(
-            self._context, port, zmq.REQ, debug=debug, ip_address=self._ip_address
+        self._main_socket = DataSocket(
+            zmq.Context.instance(), port, zmq.REQ, debug=debug, ip_address=self._ip_address
         )
-        self._master_socket.send({"command": "connect", "debug": debug})
+        self._main_socket.send({"command": "connect", "debug": debug})
         self._class_factory = _JavaClassFactory()
-        reply_json = self._master_socket.receive(timeout=timeout)
+        reply_json = self._main_socket.receive(timeout=timeout)
         if reply_json is None:
             raise TimeoutError(
                 f"Socket timed out after {timeout} milliseconds. Is Micro-Manager running and is the ZMQ server on {port} option enabled?"
@@ -285,31 +286,20 @@ class Bridge:
 
 
     def __enter__(self):
+        warn('\nThe Bridge context manager (i.e. with Bridge...) is deprecated and will be \n'
+             'removed in a future version. Bridge does not need to be explicitly created anymore.  \n'
+             'Instead use the classes JavaObject, JavaClass, Core, Studio, Magellan', DeprecationWarning, stacklevel=2)
         return self
 
     def __exit__(self, exc_type, exc_val, exc_tb):
-        self.close()
+        pass
 
-    def close(self):
-        Bridge.thread_local.bridge_count[self._port] -= 1
-        if Bridge.thread_local.bridge_count[self._port] == 0:
-            del Bridge.thread_local.bridge_count[self._port]
-            del Bridge.thread_local.bridge[self._port]
-            self._master_socket.close()
-            self._master_socket = None
-            self._closed = True
-
-        if len(Bridge.thread_local.bridge) == 0:
-            Bridge.thread_local.bridge = None
-            Bridge.thread_local.bridge_count = None
-
-
-    def get_class(self, serialized_object) -> typing.Type["JavaObjectShadow"]:
+    def _deserialize_object(self, serialized_object) -> typing.Type["_JavaObjectShadow"]:
         return self._class_factory.create(
             serialized_object, convert_camel_case=self._convert_camel_case
         )
 
-    def construct_java_object(self, classpath: str, new_socket: bool=False, args: list=None):
+    def _construct_java_object(self, classpath: str, new_socket: bool=False, args: list=None):
         """
         Create a new instance of a an object on the Java side. Returns a Python "Shadow" of the object, which behaves
         just like the object on the Java side (i.e. same methods, fields). Methods of the object can be inferred at
@@ -334,8 +324,8 @@ class Bridge:
         # classpath_minus_class = '.'.join(classpath.split('.')[:-1])
         # query the server for constructors matching this classpath
         message = {"command": "get-constructors", "classpath": classpath}
-        self._master_socket.send(message)
-        constructors = self._master_socket.receive()["api"]
+        self._main_socket.send(message)
+        constructors = self._main_socket.receive()["api"]
 
         methods_with_name = [m for m in constructors if m["name"] == classpath]
         if len(methods_with_name) == 0:
@@ -352,19 +342,18 @@ class Bridge:
         }
         if new_socket:
             message["new-port"] = True
-        self._master_socket.send(message)
-        serialized_object = self._master_socket.receive()
+        self._main_socket.send(message)
+        serialized_object = self._main_socket.receive()
         if new_socket:
             socket = DataSocket(
-                self._context, serialized_object["port"], zmq.REQ, ip_address=self._ip_address
+                zmq.Context.instance(), serialized_object["port"], zmq.REQ, ip_address=self._ip_address
             )
         else:
-            socket = self._master_socket
-        return self._class_factory.create(
-            serialized_object, convert_camel_case=self._convert_camel_case
-        )(socket=socket, serialized_object=serialized_object, bridge=self)
+            socket = self._main_socket
+        return self._deserialize_object(serialized_object)(socket=socket,
+                                                           serialized_object=serialized_object, bridge=self)
 
-    def get_java_class(self, classpath: str, new_socket: bool=False):
+    def _get_java_class(self, classpath: str, new_socket: bool=False):
         """
         Get an an object corresponding to a java class, for example to be used
         when calling static methods on the class directly
@@ -384,15 +373,15 @@ class Bridge:
         message = {"command": "get-class", "classpath": classpath}
         if new_socket:
             message["new-port"] = True
-        self._master_socket.send(message)
-        serialized_object = self._master_socket.receive()
+        self._main_socket.send(message)
+        serialized_object = self._main_socket.receive()
 
         if new_socket:
             socket = DataSocket(
-                self._context, serialized_object["port"], zmq.REQ, ip_address=self._ip_address
+                zmq.Context.instance(), serialized_object["port"], zmq.REQ, ip_address=self._ip_address
             )
         else:
-            socket = self._master_socket
+            socket = self._main_socket
         return self._class_factory.create(
             serialized_object, convert_camel_case=self._convert_camel_case
         )(socket=socket, serialized_object=serialized_object, bridge=self)
@@ -404,7 +393,7 @@ class Bridge:
         :return:
         """
         return DataSocket(
-            self._context, port, zmq.PUSH, debug=self._debug, ip_address=self._ip_address
+            zmq.Context.instance(), port, zmq.PUSH, debug=self._debug, ip_address=self._ip_address
         )
 
     def _connect_pull(self, port):
@@ -414,31 +403,44 @@ class Bridge:
         :return:
         """
         return DataSocket(
-            self._context, port, zmq.PULL, debug=self._debug, ip_address=self._ip_address
+            zmq.Context.instance(), port, zmq.PULL, debug=self._debug, ip_address=self._ip_address
         )
 
     def get_magellan(self):
         """
+        DEPRECATED
+        instead use "from pycromanager import Magellan; magellan = Magellan()"
+
         return an instance of the Micro-Magellan API
         """
-        return self.construct_java_object("org.micromanager.magellan.api.MagellanAPI")
+        warn('Deprecated. use "from pycromanager import Magellan; magellan = Magellan()"', DeprecationWarning, stacklevel=2)
+        return self._construct_java_object("org.micromanager.magellan.api.MagellanAPI")
 
     def get_core(self):
         """
+        DEPRECATED
+        instead use "from pycromanager import Core; core = Core()"
+
+
         Connect to CMMCore and return object that has its methods
 
         :return: Python "shadow" object for micromanager core
         """
+        warn('Deprecated. use "from pycromanager import Core; core = Core()"', DeprecationWarning, stacklevel=2)
         if hasattr(self, "core"):
             return getattr(self, "core")
-        self.core = self.construct_java_object("mmcorej.CMMCore")
+        self.core = self._construct_java_object("mmcorej.CMMCore")
         return self.core
 
     def get_studio(self):
         """
+        DEPRECATED use "from pycromanager import Studio; studio = Studio()"
+
         return an instance of the Studio object that provides access to micro-manager Java APIs
         """
-        return self.construct_java_object("org.micromanager.Studio")
+        warn('Deprecated. use "from pycromanager import Studio; studio = Studio()"', DeprecationWarning, stacklevel=2)
+
+        return self._construct_java_object("org.micromanager.Studio")
 
 
 class _JavaClassFactory:
@@ -452,7 +454,7 @@ class _JavaClassFactory:
 
     def create(
         self, serialized_obj: dict, convert_camel_case: bool = True
-    ) -> typing.Type["JavaObjectShadow"]:
+    ) -> typing.Type["_JavaObjectShadow"]:
         """Create a class (or return a class from the cache) based on the contents of `serialized_object` message."""
         if serialized_obj["class"] in self.classes.keys():  # Return a cached class
             return self.classes[serialized_obj["class"]]
@@ -501,9 +503,9 @@ class _JavaClassFactory:
 
             newclass = type(  # Dynamically create a class to shadow a java class.
                 python_class_name_translation,  # Name, based on the original java name
-                (JavaObjectShadow,),  # Inheritance
+                (_JavaObjectShadow,),  # Inheritance
                 {
-                    "__init__": lambda instance, socket, serialized_object, bridge: JavaObjectShadow.__init__(
+                    "__init__": lambda instance, socket, serialized_object, bridge: _JavaObjectShadow.__init__(
                         instance, socket, serialized_object, bridge
                     ),
                     **static_attributes,
@@ -516,7 +518,7 @@ class _JavaClassFactory:
             return newclass
 
 
-class JavaObjectShadow:
+class _JavaObjectShadow:
     """
     Generic class for serving as a python interface for a java class using a zmq server backend
     """
@@ -604,8 +606,6 @@ class JavaObjectShadow:
         }
         message["arguments"] = _package_arguments(valid_method_spec, fn_args)
 
-        if self._bridge._closed:
-            raise Exception('The Bridge used to create this has been closed. Are you trying to call it outside of a "with" block?')
         self._socket.send(message)
         recieved = self._socket.receive()
         return self._deserialize(recieved)
@@ -636,21 +636,17 @@ class JavaObjectShadow:
             else:
                 raise Exception("Unrecognized return class")
         elif json_return["type"] == "unserialized-object":
-            def java_iter(a):
-                it = a.iterator()
-                while it.has_next():
-                    yield it.next()
 
             # inherit socket from parent object
-            obj = self._bridge.get_class(json_return)(
+            obj = self._bridge._deserialize_object(json_return)(
                 socket=self._socket, serialized_object=json_return, bridge=self._bridge
             )
 
             # if object is iterable, go through the elements
-            if self._bridge._iterate and hasattr(obj,'iterator') :
+            if self._bridge._iterate and hasattr(obj, 'iterator') :
                 it = obj.iterator()
                 elts = []
-                has_next = it.hasNext if hasattr(it,'hasNext') else it.has_next 
+                has_next = it.hasNext if hasattr(it, 'hasNext') else it.has_next
                 while(has_next()):
                     elts.append(it.next())
                 return elts
@@ -692,7 +688,7 @@ def _package_arguments(valid_method_spec, fn_args):
     """
     arguments = []
     for arg_type, arg_val in zip(valid_method_spec["arguments"], fn_args):
-        if isinstance(arg_val, JavaObjectShadow):
+        if isinstance(arg_val, _JavaObjectShadow):
             arguments.append(_serialize_arg(arg_val))
         elif _JAVA_TYPE_NAME_TO_PYTHON_TYPE[arg_type] is object:
             arguments.append(_serialize_arg(arg_val))
@@ -712,7 +708,7 @@ def _serialize_arg(arg):
         return arg  # json handles serialization
     elif type(arg) == np.ndarray:
         return arg.tobytes()
-    elif isinstance(arg, JavaObjectShadow):
+    elif isinstance(arg, _JavaObjectShadow):
         return {"hash-code": arg._hash_code}
     else:
         raise Exception("Unknown argumetn type")
@@ -730,7 +726,7 @@ def _check_single_method_spec(method_spec, fn_args):
     if len(method_spec["arguments"]) != len(fn_args):
         return False
     for arg_java_type, arg_val in zip(method_spec["arguments"], fn_args):
-        if isinstance(arg_val, JavaObjectShadow):
+        if isinstance(arg_val, _JavaObjectShadow):
             if arg_java_type not in arg_val._interfaces:
                 # check that it shadows object of the correct type
                 return False

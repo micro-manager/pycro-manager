@@ -1,7 +1,8 @@
 import subprocess
 import platform
 import atexit
-from pycromanager.zmq import Bridge
+from pycromanager.bridge import Bridge
+from pycromanager.java_classes import Core
 import copy
 import types
 import numpy as np
@@ -21,8 +22,7 @@ def start_headless(
     as it is installed along with the Micro-Manager application.
 
     On non-windows platforms, it may need to be installed/specified manually in order to ensure compatibility.
-    This can be checked by looking at the "maven.compiler.source" entry which the java parts of
-    pycro-manager were compiled with. See here: https://github.com/micro-manager/pycro-manager/blob/29b584bfd71f0d05750f5d39600318902186a06a/java/pom.xml#L8
+    Installing Java 11 is the most likely version to work without issue
 
     Parameters
         ----------
@@ -69,18 +69,17 @@ def start_headless(
     atexit.register(lambda: p.terminate())
 
     # Initialize core
-    with Bridge(port=port, timeout=timeout) as bridge:
-        core = bridge.get_core()
+    core = Core()
 
-        core.wait_for_system()
-        core.load_system_configuration(config_file)
+    core.wait_for_system()
+    core.load_system_configuration(config_file)
 
-        core.set_circular_buffer_memory_footprint(buffer_size_mb)
+    core.set_circular_buffer_memory_footprint(buffer_size_mb)
 
-        if core_log_path is not None:
-            core.enable_stderr_log(True)
-            core.enable_debug_log(True)
-            core.set_primary_log_file(core_log_path)
+    if core_log_path is not None:
+        core.enable_stderr_log(True)
+        core.enable_debug_log(True)
+        core.set_primary_log_file(core_log_path)
 
 
 
