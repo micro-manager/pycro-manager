@@ -284,6 +284,16 @@ class Bridge:
                 )
             )
 
+
+    def __enter__(self):
+        warn('\nThe Bridge context manager (i.e. with Bridge...) is deprecated and will be \n'
+             'removed in a future version. Bridge does not need to be explicitly created anymore.  \n'
+             'Instead use the classes JavaObject, JavaClass, Core, Studio, Magellan', DeprecationWarning, stacklevel=2)
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        pass
+
     def _deserialize_object(self, serialized_object) -> typing.Type["_JavaObjectShadow"]:
         return self._class_factory.create(
             serialized_object, convert_camel_case=self._convert_camel_case

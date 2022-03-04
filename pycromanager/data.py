@@ -281,8 +281,8 @@ def _storage_monitor_fn(
     dataset, storage_monitor_push_port, connected_event, callback_fn, debug=False
 ):
     #TODO: might need to add in support for doing this on a different port, if Acquistiion/bridge is not on default port
-    with Bridge(debug=debug) as bridge:
-        monitor_socket = bridge._connect_pull(storage_monitor_push_port)
+    bridge = Bridge()
+    monitor_socket = bridge._connect_pull(storage_monitor_push_port)
 
     connected_event.set()
 
