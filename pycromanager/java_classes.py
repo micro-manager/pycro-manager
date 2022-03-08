@@ -62,7 +62,7 @@ class Core(_JavaObjectShadow):
     """
 
     def __new__(
-        cls, convert_camel_case=True, port=Bridge.DEFAULT_PORT, new_socket=False, debug=False
+        cls, convert_camel_case=True, port=Bridge.DEFAULT_PORT, new_socket=False, debug=False, timeout=1000,
     ):
         """
         Parameters
@@ -78,8 +78,10 @@ class Core(_JavaObjectShadow):
             with the bridges main port
         debug:
             print debug messages
+        timeout:
+            timeout for underlying bridge
         """
-        bridge = Bridge(port=port, convert_camel_case=convert_camel_case, debug=debug)
+        bridge = Bridge(port=port, convert_camel_case=convert_camel_case, debug=debug, timeout=timeout)
         return bridge._construct_java_object("mmcorej.CMMCore", new_socket=new_socket)
 
     def get_core_callback(self, callback_fn=None, bridge_port=Bridge.DEFAULT_PORT):
