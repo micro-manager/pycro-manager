@@ -10,19 +10,18 @@ An alternative mechanism for controlling the Micro-Manager core is through [pymm
 
 .. code-block:: python
 
-	"""
-	This example shows how to use pycromanager to interact with the micro-manager core. 
-	Aside from the setup section, each following section can be run independently
-	"""
-	from pycromanager import Core
-	import numpy as np
-	import matplotlib.pyplot as plt
 
-	#### Setup ####
+    # This example shows how to use pycromanager to interact with the micro-manager core. 
+    # Aside from the setup section, each following section can be run independently
 
-    #get object representing micro-manager core
-    core = bridge.get_core()
 
+    from pycromanager import Core
+    import numpy as np
+    import matplotlib.pyplot as plt
+
+    #Setup
+    # get object representing MMCore
+    core = Core()
 
     #### Calling core functions ###
     exposure = core.get_exposure()
