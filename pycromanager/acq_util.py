@@ -69,7 +69,7 @@ def start_headless(
     atexit.register(lambda: p.terminate())
 
     # Initialize core
-    core = Core()
+    core = Core(timeout=timeout)
 
     core.wait_for_system()
     core.load_system_configuration(config_file)
