@@ -229,7 +229,8 @@ class Bridge:
                 remaining.append(Bridge.local.bridges[port][i])
         Bridge.local.bridges[port] = remaining
         if len(Bridge.local.bridges[port]) == 0:
-            return super(Bridge, cls).__new__(cls)
+            return super(Bridge, cls).__new__(cls, timeout=timeout, convert_camel_case=convert_camel_case,
+                                              *args, **kwargs)
         return Bridge.local.bridges[port][0]()
 
 
