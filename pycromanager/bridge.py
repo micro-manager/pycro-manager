@@ -210,7 +210,7 @@ class Bridge:
     DEFAULT_TIMEOUT = 500
     _EXPECTED_ZMQ_SERVER_VERSION = "4.2.0"
 
-    def __new__(cls, *args, **kwargs):
+    def __new__(cls, timeout: int=DEFAULT_TIMEOUT, convert_camel_case: bool=True,  *args, **kwargs):
         """
         Only one instance of Bridge per a thread/port combo
         """
@@ -221,7 +221,8 @@ class Bridge:
             Bridge.local.bridges = {}
         if port not in Bridge.local.bridges.keys():
             Bridge.local.bridges[port] = []
-            return super(Bridge, cls).__new__(cls)
+            return super(Bridge, cls).__new__(cls, timeout=timeout, convert_camel_case=convert_camel_case,
+                                              *args, **kwargs)
         # clear old old refs that have been GCed
         remaining = []
         for i in range(len(Bridge.local.bridges[port])):
