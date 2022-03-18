@@ -221,8 +221,8 @@ class Bridge:
             Bridge.local.bridges = {}
         if port not in Bridge.local.bridges.keys():
             Bridge.local.bridges[port] = []
-            return super(Bridge, cls).__new__(cls, timeout=timeout, convert_camel_case=convert_camel_case,
-                                              *args, **kwargs)
+            return super(Bridge, cls).__new__(cls)
+
         # clear old old refs that have been GCed
         remaining = []
         for i in range(len(Bridge.local.bridges[port])):
@@ -230,8 +230,8 @@ class Bridge:
                 remaining.append(Bridge.local.bridges[port][i])
         Bridge.local.bridges[port] = remaining
         if len(Bridge.local.bridges[port]) == 0:
-            return super(Bridge, cls).__new__(cls, timeout=timeout, convert_camel_case=convert_camel_case,
-                                              *args, **kwargs)
+            return super(Bridge, cls).__new__(cls)
+            
         return Bridge.local.bridges[port][0]()
 
 
