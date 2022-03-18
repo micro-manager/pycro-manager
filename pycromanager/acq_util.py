@@ -9,6 +9,15 @@ import numpy as np
 import os
 
 
+SUBPROCESSES = []
+
+def cleanup():
+    for p in SUBPROCESSES:
+        p.terminate()
+
+# make sure any Java processes are cleaned up when Python exits
+atexit.register(cleanup)
+
 def start_headless(
     mm_app_path: str, config_file: str, java_loc: str=None, core_log_path: str=None, buffer_size_mb: int=1024,
         port: int=Bridge.DEFAULT_PORT, timeout: int=5000
@@ -38,6 +47,8 @@ def start_headless(
             Size of circular buffer in MB in MMCore
         port : int
             Default port to use for ZMQServer
+        timeout : int, default 500
+            Timeout for connection to server in milliseconds
     """
 
     classpath = mm_app_path + '/plugins/Micro-Manager/*'
@@ -51,22 +62,21 @@ def start_headless(
     # acquisition engine, ZMQServer)
     if not os.path.isfile(java_loc):
         raise Exception(java_loc + ' does not exist')
-    p = subprocess.Popen(
-        [
-            java_loc,
-            "-classpath",
-            classpath,
-            "-Dsun.java2d.dpiaware=false",
-            "-Xmx2000m",
+    SUBPROCESSES.append(subprocess.Popen(
+            [
+                java_loc,
+                "-classpath",
+                classpath,
+                "-Dsun.java2d.dpiaware=false",
+                "-Xmx2000m",
 
-            # This is used by MM desktop app but breaks things on MacOS...Don't think its neccessary
-            # "-XX:MaxDirectMemorySize=1000",
-            "org.micromanager.remote.HeadlessLauncher",
-            str(port)
-        ]
+                # This is used by MM desktop app but breaks things on MacOS...Don't think its neccessary
+                # "-XX:MaxDirectMemorySize=1000",
+                "org.micromanager.remote.HeadlessLauncher",
+                str(port)
+            ]
+        )
     )
-    # make sure Java process cleans up when Python process exits
-    atexit.register(lambda: p.terminate())
 
     # Initialize core
     core = Core(timeout=timeout)
