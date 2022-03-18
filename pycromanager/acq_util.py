@@ -19,7 +19,7 @@ def cleanup():
 atexit.register(cleanup)
 
 def start_headless(
-    mm_app_path: str, config_file: str, java_loc: str=None, core_log_path: str=None, buffer_size_mb: int=1024,
+    mm_app_path: str, config_file: str=None, java_loc: str=None, core_log_path: str=None, buffer_size_mb: int=1024,
         port: int=Bridge.DEFAULT_PORT, timeout: int=5000, **core_kwargs
 )->Core:
     """
@@ -38,7 +38,8 @@ def start_headless(
     mm_app_path : str
         Path to top level folder of Micro-Manager installation (made with graphical installer)
     config_file : str
-        Path to micro-manager config file, with which core will be initialized
+        Path to micro-manager config file, with which core will be initialized. If None then initialization
+        is left to the user.
     java_loc: str
         Path to the java version that it should be run with
     core_log_path : str
@@ -88,15 +89,27 @@ def start_headless(
     # Initialize core
     core = Core(timeout=timeout, **core_kwargs)
 
-    core.wait_for_system()
-    core.load_system_configuration(config_file)
+    camel_case = core_kwargs.get("convert_camel_case", True)
+    if camel_case:
+        core.wait_for_system()
+        if config_file is not None:
+            core.load_system_configuration(config_file)
+        core.set_circular_buffer_memory_footprint(buffer_size_mb)
 
-    core.set_circular_buffer_memory_footprint(buffer_size_mb)
+        if core_log_path is not None:
+            core.enable_stderr_log(True)
+            core.enable_debug_log(True)
+            core.set_primary_log_file(core_log_path)
+    else:
+        core.waitForSystem()
+        if config_file is not None:
+            core.loadSystemConfiguration(config_file)
+        core.setCircularBufferMemoryFootprint(buffer_size_mb)
+        if core_log_path is not None:
+            core.enableStderrLog(True)
+            core.enableDebugLog(True)
+            core.setPrimaryLogFile(core_log_path)
 
-    if core_log_path is not None:
-        core.enable_stderr_log(True)
-        core.enable_debug_log(True)
-        core.set_primary_log_file(core_log_path)
     return core
 
 
