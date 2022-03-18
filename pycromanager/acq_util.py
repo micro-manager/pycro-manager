@@ -9,10 +9,19 @@ import numpy as np
 import os
 
 
+SUBPROCESSES = []
+
+def cleanup():
+    for p in SUBPROCESSES:
+        p.terminate()
+
+# make sure any Java processes are cleaned up when Python exits
+atexit.register(cleanup)
+
 def start_headless(
-    mm_app_path: str, config_file: str, java_loc: str=None, core_log_path: str=None, buffer_size_mb: int=1024,
-        port: int=Bridge.DEFAULT_PORT, timeout: int=5000
-):
+    mm_app_path: str, config_file: str=None, java_loc: str=None, core_log_path: str=None, buffer_size_mb: int=1024,
+        port: int=Bridge.DEFAULT_PORT, timeout: int=5000, **core_kwargs
+)->Core:
     """
     Start a Java process that contains the neccessary libraries for pycro-manager to run,
     so that it can be run independently of the Micro-Manager GUI/application. This call
@@ -25,19 +34,29 @@ def start_headless(
     Installing Java 11 is the most likely version to work without issue
 
     Parameters
-        ----------
-        mm_app_path : str
-            Path to top level folder of Micro-Manager installation (made with graphical installer)
-        config_file : str
-            Path to micro-manager config file, with which core will be initialized
-        java_loc: str
-            Path to the java version that it should be run with
-        core_log_path : str
-            Path to where core log files should be created
-        buffer_size_mb : int
-            Size of circular buffer in MB in MMCore
-        port : int
-            Default port to use for ZMQServer
+    ----------
+    mm_app_path : str
+        Path to top level folder of Micro-Manager installation (made with graphical installer)
+    config_file : str
+        Path to micro-manager config file, with which core will be initialized. If None then initialization
+        is left to the user.
+    java_loc: str
+        Path to the java version that it should be run with
+    core_log_path : str
+        Path to where core log files should be created
+    buffer_size_mb : int
+        Size of circular buffer in MB in MMCore
+    port : int
+        Default port to use for ZMQServer
+    timeout : int, default 5000
+        Timeout for connection to server in milliseconds
+    **core_kwargs
+        Passed on to the Core constructor
+
+    Returns
+    -------
+    core :
+        A Core object
     """
 
     classpath = mm_app_path + '/plugins/Micro-Manager/*'
@@ -51,35 +70,47 @@ def start_headless(
     # acquisition engine, ZMQServer)
     if not os.path.isfile(java_loc):
         raise Exception(java_loc + ' does not exist')
-    p = subprocess.Popen(
-        [
-            java_loc,
-            "-classpath",
-            classpath,
-            "-Dsun.java2d.dpiaware=false",
-            "-Xmx2000m",
+    SUBPROCESSES.append(subprocess.Popen(
+            [
+                java_loc,
+                "-classpath",
+                classpath,
+                "-Dsun.java2d.dpiaware=false",
+                "-Xmx2000m",
 
-            # This is used by MM desktop app but breaks things on MacOS...Don't think its neccessary
-            # "-XX:MaxDirectMemorySize=1000",
-            "org.micromanager.remote.HeadlessLauncher",
-            str(port)
-        ]
+                # This is used by MM desktop app but breaks things on MacOS...Don't think its neccessary
+                # "-XX:MaxDirectMemorySize=1000",
+                "org.micromanager.remote.HeadlessLauncher",
+                str(port)
+            ]
+        )
     )
-    # make sure Java process cleans up when Python process exits
-    atexit.register(lambda: p.terminate())
 
     # Initialize core
-    core = Core(timeout=timeout)
+    core = Core(timeout=timeout, **core_kwargs)
 
-    core.wait_for_system()
-    core.load_system_configuration(config_file)
+    camel_case = core_kwargs.get("convert_camel_case", True)
+    if camel_case:
+        core.wait_for_system()
+        if config_file is not None:
+            core.load_system_configuration(config_file)
+        core.set_circular_buffer_memory_footprint(buffer_size_mb)
 
-    core.set_circular_buffer_memory_footprint(buffer_size_mb)
+        if core_log_path is not None:
+            core.enable_stderr_log(True)
+            core.enable_debug_log(True)
+            core.set_primary_log_file(core_log_path)
+    else:
+        core.waitForSystem()
+        if config_file is not None:
+            core.loadSystemConfiguration(config_file)
+        core.setCircularBufferMemoryFootprint(buffer_size_mb)
+        if core_log_path is not None:
+            core.enableStderrLog(True)
+            core.enableDebugLog(True)
+            core.setPrimaryLogFile(core_log_path)
 
-    if core_log_path is not None:
-        core.enable_stderr_log(True)
-        core.enable_debug_log(True)
-        core.set_primary_log_file(core_log_path)
+    return core
 
 
 
