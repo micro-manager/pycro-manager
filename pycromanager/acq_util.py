@@ -68,8 +68,6 @@ def start_headless(
             java_loc = "java"
     # This starts Java process and instantiates essential objects (core,
     # acquisition engine, ZMQServer)
-    if not os.path.isfile(java_loc):
-        raise Exception(java_loc + ' does not exist')
     SUBPROCESSES.append(subprocess.Popen(
             [
                 java_loc,
