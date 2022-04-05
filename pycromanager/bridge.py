@@ -24,7 +24,7 @@ class DataSocket:
         self._socket = context.socket(type)
         self._debug = debug
         # store these as wekrefs so that circular refs dont prevent garbage collection
-        self._java_objects = set()
+        self._java_objects = weakref.WeakSet()
         self._port = port
         self._close_lock = Lock()
         self._closed = False
