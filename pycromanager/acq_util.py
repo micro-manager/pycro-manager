@@ -81,7 +81,7 @@ def start_headless(
     )
 
     # Initialize core
-    core = Core(timeout=timeout, **core_kwargs)
+    core = Core(timeout=timeout, port=port, **core_kwargs)
 
     core.wait_for_system()
     if config_file is not None:
