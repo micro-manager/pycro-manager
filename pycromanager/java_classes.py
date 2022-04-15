@@ -130,7 +130,7 @@ class Studio(_JavaObjectShadow):
     """
 
     def __new__(
-        cls, convert_camel_case=True, port=Bridge.DEFAULT_PORT, new_socket=False, debug=False
+        cls, convert_camel_case=True, port=Bridge.DEFAULT_PORT, timeout=DEFAULT_TIMEOUT, new_socket=False, debug=False
     ):
         """
         convert_camel_case : bool
@@ -145,7 +145,7 @@ class Studio(_JavaObjectShadow):
         debug: bool
             print debug messages
         """
-        bridge = Bridge(port=port, convert_camel_case=convert_camel_case, debug=debug)
+        bridge = Bridge(port=port, timeout=timeout, convert_camel_case=convert_camel_case, debug=debug)
         return bridge._construct_java_object("org.micromanager.Studio", new_socket=new_socket)
 
 
@@ -161,6 +161,7 @@ class JavaObject(_JavaObjectShadow):
         classpath,
         args: list = None,
         port=Bridge.DEFAULT_PORT,
+        timeout=DEFAULT_TIMEOUT,
         new_socket=False,
         convert_camel_case=True,
         debug=False,
@@ -182,7 +183,7 @@ class JavaObject(_JavaObjectShadow):
         debug:
             print debug messages
         """
-        bridge = Bridge(port=port, convert_camel_case=convert_camel_case, debug=debug)
+        bridge = Bridge(port=port, timeout=timeout, convert_camel_case=convert_camel_case, debug=debug)
         return bridge._construct_java_object(classpath, new_socket=new_socket, args=args)
 
 
@@ -196,6 +197,7 @@ class JavaClass(_JavaObjectShadow):
         cls,
         classpath,
         port=Bridge.DEFAULT_PORT,
+        timeout=DEFAULT_TIMEOUT,
         new_socket=False,
         convert_camel_case=True,
         debug=False,
@@ -215,5 +217,5 @@ class JavaClass(_JavaObjectShadow):
         debug:
             print debug messages
         """
-        bridge = Bridge(port=port, convert_camel_case=convert_camel_case, debug=debug)
+        bridge = Bridge(port=port, timeout=timeout, convert_camel_case=convert_camel_case, debug=debug)
         return bridge._get_java_class(classpath, new_socket=new_socket)

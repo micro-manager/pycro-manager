@@ -16,7 +16,7 @@ from docstring_inheritance import NumpyDocstringInheritanceMeta
 ### These functions outside class to prevent problems with pickling when running them in differnet process
 
 
-def _run_acq_event_source(bridge_port, event_port, event_queue, bridge_timeout=Bridge.DEFAULT_TIMEOUT, debug=False):
+def _run_acq_event_source(bridge_port, bridge_timeout, event_port, event_queue, debug=False):
     """
 
     Parameters
@@ -48,7 +48,7 @@ def _run_acq_event_source(bridge_port, event_port, event_queue, bridge_timeout=B
         if debug:
             print("sent events")
 
-def _run_acq_hook(bridge_port, pull_port, push_port, hook_connected_evt, event_queue, hook_fn, debug):
+def _run_acq_hook(bridge_port, bridge_timeout, pull_port, push_port, hook_connected_evt, event_queue, hook_fn, debug=False):
     """
 
     Parameters
@@ -70,7 +70,7 @@ def _run_acq_hook(bridge_port, pull_port, push_port, hook_connected_evt, event_q
     -------
 
     """
-    bridge = Bridge(debug=debug, port=bridge_port)
+    bridge = Bridge(debug=debug, port=bridge_port, timeout=bridge_timeout)
 
     push_socket = bridge._connect_push(pull_port)
     pull_socket = bridge._connect_pull(push_port)
@@ -108,7 +108,8 @@ def _run_acq_hook(bridge_port, pull_port, push_port, hook_connected_evt, event_q
 
 
 def _run_image_processor(
-    bridge_port, pull_port, push_port, sockets_connected_evt, process_fn, event_queue, debug
+        bridge_port, bridge_timeout,
+        pull_port, push_port, sockets_connected_evt, process_fn, event_queue, debug
 ):
     """
 
@@ -131,7 +132,7 @@ def _run_image_processor(
     -------
 
     """
-    bridge = Bridge(debug=debug, port=bridge_port)
+    bridge = Bridge(debug=debug, port=bridge_port, timeout=bridge_timeout)
     push_socket = bridge._connect_push(pull_port)
     pull_socket = bridge._connect_pull(push_port)
     if debug:
@@ -370,7 +371,7 @@ class Acquisition(object, metaclass=NumpyDocstringInheritanceMeta):
 
         self._event_thread = threading.Thread(
             target=_run_acq_event_source,
-            args=(self._bridge_port, self.event_port, self._event_queue, self._bridge_timeout, self._debug),
+            args=(self._bridge_port, self._bridge_timeout, self.event_port, self._event_queue, self._debug),
             name="Event sending",
         )
         self._event_thread.start()
@@ -547,6 +548,7 @@ class Acquisition(object, metaclass=NumpyDocstringInheritanceMeta):
             name="AcquisitionHook",
             args=(
                 self._bridge_port,
+                self._bridge_timeout,
                 pull_port,
                 push_port,
                 hook_connected_evt,
@@ -591,6 +593,7 @@ class Acquisition(object, metaclass=NumpyDocstringInheritanceMeta):
             target=_run_image_processor,
             args=(
                 self._bridge_port,
+                self._bridge_timeout,
                 pull_port,
                 push_port,
                 sockets_connected_evt,
