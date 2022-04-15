@@ -425,7 +425,6 @@ class Acquisition(object, metaclass=NumpyDocstringInheritanceMeta):
         self._event_queue = multiprocessing.Queue() if kwargs['process'] else queue.Queue()
 
     def _create_remote_acquisition(self, **kwargs):
-        print(f"kwargs {kwargs}")
         core = Core(port= self._bridge_port, timeout=self._bridge_timeout)
         acq_factory = JavaObject(
             "org.micromanager.remote.RemoteAcquisitionFactory", port=self._bridge_port, args=[core]

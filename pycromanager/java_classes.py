@@ -130,7 +130,7 @@ class Studio(_JavaObjectShadow):
     """
 
     def __new__(
-        cls, convert_camel_case=True, port=Bridge.DEFAULT_PORT, timeout=DEFAULT_TIMEOUT, new_socket=False, debug=False
+        cls, convert_camel_case=True, port=Bridge.DEFAULT_PORT, timeout=Bridge.DEFAULT_TIMEOUT, new_socket=False, debug=False
     ):
         """
         convert_camel_case : bool
@@ -161,7 +161,7 @@ class JavaObject(_JavaObjectShadow):
         classpath,
         args: list = None,
         port=Bridge.DEFAULT_PORT,
-        timeout=DEFAULT_TIMEOUT,
+        timeout=Bridge.DEFAULT_TIMEOUT,
         new_socket=False,
         convert_camel_case=True,
         debug=False,
@@ -197,7 +197,7 @@ class JavaClass(_JavaObjectShadow):
         cls,
         classpath,
         port=Bridge.DEFAULT_PORT,
-        timeout=DEFAULT_TIMEOUT,
+        timeout=Bridge.DEFAULT_TIMEOUT,
         new_socket=False,
         convert_camel_case=True,
         debug=False,
