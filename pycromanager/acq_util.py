@@ -24,7 +24,7 @@ def start_headless(
 ):
     """
     Start a Java process that contains the neccessary libraries for pycro-manager to run,
-    so that it can be run independently of the Micro-Manager GUI/application. This call
+    so that it can be run independently of the Micro-Manager GUI/application. This calls
     will create and initialize MMCore with the configuration file provided.
 
     On windows plaforms, the Java Runtime Environment will be grabbed automatically

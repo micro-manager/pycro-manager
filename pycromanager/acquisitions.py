@@ -16,7 +16,7 @@ from docstring_inheritance import NumpyDocstringInheritanceMeta
 ### These functions outside class to prevent problems with pickling when running them in differnet process
 
 
-def _run_acq_event_source(bridge_port, event_port, event_queue, bridge_timeout=Bridge.DEFAULT_TIMEOUT, debug=False):
+def _run_acq_event_source(bridge_port, bridge_timeout, event_port, event_queue, debug=False):
     """
 
     Parameters
@@ -48,7 +48,7 @@ def _run_acq_event_source(bridge_port, event_port, event_queue, bridge_timeout=B
         if debug:
             print("sent events")
 
-def _run_acq_hook(bridge_port, pull_port, push_port, hook_connected_evt, event_queue, hook_fn, debug):
+def _run_acq_hook(bridge_port, bridge_timeout, pull_port, push_port, hook_connected_evt, event_queue, hook_fn, debug=False):
     """
 
     Parameters
@@ -70,7 +70,7 @@ def _run_acq_hook(bridge_port, pull_port, push_port, hook_connected_evt, event_q
     -------
 
     """
-    bridge = Bridge(debug=debug, port=bridge_port)
+    bridge = Bridge(debug=debug, port=bridge_port, timeout=bridge_timeout)
 
     push_socket = bridge._connect_push(pull_port)
     pull_socket = bridge._connect_pull(push_port)
@@ -108,7 +108,8 @@ def _run_acq_hook(bridge_port, pull_port, push_port, hook_connected_evt, event_q
 
 
 def _run_image_processor(
-    bridge_port, pull_port, push_port, sockets_connected_evt, process_fn, event_queue, debug
+        bridge_port, bridge_timeout,
+        pull_port, push_port, sockets_connected_evt, process_fn, event_queue, debug
 ):
     """
 
@@ -131,7 +132,7 @@ def _run_image_processor(
     -------
 
     """
-    bridge = Bridge(debug=debug, port=bridge_port)
+    bridge = Bridge(debug=debug, port=bridge_port, timeout=bridge_timeout)
     push_socket = bridge._connect_push(pull_port)
     pull_socket = bridge._connect_pull(push_port)
     if debug:
@@ -370,7 +371,7 @@ class Acquisition(object, metaclass=NumpyDocstringInheritanceMeta):
 
         self._event_thread = threading.Thread(
             target=_run_acq_event_source,
-            args=(self._bridge_port, self.event_port, self._event_queue, self._bridge_timeout, self._debug),
+            args=(self._bridge_port, self._bridge_timeout, self.event_port, self._event_queue, self._debug),
             name="Event sending",
         )
         self._event_thread.start()
@@ -379,7 +380,7 @@ class Acquisition(object, metaclass=NumpyDocstringInheritanceMeta):
 
         if kwargs['image_process_fn'] is not None:
             java_processor = JavaObject(
-                "org.micromanager.remote.RemoteImageProcessor"
+                "org.micromanager.remote.RemoteImageProcessor", port=self._bridge_port
             )
             self._remote_acq.add_image_processor(java_processor)
             self._processor_thread = self._start_processor(
@@ -390,14 +391,14 @@ class Acquisition(object, metaclass=NumpyDocstringInheritanceMeta):
         self._hook_threads = []
         if kwargs['event_generation_hook_fn'] is not None:
             hook = JavaObject(
-                "org.micromanager.remote.RemoteAcqHook", args=[self._remote_acq]
+                "org.micromanager.remote.RemoteAcqHook", port=self._bridge_port, args=[self._remote_acq]
             )
             self._hook_threads.append(self._start_hook(hook, kwargs['event_generation_hook_fn'],
                                                        self._event_queue, process=kwargs['process']))
             self._remote_acq.add_hook(hook, self._remote_acq.EVENT_GENERATION_HOOK)
         if kwargs['pre_hardware_hook_fn'] is not None:
             hook = JavaObject(
-                "org.micromanager.remote.RemoteAcqHook", args=[self._remote_acq]
+                "org.micromanager.remote.RemoteAcqHook", port=self._bridge_port, args=[self._remote_acq]
             )
             self._hook_threads.append(self._start_hook(hook,
                                             kwargs['pre_hardware_hook_fn'], self._event_queue,
@@ -405,14 +406,14 @@ class Acquisition(object, metaclass=NumpyDocstringInheritanceMeta):
             self._remote_acq.add_hook(hook, self._remote_acq.BEFORE_HARDWARE_HOOK)
         if kwargs['post_hardware_hook_fn'] is not None:
             hook = JavaObject(
-                "org.micromanager.remote.RemoteAcqHook", args=[self._remote_acq]
+                "org.micromanager.remote.RemoteAcqHook", port=self._bridge_port, args=[self._remote_acq]
             )
             self._hook_threads.append(self._start_hook(hook, kwargs['post_hardware_hook_fn'],
                                                        self._event_queue, process=kwargs['process']))
             self._remote_acq.add_hook(hook, self._remote_acq.AFTER_HARDWARE_HOOK)
         if kwargs['post_camera_hook_fn'] is not None:
             hook = JavaObject(
-                "org.micromanager.remote.RemoteAcqHook", args=[self._remote_acq]
+                "org.micromanager.remote.RemoteAcqHook", port=self._bridge_port, args=[self._remote_acq],
             )
             self._hook_threads.append(self._start_hook(hook, kwargs['post_camera_hook_fn'],
                                                        self._event_queue, process=kwargs['process']))
@@ -424,9 +425,9 @@ class Acquisition(object, metaclass=NumpyDocstringInheritanceMeta):
         self._event_queue = multiprocessing.Queue() if kwargs['process'] else queue.Queue()
 
     def _create_remote_acquisition(self, **kwargs):
-        core = Core()
+        core = Core(port= self._bridge_port, timeout=self._bridge_timeout)
         acq_factory = JavaObject(
-            "org.micromanager.remote.RemoteAcquisitionFactory", args=[core]
+            "org.micromanager.remote.RemoteAcquisitionFactory", port=self._bridge_port, args=[core]
         )
         show_viewer = kwargs['show_display'] == True and (kwargs['directory'] is not None and kwargs['name'] is not None)
 
@@ -546,6 +547,7 @@ class Acquisition(object, metaclass=NumpyDocstringInheritanceMeta):
             name="AcquisitionHook",
             args=(
                 self._bridge_port,
+                self._bridge_timeout,
                 pull_port,
                 push_port,
                 hook_connected_evt,
@@ -590,6 +592,7 @@ class Acquisition(object, metaclass=NumpyDocstringInheritanceMeta):
             target=_run_image_processor,
             args=(
                 self._bridge_port,
+                self._bridge_timeout,
                 pull_port,
                 push_port,
                 sockets_connected_evt,
@@ -655,10 +658,10 @@ class XYTiledAcquisition(Acquisition):
         named_args = {arg_name: l[arg_name] for arg_name in arg_names}
         super().__init__(**named_args)
 
-    def _create_remote_acquisition(self, **kwargs):
-        core = Core()
+    def _create_remote_acquisition(self, port, timeout, **kwargs):
+        core = Core(port=self._bridge_port, timeout=self._bridge_timeout)
         acq_factory = JavaObject(
-            "org.micromanager.remote.RemoteAcquisitionFactory", args=[core]
+            "org.micromanager.remote.RemoteAcquisitionFactory", port=self._bridge_port, args=[core]
         )
 
         show_viewer = kwargs['show_display'] and (kwargs['directory'] is not None and kwargs['name'] is not None)
