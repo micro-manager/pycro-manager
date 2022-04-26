@@ -342,11 +342,17 @@ class Acquisition(object, metaclass=NumpyDocstringInheritanceMeta):
 
         self._start_events()
 
+        # Load remote storage
+        self._dataset = Dataset(remote_storage_monitor=self._remote_acq.get_storage_monitor())
         if image_saved_fn is not None:
-            self._dataset = Dataset(remote_storage_monitor=self._remote_acq.get_storage_monitor())
             self._storage_monitor_thread = self._dataset._add_storage_monitor_fn(
                 callback_fn=image_saved_fn, debug=self._debug
             )
+        else:
+            # Monitor image arrival so they can be loaded on python side, but with no callback function
+            # Need to do this regardless of whether you use it, so that it signals to shut down on Java side
+            self._storage_monitor_thread = self._dataset._add_storage_monitor_fn(callback_fn=None, debug=self._debug)
+
 
         if show_display == 'napari':
             import napari
@@ -449,11 +455,6 @@ class Acquisition(object, metaclass=NumpyDocstringInheritanceMeta):
         if self._finished:
             if self._dataset is None or self._dataset._remote_storage_monitor is not None:
                 self._dataset = Dataset(self._dataset_disk_location)
-        elif self._dataset is None:
-            # Load remote storage
-            self._dataset = Dataset(remote_storage_monitor=self._remote_acq.get_storage_monitor())
-            # Monitor image arrival so they can be loaded on python side, but with no callback function
-            self._storage_monitor_thread = self._dataset._add_storage_monitor_fn(callback_fn=None, debug=self._debug)
 
         return self._dataset
 
