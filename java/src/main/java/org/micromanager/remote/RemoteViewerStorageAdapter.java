@@ -49,6 +49,7 @@ public class RemoteViewerStorageAdapter implements DataSourceInterface, DataSink
    private String name_;
    private Integer maxResLevel_;
    private int savingQueueSize_;
+   private volatile boolean finished_ = false;
 
 
    /**
@@ -242,15 +243,13 @@ public class RemoteViewerStorageAdapter implements DataSourceInterface, DataSink
       if (showViewer_) {
          viewer_.setWindowTitle(name_ + " (Finished)");
          displayCommunicationExecutor_.shutdown();
-      }   
+      }
+      finished_ = true;
    }
 
    @Override
    public boolean isFinished() {
-      if (storage_ != null) {
-         return storage_.isFinished();
-      }
-      return true;
+      return finished_;
    }
 
    @Override

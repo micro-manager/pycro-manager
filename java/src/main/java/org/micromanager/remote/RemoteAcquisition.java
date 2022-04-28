@@ -63,9 +63,9 @@ public class RemoteAcquisition extends Acquisition
    @Override
    public boolean isFinished() {
       if (dataSink_ != null) {
-         return dataSink_.isFinished();
+         return eventSource_.isFinished() && dataSink_.isFinished();
       }
-      return true;
+      return eventSource_.isFinished();
    }
 
    @Override

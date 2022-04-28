@@ -6,6 +6,7 @@
 package org.micromanager.remote;
 
 import java.nio.ByteBuffer;
+import java.sql.Time;
 import java.util.concurrent.*;
 
 import mmcorej.org.json.JSONException;
@@ -109,5 +110,16 @@ public class RemoteStorageMonitor implements ImageWrittenListener {
     */
    public void imageWritten(IndexEntryData ied) {
       indexEntries_.addLast(ied);
+   }
+
+   @Override
+   public void awaitCompletion() {
+      while (!executor_.isTerminated()) {
+         try {
+            Thread.sleep(5);
+         } catch (InterruptedException e) {
+            throw new RuntimeException(e);
+         }
+      }
    }
 }

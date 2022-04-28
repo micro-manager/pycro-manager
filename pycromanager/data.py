@@ -529,7 +529,7 @@ class Dataset:
 
         monitor_thread.start()
 
-        # not sure if this is neccesary, copied from acq hook
+        # Wait for pulling to start before you signal for pushing to start
         connected_event.wait()  # wait for push/pull sockets to connect
 
         # start pushing out all the image written events (including ones that have already accumulated)
