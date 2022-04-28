@@ -83,6 +83,14 @@ public class RemoteEventSource {
    }
 
    /**
+    * Return true when all events finished and everything shutdown
+    * @return
+    */
+   public boolean isFinished() {
+      return executor_.isTerminated();
+   }
+
+   /**
     * This method needed so the source can be shutdown from x out on the viewer, 
     * This method needed so the source can be shutdown from x out on the viewer,
     * rather than sending a finished event like noremal

@@ -474,8 +474,7 @@ class Acquisition(object, metaclass=NumpyDocstringInheritanceMeta):
         self._remote_acq = None
 
         # Wait on all the other threads to shut down properly
-        if hasattr(self, '_storage_monitor_thread'):
-            self._storage_monitor_thread.join()
+        self._storage_monitor_thread.join()
 
         for hook_thread in self._hook_threads:
             hook_thread.join()
