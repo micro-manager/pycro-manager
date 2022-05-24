@@ -471,6 +471,7 @@ class Acquisition(object, metaclass=NumpyDocstringInheritanceMeta):
         """Wait for acquisition to finish and resources to be cleaned up"""
         while not self._remote_acq.is_finished():
             time.sleep(0.01)
+            self._remote_acq.check_for_exceptions()
         self._remote_acq = None
 
         # Wait on all the other threads to shut down properly
