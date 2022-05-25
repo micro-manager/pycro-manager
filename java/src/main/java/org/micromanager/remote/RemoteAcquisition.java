@@ -53,7 +53,8 @@ public class RemoteAcquisition extends Acquisition
    public int getEventPort() {
       return eventSource_.getPort();
    }
-   
+
+
    @Override
    public void abort() {
       super.abort();

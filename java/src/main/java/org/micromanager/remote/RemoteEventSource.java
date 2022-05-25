@@ -67,6 +67,7 @@ public class RemoteEventSource {
                   return; //It was aborted
                }
                e.printStackTrace();
+               acq_.abort(e);
                throw new RuntimeException(e);
             }
 
