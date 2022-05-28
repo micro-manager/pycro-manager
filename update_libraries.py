@@ -77,6 +77,9 @@ for lib_name in versions:
 with open(f, 'w') as outfile:
     outfile.write(data)
 
+print('pushing micromanager')
+os.system("cd \"{}{}\" && git commit -am \"update libraries\" && git push".format(str(git_repos_dir), '/micro-manager'))
+
 
 
 
