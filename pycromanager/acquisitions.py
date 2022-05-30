@@ -343,15 +343,17 @@ class Acquisition(object, metaclass=NumpyDocstringInheritanceMeta):
         self._start_events()
 
         # Load remote storage
-        self._dataset = Dataset(remote_storage_monitor=self._remote_acq.get_storage_monitor())
-        if image_saved_fn is not None:
-            self._storage_monitor_thread = self._dataset._add_storage_monitor_fn(
-                callback_fn=image_saved_fn, debug=self._debug
-            )
-        else:
-            # Monitor image arrival so they can be loaded on python side, but with no callback function
-            # Need to do this regardless of whether you use it, so that it signals to shut down on Java side
-            self._storage_monitor_thread = self._dataset._add_storage_monitor_fn(callback_fn=None, debug=self._debug)
+        remote_storage_monitor = self._remote_acq.get_storage_monitor()
+        if remote_storage_monitor is not None:
+            self._dataset = Dataset(remote_storage_monitor=remote_storage_monitor)
+            if image_saved_fn is not None:
+                self._storage_monitor_thread = self._dataset._add_storage_monitor_fn(
+                    callback_fn=image_saved_fn, debug=self._debug
+                )
+            else:
+                # Monitor image arrival so they can be loaded on python side, but with no callback function
+                # Need to do this regardless of whether you use it, so that it signals to shut down on Java side
+                self._storage_monitor_thread = self._dataset._add_storage_monitor_fn(callback_fn=None, debug=self._debug)
 
 
         if show_display == 'napari':
@@ -475,7 +477,8 @@ class Acquisition(object, metaclass=NumpyDocstringInheritanceMeta):
         self._remote_acq = None
 
         # Wait on all the other threads to shut down properly
-        self._storage_monitor_thread.join()
+        if hasattr(self, '_storage_monitor_thread'):
+            self._storage_monitor_thread.join()
 
         for hook_thread in self._hook_threads:
             hook_thread.join()
