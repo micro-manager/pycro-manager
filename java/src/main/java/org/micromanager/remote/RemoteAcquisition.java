@@ -44,6 +44,9 @@ public class RemoteAcquisition extends Acquisition
     * @return
     */
    public RemoteStorageMonitor getStorageMonitor() {
+      if (dataSink_ == null) {
+         return null;
+      }
       return ((RemoteViewerStorageAdapter) dataSink_).getStorageMonitor();
    }
 
