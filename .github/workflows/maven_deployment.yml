@@ -16,6 +16,11 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+      - name: Sleep for 20min or so-so libraries are available
+        uses: juliangruber/sleep-action@v1
+        with:
+          time: 1500s
+    
       - uses: actions/checkout@v2
 
       - name: Set up JDK 8
