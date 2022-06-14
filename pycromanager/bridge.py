@@ -94,7 +94,7 @@ class DataSocket:
                 elif isinstance(entry, list) or isinstance(entry, dict):
                     self._remove_bytes(bytes_data, structure[key])
 
-    def send(self, message, timeout=0):
+    def send(self, message, timeout=0, suppress_debug_message=False):
         if message is None:
             message = {}
         # make sure any np types convert to python types so they can be json serialized
@@ -103,7 +103,7 @@ class DataSocket:
         bytes_data = []
         self._remove_bytes(bytes_data, message)
         message_string = json.dumps(message)
-        if self._debug:
+        if self._debug and not suppress_debug_message:
             print("DEBUG, sending: {}".format(message))
         # convert keys to byte array
         key_vals = [(identifier.tobytes(), value) for identifier, value in bytes_data]
@@ -147,7 +147,7 @@ class DataSocket:
                 elif isinstance(entry, list) or isinstance(entry, dict):
                     self._replace_bytes(entry, hash, value)
 
-    def receive(self, timeout=0):
+    def receive(self, timeout=0, suppress_debug_message=False):
         if timeout == 0:
             reply = self._socket.recv_multipart()
         else:
@@ -170,7 +170,7 @@ class DataSocket:
             value = reply[i + 1]
             self._replace_bytes(message, identity_hash, value)
 
-        if self._debug:
+        if self._debug and not suppress_debug_message:
             print("DEBUG, recieved: {}".format(message))
         self._check_exception(message)
         return message
@@ -187,7 +187,7 @@ class DataSocket:
             if not self._closed:
                 for java_object in self._java_objects:
                     java_object._close()
-                    del java_object #potentially redundant, trying to fix closing race condition
+                    del java_object # potentially redundant, trying to fix closing race condition
                 self._java_objects = None
                 self._socket.close()
                 while not self._socket.closed:
