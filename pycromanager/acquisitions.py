@@ -178,17 +178,17 @@ def _run_image_processor(
             "pixels": pixels.tobytes(),
             "metadata": metadata,
         }
-        push_socket.send(processed_img)
+        push_socket.send(processed_img, suppress_debug_message=True)
 
     while True:
         message = None
         while message is None:
-            message = pull_socket.receive(timeout=30)  # check for new message
+            message = pull_socket.receive(timeout=30, suppress_debug_message=True)  # check for new message
 
         if "special" in message and message["special"] == "finished":
+            pull_socket.close()
             push_socket.send(message)  # Continue propagating the finihsed signal
             push_socket.close()
-            pull_socket.close()
             return
 
         metadata = message["metadata"]

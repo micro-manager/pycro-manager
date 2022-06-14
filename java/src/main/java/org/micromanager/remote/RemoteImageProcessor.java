@@ -88,6 +88,8 @@ public class RemoteImageProcessor implements TaggedImageProcessor {
    }
 
    public void startPush() {
+      // Pushing will get shut down when a null/null image comes through signalling
+      // the acquisition is finished
       pushExecutor_.submit(() -> {
          //take from source and push as fast as possible
          while (true) {
@@ -95,19 +97,25 @@ public class RemoteImageProcessor implements TaggedImageProcessor {
                try {
                   TaggedImage img = source_.takeFirst();
                   pushSocket_.push(img);
+                  if (img.tags == null && img.pix == null) {
+                     // all images have been pushed
+                     pushExecutor_.shutdown();
+                     break;
+                  }
                } catch (InterruptedException ex) {
                   return;
                } catch (Exception e) {
-                  if (pullExecutor_.isShutdown()) {
-                     return;
-                  }
                   e.printStackTrace();
+                  break;
                }
             }
          }
+         pushSocket_.close();
       });
    }
 
+   // Pulling will get shutdown based on a signal from python side indicating that
+   // it will not push anything more
    public void startPull() {
       pullExecutor_.submit(() -> {
          while (true) {
@@ -115,6 +123,10 @@ public class RemoteImageProcessor implements TaggedImageProcessor {
                try {
                   TaggedImage ti = pullSocket_.next();
                   sink_.putLast(ti);
+                  if (ti.pix == null && ti.tags == null) {
+                     pullExecutor_.shutdown();
+                     break;
+                  }
                } catch (InterruptedException ex) {
                   return;
                } catch (Exception e) {
@@ -125,6 +137,7 @@ public class RemoteImageProcessor implements TaggedImageProcessor {
                }
             }
          }
+         pullSocket_.close();
       });
    }
 
@@ -134,12 +147,5 @@ public class RemoteImageProcessor implements TaggedImageProcessor {
       sink_ = sink;
    }
 
-   @Override
-   public void close() {
-      pullExecutor_.shutdownNow();
-      pushExecutor_.shutdownNow();
-      pushSocket_.close();
-      pullSocket_.close();
-   }
 
 }
