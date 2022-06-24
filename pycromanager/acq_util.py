@@ -76,7 +76,7 @@ def start_headless(
                 # "-XX:MaxDirectMemorySize=1000",
                 "org.micromanager.remote.HeadlessLauncher",
                 str(port)
-            ]
+            ], cwd=mm_app_path
         )
     )
 
