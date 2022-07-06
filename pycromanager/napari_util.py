@@ -1,4 +1,7 @@
-from napari.qt import thread_worker
+try:
+    from napari.qt import thread_worker
+except:
+    raise Exception('Napari must be installed to use these features')
 import numpy as np
 import time
 
