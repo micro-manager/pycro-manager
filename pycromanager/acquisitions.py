@@ -357,7 +357,10 @@ class Acquisition(object, metaclass=NumpyDocstringInheritanceMeta):
 
 
         if show_display == 'napari':
-            import napari
+            try:
+                import napari
+            except:
+                raise Exception('Napari must be installed in order to use this feature')
             from pycromanager.napari_util import start_napari_signalling
             viewer = napari.Viewer()
             start_napari_signalling(viewer, self.get_dataset())
