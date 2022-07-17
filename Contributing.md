@@ -29,12 +29,6 @@ pip install -e .[test]
 ```
 
 
-## Autoformatting
-
-pycro-manager's python code is autoformatted using [black](https://black.readthedocs.io/en/stable/). To autoformat your code:
-1. navigating to the `pycro-manager`
-2. run `black .`  
-
 ## Making changes
 
 Create a new feature branch:
