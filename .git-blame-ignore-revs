@@ -3,3 +3,6 @@
 
 # formatting example notebooks with black
 51b981aa6a043beb65292908356a7b06dac6e5fa
+
+# Running black across repo 
+e4378201f2fe33897f844756983bcc5b21c1f278
