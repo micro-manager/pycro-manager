@@ -4,6 +4,7 @@ Classes that wrap instance of known java objects for ease of use
 from pycromanager.bridge import _JavaObjectShadow, Bridge
 import threading
 
+
 class _CoreCallback:
     """
     A class for recieving callbacks from the core, which are mostly used
@@ -62,7 +63,12 @@ class Core(_JavaObjectShadow):
     """
 
     def __new__(
-        cls, convert_camel_case=True, port=Bridge.DEFAULT_PORT, new_socket=False, debug=False, timeout=1000,
+        cls,
+        convert_camel_case=True,
+        port=Bridge.DEFAULT_PORT,
+        new_socket=False,
+        debug=False,
+        timeout=1000,
     ):
         """
         Parameters
@@ -81,7 +87,9 @@ class Core(_JavaObjectShadow):
         timeout:
             timeout for underlying bridge
         """
-        bridge = Bridge(port=port, convert_camel_case=convert_camel_case, debug=debug, timeout=timeout)
+        bridge = Bridge(
+            port=port, convert_camel_case=convert_camel_case, debug=debug, timeout=timeout
+        )
         return bridge._construct_java_object("mmcorej.CMMCore", new_socket=new_socket)
 
     def get_core_callback(self, callback_fn=None, bridge_port=Bridge.DEFAULT_PORT):
@@ -130,7 +138,12 @@ class Studio(_JavaObjectShadow):
     """
 
     def __new__(
-        cls, convert_camel_case=True, port=Bridge.DEFAULT_PORT, timeout=Bridge.DEFAULT_TIMEOUT, new_socket=False, debug=False
+        cls,
+        convert_camel_case=True,
+        port=Bridge.DEFAULT_PORT,
+        timeout=Bridge.DEFAULT_TIMEOUT,
+        new_socket=False,
+        debug=False,
     ):
         """
         convert_camel_case : bool
@@ -145,7 +158,9 @@ class Studio(_JavaObjectShadow):
         debug: bool
             print debug messages
         """
-        bridge = Bridge(port=port, timeout=timeout, convert_camel_case=convert_camel_case, debug=debug)
+        bridge = Bridge(
+            port=port, timeout=timeout, convert_camel_case=convert_camel_case, debug=debug
+        )
         return bridge._construct_java_object("org.micromanager.Studio", new_socket=new_socket)
 
 
@@ -183,7 +198,9 @@ class JavaObject(_JavaObjectShadow):
         debug:
             print debug messages
         """
-        bridge = Bridge(port=port, timeout=timeout, convert_camel_case=convert_camel_case, debug=debug)
+        bridge = Bridge(
+            port=port, timeout=timeout, convert_camel_case=convert_camel_case, debug=debug
+        )
         return bridge._construct_java_object(classpath, new_socket=new_socket, args=args)
 
 
@@ -217,5 +234,7 @@ class JavaClass(_JavaObjectShadow):
         debug:
             print debug messages
         """
-        bridge = Bridge(port=port, timeout=timeout, convert_camel_case=convert_camel_case, debug=debug)
+        bridge = Bridge(
+            port=port, timeout=timeout, convert_camel_case=convert_camel_case, debug=debug
+        )
         return bridge._get_java_class(classpath, new_socket=new_socket)

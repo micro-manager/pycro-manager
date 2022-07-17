@@ -48,7 +48,17 @@ def _run_acq_event_source(bridge_port, bridge_timeout, event_port, event_queue, 
         if debug:
             print("sent events")
 
-def _run_acq_hook(bridge_port, bridge_timeout, pull_port, push_port, hook_connected_evt, event_queue, hook_fn, debug=False):
+
+def _run_acq_hook(
+    bridge_port,
+    bridge_timeout,
+    pull_port,
+    push_port,
+    hook_connected_evt,
+    event_queue,
+    hook_fn,
+    debug=False,
+):
     """
 
     Parameters
@@ -108,8 +118,14 @@ def _run_acq_hook(bridge_port, bridge_timeout, pull_port, push_port, hook_connec
 
 
 def _run_image_processor(
-        bridge_port, bridge_timeout,
-        pull_port, push_port, sockets_connected_evt, process_fn, event_queue, debug
+    bridge_port,
+    bridge_timeout,
+    pull_port,
+    push_port,
+    sockets_connected_evt,
+    process_fn,
+    event_queue,
+    debug,
 ):
     """
 
@@ -166,12 +182,12 @@ def _run_image_processor(
                 "but instead they were {} and {}".format(image_tags_tuple[0].dtype, pixels.dtype)
             )
 
-        if metadata['PixelType'] == 'RGB32':
+        if metadata["PixelType"] == "RGB32":
             if pixels.shape[-1] == 3:
-                #append 0 for alpha channel because thats whats expected
+                # append 0 for alpha channel because thats whats expected
                 pixels = np.concatenate([pixels, np.zeros_like(pixels[..., 0])[..., None]], axis=2)
         else:
-            #maybe pixel type was changed by processing?
+            # maybe pixel type was changed by processing?
             metadata["PixelType"] = "GRAY8" if pixels.dtype.itemsize == 1 else "GRAY16"
 
         processed_img = {
@@ -183,7 +199,9 @@ def _run_image_processor(
     while True:
         message = None
         while message is None:
-            message = pull_socket.receive(timeout=30, suppress_debug_message=True)  # check for new message
+            message = pull_socket.receive(
+                timeout=30, suppress_debug_message=True
+            )  # check for new message
 
         if "special" in message and message["special"] == "finished":
             pull_socket.close()
@@ -193,7 +211,7 @@ def _run_image_processor(
 
         metadata = message["metadata"]
         pixels = deserialize_array(message["pixels"])
-        if metadata['PixelType'] == 'RGB32':
+        if metadata["PixelType"] == "RGB32":
             image = np.reshape(pixels, [metadata["Height"], metadata["Width"], 4])[..., :3]
         else:
             image = np.reshape(pixels, [metadata["Height"], metadata["Width"]])
@@ -224,7 +242,6 @@ def _run_image_processor(
             process_and_sendoff(processed, pixels.dtype)
 
 
-
 class Acquisition(object, metaclass=NumpyDocstringInheritanceMeta):
     """
     Base class for Pycro-Manager acquisitions
@@ -232,21 +249,21 @@ class Acquisition(object, metaclass=NumpyDocstringInheritanceMeta):
 
     def __init__(
         self,
-        directory: str=None,
-        name: str=None,
-        image_process_fn : callable=None,
-        event_generation_hook_fn: callable=None,
-        pre_hardware_hook_fn: callable=None,
-        post_hardware_hook_fn: callable=None,
-        post_camera_hook_fn: callable=None,
-        show_display: bool or str=True,
-        image_saved_fn: callable=None,
-        process: bool=False,
-        saving_queue_size: int=20,
-        bridge_timeout: int=500,
-        port: int=Bridge.DEFAULT_PORT,
-        debug: int=False,
-        core_log_debug: int=False,
+        directory: str = None,
+        name: str = None,
+        image_process_fn: callable = None,
+        event_generation_hook_fn: callable = None,
+        pre_hardware_hook_fn: callable = None,
+        post_hardware_hook_fn: callable = None,
+        post_camera_hook_fn: callable = None,
+        show_display: bool or str = True,
+        image_saved_fn: callable = None,
+        process: bool = False,
+        saving_queue_size: int = 20,
+        bridge_timeout: int = 500,
+        port: int = Bridge.DEFAULT_PORT,
+        debug: int = False,
+        core_log_debug: int = False,
     ):
         """
         Parameters
@@ -316,17 +333,22 @@ class Acquisition(object, metaclass=NumpyDocstringInheritanceMeta):
         self._finished = False
 
         # Get a dict of all named argument values (or default values when nothing provided)
-        arg_names = [k for k in signature(Acquisition.__init__).parameters.keys() if k != 'self']
+        arg_names = [k for k in signature(Acquisition.__init__).parameters.keys() if k != "self"]
         l = locals()
-        named_args = {arg_name: (l[arg_name] if arg_name in l else
-                                     dict(signature(Acquisition.__init__).parameters.items())[arg_name].default)
-                                     for arg_name in arg_names }
+        named_args = {
+            arg_name: (
+                l[arg_name]
+                if arg_name in l
+                else dict(signature(Acquisition.__init__).parameters.items())[arg_name].default
+            )
+            for arg_name in arg_names
+        }
 
         if directory is not None:
             # Expend ~ in path
             directory = os.path.expanduser(directory)
             # If path is relative, retain knowledge of the current working directory
-            named_args['directory'] = os.path.abspath(directory)
+            named_args["directory"] = os.path.abspath(directory)
 
         self._create_event_queue(**named_args)
         self._create_remote_acquisition(**named_args)
@@ -353,19 +375,19 @@ class Acquisition(object, metaclass=NumpyDocstringInheritanceMeta):
             else:
                 # Monitor image arrival so they can be loaded on python side, but with no callback function
                 # Need to do this regardless of whether you use it, so that it signals to shut down on Java side
-                self._storage_monitor_thread = self._dataset._add_storage_monitor_fn(callback_fn=None, debug=self._debug)
+                self._storage_monitor_thread = self._dataset._add_storage_monitor_fn(
+                    callback_fn=None, debug=self._debug
+                )
 
-
-        if show_display == 'napari':
+        if show_display == "napari":
             try:
                 import napari
             except:
-                raise Exception('Napari must be installed in order to use this feature')
+                raise Exception("Napari must be installed in order to use this feature")
             from pycromanager.napari_util import start_napari_signalling
+
             viewer = napari.Viewer()
             start_napari_signalling(viewer, self.get_dataset())
-
-
 
     def __enter__(self):
         return self
@@ -375,81 +397,120 @@ class Acquisition(object, metaclass=NumpyDocstringInheritanceMeta):
         # now wait on it to finish
         self.await_completion()
 
-
     def _start_events(self, **kwargs):
 
         self.event_port = self._remote_acq.get_event_port()
 
         self._event_thread = threading.Thread(
             target=_run_acq_event_source,
-            args=(self._bridge_port, self._bridge_timeout, self.event_port, self._event_queue, self._debug),
+            args=(
+                self._bridge_port,
+                self._bridge_timeout,
+                self.event_port,
+                self._event_queue,
+                self._debug,
+            ),
             name="Event sending",
         )
         self._event_thread.start()
 
     def _initialize_image_processor(self, **kwargs):
 
-        if kwargs['image_process_fn'] is not None:
+        if kwargs["image_process_fn"] is not None:
             java_processor = JavaObject(
                 "org.micromanager.remote.RemoteImageProcessor", port=self._bridge_port
             )
             self._remote_acq.add_image_processor(java_processor)
             self._processor_thread = self._start_processor(
-                java_processor, kwargs['image_process_fn'], self._event_queue, process=kwargs['process'])
-
+                java_processor,
+                kwargs["image_process_fn"],
+                self._event_queue,
+                process=kwargs["process"],
+            )
 
     def _initialize_hooks(self, **kwargs):
         self._hook_threads = []
-        if kwargs['event_generation_hook_fn'] is not None:
+        if kwargs["event_generation_hook_fn"] is not None:
             hook = JavaObject(
-                "org.micromanager.remote.RemoteAcqHook", port=self._bridge_port, args=[self._remote_acq]
+                "org.micromanager.remote.RemoteAcqHook",
+                port=self._bridge_port,
+                args=[self._remote_acq],
             )
-            self._hook_threads.append(self._start_hook(hook, kwargs['event_generation_hook_fn'],
-                                                       self._event_queue, process=kwargs['process']))
+            self._hook_threads.append(
+                self._start_hook(
+                    hook,
+                    kwargs["event_generation_hook_fn"],
+                    self._event_queue,
+                    process=kwargs["process"],
+                )
+            )
             self._remote_acq.add_hook(hook, self._remote_acq.EVENT_GENERATION_HOOK)
-        if kwargs['pre_hardware_hook_fn'] is not None:
+        if kwargs["pre_hardware_hook_fn"] is not None:
             hook = JavaObject(
-                "org.micromanager.remote.RemoteAcqHook", port=self._bridge_port, args=[self._remote_acq]
+                "org.micromanager.remote.RemoteAcqHook",
+                port=self._bridge_port,
+                args=[self._remote_acq],
             )
-            self._hook_threads.append(self._start_hook(hook,
-                                            kwargs['pre_hardware_hook_fn'], self._event_queue,
-                                                       process=kwargs['process']))
+            self._hook_threads.append(
+                self._start_hook(
+                    hook,
+                    kwargs["pre_hardware_hook_fn"],
+                    self._event_queue,
+                    process=kwargs["process"],
+                )
+            )
             self._remote_acq.add_hook(hook, self._remote_acq.BEFORE_HARDWARE_HOOK)
-        if kwargs['post_hardware_hook_fn'] is not None:
+        if kwargs["post_hardware_hook_fn"] is not None:
             hook = JavaObject(
-                "org.micromanager.remote.RemoteAcqHook", port=self._bridge_port, args=[self._remote_acq]
+                "org.micromanager.remote.RemoteAcqHook",
+                port=self._bridge_port,
+                args=[self._remote_acq],
             )
-            self._hook_threads.append(self._start_hook(hook, kwargs['post_hardware_hook_fn'],
-                                                       self._event_queue, process=kwargs['process']))
+            self._hook_threads.append(
+                self._start_hook(
+                    hook,
+                    kwargs["post_hardware_hook_fn"],
+                    self._event_queue,
+                    process=kwargs["process"],
+                )
+            )
             self._remote_acq.add_hook(hook, self._remote_acq.AFTER_HARDWARE_HOOK)
-        if kwargs['post_camera_hook_fn'] is not None:
+        if kwargs["post_camera_hook_fn"] is not None:
             hook = JavaObject(
-                "org.micromanager.remote.RemoteAcqHook", port=self._bridge_port, args=[self._remote_acq],
+                "org.micromanager.remote.RemoteAcqHook",
+                port=self._bridge_port,
+                args=[self._remote_acq],
             )
-            self._hook_threads.append(self._start_hook(hook, kwargs['post_camera_hook_fn'],
-                                                       self._event_queue, process=kwargs['process']))
+            self._hook_threads.append(
+                self._start_hook(
+                    hook,
+                    kwargs["post_camera_hook_fn"],
+                    self._event_queue,
+                    process=kwargs["process"],
+                )
+            )
             self._remote_acq.add_hook(hook, self._remote_acq.AFTER_CAMERA_HOOK)
-
 
     def _create_event_queue(self, **kwargs):
         # Create thread safe queue for events so they can be passed from multiple processes
-        self._event_queue = multiprocessing.Queue() if kwargs['process'] else queue.Queue()
+        self._event_queue = multiprocessing.Queue() if kwargs["process"] else queue.Queue()
 
     def _create_remote_acquisition(self, **kwargs):
-        core = Core(port= self._bridge_port, timeout=self._bridge_timeout)
+        core = Core(port=self._bridge_port, timeout=self._bridge_timeout)
         acq_factory = JavaObject(
             "org.micromanager.remote.RemoteAcquisitionFactory", port=self._bridge_port, args=[core]
         )
-        show_viewer = kwargs['show_display'] == True and (kwargs['directory'] is not None and kwargs['name'] is not None)
-
-        self._remote_acq = acq_factory.create_acquisition(
-            kwargs['directory'],
-            kwargs['name'],
-            show_viewer,
-            kwargs['saving_queue_size'],
-            kwargs['core_log_debug'],
+        show_viewer = kwargs["show_display"] == True and (
+            kwargs["directory"] is not None and kwargs["name"] is not None
         )
 
+        self._remote_acq = acq_factory.create_acquisition(
+            kwargs["directory"],
+            kwargs["name"],
+            show_viewer,
+            kwargs["saving_queue_size"],
+            kwargs["core_log_debug"],
+        )
 
     def get_dataset(self):
         """
@@ -480,13 +541,13 @@ class Acquisition(object, metaclass=NumpyDocstringInheritanceMeta):
         self._remote_acq = None
 
         # Wait on all the other threads to shut down properly
-        if hasattr(self, '_storage_monitor_thread'):
+        if hasattr(self, "_storage_monitor_thread"):
             self._storage_monitor_thread.join()
 
         for hook_thread in self._hook_threads:
             hook_thread.join()
 
-        if hasattr(self, '_event_thread'):
+        if hasattr(self, "_event_thread"):
             self._event_thread.join()
 
         self._finished = True
@@ -526,7 +587,9 @@ class Acquisition(object, metaclass=NumpyDocstringInheritanceMeta):
             ]  # return to autoshutter, dont acquire an image
         self._event_queue.put(events)
 
-    def _start_hook(self, remote_hook : _JavaObjectShadow, remote_hook_fn : callable, event_queue, process):
+    def _start_hook(
+        self, remote_hook: _JavaObjectShadow, remote_hook_fn: callable, event_queue, process
+    ):
         """
 
         Parameters
@@ -623,23 +686,23 @@ class XYTiledAcquisition(Acquisition):
     """
 
     def __init__(
-            self,
-            tile_overlap : int or tuple,
-            directory: str=None,
-            name: str=None,
-            max_multi_res_index: int=None,
-            image_process_fn: callable=None,
-            pre_hardware_hook_fn: callable=None,
-            post_hardware_hook_fn: callable=None,
-            post_camera_hook_fn: callable=None,
-            show_display: bool=True,
-            image_saved_fn: callable=None,
-            process: bool=False,
-            saving_queue_size: int=20,
-            bridge_timeout: int=500,
-            port: int=Bridge.DEFAULT_PORT,
-            debug: bool=False,
-            core_log_debug: bool=False,
+        self,
+        tile_overlap: int or tuple,
+        directory: str = None,
+        name: str = None,
+        max_multi_res_index: int = None,
+        image_process_fn: callable = None,
+        pre_hardware_hook_fn: callable = None,
+        post_hardware_hook_fn: callable = None,
+        post_camera_hook_fn: callable = None,
+        show_display: bool = True,
+        image_saved_fn: callable = None,
+        process: bool = False,
+        saving_queue_size: int = 20,
+        bridge_timeout: int = 500,
+        port: int = Bridge.DEFAULT_PORT,
+        debug: bool = False,
+        core_log_debug: bool = False,
     ):
         """
         Parameters
@@ -659,8 +722,8 @@ class XYTiledAcquisition(Acquisition):
         self.max_multi_res_index = max_multi_res_index
         # Collct all argument values except the ones specific to Magellan
         arg_names = list(signature(self.__init__).parameters.keys())
-        arg_names.remove('tile_overlap')
-        arg_names.remove('max_multi_res_index')
+        arg_names.remove("tile_overlap")
+        arg_names.remove("max_multi_res_index")
         l = locals()
         named_args = {arg_name: l[arg_name] for arg_name in arg_names}
         super().__init__(**named_args)
@@ -671,7 +734,9 @@ class XYTiledAcquisition(Acquisition):
             "org.micromanager.remote.RemoteAcquisitionFactory", port=self._bridge_port, args=[core]
         )
 
-        show_viewer = kwargs['show_display'] and (kwargs['directory'] is not None and kwargs['name'] is not None)
+        show_viewer = kwargs["show_display"] and (
+            kwargs["directory"] is not None and kwargs["name"] is not None
+        )
         if type(self.tile_overlap) is tuple:
             x_overlap, y_overlap = self.tile_overlap
         else:
@@ -679,15 +744,15 @@ class XYTiledAcquisition(Acquisition):
             y_overlap = self.tile_overlap
 
         self._remote_acq = acq_factory.create_tiled_acquisition(
-            kwargs['directory'],
-            kwargs['name'],
+            kwargs["directory"],
+            kwargs["name"],
             show_viewer,
             True,
             x_overlap,
             y_overlap,
             self.max_multi_res_index if self.max_multi_res_index is not None else -1,
-            kwargs['saving_queue_size'],
-            kwargs['core_log_debug'],
+            kwargs["saving_queue_size"],
+            kwargs["core_log_debug"],
         )
 
 
@@ -698,19 +763,19 @@ class MagellanAcquisition(Acquisition):
     """
 
     def __init__(
-            self,
-            magellan_acq_index: int=None,
-            magellan_explore: bool=False,
-            image_process_fn: callable=None,
-            event_generation_hook_fn: callable=None,
-            pre_hardware_hook_fn: callable=None,
-            post_hardware_hook_fn: callable=None,
-            post_camera_hook_fn: callable=None,
-            image_saved_fn: callable=None,
-            bridge_timeout: int=500,
-            port: int=Bridge.DEFAULT_PORT,
-            debug: bool=False,
-            core_log_debug: bool=False,
+        self,
+        magellan_acq_index: int = None,
+        magellan_explore: bool = False,
+        image_process_fn: callable = None,
+        event_generation_hook_fn: callable = None,
+        pre_hardware_hook_fn: callable = None,
+        post_hardware_hook_fn: callable = None,
+        post_camera_hook_fn: callable = None,
+        image_saved_fn: callable = None,
+        bridge_timeout: int = 500,
+        port: int = Bridge.DEFAULT_PORT,
+        debug: bool = False,
+        core_log_debug: bool = False,
     ):
         """
         Parameters
@@ -725,17 +790,17 @@ class MagellanAcquisition(Acquisition):
         self.magellan_explore = magellan_explore
         # Collct all argument values except the ones specific to Magellan
         arg_names = list(signature(self.__init__).parameters.keys())
-        arg_names.remove('magellan_acq_index')
-        arg_names.remove('magellan_explore')
+        arg_names.remove("magellan_acq_index")
+        arg_names.remove("magellan_explore")
         l = locals()
         named_args = {arg_name: l[arg_name] for arg_name in arg_names}
         super().__init__(**named_args)
 
     def _start_events(self, **kwargs):
-        pass # Magellan handles this on Java side
+        pass  # Magellan handles this on Java side
 
     def _create_event_queue(self, **kwargs):
-        pass # Magellan handles this on Java side
+        pass  # Magellan handles this on Java side
 
     def _create_remote_acquisition(self, **kwargs):
         if self.magellan_acq_index is not None:

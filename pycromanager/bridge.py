@@ -13,6 +13,7 @@ import threading
 from warnings import warn
 import weakref
 
+
 class DataSocket:
     """
     Wrapper for ZMQ socket that sends and recieves dictionaries
@@ -65,7 +66,7 @@ class DataSocket:
         """
         # make up a random 32 bit int as the identifier
         # TODO: change to simple counting
-        identifier = np.random.randint(-(2 ** 31), 2 ** 31 - 1, 1, dtype=np.int32)[0]
+        identifier = np.random.randint(-(2**31), 2**31 - 1, 1, dtype=np.int32)[0]
         # '@{some_number}_{bytes_per_pixel}'
         # if its a numpy array, include bytes per pixel, otherwise just interpret it as raw byts
         # TODO : I thinkg its always raw binary and the argument deserialization types handles conversion to java arrays
@@ -180,21 +181,21 @@ class DataSocket:
             raise Exception(response["value"])
 
     def __del__(self):
-        self.close() # make sure it closes properly
+        self.close()  # make sure it closes properly
 
     def close(self):
         with self._close_lock:
             if not self._closed:
                 for java_object in self._java_objects:
                     java_object._close()
-                    del java_object # potentially redundant, trying to fix closing race condition
+                    del java_object  # potentially redundant, trying to fix closing race condition
                 self._java_objects = None
                 self._socket.close()
                 while not self._socket.closed:
                     time.sleep(0.01)
                 self._socket = None
                 if self._debug:
-                    print('closed socket {}'.format(self._port))
+                    print("closed socket {}".format(self._port))
                 self._closed = True
 
 
@@ -210,14 +211,16 @@ class Bridge:
     DEFAULT_TIMEOUT = 500
     _EXPECTED_ZMQ_SERVER_VERSION = "4.2.0"
 
-    def __new__(cls, timeout: int=DEFAULT_TIMEOUT, convert_camel_case: bool=True,  *args, **kwargs):
+    def __new__(
+        cls, timeout: int = DEFAULT_TIMEOUT, convert_camel_case: bool = True, *args, **kwargs
+    ):
         """
         Only one instance of Bridge per a thread/port combo
         """
-        port = kwargs.get('port', Bridge.DEFAULT_PORT)
-        if not hasattr(Bridge, 'local'):
+        port = kwargs.get("port", Bridge.DEFAULT_PORT)
+        if not hasattr(Bridge, "local"):
             Bridge.local = threading.local()
-        if not hasattr(Bridge.local, 'bridges'):
+        if not hasattr(Bridge.local, "bridges"):
             Bridge.local.bridges = {}
         if port not in Bridge.local.bridges.keys():
             Bridge.local.bridges[port] = []
@@ -231,13 +234,17 @@ class Bridge:
         Bridge.local.bridges[port] = remaining
         if len(Bridge.local.bridges[port]) == 0:
             return super(Bridge, cls).__new__(cls)
-            
+
         return Bridge.local.bridges[port][0]()
 
-
     def __init__(
-        self, port: int=DEFAULT_PORT, convert_camel_case: bool=True,
-            debug: bool=False, ip_address: str="127.0.0.1", timeout: int=DEFAULT_TIMEOUT, iterate: bool = False
+        self,
+        port: int = DEFAULT_PORT,
+        convert_camel_case: bool = True,
+        debug: bool = False,
+        ip_address: str = "127.0.0.1",
+        timeout: int = DEFAULT_TIMEOUT,
+        iterate: bool = False,
     ):
         """
         Parameters
@@ -255,8 +262,8 @@ class Bridge:
         """
         self._weak_self_ref = weakref.ref(self)
         Bridge.local.bridges[port].append(self._weak_self_ref)
-        if hasattr(self, '_ip_address'):
-            return #already initialized
+        if hasattr(self, "_ip_address"):
+            return  # already initialized
         self._ip_address = ip_address
         self._port = port
         self._convert_camel_case = convert_camel_case
@@ -286,11 +293,14 @@ class Bridge:
                 )
             )
 
-
     def __enter__(self):
-        warn('\nThe Bridge context manager (i.e. with Bridge...) is deprecated and will be \n'
-             'removed in a future version. Bridge does not need to be explicitly created anymore.  \n'
-             'Instead use the classes JavaObject, JavaClass, Core, Studio, Magellan', DeprecationWarning, stacklevel=2)
+        warn(
+            "\nThe Bridge context manager (i.e. with Bridge...) is deprecated and will be \n"
+            "removed in a future version. Bridge does not need to be explicitly created anymore.  \n"
+            "Instead use the classes JavaObject, JavaClass, Core, Studio, Magellan",
+            DeprecationWarning,
+            stacklevel=2,
+        )
         return self
 
     def __exit__(self, exc_type, exc_val, exc_tb):
@@ -301,7 +311,7 @@ class Bridge:
             serialized_object, convert_camel_case=self._convert_camel_case
         )
 
-    def _construct_java_object(self, classpath: str, new_socket: bool=False, args: list=None):
+    def _construct_java_object(self, classpath: str, new_socket: bool = False, args: list = None):
         """
         Create a new instance of a an object on the Java side. Returns a Python "Shadow" of the object, which behaves
         just like the object on the Java side (i.e. same methods, fields). Methods of the object can be inferred at
@@ -348,14 +358,18 @@ class Bridge:
         serialized_object = self._main_socket.receive()
         if new_socket:
             socket = DataSocket(
-                zmq.Context.instance(), serialized_object["port"], zmq.REQ, ip_address=self._ip_address
+                zmq.Context.instance(),
+                serialized_object["port"],
+                zmq.REQ,
+                ip_address=self._ip_address,
             )
         else:
             socket = self._main_socket
-        return self._deserialize_object(serialized_object)(socket=socket,
-                                                           serialized_object=serialized_object, bridge=self)
+        return self._deserialize_object(serialized_object)(
+            socket=socket, serialized_object=serialized_object, bridge=self
+        )
 
-    def _get_java_class(self, classpath: str, new_socket: bool=False):
+    def _get_java_class(self, classpath: str, new_socket: bool = False):
         """
         Get an an object corresponding to a java class, for example to be used
         when calling static methods on the class directly
@@ -380,7 +394,10 @@ class Bridge:
 
         if new_socket:
             socket = DataSocket(
-                zmq.Context.instance(), serialized_object["port"], zmq.REQ, ip_address=self._ip_address
+                zmq.Context.instance(),
+                serialized_object["port"],
+                zmq.REQ,
+                ip_address=self._ip_address,
             )
         else:
             socket = self._main_socket
@@ -415,7 +432,11 @@ class Bridge:
 
         return an instance of the Micro-Magellan API
         """
-        warn('Deprecated. use "from pycromanager import Magellan; magellan = Magellan()"', DeprecationWarning, stacklevel=2)
+        warn(
+            'Deprecated. use "from pycromanager import Magellan; magellan = Magellan()"',
+            DeprecationWarning,
+            stacklevel=2,
+        )
         return self._construct_java_object("org.micromanager.magellan.api.MagellanAPI")
 
     def get_core(self):
@@ -428,7 +449,11 @@ class Bridge:
 
         :return: Python "shadow" object for micromanager core
         """
-        warn('Deprecated. use "from pycromanager import Core; core = Core()"', DeprecationWarning, stacklevel=2)
+        warn(
+            'Deprecated. use "from pycromanager import Core; core = Core()"',
+            DeprecationWarning,
+            stacklevel=2,
+        )
         if hasattr(self, "core"):
             return getattr(self, "core")
         self.core = self._construct_java_object("mmcorej.CMMCore")
@@ -440,7 +465,11 @@ class Bridge:
 
         return an instance of the Studio object that provides access to micro-manager Java APIs
         """
-        warn('Deprecated. use "from pycromanager import Studio; studio = Studio()"', DeprecationWarning, stacklevel=2)
+        warn(
+            'Deprecated. use "from pycromanager import Studio; studio = Studio()"',
+            DeprecationWarning,
+            stacklevel=2,
+        )
 
         return self._construct_java_object("org.micromanager.Studio")
 
@@ -486,7 +515,9 @@ class _JavaClassFactory:
                 return_type = methods_with_name[0]["return-type"]
                 fn = lambda instance, *args, signatures_list=tuple(
                     methods_with_name
-                ): instance._translate_call(signatures_list, args, static = _java_class == 'java.lang.Class')
+                ): instance._translate_call(
+                    signatures_list, args, static=_java_class == "java.lang.Class"
+                )
                 fn.__name__ = method_name_modified
                 fn.__doc__ = "{}.{}: A dynamically generated Java method.".format(
                     _java_class, method_name_modified
@@ -645,15 +676,15 @@ class _JavaObjectShadow:
             )
 
             # if object is iterable, go through the elements
-            if self._bridge._iterate and hasattr(obj, 'iterator') :
+            if self._bridge._iterate and hasattr(obj, "iterator"):
                 it = obj.iterator()
                 elts = []
-                has_next = it.hasNext if hasattr(it, 'hasNext') else it.has_next
-                while(has_next()):
+                has_next = it.hasNext if hasattr(it, "hasNext") else it.has_next
+                while has_next():
                     elts.append(it.next())
                 return elts
-            else: 
-                return obj 
+            else:
+                return obj
         else:
             return deserialize_array(json_return)
 
@@ -745,7 +776,8 @@ def _check_single_method_spec(method_spec, fn_args):
                 for acceptable_type in _JAVA_TYPE_NAME_TO_CASTABLE_PYTHON_TYPE[arg_java_type]
             ]
         ) and not (
-            arg_val is None and arg_java_type in _JAVA_NON_PRIMITIVES):  # could be null if its an object
+            arg_val is None and arg_java_type in _JAVA_NON_PRIMITIVES
+        ):  # could be null if its an object
             # if a type that gets converted
             return False
     return True
@@ -848,6 +880,7 @@ def _camel_case_2_snake_case(name):
     s1 = re.sub("(.)([A-Z][a-z]+)", r"\1_\2", name)
     return re.sub("([a-z0-9])([A-Z])", r"\1_\2", s1).lower()
 
+
 # Used for generating type hints in arguments
 _CLASS_NAME_MAPPING = {
     "byte[]": "uint8array",
@@ -866,7 +899,7 @@ _CLASS_NAME_MAPPING = {
     "short": "int",
     "void": "void",
 }
-#Used for deserializing java arrarys into numpy arrays
+# Used for deserializing java arrarys into numpy arrays
 _JAVA_ARRAY_TYPE_NUMPY_DTYPE = {
     "boolean[]": np.bool,
     "byte[]": np.uint8,
@@ -877,7 +910,7 @@ _JAVA_ARRAY_TYPE_NUMPY_DTYPE = {
     "int[]": np.int32,
     "long[]": np.int64,
 }
-#used for figuring our which java methods to call and if python args match
+# used for figuring our which java methods to call and if python args match
 _JAVA_TYPE_NAME_TO_PYTHON_TYPE = {
     "boolean": bool,
     "java.lang.Boolean": bool,
@@ -932,8 +965,17 @@ _JAVA_TYPE_NAME_TO_CASTABLE_PYTHON_TYPE = {
     "void": {None},
     "java.lang.Object": {object},
 }
-_JAVA_NON_PRIMITIVES = {"byte[]", "double[]", "int[]", "short[]", "char[]", "long[]", "boolean[]",
-                        "java.lang.String", "java.lang.Object"}
+_JAVA_NON_PRIMITIVES = {
+    "byte[]",
+    "double[]",
+    "int[]",
+    "short[]",
+    "char[]",
+    "long[]",
+    "boolean[]",
+    "java.lang.String",
+    "java.lang.Object",
+}
 
 if __name__ == "__main__":
     # Test basic bridge operations

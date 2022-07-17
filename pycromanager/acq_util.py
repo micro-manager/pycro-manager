@@ -11,16 +11,25 @@ import gc
 
 SUBPROCESSES = []
 
+
 def cleanup():
     for p in SUBPROCESSES:
         p.terminate()
 
+
 # make sure any Java processes are cleaned up when Python exits
 atexit.register(cleanup)
 
+
 def start_headless(
-    mm_app_path: str, config_file: str=None, java_loc: str=None, core_log_path: str=None, buffer_size_mb: int=1024,
-        port: int=Bridge.DEFAULT_PORT, timeout: int=5000, **core_kwargs
+    mm_app_path: str,
+    config_file: str = None,
+    java_loc: str = None,
+    core_log_path: str = None,
+    buffer_size_mb: int = 1024,
+    port: int = Bridge.DEFAULT_PORT,
+    timeout: int = 5000,
+    **core_kwargs
 ):
     """
     Start a Java process that contains the neccessary libraries for pycro-manager to run,
@@ -55,7 +64,7 @@ def start_headless(
 
     """
 
-    classpath = mm_app_path + '/plugins/Micro-Manager/*'
+    classpath = mm_app_path + "/plugins/Micro-Manager/*"
     if java_loc is None:
         if platform.system() == "Windows":
             # windows comes with its own JRE
@@ -64,19 +73,20 @@ def start_headless(
             java_loc = "java"
     # This starts Java process and instantiates essential objects (core,
     # acquisition engine, ZMQServer)
-    SUBPROCESSES.append(subprocess.Popen(
+    SUBPROCESSES.append(
+        subprocess.Popen(
             [
                 java_loc,
                 "-classpath",
                 classpath,
                 "-Dsun.java2d.dpiaware=false",
                 "-Xmx2000m",
-
                 # This is used by MM desktop app but breaks things on MacOS...Don't think its neccessary
                 # "-XX:MaxDirectMemorySize=1000",
                 "org.micromanager.remote.HeadlessLauncher",
-                str(port)
-            ], cwd=mm_app_path
+                str(port),
+            ],
+            cwd=mm_app_path,
         )
     )
 
@@ -97,22 +107,20 @@ def start_headless(
     gc.collect()
 
 
-
-
 def multi_d_acquisition_events(
-    num_time_points: int=1,
-    time_interval_s: float=0,
-    z_start: float=None,
-    z_end: float=None,
-    z_step: float=None,
-    channel_group: str=None,
-    channels: list=None,
-    channel_exposures_ms: list=None,
+    num_time_points: int = 1,
+    time_interval_s: float = 0,
+    z_start: float = None,
+    z_end: float = None,
+    z_step: float = None,
+    channel_group: str = None,
+    channels: list = None,
+    channel_exposures_ms: list = None,
     xy_positions=None,
     xyz_positions=None,
-    order: str="tpcz",
-    keep_shutter_open_between_channels: bool=False,
-    keep_shutter_open_between_z_steps: bool=False,
+    order: str = "tpcz",
+    keep_shutter_open_between_channels: bool = False,
+    keep_shutter_open_between_z_steps: bool = False,
 ):
     """Convenience function for generating the events of a typical multi-dimensional acquisition (i.e. an
     acquisition with some combination of multiple timepoints, channels, z-slices, or xy positions)
@@ -267,6 +275,3 @@ def multi_d_acquisition_events(
 
     appender(generate_events(base_event, order))
     return events
-
-
-

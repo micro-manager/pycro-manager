@@ -6,6 +6,7 @@ def img_process_fn(image, metadata):
     print(image)
     pass  # send them somewhere else, not default saving and display
 
+
 with Acquisition(image_process_fn=img_process_fn) as acq:
     # Generate the events for a single z-stack
     events = multi_d_acquisition_events(

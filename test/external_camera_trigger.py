@@ -8,6 +8,7 @@ def external_trigger_fn(event):
 
     return event
 
+
 with Acquisition(
     directory="/Users/henrypinkard/megllandump",
     name="tcz_acq",

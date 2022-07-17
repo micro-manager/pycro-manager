@@ -45,7 +45,7 @@ class Position1d:
     def fromPropertyMap(pmap: PropertyMap) -> Position1d:
         if len(pmap["Position_um"]) != 1:
             raise ValueException("The PropertyMap has more that one coordinate.")
-        return Position1d(z=pmap['Position_um'][0].value, zStage=pmap['Device'].value)
+        return Position1d(z=pmap["Position_um"][0].value, zStage=pmap["Device"].value)
 
     def __repr__(self):
         return f"Position1d({self.stageName}, {self.z})"
@@ -146,6 +146,7 @@ class MultiStagePosition:
         zStage: The name of the 1D stage
         stagePositions: A list of `Position1d` and `Position2D` objects, usually just one of each.
     """
+
     label: str
     defaultXYStage: str
     defaultZStage: str
@@ -248,7 +249,9 @@ class MultiStagePosition:
             positions = copy.copy(self.stagePositions)
             positions.remove(self.getXYPosition())
             positions.append(newPos)
-            return MultiStagePosition(self.label, self.defaultXYStage, self.defaultZStage, stagePositions=positions)
+            return MultiStagePosition(
+                self.label, self.defaultXYStage, self.defaultZStage, stagePositions=positions
+            )
         elif isinstance(other, MultiStagePosition):
             return self.__add__(other.getXYPosition())
         elif isinstance(other, PositionList):
@@ -521,7 +524,6 @@ if __name__ == "__main__":
     with open(path1) as f1, open(path2) as f2:
         assert f1.read() == f2.read()
 
-
     def generateList(data: np.ndarray) -> PositionList:
         """Example function to create a brand new position list in python.
 
@@ -534,6 +536,13 @@ if __name__ == "__main__":
         assert data.shape[1] == 2
         positions = []
         for n, i in enumerate(data):
-            positions.append(MultiStagePosition(f'Cell{n + 1}', 'TIXYDrive', 'TIZDrive', stagePositions=[Position2d(i[0], i[1], 'TIXYDrive')]))
+            positions.append(
+                MultiStagePosition(
+                    f"Cell{n + 1}",
+                    "TIXYDrive",
+                    "TIZDrive",
+                    stagePositions=[Position2d(i[0], i[1], "TIXYDrive")],
+                )
+            )
         plist = PositionList(positions)
         return plist

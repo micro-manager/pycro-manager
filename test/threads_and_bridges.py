@@ -3,8 +3,10 @@ from pycromanager import Bridge
 import gc
 import threading
 
+
 def new_b():
     core = Core()
+
 
 for i in range(100):
     # core = Dummy()
@@ -16,7 +18,6 @@ for i in range(100):
     core = None
     core2 = None
 
-
     # del core
     gc.collect()
     pass
@@ -25,6 +26,4 @@ for i in range(100):
 #     core = b.get_core()
 #     core = None
 
-a = JavaObject('java.util.ArrayList')
-
-
+a = JavaObject("java.util.ArrayList")

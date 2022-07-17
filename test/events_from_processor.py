@@ -19,6 +19,7 @@ def img_process_fn(image, metadata, bridge, event_queue):
 
     return image, metadata
 
+
 acq = Acquisition(
     directory="/Users/henrypinkard/megllandump",
     name="acquisition_name",

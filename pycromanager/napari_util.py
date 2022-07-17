@@ -1,7 +1,7 @@
 try:
     from napari.qt import thread_worker
 except:
-    raise Exception('Napari must be installed to use these features')
+    raise Exception("Napari must be installed to use these features")
 import numpy as np
 import time
 
@@ -26,22 +26,27 @@ def start_napari_signalling(viewer, dataset):
         else:
             viewer.layers[0].data = image
 
-
-    @thread_worker(connect={'yielded': update_layer})
+    @thread_worker(connect={"yielded": update_layer})
     def napari_signaller():
         """
         Monitor for signals that Acqusition has a new image ready, and when that happens
         update napari appropriately
         """
         while True:
-            if dataset is not None and hasattr(dataset, 'new_image_arrived') and dataset.new_image_arrived:
+            if (
+                dataset is not None
+                and hasattr(dataset, "new_image_arrived")
+                and dataset.new_image_arrived
+            ):
                 dataset.new_image_arrived = False
                 # A new image has arrived, but we only need to regenerate the dask array
                 # if its shape has changed
                 shape = np.array([len(dataset.axes[name]) for name in dataset.axes.keys()])
-                if not hasattr(napari_signaller, 'old_shape') or \
-                        napari_signaller.old_shape.size != shape.size or \
-                        np.any(napari_signaller.old_shape != shape):
+                if (
+                    not hasattr(napari_signaller, "old_shape")
+                    or napari_signaller.old_shape.size != shape.size
+                    or np.any(napari_signaller.old_shape != shape)
+                ):
                     image = dataset.as_array()
                     napari_signaller.old_shape = shape
                     yield image
@@ -49,7 +54,6 @@ def start_napari_signalling(viewer, dataset):
                     # Tell viewer to update but not change data
                     yield None
             else:
-                time.sleep(1 / 60) # 60 hz refresh
-
+                time.sleep(1 / 60)  # 60 hz refresh
 
     napari_signaller()

@@ -7,6 +7,7 @@ def img_process_fn(image, metadata):
     # raise Exception()
     return image, metadata
 
+
 with Acquisition(
     directory="/Users/henrypinkard/tmp", name="tcz_acq", image_process_fn=img_process_fn
 ) as acq:

@@ -5,7 +5,6 @@ with Bridge() as bridge:
     # get object representing micro-magellan API
     magellan = bridge.get_magellan()
 
-
     ###### Part 3b: find center of surface
 
     # TODO: create surface in Magellan GUI
@@ -24,11 +23,9 @@ with Bridge() as bridge:
     # can add points with
     # surface.add_point(x, y, z)
 
-
     ### Part 3a run autofocus #####
 
     # TODO: maybe run an initial focus test to see how off the surface is
-
 
     # this function will run after the hardware has been updated (i.e. xy stage moved) but before each image is acquired
     def hook_fn(event):

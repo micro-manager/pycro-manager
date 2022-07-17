@@ -12,16 +12,13 @@ with Bridge() as bridge:
     # get object representing micro-manager core
     core = bridge.get_core()
 
-
     #### Calling core functions ###
     exposure = core.get_exposure()
-
 
     #### Setting and getting properties ####
     # Here we set a property of the core itself, but same code works for device properties
     auto_shutter = core.get_property("Core", "AutoShutter")
     core.set_property("Core", "AutoShutter", 0)
-
 
     #### Acquiring images ####
     # The micro-manager core exposes several mechanisms foor acquiring images. In order to

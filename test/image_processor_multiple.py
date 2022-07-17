@@ -23,6 +23,7 @@ def img_process_fn(image, metadata):
 
     return [(image, metadata), (image2, md_2)]
 
+
 with Acquisition(
     directory="/Users/henrypinkard/megllandump", name="tcz_acq", image_process_fn=img_process_fn
 ) as acq:

@@ -7,9 +7,11 @@ def hook_fn(event):
     #     return event
     return event
 
+
 def img_process_fn(image, metadata):
     image[250:350, 100:300] = np.random.randint(0, 4999)
     return image, metadata
+
 
 # magellan example
 acq = MagellanAcquisition(

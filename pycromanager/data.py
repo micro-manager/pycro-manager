@@ -54,25 +54,25 @@ class _MultipageTiffReader:
             int byte offset of first image IFD
         """
         # read standard tiff header
-        if self._read(0,2) == b"\x4d\x4d":
+        if self._read(0, 2) == b"\x4d\x4d":
             # Big endian
             if sys.byteorder != "big":
                 raise Exception("Potential issue with mismatched endian-ness")
-        elif self._read(0,2) == b"\x49\x49":
+        elif self._read(0, 2) == b"\x49\x49":
             # little endian
             if sys.byteorder != "little":
                 raise Exception("Potential issue with mismatched endian-ness")
         else:
             raise Exception("Endian type not specified correctly")
-        if np.frombuffer(self._read(2,4), dtype=np.uint16)[0] != 42:
+        if np.frombuffer(self._read(2, 4), dtype=np.uint16)[0] != 42:
             raise Exception("Tiff magic 42 missing")
-        first_ifd_offset = np.frombuffer(self._read(4,8), dtype=np.uint32)[0]
+        first_ifd_offset = np.frombuffer(self._read(4, 8), dtype=np.uint32)[0]
 
         # read custom stuff: header, summary md
         # int.from_bytes(self.mmap_file[24:28], sys.byteorder) # should be equal to 483729 starting in version 1
-        self._major_version = int.from_bytes(self._read(12,16), sys.byteorder)
+        self._major_version = int.from_bytes(self._read(12, 16), sys.byteorder)
 
-        summary_md_header, summary_md_length = np.frombuffer(self._read(16,24), dtype=np.uint32)
+        summary_md_header, summary_md_length = np.frombuffer(self._read(16, 24), dtype=np.uint32)
         if summary_md_header != self.SUMMARY_MD_HEADER:
             raise Exception("Summary metadata header wrong")
         summary_md = json.loads(self._read(24, 24 + summary_md_length))
@@ -118,9 +118,13 @@ class _MultipageTiffReader:
             )
         else:
             image = np.reshape(
-                np.frombuffer(self._read(
-                index["pixel_offset"], index["pixel_offset"] + width * height * bytes_per_pixel)
-                    , dtype=dtype),
+                np.frombuffer(
+                    self._read(
+                        index["pixel_offset"],
+                        index["pixel_offset"] + width * height * bytes_per_pixel,
+                    ),
+                    dtype=dtype,
+                ),
                 [height, width, 3] if bytes_per_pixel == 3 else [height, width],
             )
         return image
@@ -280,7 +284,7 @@ class _ResolutionLevel:
 def _storage_monitor_fn(
     dataset, storage_monitor_push_port, connected_event, callback_fn, debug=False
 ):
-    #TODO: might need to add in support for doing this on a different port, if Acquistiion/bridge is not on default port
+    # TODO: might need to add in support for doing this on a different port, if Acquistiion/bridge is not on default port
     bridge = Bridge()
     monitor_socket = bridge._connect_pull(storage_monitor_push_port)
 
@@ -351,7 +355,9 @@ class Dataset:
         self._lock = threading.Lock()
         if remote_storage_monitor is not None:
             # this dataset is a view of an active acquisiiton. The storage exists on the java side
-            self.new_image_arrived = False # used by napari viewer to check for updates. Will be reset to false by them
+            self.new_image_arrived = (
+                False  # used by napari viewer to check for updates. Will be reset to false by them
+            )
             self._remote_storage_monitor = remote_storage_monitor
             self.summary_metadata = self._remote_storage_monitor.get_summary_metadata()
             if "GridPixelOverlapX" in self.summary_metadata.keys():
@@ -494,7 +500,7 @@ class Dataset:
             # update the map of channel names to channel indices
             self._read_channel_names()
 
-        if not hasattr(self, 'image_width'):
+        if not hasattr(self, "image_width"):
             self._parse_first_index(index_entry)
 
         return axes
@@ -568,7 +574,7 @@ class Dataset:
         dataset : dask array
         """
         if stitched and "GridPixelOverlapX" not in self.summary_metadata:
-            raise Exception('This is not a stitchable dataset')
+            raise Exception("This is not a stitchable dataset")
         w = self.image_width if not stitched else self._tile_width
         h = self.image_height if not stitched else self._tile_height
         self._empty_tile = (
@@ -584,14 +590,14 @@ class Dataset:
         axes_to_slice = kwargs
         axes_to_stack = {key: self.axes[key] for key in axes if key not in kwargs.keys()}
         if stitched:
-            if 'row' in axes_to_stack:
-                del axes_to_stack['row']
-            if 'column' in axes_to_stack:
-                del axes_to_stack['column']
-            if 'row' in axes_to_slice:
-                del axes_to_slice['row']
-            if 'column' in axes_to_slice:
-                del axes_to_slice['column']
+            if "row" in axes_to_stack:
+                del axes_to_stack["row"]
+            if "column" in axes_to_stack:
+                del axes_to_stack["column"]
+            if "row" in axes_to_slice:
+                del axes_to_slice["row"]
+            if "column" in axes_to_slice:
+                del axes_to_slice["column"]
 
         def read_one_image(block_id, axes_to_stack=axes_to_stack, axes_to_slice=axes_to_slice):
             # a function that reads in one chunk of data
@@ -607,11 +613,13 @@ class Dataset:
                 for row in row_values:
                     blocks.append([])
                     for column in column_values:
-                        #remove overlap between tiles
+                        # remove overlap between tiles
                         if not self.has_image(**axes, **axes_to_slice, row=row, column=column):
                             blocks[-1].append(self._empty_tile)
                         else:
-                            tile = self.read_image(**axes, **axes_to_slice, row=row, column=column, memmapped=True)
+                            tile = self.read_image(
+                                **axes, **axes_to_slice, row=row, column=column, memmapped=True
+                            )
                             if self.half_overlap[0] != 0:
                                 tile = tile[
                                     self.half_overlap[0] : -self.half_overlap[0],
@@ -621,10 +629,7 @@ class Dataset:
 
                 if rgb:
                     image = np.concatenate(
-                        [
-                            np.concatenate(row, axis=len(blocks[0][0].shape) - 2)
-                            for row in blocks
-                        ],
+                        [np.concatenate(row, axis=len(blocks[0][0].shape) - 2) for row in blocks],
                         axis=0,
                     )
                 else:
@@ -644,10 +649,7 @@ class Dataset:
             chunks += (3,)
 
         array = da.map_blocks(
-            read_one_image,
-            dtype=self.dtype,
-            chunks=chunks,
-            meta=self._empty_tile
+            read_one_image, dtype=self.dtype, chunks=chunks, meta=self._empty_tile
         )
 
         return array

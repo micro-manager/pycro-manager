@@ -2,7 +2,7 @@ from pycromanager import Acquisition, multi_d_acquisition_events
 
 
 def img_process(image, metadata):
-    print(metadata['Axes'])
+    print(metadata["Axes"])
     # TODO: process and save images.
 
 
