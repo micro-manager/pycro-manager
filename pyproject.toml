@@ -2,6 +2,3 @@
 testpaths = [
     "pycromanager/test",
 ]
-
-[tool.black]
-line-length = 100
