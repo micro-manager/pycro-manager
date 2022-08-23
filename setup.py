@@ -26,7 +26,7 @@ setuptools.setup(
         "dask[array]>=2022.2.0",
         "pyzmq",
         "docstring-inheritance",
-        "ndtiff>=1.3.3"
+        "ndtiff>=1.3.6"
     ],
     python_requires=">=3.6",
     extras_require={
