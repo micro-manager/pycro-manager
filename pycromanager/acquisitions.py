@@ -5,7 +5,7 @@ from inspect import signature
 import time
 from pycromanager.bridge import deserialize_array, Bridge
 from pycromanager.java_classes import Core, JavaObject, Magellan
-from pycromanager.data import Dataset
+from ndtiff import Dataset
 import warnings
 import os.path
 import queue
@@ -223,6 +223,30 @@ def _run_image_processor(
         else:
             process_and_sendoff(processed, pixels.dtype)
 
+def _storage_monitor_fn(
+    dataset, storage_monitor_push_port, connected_event, callback_fn, debug=False
+):
+    #TODO: might need to add in support for doing this on a different port, if Acquistiion/bridge is not on default port
+    bridge = Bridge()
+    monitor_socket = bridge._connect_pull(storage_monitor_push_port)
+
+    connected_event.set()
+
+    while True:
+        message = monitor_socket.receive()
+
+        if "finished" in message:
+            # Poison, time to shut down
+            monitor_socket.close()
+            return
+
+        index_entry = message["index_entry"]
+        axes = dataset._add_index_entry(index_entry)
+        dataset._new_image_arrived = True
+
+        if callback_fn is not None:
+            callback_fn(axes, dataset)
+
 
 
 class Acquisition(object, metaclass=NumpyDocstringInheritanceMeta):
@@ -353,7 +377,7 @@ class Acquisition(object, metaclass=NumpyDocstringInheritanceMeta):
             else:
                 # Monitor image arrival so they can be loaded on python side, but with no callback function
                 # Need to do this regardless of whether you use it, so that it signals to shut down on Java side
-                self._storage_monitor_thread = self._dataset._add_storage_monitor_fn(callback_fn=None, debug=self._debug)
+                self._storage_monitor_thread = self._dataset._add_storage_monitor_fn(_storage_monitor_fn, callback_fn=None, debug=self._debug)
 
 
         if show_display == 'napari':
@@ -665,7 +689,7 @@ class XYTiledAcquisition(Acquisition):
         named_args = {arg_name: l[arg_name] for arg_name in arg_names}
         super().__init__(**named_args)
 
-    def _create_remote_acquisition(self, port, timeout, **kwargs):
+    def _create_remote_acquisition(self, port, **kwargs):
         core = Core(port=self._bridge_port, timeout=self._bridge_timeout)
         acq_factory = JavaObject(
             "org.micromanager.remote.RemoteAcquisitionFactory", port=self._bridge_port, args=[core]

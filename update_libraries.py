@@ -17,7 +17,7 @@ import git
 # get latest version numbers of NDTiff, AcqEngJ, NDViewer, PycormanagerJava from their repsective files
 versions = {}
 git_repos_dir = Path(__file__).parent.parent 
-poms = {'NDTiffStorage': '/NDTiffStorage/pom.xml',
+poms = {'NDTiffStorage': '/NDTiffStorage/java/pom.xml',
 		'NDViewer': '/NDViewer/pom.xml',
 		'AcqEngJ': '/AcqEngJ/pom.xml',
 		'PycroManagerJava': '/pycro-manager/java/pom.xml'}

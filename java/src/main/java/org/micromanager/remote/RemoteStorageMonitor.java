@@ -6,14 +6,13 @@
 package org.micromanager.remote;
 
 import java.nio.ByteBuffer;
-import java.sql.Time;
 import java.util.concurrent.*;
 
 import mmcorej.org.json.JSONException;
 import mmcorej.org.json.JSONObject;
 import org.micromanager.internal.zmq.ZMQPushSocket;
-import org.micromanager.multiresstorage.ImageWrittenListener;
-import org.micromanager.multiresstorage.IndexEntryData;
+import org.micromanager.ndtiffstorage.ImageWrittenListener;
+import org.micromanager.ndtiffstorage.IndexEntryData;
 
 /**
  * A class that broadcasts information about images that have finsihed saving to disk

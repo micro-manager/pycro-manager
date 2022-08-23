@@ -16,9 +16,9 @@ import org.micromanager.acqj.main.AcqEngMetadata;
 import org.micromanager.acqj.api.DataSink;
 import org.micromanager.acqj.main.Acquisition;
 import org.micromanager.acqj.internal.Engine;
-import org.micromanager.multiresstorage.MultiResMultipageTiffStorage;
-import org.micromanager.multiresstorage.MultiresStorageAPI;
-import org.micromanager.multiresstorage.StorageAPI;
+import org.micromanager.ndtiffstorage.NDTiffStorage;
+import org.micromanager.ndtiffstorage.MultiresNDTiffAPI;
+import org.micromanager.ndtiffstorage.NDTiffAPI;
 import org.micromanager.ndviewer.api.DataSourceInterface;
 import org.micromanager.ndviewer.api.ViewerInterface;
 import org.micromanager.ndviewer.main.NDViewer;
@@ -39,7 +39,7 @@ public class RemoteViewerStorageAdapter implements DataSourceInterface, DataSink
 
    private volatile ViewerInterface viewer_;
    private volatile RemoteAcquisition acq_;
-   private volatile MultiresStorageAPI storage_;
+   private volatile MultiresNDTiffAPI storage_;
    private CopyOnWriteArrayList<String> channelNames_ = new CopyOnWriteArrayList<String>();
    private RemoteStorageMonitor storageMonitor_;
 
@@ -86,13 +86,13 @@ public class RemoteViewerStorageAdapter implements DataSourceInterface, DataSink
             AcqEngMetadata.setHeight(summaryMetadata, (int) Engine.getCore().getImageHeight());
          }
 
-         storage_ = new MultiResMultipageTiffStorage(dir_, name_,
+         storage_ = new NDTiffStorage(dir_, name_,
                  summaryMetadata, tileOverlapX_, tileOverlapY_,
                  xyTiled_, maxResLevel_, savingQueueSize_,
                  //Debug logging function without storage having to directly depend on core
                  acq_.isDebugMode() ? ((Consumer<String>) s -> {
                     Engine.getCore().logMessage(s);
-                 }) : null
+                 }) : null, true
                  );
          name_ = storage_.getUniqueAcqName();
 
@@ -109,7 +109,7 @@ public class RemoteViewerStorageAdapter implements DataSourceInterface, DataSink
       return storageMonitor_;
    }
 
-   public StorageAPI getStorage() {
+   public NDTiffAPI getStorage() {
       return storage_;
    }
 
@@ -136,13 +136,13 @@ public class RemoteViewerStorageAdapter implements DataSourceInterface, DataSink
          axes.put(AcqEngMetadata.AXES_GRID_COL , AcqEngMetadata.getGridCol(taggedImg.tags));
          axes.put(AcqEngMetadata.AXES_GRID_ROW , AcqEngMetadata.getGridRow(taggedImg.tags));
 
-         added = storage_.putImageMultiRes(taggedImg, axes,
+         added = storage_.putImageMultiRes(taggedImg.pix, taggedImg.tags, axes,
                  AcqEngMetadata.isRGB(taggedImg.tags),
                  AcqEngMetadata.getHeight(taggedImg.tags),
                  AcqEngMetadata.getWidth(taggedImg.tags));
       } else {
          added = null;
-         storage_.putImage(taggedImg, axes,
+         storage_.putImage(taggedImg.pix, taggedImg.tags, axes,
                  AcqEngMetadata.isRGB(taggedImg.tags),
                  AcqEngMetadata.getHeight(taggedImg.tags),
                  AcqEngMetadata.getWidth(taggedImg.tags));
