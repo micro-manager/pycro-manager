@@ -8,8 +8,7 @@ mm_app_path = '/Applications/Micro-Manager-2.0.0-gamma1'
 config_file = mm_app_path + "/MMConfig_demo.cfg"
 
 #Optional: specify your own version of java to run with
-java_loc = "/Library/Internet Plug-Ins/JavaAppletPlugin.plugin/Contents/Home/bin/java"
-java_loc = "/Users/henrypinkard/.jdk/jdk-11.0.14.1+1/Contents/Home/bin/java"
+java_loc = "/Library/Java/JavaVirtualMachines/zulu-8.jdk/Contents/Home/bin/java"
 # java_loc = r"C:\Users\henry\.jdk\jdk8u322-b06\jre\bin\java.exe"
 # java_loc = None
 start_headless(mm_app_path, config_file, java_loc=java_loc, timeout=5000)

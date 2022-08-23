@@ -8,7 +8,7 @@ package org.micromanager.remote;
 import mmcorej.org.json.JSONObject;
 import org.micromanager.acqj.main.Acquisition;
 import org.micromanager.acqj.api.AcquisitionAPI;
-import org.micromanager.multiresstorage.StorageAPI;
+import org.micromanager.ndtiffstorage.NDTiffAPI;
 import org.micromanager.ndviewer.api.ViewerAcquisitionInterface;
 
 /**
@@ -35,7 +35,7 @@ public class RemoteAcquisition extends Acquisition
       eventSource.setAcquisition(this);
    }
 
-   public StorageAPI getStorage() {
+   public NDTiffAPI getStorage() {
       return dataSink_ == null ? null : ((RemoteViewerStorageAdapter) dataSink_).getStorage();
    }
 

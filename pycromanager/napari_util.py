@@ -34,8 +34,7 @@ def start_napari_signalling(viewer, dataset):
         update napari appropriately
         """
         while True:
-            if dataset is not None and hasattr(dataset, 'new_image_arrived') and dataset.new_image_arrived:
-                dataset.new_image_arrived = False
+            if dataset is not None and dataset.has_new_image():
                 # A new image has arrived, but we only need to regenerate the dask array
                 # if its shape has changed
                 shape = np.array([len(dataset.axes[name]) for name in dataset.axes.keys()])

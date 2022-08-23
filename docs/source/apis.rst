@@ -86,6 +86,11 @@ Dataset
 .. autoclass:: Dataset
 	:members:
 
+.. currentmodule:: ndtiff
+.. autoclass:: NDTiffDataset
+	:members:
+.. autoclass:: NDTiffPyramidDataset
+	:members:
 
 Micro-Manager Core
 ###################################
