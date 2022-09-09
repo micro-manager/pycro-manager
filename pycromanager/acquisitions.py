@@ -371,7 +371,7 @@ class Acquisition(object, metaclass=NumpyDocstringInheritanceMeta):
         if remote_storage_monitor is not None:
             self._dataset = Dataset(remote_storage_monitor=remote_storage_monitor)
             if image_saved_fn is not None:
-                self._storage_monitor_thread = self._dataset._add_storage_monitor_fn(
+                self._storage_monitor_thread = self._dataset._add_storage_monitor_fn(_storage_monitor_fn,
                     callback_fn=image_saved_fn, debug=self._debug
                 )
             else:
