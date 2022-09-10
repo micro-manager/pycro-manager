@@ -1,6 +1,9 @@
+import os
 import subprocess
 import platform
 import atexit
+import threading
+
 from pycromanager.bridge import Bridge
 from pycromanager.java_classes import Core
 import copy
@@ -79,6 +82,13 @@ def start_headless(
             ], cwd=mm_app_path
         )
     )
+
+    # This can be used to launch headless mode in the same process
+    # def launch_fn():
+    #     os.system(
+    #         'cd {} && {} -classpath "{}" -Dsun.java2d.dpiaware=false -Xmx2000m org.micromanager.remote.HeadlessLauncher {}'.format(
+    #             mm_app_path, java_loc, classpath, port))
+    # threading.Thread(target=launch_fn, args=()).start()
 
     # Initialize core
     core = Core(timeout=timeout, port=port, **core_kwargs)
