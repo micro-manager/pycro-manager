@@ -244,16 +244,8 @@ public class ZMQUtil {
                   apiInterfaces.add(c);
                }
                apiInterfaces.add((Class) o);
-            } else if (o.getClass().getName().startsWith("java")) {
-               //Java classes
-               for (Class c : o.getClass().getInterfaces()) {
-                  apiInterfaces.add(c);
-               }
-               apiInterfaces.add(o.getClass());
             } else {
-               //Non Java classes. Check to make sure only exposing things we mean to
-               Set<String> packageNames = new HashSet<String>();
-               //Search through all superclasses and interfaces
+               //Return all interfaces and superclasses interfaces
                Class clazz = o.getClass();
                do {
                   apiInterfaces.add(clazz);
