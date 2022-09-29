@@ -146,3 +146,14 @@ Or surfaces:
 
 
 
+.. _pymm_eventserver:
+
+Receive Micro-Manager events
+================================================
+
+If you are interested in receiving/reacting to Micro-Manager internal events (
+DefaultAcquisitionStartedEvent, DefaultLiveModeEvent or DataProviderHasNewImageEvent), you can have
+a look at the `pymm-eventserver <https://github.com/LEB-EPFL/pymm-eventserver>`_ project. It runs a
+plugin in Micro-Manger that catches these events and transfers the information using a ZMQ server
+inspired by Pycro-Manager to a client in python. They can then be converted for example to
+pyqtSignals that can be subscribed to.
