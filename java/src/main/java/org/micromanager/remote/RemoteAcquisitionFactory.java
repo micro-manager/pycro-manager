@@ -26,7 +26,7 @@ public class RemoteAcquisitionFactory {
       }
    }
 
-   public RemoteAcquisition createTiledAcquisition(String dir, String name, boolean showViewer,
+   public XYTiledRemoteAcquisition createTiledAcquisition(String dir, String name, boolean showViewer,
                                               boolean xyTiled, int tileOverlapX, int tileOverlapY, int maxResLevel,
                                               int savingQueueSize, boolean debug) {
       RemoteEventSource eventSource = new RemoteEventSource();
@@ -37,7 +37,7 @@ public class RemoteAcquisitionFactory {
                  maxResLevel == -1 ? null : maxResLevel, savingQueueSize);
 
       }
-      return new RemoteAcquisition(eventSource, adapter, debug);
+      return new XYTiledRemoteAcquisition(eventSource, adapter, debug);
    }
 
    public RemoteAcquisition createAcquisition(String dir, String name, boolean showViewer,

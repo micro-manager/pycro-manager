@@ -15,6 +15,7 @@ import java.util.concurrent.Future;
 import mmcorej.org.json.JSONArray;
 import mmcorej.org.json.JSONException;
 import mmcorej.org.json.JSONObject;
+import org.micromanager.acqj.main.Acquisition;
 import org.micromanager.acqj.main.AcquisitionEvent;
 import org.micromanager.internal.zmq.ZMQPullSocket;
 
@@ -27,7 +28,7 @@ import javax.swing.*;
 public class RemoteEventSource {
 
    private ZMQPullSocket<List<AcquisitionEvent>> pullSocket_;
-   private RemoteAcquisition acq_;
+   private Acquisition acq_;
    private ExecutorService executor_ = Executors.newSingleThreadExecutor((Runnable r) -> {
       return new Thread(r, "Remote Event Source thread");
    });
@@ -75,7 +76,7 @@ public class RemoteEventSource {
       });
    }
 
-   void setAcquisition(RemoteAcquisition aThis) {
+   void setAcquisition(Acquisition aThis) {
       acq_ = aThis;
    }
 
@@ -93,8 +94,7 @@ public class RemoteEventSource {
 
    /**
     * This method needed so the source can be shutdown from x out on the viewer, 
-    * This method needed so the source can be shutdown from x out on the viewer,
-    * rather than sending a finished event like noremal
+    * rather than sending a finished event like normal
     */
    void abort() {
       executor_.shutdownNow();
