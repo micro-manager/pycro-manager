@@ -8,7 +8,7 @@ def img_process_fn(image, metadata):
     return image, metadata
 
 with Acquisition(
-    directory="/Users/henrypinkard/tmp", name="tcz_acq", image_process_fn=img_process_fn
+    directory=r"C:\Users\henry\Desktop\datadump", name="tcz_acq", image_process_fn=img_process_fn
 ) as acq:
     # Generate the events for a single z-stack
     events = multi_d_acquisition_events(

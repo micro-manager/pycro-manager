@@ -78,11 +78,11 @@ Rather than returning one or more ``image, metadata`` tuples to propogate the im
 Adapting acquisition from image processors
 ============================================
 
-In certain cases one may want to either control something on the Java side or create addition **acquisition events** in response to one of the images. A four argument processing function can be used for this purpose. This gives access to the :class:`Bridge<pycromanager.Bridge>` for interacting with the Java side, and an ``event_queue`` to which additional acquisition events can be added
+In certain cases one may want to create addition **acquisition events** in response to one of the images. A three argument processing function can be used for this purpose. The third argument is the ``event_queue`` to which additional acquisition events can be added
 
 .. code-block:: python
 
-    def img_process_fn_events(image, metadata, bridge, event_queue):
+    def img_process_fn_events(image, metadata, event_queue):
 
         ### create a new acquisition event in response to something in the image ###
         # event =
@@ -104,7 +104,7 @@ When it is finished, it can be closed and cleaned up by passing an ``None`` to t
 
 .. code-block:: python
 
-    def img_process_fn_events(image, metadata, bridge, event_queue):
+    def img_process_fn_events(image, metadata, event_queue):
 
         if acq_end_condition:
             event_queue.put(None)

@@ -80,7 +80,7 @@ def _run_acq_hook(bridge_port, bridge_timeout, pull_port, push_port, hook_connec
         event_msg = pull_socket.receive()
 
         if "special" in event_msg and event_msg["special"] == "acquisition-end":
-            push_socket.send({})
+            push_socket.send(event_msg)
             push_socket.close()
             pull_socket.close()
             return
@@ -88,17 +88,17 @@ def _run_acq_hook(bridge_port, bridge_timeout, pull_port, push_port, hook_connec
             if "events" in event_msg.keys():
                 event_msg = event_msg["events"]  # convert from sequence
             params = signature(hook_fn).parameters
-            if len(params) == 1 or len(params) == 3:
+            if len(params) == 1 or len(params) == 2:
                 try:
                     if len(params) == 1:
                         new_event_msg = hook_fn(event_msg)
-                    elif len(params) == 3:
-                        new_event_msg = hook_fn(event_msg, bridge, event_queue)
+                    elif len(params) == 2:
+                        new_event_msg = hook_fn(event_msg, event_queue)
                 except Exception as e:
                     warnings.warn("exception in acquisition hook: {}".format(e))
                     continue
             else:
-                raise Exception("Incorrect number of arguments for hook function. Must be 1 or 3")
+                raise Exception("Incorrect number of arguments for hook function. Must be 1 or 2")
 
         if isinstance(new_event_msg, list):
             new_event_msg = {
@@ -187,7 +187,7 @@ def _run_image_processor(
 
         if "special" in message and message["special"] == "finished":
             pull_socket.close()
-            push_socket.send(message)  # Continue propagating the finihsed signal
+            push_socket.send(message)  # Continue propagating the finished signal
             push_socket.close()
             return
 
@@ -199,19 +199,19 @@ def _run_image_processor(
             image = np.reshape(pixels, [metadata["Height"], metadata["Width"]])
 
         params = signature(process_fn).parameters
-        if len(params) == 2 or len(params) == 4:
+        if len(params) == 2 or len(params) == 3:
             processed = None
             try:
                 if len(params) == 2:
                     processed = process_fn(image, metadata)
-                elif len(params) == 4:
-                    processed = process_fn(image, metadata, bridge, event_queue)
+                elif len(params) == 3:
+                    processed = process_fn(image, metadata, event_queue)
             except Exception as e:
                 warnings.warn("exception in image processor: {}".format(e))
                 continue
         else:
             raise Exception(
-                "Incorrect number of arguments for image processing function, must be 2 or 4"
+                "Incorrect number of arguments for image processing function, must be 2 or 3"
             )
 
         if processed is None:
@@ -246,6 +246,7 @@ def _storage_monitor_fn(
 
         if callback_fn is not None:
             callback_fn(axes, dataset)
+
 
 
 
@@ -357,7 +358,7 @@ class Acquisition(object, metaclass=NumpyDocstringInheritanceMeta):
         self._initialize_image_processor(**named_args)
         self._initialize_hooks(**named_args)
 
-        self._remote_acq.start()
+        # self._remote_acq.start()
         self._dataset_disk_location = (
             self._remote_acq.get_storage().get_disk_location()
             if self._remote_acq.get_storage() is not None
@@ -367,10 +368,17 @@ class Acquisition(object, metaclass=NumpyDocstringInheritanceMeta):
         self._start_events()
 
         # Load remote storage
-        remote_storage_monitor = self._remote_acq.get_storage_monitor()
-        if remote_storage_monitor is not None:
-            self._dataset = Dataset(remote_storage_monitor=remote_storage_monitor)
+        self._remote_storage_monitor = self._remote_acq.get_storage_monitor()
+        if self._remote_storage_monitor is not None:
+            self._dataset = Dataset(remote_storage_monitor=self._remote_storage_monitor)
             if image_saved_fn is not None:
+                params = signature(image_saved_fn).parameters
+                if len(params) == 2:
+                    pass
+                elif len(params) == 3:
+                    callback_fn = lambda axes, dataset: callback_fn(axes, dataset, self._event_queue)
+                else:
+                    raise Exception('Image saved callbacks must have either 2 or three parameters')
                 self._storage_monitor_thread = self._dataset._add_storage_monitor_fn(_storage_monitor_fn,
                     callback_fn=image_saved_fn, debug=self._debug
                 )
@@ -681,7 +689,7 @@ class XYTiledAcquisition(Acquisition):
         """
         self.tile_overlap = tile_overlap
         self.max_multi_res_index = max_multi_res_index
-        # Collct all argument values except the ones specific to Magellan
+        # Collct all argument values except the ones specific to XY Tiled acquisitions
         arg_names = list(signature(self.__init__).parameters.keys())
         arg_names.remove('tile_overlap')
         arg_names.remove('max_multi_res_index')

@@ -14,6 +14,10 @@ The ``image_saved_fn`` takes two arguments, ``axes`` and ``dataset``. The first 
 
     pixels = dataset.read_image(**axes)
 
+
+Alternatively, a three argument version can be utilized in which the arguments are ``axes``, ``dataset``, and ``event_queue``. The event queue allows new acquisition events to be created in response to images being saved to disk.
+
+
 A full example of using this feature is below:
 
 .. code-block:: python
