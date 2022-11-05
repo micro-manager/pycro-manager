@@ -25,7 +25,7 @@ def image_callback_fn(image, metadata):
 
 
 with XYTiledAcquisition(
-    directory="/Users/henrypinkard/tmp",
+    directory=r"C:\Users\henry\Desktop\datadump",
     name="tiled",
     tile_overlap=10,
     image_process_fn=image_callback_fn,
@@ -33,9 +33,9 @@ with XYTiledAcquisition(
     debug=True,
 ) as acq:
     # 10 pixel overlap between adjacent tiles
-    acq.acquire({"row": 0, "col": 0, "channel": {"group": "Channel", "config": "DAPI"}})
-    acq.acquire({"row": 0, "col": 0, "channel": {"group": "Channel", "config": "FITC"}})
-    acq.acquire({"row": 1, "col": 0, "channel": {"group": "Channel", "config": "DAPI"}})
-    acq.acquire({"row": 1, "col": 0, "channel": {"group": "Channel", "config": "FITC"}})
-    acq.acquire({"row": 0, "col": 1, "channel": {"group": "Channel", "config": "DAPI"}})
+    # acq.acquire({"row": 0, "col": 0, "channel": {"group": "Channel", "config": "DAPI"}})
+    # acq.acquire({"row": 0, "col": 0, "channel": {"group": "Channel", "config": "FITC"}})
+    # acq.acquire({"row": 1, "col": 0, "channel": {"group": "Channel", "config": "DAPI"}})
+    # acq.acquire({"row": 1, "col": 0, "channel": {"group": "Channel", "config": "FITC"}})
+    # acq.acquire({"row": 0, "col": 1, "channel": {"group": "Channel", "config": "DAPI"}})
     acq.acquire({"row": 0, "col": 1, "channel": {"group": "Channel", "config": "FITC"}})

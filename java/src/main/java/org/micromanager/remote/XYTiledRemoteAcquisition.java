@@ -7,6 +7,7 @@ package org.micromanager.remote;
 
 import org.micromanager.acqj.api.AcquisitionAPI;
 import org.micromanager.acqj.main.Acquisition;
+import org.micromanager.acqj.main.XYTiledAcquisition;
 import org.micromanager.ndtiffstorage.NDTiffAPI;
 import org.micromanager.ndviewer.api.ViewerAcquisitionInterface;
 
@@ -16,17 +17,16 @@ import org.micromanager.ndviewer.api.ViewerAcquisitionInterface;
  *
  * @author henrypinkard
  */
-public class RemoteAcquisition extends Acquisition implements AcquisitionAPI, ViewerAcquisitionInterface {
+public class XYTiledRemoteAcquisition extends XYTiledAcquisition implements AcquisitionAPI, ViewerAcquisitionInterface {
 
    private RemoteEventSource eventSource_;
 
-   public RemoteAcquisition(RemoteEventSource eventSource, RemoteViewerStorageAdapter sink, boolean debug) {
-      super(sink);
-      this.setDebugMode(debug);
+   public XYTiledRemoteAcquisition(RemoteEventSource eventSource, RemoteViewerStorageAdapter sink, boolean debug) {
+      super(sink, sink.getOverlapX(), sink.getOverlapY());
+      setDebugMode(debug);
       eventSource_ = eventSource;
       eventSource.setAcquisition(this);
    }
-
 
    public NDTiffAPI getStorage() {
       return getDataSink() == null ? null : ((RemoteViewerStorageAdapter) getDataSink()).getStorage();
@@ -49,6 +49,7 @@ public class RemoteAcquisition extends Acquisition implements AcquisitionAPI, Vi
    public int getEventPort() {
       return eventSource_.getPort();
    }
+
 
    @Override
    public void abort() {

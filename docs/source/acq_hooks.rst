@@ -33,23 +33,12 @@ Acquisition hooks can also be used to modify or delete acquisition events:
 
 Depending on where in the acquisition cycle the hook is, modifying or deleting the event may not have any effect. For example, modifying an event in a  ``post_camera_hook_fn`` won't have any effect since the hardware has already been moved and the camera started. In contrast, in a ``pre_hardware_hook_fn``, the event can be modified and the acquistion engine will use the modified event. For example, the z position could be changed in the hook function, which would cause the acquisition engine to move the microscope's focus drive to a different position than it otherwise woudl have prior to taking an image.
 
-A hook function that takes three arguments can also be used in cases where one wants to submit additional acquisition events or interact with classes on the Java side (such as the micro-manager core) through the :class:`Bridge<pycromanager.Bridge>`.
-
-.. code-block:: python
-	
-	def hook_fn(event, bridge, event_queue):
-		core = bridge.get_core()
-
-		### now call some functions in the micro-manager core ###
-
-		return event
-
-The third argument, ``event_queue``, can be used for submitting additional acquisition events:
+A hook function that takes two arguments can also be used in cases where one wants to submit additional acquisition events. The second argument, ``event_queue``, can be used for submitting additional acquisition events:
 
 .. code-block:: python
 	
 	#this hook function can control the micro-manager core
-	def hook_fn(event, bridge, event_queue):
+	def hook_fn(event, event_queue):
 
 		### create a new acquisition event in response to something ###
 		#event =
@@ -70,7 +59,7 @@ When it is finished, it can be closed and cleaned up by passing an ``None`` to t
 .. code-block:: python
 
     # this hook function can control the micro-manager core
-    def hook_fn(event, bridge, event_queue):
+    def hook_fn(event, event_queue):
 
         if acq_end_condition:
             event_queue.put(None)

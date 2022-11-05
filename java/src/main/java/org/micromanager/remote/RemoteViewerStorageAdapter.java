@@ -38,7 +38,7 @@ public class RemoteViewerStorageAdapter implements DataSourceInterface, DataSink
    private ExecutorService displayCommunicationExecutor_;
 
    private volatile ViewerInterface viewer_;
-   private volatile RemoteAcquisition acq_;
+   private volatile Acquisition acq_;
    private volatile MultiresNDTiffAPI storage_;
    private CopyOnWriteArrayList<String> channelNames_ = new CopyOnWriteArrayList<String>();
    private RemoteStorageMonitor storageMonitor_;
@@ -77,7 +77,7 @@ public class RemoteViewerStorageAdapter implements DataSourceInterface, DataSink
    }
 
    public void initialize(Acquisition acq, JSONObject summaryMetadata) {
-      acq_ = (RemoteAcquisition) acq;
+      acq_ =  acq;
 
       if (storeData_) {
          if (xyTiled_) {

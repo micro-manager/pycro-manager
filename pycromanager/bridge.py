@@ -110,6 +110,8 @@ class DataSocket:
         message_parts = [bytes(message_string, "iso-8859-1")] + [
             item for keyval in key_vals for item in keyval
         ]
+        if self._socket is None:
+            raise Exception("Tried to send message through socket {}, which is already closed".format(self._port))
         if timeout == 0:
             self._socket.send_multipart(message_parts)
         else:
@@ -270,7 +272,7 @@ class Bridge:
         self._class_factory = _JavaClassFactory()
         reply_json = self._main_socket.receive(timeout=timeout)
         if reply_json is None:
-            raise TimeoutError(
+             raise TimeoutError(
                 f"Socket timed out after {timeout} milliseconds. Is Micro-Manager running and is the ZMQ server on {port} option enabled?"
             )
         if reply_json["type"] == "exception":
@@ -486,7 +488,7 @@ class _JavaClassFactory:
                 return_type = methods_with_name[0]["return-type"]
                 fn = lambda instance, *args, signatures_list=tuple(
                     methods_with_name
-                ): instance._translate_call(signatures_list, args, static = _java_class == 'java.lang.Class')
+                ): instance._translate_call(signatures_list, args, static=_java_class == 'java.lang.Class')
                 fn.__name__ = method_name_modified
                 fn.__doc__ = "{}.{}: A dynamically generated Java method.".format(
                     _java_class, method_name_modified
@@ -546,7 +548,11 @@ class _JavaObjectShadow:
                 return
             if not hasattr(self, "_hash_code"):
                 return  # constructor didnt properly finish, nothing to clean up on java side
-            message = {"command": "destructor", "hash-code": self._hash_code}
+            message = {
+                "command": "destructor",
+                "hash-code": self._hash_code,
+                "java_class_name": self._java_class # for debugging
+                }
             if self._bridge._debug:
                 "closing: {}".format(self)
             self._socket.send(message)
@@ -602,6 +608,7 @@ class _JavaObjectShadow:
             "command": "run-method",
             "static": static,
             "hash-code": self._hash_code,
+            "java_class_name": self._java_class, # for debugging
             "name": valid_method_spec["name"],
             "argument-types": valid_method_spec["arguments"],
             "argument-deserialization-types": deserialize_types,
