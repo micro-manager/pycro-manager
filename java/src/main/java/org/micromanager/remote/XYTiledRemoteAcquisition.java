@@ -58,6 +58,11 @@ public class XYTiledRemoteAcquisition extends XYTiledAcquisition implements Acqu
    }
 
    @Override
+   public void togglePaused() {
+      setPaused(!isPaused());
+   }
+
+   @Override
    public void abort(Exception e) {
       super.abort(e);
       eventSource_.abort();
