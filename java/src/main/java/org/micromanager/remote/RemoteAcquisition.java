@@ -57,6 +57,11 @@ public class RemoteAcquisition extends Acquisition implements AcquisitionAPI, Vi
    }
 
    @Override
+   public void togglePaused() {
+      setPaused(!isPaused());
+   }
+
+   @Override
    public void abort(Exception e) {
       super.abort(e);
       eventSource_.abort();
