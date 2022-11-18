@@ -1,0 +1,54 @@
+# This workflow only works on a Windows instance
+# Installs Micro-Manager and tests pycromanager against it
+# Triggered when a PR is closed and merged into main
+
+name: Test with MM
+
+on:
+  pull_request:
+    branches: [ main ]
+    # types:
+    #   - closed
+
+env:
+  MM_NIGHTLY_BUILD: 2.0.1_20221117
+
+jobs:
+  test_with_mm:
+    # if: github.event.pull_request.merged == true
+
+    runs-on: windows-latest
+
+    strategy:
+      matrix:
+        python-version: ['3.8', '3.9', '3.10']
+
+    steps: 
+    - uses: actions/checkout@v3
+
+    - uses: actions/setup-python@v4
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: 'pip'
+
+      - name: Install PM
+        run: |
+          pip install wheel
+          pip install ".[test]"
+
+    - name: Cache MM
+      id: cache-mm
+      uses: actions/cache@v3
+      with:
+        path: micro-manager
+        key: ${{ runner.os }}-mm-${MM_NIGHTLY_BUILD}-${{ matrix.python-version }}
+
+    - name: Download MM
+      if: steps.cache-mm.outputs.cache-hit != 'true'
+      run: C:\msys64\usr\bin\wget.exe -q https://download.micro-manager.org/nightly/2.0/Windows/MMSetup_64bit_${{ MM_NIGHTLY_BUILD }}.exe
+
+    - name: Install MM
+      run: micro-manager\MMSetup_64bit_${{ MM_NIGHTLY_BUILD }}.exe /SP /VERYSILENT /SUPRESSMSGBOXES /CURRENTUSER
+
+    - name: Test
+      run: pytest
