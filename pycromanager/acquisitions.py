@@ -522,40 +522,26 @@ class Acquisition(object, metaclass=NumpyDocstringInheritanceMeta):
 
         self._finished = True
 
-    def acquire(self, events: dict or list, keep_shutter_open=False):
+    def acquire(self, event_or_events: dict or list):
         """Submit an event or a list of events for acquisition. Optimizations (i.e. taking advantage of
         hardware synchronization, where available), will take place across this list of events, but not
         over multiple calls of this method. A single event is a python dictionary with a specific structure
 
         Parameters
         ----------
-        events  : list, dict
+        event_or_events  : list, dict
             A single acquistion event (a dict) or a list of acquisition events
-        keep_shutter_open :
-             (Default value = False)
 
         Returns
         -------
 
 
         """
-        if events is None:
+        if event_or_events is None:
             # manual shutdown
             self._event_queue.put(None)
             return
-        if keep_shutter_open and isinstance(events, list):
-            for e in events:
-                e["keep_shutter_open"] = True
-            events.append(
-                {"keep_shutter_open": False}
-            )  # return to autoshutter, dont acquire an image
-        elif keep_shutter_open and isinstance(events, dict):
-            events["keep_shutter_open"] = True
-            events = [
-                events,
-                {"keep_shutter_open": False},
-            ]  # return to autoshutter, dont acquire an image
-        self._event_queue.put(events)
+        self._event_queue.put(event_or_events)
 
     def _start_hook(self, remote_hook : _JavaObjectShadow, remote_hook_fn : callable, event_queue, process):
         """
