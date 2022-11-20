@@ -1,4 +1,4 @@
-from pycromanager import Acquisition, multi_d_acquisition_events, start_headless, _Bridge, Core
+from pycromanager import Acquisition, multi_d_acquisition_events, start_headless, Core
 import threading
 
 

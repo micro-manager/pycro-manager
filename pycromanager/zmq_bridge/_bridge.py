@@ -11,6 +11,8 @@ import sys
 from threading import Lock
 import threading
 import weakref
+import atexit
+
 
 class _DataSocket:
     """
@@ -272,7 +274,7 @@ class _Bridge:
         reply_json = self._main_socket.receive(timeout=timeout)
         if reply_json is None:
              raise TimeoutError(
-                f"Socket timed out after {timeout} milliseconds. Is Micro-Manager running and is the ZMQ server on {port} option enabled?"
+                f"Socket timed out after {timeout} milliseconds"
             )
         if reply_json["type"] == "exception":
             raise Exception(reply_json["message"])
@@ -472,7 +474,6 @@ class _JavaClassFactory:
             self.classes[_java_class] = newclass
             return newclass
 
-
 class _JavaObjectShadow:
     """
     Generic class for serving as a python interface for a java class using a zmq server backend
@@ -493,7 +494,9 @@ class _JavaObjectShadow:
         self._debug = bridge._debug
         self._port = bridge._port
         self._closed = False
-        # atexit.register(self._close)
+        # In case there's an exception rather than normal garbage collection,
+        # this makes sure cleanup occurs properly
+        atexit.register(self._close)
         self._close_lock = Lock()
 
     def _close(self):

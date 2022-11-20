@@ -35,7 +35,7 @@ def _run_acq_event_source(acquisition, event_port, event_queue, debug=False):
             if debug:
                 print("sent events")
         except Exception as e:
-            acquisition._abort(e)
+            acquisition.abort(e)
             # continue here, as abort will shut things down in an orderly fashion
 
 
@@ -55,10 +55,6 @@ def _run_acq_hook(acquisition, pull_port,
             push_socket.close()
             pull_socket.close()
             return
-        elif acquisition._abort_requested:
-            # There's been an exception (on the python side), so don't execute any hooks and
-            # instead wait for the shutdown signal
-            new_event_msg = None
         else:
             if "events" in event_msg.keys():
                 event_msg = event_msg["events"]  # convert from sequence
@@ -71,12 +67,12 @@ def _run_acq_hook(acquisition, pull_port,
                         new_event_msg = hook_fn(event_msg, event_queue)
                 except Exception as e:
                     exception = e
-                    acquisition._abort(e)
+                    acquisition.abort(e)
                     # Cancel the execution of event because there was an exception
                     new_event_msg = None
                     # don't return here--wait for the signal from the acq engine
             else:
-                acquisition._abort(Exception("Incorrect number of arguments for hook function. Must be 1 or 2"))
+                acquisition.abort(Exception("Incorrect number of arguments for hook function. Must be 1 or 2"))
 
         if isinstance(new_event_msg, list):
             new_event_msg = {
@@ -107,7 +103,7 @@ def _run_image_processor(
 
         """
         if len(image_tags_tuple) != 2:
-            acquisition._abort(Exception("If image is returned, it must be of the form (pixel, metadata)"))
+            acquisition.abort(Exception("If image is returned, it must be of the form (pixel, metadata)"))
 
         pixels = image_tags_tuple[0]
         metadata = image_tags_tuple[1]
@@ -116,7 +112,7 @@ def _run_image_processor(
         if not np.issubdtype(image_tags_tuple[0].dtype, original_dtype) and not np.issubdtype(
             original_dtype, image_tags_tuple[0].dtype
         ):
-            acquisition._abort(Exception(
+            acquisition.abort(Exception(
                 "Processed image pixels must have same dtype as input image pixels, "
                 "but instead they were {} and {}".format(image_tags_tuple[0].dtype, pixels.dtype)
             ))
@@ -163,10 +159,10 @@ def _run_image_processor(
                 elif len(params) == 3:
                     processed = process_fn(image, metadata, event_queue)
             except Exception as e:
-                acquisition._abort(Exception("exception in image processor: {}".format(e)))
+                acquisition.abort(Exception("exception in image processor: {}".format(e)))
                 continue
         else:
-            acquisition._abort(Exception(
+            acquisition.abort(Exception(
                 "Incorrect number of arguments for image processing function, must be 2 or 3"
             ))
 
@@ -201,7 +197,7 @@ def _storage_monitor_fn(
             if callback_fn is not None:
                 callback_fn(axes, dataset)
         except Exception as e:
-            acquisition._abort(e)
+            acquisition.abort(e)
 
 
 
@@ -288,7 +284,6 @@ class Acquisition(object, metaclass=NumpyDocstringInheritanceMeta):
             Print debug messages on java side in the micro-manager core log
         """
         self._debug = debug
-        self._abort_requested = False
         self._dataset = None
         self._finished = False
         self._exception = None
@@ -370,7 +365,7 @@ class Acquisition(object, metaclass=NumpyDocstringInheritanceMeta):
     def mark_finished(self):
         """
         Signal to acquisition that no more events will be added and it is time to initiate shutdown.
-        This is only needed if the context manager (i.e. "with Acquisition...") is not used
+        This is only needed if the context manager (i.e. "with Acquisition...") is not used.
         """
         # Some acquisition types (e.g. Magellan) generate their own events
         # and don't send events over a port
@@ -381,7 +376,7 @@ class Acquisition(object, metaclass=NumpyDocstringInheritanceMeta):
     def await_completion(self):
         """Wait for acquisition to finish and resources to be cleaned up"""
         while not self._remote_acq.is_finished():
-            time.sleep(1 if self._debug else 0.01)
+            time.sleep(1 if self._debug else 0.05)
             self._check_for_exceptions()
         self._remote_acq = None
 
@@ -407,16 +402,33 @@ class Acquisition(object, metaclass=NumpyDocstringInheritanceMeta):
         event_or_events  : list, dict
             A single acquistion event (a dict) or a list of acquisition events
 
-        Returns
-        -------
-
-
         """
         if event_or_events is None:
             # manual shutdown
             self._event_queue.put(None)
             return
         self._event_queue.put(event_or_events)
+
+    def abort(self, exception=None):
+        """
+        Cancel any pending events and shut down immediately
+
+        Parameters
+        ----------
+        exception  : Exception
+            The exception that is the reason abort is being called
+        """
+        # Store the exception that caused this
+        if exception is not None:
+            self._exception = exception
+
+        # Clear any pending events on the python side, if applicable
+        if self._event_queue is not None:
+            self._event_queue.queue.clear()
+            # Ensure that event queue gets shut down properly by adding this shutdown signal
+            # The Java side cant shut this down because it is upstream of the remote acquisition
+            self._event_queue.put(None)
+        self._remote_acq.abort()
 
     ########  Context manager (i.e. "with Acquisition...") ###########
     def __enter__(self):
@@ -428,34 +440,6 @@ class Acquisition(object, metaclass=NumpyDocstringInheritanceMeta):
         self.await_completion()
 
     ########  Private methods ###########
-
-    def _abort(self, exception=None):
-        """
-        Cancel any pending events and shut down immediately. Called in the case of an exception
-        """
-        if self._abort_requested:
-            return
-        self._abort_requested = True
-        if exception is not None:
-            self._exception = exception
-        # clear any pending events, including maybe an acquisition finished event (i.e. None)
-        # TODO If you want to have the Java side be aware that the acquisition was aborted
-        #  probably need to send a signal here. But there is a threading challenge, because
-        #  currently you cant reuse objects (i.e. remote acquisition) across threads/ports
-        #  But should be easy enough to add a method that grabs instance of the object based on
-        #  its hash for use on another thread
-
-
-        #TODO: you definitely do need to abort the acquisition somehow here, because if
-        # exception in an image processor occurs, all the events have already been sucked
-        # over to the Java side, and you have no way of stopping them without alerting the remote acq
-
-
-        if self._event_queue is not None:
-            self._event_queue.queue.clear()
-            # Ensure that event queue gets shut down properly by adding this shutdown signal
-            # The Java side cant shut this down because it is upstream of the remote acquisition
-            self._event_queue.put(None)
 
     def _check_for_exceptions(self):
         """
@@ -500,7 +484,7 @@ class Acquisition(object, metaclass=NumpyDocstringInheritanceMeta):
             self._remote_acq.add_hook(hook, self._remote_acq.EVENT_GENERATION_HOOK)
         if kwargs['pre_hardware_hook_fn'] is not None:
             hook = JavaObject(
-                "org.micromanager.remote.RemoteAcqHook", port=self.port, args=[self._remote_acq]
+                "org.micromanager.remote.RemoteAcqHook", port=self._port, args=[self._remote_acq]
             )
             self._hook_threads.append(self._start_hook(hook,
                                             kwargs['pre_hardware_hook_fn'], self._event_queue,
