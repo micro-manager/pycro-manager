@@ -90,8 +90,8 @@ data = np.random.rand(z_range[2], clip[0], clip[1]) * clim[1]
 # need bridge to move stage at beginning of stack
 # USE WITH CAUTION: only tested with micromanager demo config
 if not(simulate) and not(z_stack_external):
-    from pycromanager import Bridge
-    bridge = Bridge()
+    from pycromanager import _Bridge
+    bridge = _Bridge()
     #get object representing micro-manager core
     core = bridge.get_core()
     print(core)

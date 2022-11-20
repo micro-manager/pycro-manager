@@ -1,10 +1,9 @@
-import os
 import subprocess
 import platform
 import atexit
 import threading
 
-from pycromanager.bridge import Bridge
+from pycromanager.zmq_bridge._bridge import _Bridge
 import copy
 import types
 import numpy as np
@@ -21,7 +20,7 @@ atexit.register(cleanup)
 
 def start_headless(
     mm_app_path: str, config_file: str='', java_loc: str=None, core_log_path: str='', buffer_size_mb: int=1024,
-        port: int=Bridge.DEFAULT_PORT, debug=False):
+        port: int=_Bridge.DEFAULT_PORT, debug=False):
     """
     Start a Java process that contains the neccessary libraries for pycro-manager to run,
     so that it can be run independently of the Micro-Manager GUI/application. This calls

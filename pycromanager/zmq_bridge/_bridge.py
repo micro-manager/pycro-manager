@@ -8,12 +8,11 @@ import numpy as np
 import zmq
 import copy
 import sys
-from threading import Lock, local
+from threading import Lock
 import threading
-from warnings import warn
 import weakref
 
-class DataSocket:
+class _DataSocket:
     """
     Wrapper for ZMQ socket that sends and recieves dictionaries
     Includes ZMQ client, push, and pull sockets
@@ -200,7 +199,7 @@ class DataSocket:
                 self._closed = True
 
 
-class Bridge:
+class _Bridge:
     """
     Create an object which acts as a client to a corresponding server (running in a Java process).
     This enables construction and interaction with arbitrary java objects. Each bridge object should
@@ -216,25 +215,25 @@ class Bridge:
         """
         Only one instance of Bridge per a thread/port combo
         """
-        port = kwargs.get('port', Bridge.DEFAULT_PORT)
-        if not hasattr(Bridge, 'local'):
-            Bridge.local = threading.local()
-        if not hasattr(Bridge.local, 'bridges'):
-            Bridge.local.bridges = {}
-        if port not in Bridge.local.bridges.keys():
-            Bridge.local.bridges[port] = []
-            return super(Bridge, cls).__new__(cls)
+        port = kwargs.get('port', _Bridge.DEFAULT_PORT)
+        if not hasattr(_Bridge, 'local'):
+            _Bridge.local = threading.local()
+        if not hasattr(_Bridge.local, 'bridges'):
+            _Bridge.local.bridges = {}
+        if port not in _Bridge.local.bridges.keys():
+            _Bridge.local.bridges[port] = []
+            return super(_Bridge, cls).__new__(cls)
 
         # clear old old refs that have been GCed
         remaining = []
-        for i in range(len(Bridge.local.bridges[port])):
-            if Bridge.local.bridges[port][i]() is not None:
-                remaining.append(Bridge.local.bridges[port][i])
-        Bridge.local.bridges[port] = remaining
-        if len(Bridge.local.bridges[port]) == 0:
-            return super(Bridge, cls).__new__(cls)
+        for i in range(len(_Bridge.local.bridges[port])):
+            if _Bridge.local.bridges[port][i]() is not None:
+                remaining.append(_Bridge.local.bridges[port][i])
+        _Bridge.local.bridges[port] = remaining
+        if len(_Bridge.local.bridges[port]) == 0:
+            return super(_Bridge, cls).__new__(cls)
             
-        return Bridge.local.bridges[port][0]()
+        return _Bridge.local.bridges[port][0]()
 
 
     def __init__(
@@ -256,7 +255,7 @@ class Bridge:
             If True, ListArray will be iterated and give lists
         """
         self._weak_self_ref = weakref.ref(self)
-        Bridge.local.bridges[port].append(self._weak_self_ref)
+        _Bridge.local.bridges[port].append(self._weak_self_ref)
         if hasattr(self, '_ip_address'):
             return #already initialized
         self._ip_address = ip_address
@@ -265,7 +264,7 @@ class Bridge:
         self._debug = debug
         self._timeout = timeout
         self._iterate = iterate
-        self._main_socket = DataSocket(
+        self._main_socket = _DataSocket(
             zmq.Context.instance(), port, zmq.REQ, debug=debug, ip_address=self._ip_address
         )
         self._main_socket.send({"command": "connect", "debug": debug})
@@ -355,7 +354,7 @@ class Bridge:
         serialized_object = self._main_socket.receive()
         if new_socket:
             # create a new bridge over a different port
-            bridge = Bridge(port=serialized_object["port"], ip_address=self._ip_address, timeout=self._timeout)
+            bridge = _Bridge(port=serialized_object["port"], ip_address=self._ip_address, timeout=self._timeout)
         else:
             bridge = self
 
@@ -387,68 +386,16 @@ class Bridge:
 
         if new_socket:
             # create a new bridge over a different port
-            bridge = Bridge(port=serialized_object["port"], ip_address=self._ip_address, timeout=self._timeout)
+            bridge = _Bridge(port=serialized_object["port"], ip_address=self._ip_address, timeout=self._timeout)
         else:
             bridge = self
         return self._class_factory.create(
             serialized_object, convert_camel_case=self._convert_camel_case
         )(serialized_object=serialized_object, bridge=bridge)
 
-    def _connect_push(self, port):
-        """
-        Connect a push socket on the given port
-        :param port:
-        :return:
-        """
-        return DataSocket(
-            zmq.Context.instance(), port, zmq.PUSH, debug=self._debug, ip_address=self._ip_address
-        )
-
-    def _connect_pull(self, port):
-        """
-        Connect to a pull socket on the given port
-        :param port:
-        :return:
-        """
-        return DataSocket(
-            zmq.Context.instance(), port, zmq.PULL, debug=self._debug, ip_address=self._ip_address
-        )
-
-    def get_magellan(self):
-        """
-        DEPRECATED
-        instead use "from pycromanager import Magellan; magellan = Magellan()"
-
-        return an instance of the Micro-Magellan API
-        """
-        warn('Deprecated. use "from pycromanager import Magellan; magellan = Magellan()"', DeprecationWarning, stacklevel=2)
-        return self._construct_java_object("org.micromanager.magellan.api.MagellanAPI")
-
-    def get_core(self):
-        """
-        DEPRECATED
-        instead use "from pycromanager import Core; core = Core()"
-
-
-        Connect to CMMCore and return object that has its methods
-
-        :return: Python "shadow" object for micromanager core
-        """
-        warn('Deprecated. use "from pycromanager import Core; core = Core()"', DeprecationWarning, stacklevel=2)
-        if hasattr(self, "core"):
-            return getattr(self, "core")
-        self.core = self._construct_java_object("mmcorej.CMMCore")
-        return self.core
-
-    def get_studio(self):
-        """
-        DEPRECATED use "from pycromanager import Studio; studio = Studio()"
-
-        return an instance of the Studio object that provides access to micro-manager Java APIs
-        """
-        warn('Deprecated. use "from pycromanager import Studio; studio = Studio()"', DeprecationWarning, stacklevel=2)
-
-        return self._construct_java_object("org.micromanager.Studio")
+    def __del__(self):
+        if self._debug:
+            print("DEBUG: desctructor for {} on port {}".format(str(self), self._port))
 
 
 class _JavaClassFactory:
@@ -540,7 +487,7 @@ class _JavaObjectShadow:
     )
     _java_class = None
 
-    def __init__(self, serialized_object, bridge: Bridge):
+    def __init__(self, serialized_object, bridge: _Bridge):
         self._hash_code = serialized_object["hash-code"]
         self._bridges = (bridge,)
         self._debug = bridge._debug
@@ -587,10 +534,12 @@ class _JavaObjectShadow:
         Add this new bridge to the list so that it doesn't get garbage colllected and have to be re-created
         if this object is used from the calling thread again
         """
-        bridge_to_use = Bridge.__new__(Bridge, port=self._port)
+        bridge_to_use = _Bridge.__new__(_Bridge, port=self._port)
         if bridge_to_use not in self._bridges:
             if self._debug:
                 print('DEBUG: added new bridge')
+                print(self._bridges)
+                print(bridge_to_use)
             bridge_to_use.__init__(port=self._port,
                                    convert_camel_case=self._bridges[0]._convert_camel_case,
                                    ip_address=self._bridges[0]._ip_address,
@@ -604,6 +553,8 @@ class _JavaObjectShadow:
         """
         Tell java side this object is garbage collected so it can do the same if needed
         """
+        if self._debug:
+            print('DEBUG: destructor for {}'.format(str(self)))
         self._close()
 
     def _access_field(self, name):
@@ -982,7 +933,7 @@ if __name__ == "__main__":
     # Test basic bridge operations
     import traceback
 
-    b = Bridge()
+    b = _Bridge()
     try:
         s = b.get_studio()
     except:

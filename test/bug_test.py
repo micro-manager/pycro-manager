@@ -1,4 +1,4 @@
-from pycromanager import Bridge
+from pycromanager import _Bridge
 
 from pycromanager import Acquisition, multi_d_acquisition_events
 

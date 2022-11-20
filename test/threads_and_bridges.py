@@ -1,5 +1,5 @@
-from pycromanager.java_classes import Core, JavaObject, JavaClass
-from pycromanager import Bridge
+from pycromanager.mm_java_classes import Core, JavaObject, JavaClass
+from pycromanager import _Bridge
 import gc
 import threading
 
