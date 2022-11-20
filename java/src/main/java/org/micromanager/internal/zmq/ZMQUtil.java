@@ -235,7 +235,6 @@ public class ZMQUtil {
             json.put("type", "unserialized-object");
             json.put("class", o.getClass().getName());
             json.put("hash-code", hash);
-            json.put("port", port);
 
             ArrayList<Class> apiInterfaces = new ArrayList<>();
             if (o.getClass().equals(Class.class)) {

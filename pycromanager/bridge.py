@@ -288,16 +288,6 @@ class Bridge:
                 )
             )
 
-
-    def __enter__(self):
-        warn('\nThe Bridge context manager (i.e. with Bridge...) is deprecated and will be \n'
-             'removed in a future version. Bridge does not need to be explicitly created anymore.  \n'
-             'Instead use the classes JavaObject, JavaClass, Core, Studio, Magellan', DeprecationWarning, stacklevel=2)
-        return self
-
-    def __exit__(self, exc_type, exc_val, exc_tb):
-        pass
-
     def _deserialize_object(self, serialized_object) -> typing.Type["_JavaObjectShadow"]:
         return self._class_factory.create(
             serialized_object, convert_camel_case=self._convert_camel_case
@@ -600,6 +590,16 @@ class _JavaObjectShadow:
         kwargs :
              hold possible polymorphic args, or none
         """
+        if Bridge.__new__(Bridge) is not self._bridge:
+            # You cant call a method on an object from a different thread than the object was created on
+            # because each JavaObjectShadow is associated with a particular Bridge (so that the Bridge is not
+            # garbage collected while the object is still alive) and Bridge instances are associated with a
+            # single thread (because ZMQ sockets are not thread safe). It might be possible to change this
+            # in the future
+            # e.g. detect the thread of the call, get the appropriate Bridge instance, make the call there
+            #     How to avoid constantly creating too many brides would have to be considered.
+            # In the mean time, explicitly disallow this behavior by throwing an exception
+            raise Exception('Objects cannot be passed across threads')
         # args that are none are placeholders to allow for polymorphism and not considered part of the spec
         # fn_args = [a for a in fn_args if a is not None]
         valid_method_spec, deserialize_types = _check_method_args(method_specs, fn_args)
@@ -614,7 +614,6 @@ class _JavaObjectShadow:
             "argument-deserialization-types": deserialize_types,
         }
         message["arguments"] = _package_arguments(valid_method_spec, fn_args)
-
         self._socket.send(message)
         recieved = self._socket.receive()
         return self._deserialize(recieved)

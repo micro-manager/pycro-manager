@@ -6,7 +6,6 @@ import time
 from pycromanager.bridge import deserialize_array, Bridge
 from pycromanager.java_classes import Core, JavaObject, Magellan
 from ndtiff import Dataset
-import warnings
 import os.path
 import queue
 from pycromanager.bridge import _JavaObjectShadow
@@ -16,66 +15,37 @@ from docstring_inheritance import NumpyDocstringInheritanceMeta
 ### These functions outside class to prevent problems with pickling when running them in differnet process
 
 
-def _run_acq_event_source(bridge_port, bridge_timeout, event_port, event_queue, debug=False):
-    """
-
-    Parameters
-    ----------
-    event_port :
-
-    event_queue :
-
-    debug :
-         (Default value = False)
-
-    Returns
-    -------
-
-    """
-
+def _run_acq_event_source(acquisition, bridge_port, bridge_timeout, event_port, event_queue, debug=False):
     bridge = Bridge(debug=debug, port=bridge_port, timeout=bridge_timeout)
     event_socket = bridge._connect_push(event_port)
     while True:
-        events = event_queue.get(block=True)
-        if debug:
-            print("got event(s):", events)
-        if events is None:
-            # Poison, time to shut down
-            event_socket.send({"events": [{"special": "acquisition-end"}]})
-            event_socket.close()
-            return
-        event_socket.send({"events": events if type(events) == list else [events]})
-        if debug:
-            print("sent events")
-
-def _run_acq_hook(bridge_port, bridge_timeout, pull_port, push_port, hook_connected_evt, event_queue, hook_fn, debug=False):
-    """
-
-    Parameters
-    ----------
-    pull_port :
-
-    push_port :
-
-    hook_connected_evt :
-
-    event_queue :
-
-    hook_fn :
-
-    debug :
+        try:
+            events = event_queue.get(block=True)
+            if debug:
+                print("got event(s):", events)
+            if events is None:
+                # Time to shut down
+                event_socket.send({"events": [{"special": "acquisition-end"}]})
+                event_socket.close()
+                return
+            event_socket.send({"events": events if type(events) == list else [events]})
+            if debug:
+                print("sent events")
+        except Exception as e:
+            acquisition._abort(e)
+            # continue here, as abort will shut things down in an orderly fashion
 
 
-    Returns
-    -------
+def _run_acq_hook(acquisition, bridge_port, bridge_timeout, pull_port,
+                  push_port, hook_connected_evt, event_queue, hook_fn, debug=False):
 
-    """
     bridge = Bridge(debug=debug, port=bridge_port, timeout=bridge_timeout)
 
     push_socket = bridge._connect_push(pull_port)
     pull_socket = bridge._connect_pull(push_port)
     hook_connected_evt.set()
 
+    exception = None
     while True:
         event_msg = pull_socket.receive()
 
@@ -84,6 +54,10 @@ def _run_acq_hook(bridge_port, bridge_timeout, pull_port, push_port, hook_connec
             push_socket.close()
             pull_socket.close()
             return
+        elif acquisition._abort_requested:
+            # There's been an exception (on the python side), so don't execute any hooks and
+            # instead wait for the shutdown signal
+            new_event_msg = None
         else:
             if "events" in event_msg.keys():
                 event_msg = event_msg["events"]  # convert from sequence
@@ -95,10 +69,13 @@ def _run_acq_hook(bridge_port, bridge_timeout, pull_port, push_port, hook_connec
                     elif len(params) == 2:
                         new_event_msg = hook_fn(event_msg, event_queue)
                 except Exception as e:
-                    warnings.warn("exception in acquisition hook: {}".format(e))
-                    continue
+                    exception = e
+                    acquisition._abort(e)
+                    # Cancel the execution of event because there was an exception
+                    new_event_msg = None
+                    # don't return here--wait for the signal from the acq engine
             else:
-                raise Exception("Incorrect number of arguments for hook function. Must be 1 or 2")
+                acquisition._abort(Exception("Incorrect number of arguments for hook function. Must be 1 or 2"))
 
         if isinstance(new_event_msg, list):
             new_event_msg = {
@@ -108,30 +85,9 @@ def _run_acq_hook(bridge_port, bridge_timeout, pull_port, push_port, hook_connec
 
 
 def _run_image_processor(
-        bridge_port, bridge_timeout,
+        acquisition, bridge_port, bridge_timeout,
         pull_port, push_port, sockets_connected_evt, process_fn, event_queue, debug
 ):
-    """
-
-    Parameters
-    ----------
-    pull_port :
-
-    push_port :
-
-    sockets_connected_evt :
-
-    process_fn :
-
-    event_queue :
-
-    debug :
-
-
-    Returns
-    -------
-
-    """
     bridge = Bridge(debug=debug, port=bridge_port, timeout=bridge_timeout)
     push_socket = bridge._connect_push(pull_port)
     pull_socket = bridge._connect_pull(push_port)
@@ -152,7 +108,7 @@ def _run_image_processor(
 
         """
         if len(image_tags_tuple) != 2:
-            raise Exception("If image is returned, it must be of the form (pixel, metadata)")
+            acquisition._abort(Exception("If image is returned, it must be of the form (pixel, metadata)"))
 
         pixels = image_tags_tuple[0]
         metadata = image_tags_tuple[1]
@@ -161,10 +117,10 @@ def _run_image_processor(
         if not np.issubdtype(image_tags_tuple[0].dtype, original_dtype) and not np.issubdtype(
             original_dtype, image_tags_tuple[0].dtype
         ):
-            raise Exception(
+            acquisition._abort(Exception(
                 "Processed image pixels must have same dtype as input image pixels, "
                 "but instead they were {} and {}".format(image_tags_tuple[0].dtype, pixels.dtype)
-            )
+            ))
 
         if metadata['PixelType'] == 'RGB32':
             if pixels.shape[-1] == 3:
@@ -207,12 +163,12 @@ def _run_image_processor(
                 elif len(params) == 3:
                     processed = process_fn(image, metadata, event_queue)
             except Exception as e:
-                warnings.warn("exception in image processor: {}".format(e))
+                acquisition._abort(Exception("exception in image processor: {}".format(e)))
                 continue
         else:
-            raise Exception(
+            acquisition._abort(Exception(
                 "Incorrect number of arguments for image processing function, must be 2 or 3"
-            )
+            ))
 
         if processed is None:
             continue
@@ -224,7 +180,7 @@ def _run_image_processor(
             process_and_sendoff(processed, pixels.dtype)
 
 def _storage_monitor_fn(
-    dataset, storage_monitor_push_port, connected_event, callback_fn, debug=False
+    acquisition, dataset, storage_monitor_push_port, connected_event, callback_fn, debug=False
 ):
     #TODO: might need to add in support for doing this on a different port, if Acquistiion/bridge is not on default port
     bridge = Bridge()
@@ -233,20 +189,22 @@ def _storage_monitor_fn(
     connected_event.set()
 
     while True:
-        message = monitor_socket.receive()
+        try:
+            message = monitor_socket.receive()
 
-        if "finished" in message:
-            # Poison, time to shut down
-            monitor_socket.close()
-            return
+            if "finished" in message:
+                # Poison, time to shut down
+                monitor_socket.close()
+                return
 
-        index_entry = message["index_entry"]
-        axes = dataset._add_index_entry(index_entry)
-        dataset._new_image_arrived = True
+            index_entry = message["index_entry"]
+            axes = dataset._add_index_entry(index_entry)
+            dataset._new_image_arrived = True
 
-        if callback_fn is not None:
-            callback_fn(axes, dataset)
-
+            if callback_fn is not None:
+                callback_fn(axes, dataset)
+        except Exception as e:
+            acquisition._abort(e)
 
 
 
@@ -336,8 +294,10 @@ class Acquisition(object, metaclass=NumpyDocstringInheritanceMeta):
         self.bridge = Bridge(debug=debug, port=port, timeout=bridge_timeout)
         self._bridge_port = port
         self._debug = debug
+        self._abort_requested = False
         self._dataset = None
         self._finished = False
+        self._exception = None
 
         # Get a dict of all named argument values (or default values when nothing provided)
         arg_names = [k for k in signature(Acquisition.__init__).parameters.keys() if k != 'self']
@@ -378,13 +338,14 @@ class Acquisition(object, metaclass=NumpyDocstringInheritanceMeta):
                     callback_fn = lambda axes, dataset: callback_fn(axes, dataset, self._event_queue)
                 else:
                     raise Exception('Image saved callbacks must have either 2 or three parameters')
-                self._storage_monitor_thread = self._dataset._add_storage_monitor_fn(_storage_monitor_fn,
+                self._storage_monitor_thread = self._dataset._add_storage_monitor_fn(self, _storage_monitor_fn,
                     callback_fn=image_saved_fn, debug=self._debug
                 )
             else:
                 # Monitor image arrival so they can be loaded on python side, but with no callback function
                 # Need to do this regardless of whether you use it, so that it signals to shut down on Java side
-                self._storage_monitor_thread = self._dataset._add_storage_monitor_fn(_storage_monitor_fn, callback_fn=None, debug=self._debug)
+                self._storage_monitor_thread = self._dataset._add_storage_monitor_fn(
+                    self, _storage_monitor_fn, callback_fn=None, debug=self._debug)
 
 
         if show_display == 'napari':
@@ -397,7 +358,71 @@ class Acquisition(object, metaclass=NumpyDocstringInheritanceMeta):
             start_napari_signalling(viewer, self.get_dataset())
 
 
+    ########  Public API ###########
+    def get_dataset(self):
+        """
+        Get access to the dataset backing this acquisition. If the acquisition is in progress,
+        return a Dataset object that wraps the java class containing it. If the acquisition is finished,
+        load the dataset from disk on the Python side for better performance
+        """
+        if self._finished:
+            if self._dataset is None or self._dataset._remote_storage_monitor is not None:
+                self._dataset = Dataset(self._dataset_disk_location)
 
+        return self._dataset
+
+    def mark_finished(self):
+        """
+        Signal to acquisition that no more events will be added and it is time to initiate shutdown.
+        This is only needed if the context manager (i.e. "with Acquisition...") is not used
+        """
+        # Some acquisition types (e.g. Magellan) generate their own events
+        # and don't send events over a port
+        if self._event_queue is not None:
+            # this should shut down storage and viewer as apporpriate
+            self._event_queue.put(None)
+
+    def await_completion(self):
+        """Wait for acquisition to finish and resources to be cleaned up"""
+        while not self._remote_acq.is_finished():
+            time.sleep(1 if self._debug else 0.01)
+            self._check_for_exceptions()
+        self._remote_acq = None
+
+        # Wait on all the other threads to shut down properly
+        if hasattr(self, '_storage_monitor_thread'):
+            self._storage_monitor_thread.join()
+
+        for hook_thread in self._hook_threads:
+            hook_thread.join()
+
+        if hasattr(self, '_event_thread'):
+            self._event_thread.join()
+
+        self._finished = True
+
+    def acquire(self, event_or_events: dict or list):
+        """Submit an event or a list of events for acquisition. Optimizations (i.e. taking advantage of
+        hardware synchronization, where available), will take place across this list of events, but not
+        over multiple calls of this method. A single event is a python dictionary with a specific structure
+
+        Parameters
+        ----------
+        event_or_events  : list, dict
+            A single acquistion event (a dict) or a list of acquisition events
+
+        Returns
+        -------
+
+
+        """
+        if event_or_events is None:
+            # manual shutdown
+            self._event_queue.put(None)
+            return
+        self._event_queue.put(event_or_events)
+
+    ########  Context manager (i.e. "with Acquisition...") ###########
     def __enter__(self):
         return self
 
@@ -406,6 +431,45 @@ class Acquisition(object, metaclass=NumpyDocstringInheritanceMeta):
         # now wait on it to finish
         self.await_completion()
 
+    ########  Private methods ###########
+
+    def _abort(self, exception=None):
+        """
+        Cancel any pending events and shut down immediately. Called in the case of an exception
+        """
+        if self._abort_requested:
+            return
+        self._abort_requested = True
+        if exception is not None:
+            self._exception = exception
+        # clear any pending events, including maybe an acquisition finished event (i.e. None)
+        # TODO If you want to have the Java side be aware that the acquisition was aborted
+        #  probably need to send a signal here. But there is a threading challenge, because
+        #  currently you cant resuse objects (i.e. remote acquistion) across threads/ports
+        #  But should be easy enough to add a method that grabs instance of the object based on
+        #  its hash for use on another thread
+
+
+        #TODO: you definitely do need to abort the acquisition somehow here, because if
+        # exception in an image processor occurs, all the events have already been sucked
+        # over to the Java side, and you have no way of stopping them without alerting the remote acq
+
+
+        if self._event_queue is not None:
+            self._event_queue.queue.clear()
+            # Ensure that event queue gets shut down properly by adding this shutdown signal
+            # The Java side cant shut this down because it is upstream of the remote acquisition
+            self._event_queue.put(None)
+
+    def _check_for_exceptions(self):
+        """
+        Check for exceptions on the python side (i.e. hooks and processors)
+        or on the Java side (i.e. hardware control)
+        """
+        # these will throw exceptions
+        self._remote_acq.check_for_exceptions()
+        if self._exception is not None:
+            raise self._exception
 
     def _start_events(self, **kwargs):
 
@@ -413,7 +477,7 @@ class Acquisition(object, metaclass=NumpyDocstringInheritanceMeta):
 
         self._event_thread = threading.Thread(
             target=_run_acq_event_source,
-            args=(self._bridge_port, self._bridge_timeout, self.event_port, self._event_queue, self._debug),
+            args=(self, self._bridge_port, self._bridge_timeout, self.event_port, self._event_queue, self._debug),
             name="Event sending",
         )
         self._event_thread.start()
@@ -481,68 +545,6 @@ class Acquisition(object, metaclass=NumpyDocstringInheritanceMeta):
             kwargs['core_log_debug'],
         )
 
-
-    def get_dataset(self):
-        """
-        Get access to the dataset backing this acquisition. If the acquisition is in progress,
-        return a Dataset object that wraps the java class containing it. If the acquisition is finished,
-        load the dataset from disk on the Python side for better performance
-        """
-        if self._finished:
-            if self._dataset is None or self._dataset._remote_storage_monitor is not None:
-                self._dataset = Dataset(self._dataset_disk_location)
-
-        return self._dataset
-
-    def mark_finished(self):
-        """
-        Signal to acquisition that no more events will be added and it is time to initiate shutdown.
-        This is only needed if the context manager (i.e. "with Acquisition...") is not used
-        """
-        if self._event_queue is not None:  # magellan acquisitions dont have this
-            # this should shut down storage and viewer as apporpriate
-            self._event_queue.put(None)
-
-    def await_completion(self):
-        """Wait for acquisition to finish and resources to be cleaned up"""
-        while not self._remote_acq.is_finished():
-            time.sleep(0.01)
-            self._remote_acq.check_for_exceptions()
-        self._remote_acq = None
-
-        # Wait on all the other threads to shut down properly
-        if hasattr(self, '_storage_monitor_thread'):
-            self._storage_monitor_thread.join()
-
-        for hook_thread in self._hook_threads:
-            hook_thread.join()
-
-        if hasattr(self, '_event_thread'):
-            self._event_thread.join()
-
-        self._finished = True
-
-    def acquire(self, event_or_events: dict or list):
-        """Submit an event or a list of events for acquisition. Optimizations (i.e. taking advantage of
-        hardware synchronization, where available), will take place across this list of events, but not
-        over multiple calls of this method. A single event is a python dictionary with a specific structure
-
-        Parameters
-        ----------
-        event_or_events  : list, dict
-            A single acquistion event (a dict) or a list of acquisition events
-
-        Returns
-        -------
-
-
-        """
-        if event_or_events is None:
-            # manual shutdown
-            self._event_queue.put(None)
-            return
-        self._event_queue.put(event_or_events)
-
     def _start_hook(self, remote_hook : _JavaObjectShadow, remote_hook_fn : callable, event_queue, process):
         """
 
@@ -570,6 +572,7 @@ class Acquisition(object, metaclass=NumpyDocstringInheritanceMeta):
             target=_run_acq_hook,
             name="AcquisitionHook",
             args=(
+                self,
                 self._bridge_port,
                 self._bridge_timeout,
                 pull_port,
@@ -615,6 +618,7 @@ class Acquisition(object, metaclass=NumpyDocstringInheritanceMeta):
         processor_thread = (multiprocessing.Process if process else threading.Thread)(
             target=_run_image_processor,
             args=(
+                self,
                 self._bridge_port,
                 self._bridge_timeout,
                 pull_port,

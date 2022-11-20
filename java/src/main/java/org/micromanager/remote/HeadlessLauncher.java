@@ -24,6 +24,19 @@ public class HeadlessLauncher {
 
       CMMCore core = new CMMCore();
 
+      core.waitForSystem();
+      int port = Integer.parseInt(args[0]);
+      String configFilePath = args[1];
+      int bufferSizeMB = Integer.parseInt(args[2]);
+      String coreLogPath = args[3];
+
+      core.loadSystemConfiguration(configFilePath);
+      core.setCircularBufferMemoryFootprint(bufferSizeMB);
+      core.enableStderrLog(true);
+      core.enableDebugLog(true);
+      core.setPrimaryLogFile(coreLogPath);
+
+
       //Start acq Engine
       engine_ = new Engine(core);
 
@@ -43,20 +56,9 @@ public class HeadlessLauncher {
       try {
          HashSet<ClassLoader> classLoaders = new HashSet<ClassLoader>();
          classLoaders.add(core.getClass().getClassLoader());
-         int port;
-         if (args.length > 0) {
-            port = Integer.parseInt(args[0]);
-         } else {
-            port = ZMQServer.STARTING_PORT_NUMBER;
-         }
          zmqServer_ = new ZMQServer(classLoaders, instanceGrabberFunction, new String[]{},
-                 new Consumer<String>() {
-                    @Override
-                    public void accept(String s) {
-                       System.out.println(s);
-                    }
-                 }, port);
-         System.out.println("Headless mode started");
+               s -> System.out.println(s), port);
+         System.out.println("STARTED");
       } catch (URISyntaxException e) {
          throw new RuntimeException();
       } catch (UnsupportedEncodingException e) {
