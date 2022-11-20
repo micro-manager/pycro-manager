@@ -1,4 +1,4 @@
-from pycromanager.utility.positions import PositionList
+from misc.positions import PositionList
 
 """This example demonstrates how to generate new imaging positions from a set of positions after the sample has been picked up and likely shifted or rotated.
 This method relies on measuring a set of reference positions (at least 3) before and after moving the dish. You can then use these positions to generate an 

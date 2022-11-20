@@ -37,7 +37,6 @@ A hook function that takes two arguments can also be used in cases where one wan
 
 .. code-block:: python
 	
-	#this hook function can control the micro-manager core
 	def hook_fn(event, event_queue):
 
 		### create a new acquisition event in response to something ###
@@ -58,7 +57,6 @@ When it is finished, it can be closed and cleaned up by passing an ``None`` to t
 
 .. code-block:: python
 
-    # this hook function can control the micro-manager core
     def hook_fn(event, event_queue):
 
         if acq_end_condition:

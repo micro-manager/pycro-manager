@@ -26,19 +26,20 @@ setuptools.setup(
         "dask[array]>=2022.2.0",
         "pyzmq",
         "docstring-inheritance",
-        "ndtiff>=1.3.6"
+        "ndtiff>=1.4.0"
     ],
     python_requires=">=3.6",
     extras_require={
         "test": [
             "pytest",
-            "black",
         ]
     },
     classifiers=[
-        "Programming Language :: Python :: 3.6",
         "Programming Language :: Python :: 3.7",
         "Programming Language :: Python :: 3.8",
+        "Programming Language :: Python :: 3.9",
+        "Programming Language :: Python :: 3.10",
+        "Programming Language :: Python :: 3.11",
         "Development Status :: 3 - Alpha",
         "License :: OSI Approved :: BSD License",
         "Operating System :: OS Independent",

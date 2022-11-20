@@ -1,7 +1,7 @@
-from pycromanager import Bridge, Acquisition
+from pycromanager import _Bridge, Acquisition
 import numpy as np
 
-with Bridge() as bridge:
+with _Bridge() as bridge:
     # get object representing micro-magellan API
     magellan = bridge.get_magellan()
 

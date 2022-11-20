@@ -8,12 +8,13 @@ import numpy as np
 import zmq
 import copy
 import sys
-from threading import Lock, local
+from threading import Lock
 import threading
-from warnings import warn
 import weakref
+import atexit
 
-class DataSocket:
+
+class _DataSocket:
     """
     Wrapper for ZMQ socket that sends and recieves dictionaries
     Includes ZMQ client, push, and pull sockets
@@ -94,7 +95,7 @@ class DataSocket:
                 elif isinstance(entry, list) or isinstance(entry, dict):
                     self._remove_bytes(bytes_data, structure[key])
 
-    def send(self, message, timeout=0, suppress_debug_message=False):
+    def send(self, message, timeout=None, suppress_debug_message=False):
         if message is None:
             message = {}
         # make sure any np types convert to python types so they can be json serialized
@@ -112,7 +113,7 @@ class DataSocket:
         ]
         if self._socket is None:
             raise Exception("Tried to send message through socket {}, which is already closed".format(self._port))
-        if timeout == 0:
+        if timeout == 0 or timeout is None:
             self._socket.send_multipart(message_parts)
         else:
             start = time.time()
@@ -149,8 +150,8 @@ class DataSocket:
                 elif isinstance(entry, list) or isinstance(entry, dict):
                     self._replace_bytes(entry, hash, value)
 
-    def receive(self, timeout=0, suppress_debug_message=False):
-        if timeout == 0:
+    def receive(self, timeout=None, suppress_debug_message=False):
+        if timeout == 0 or timeout is None:
             reply = self._socket.recv_multipart()
         else:
             start = time.time()
@@ -200,7 +201,7 @@ class DataSocket:
                 self._closed = True
 
 
-class Bridge:
+class _Bridge:
     """
     Create an object which acts as a client to a corresponding server (running in a Java process).
     This enables construction and interaction with arbitrary java objects. Each bridge object should
@@ -216,25 +217,25 @@ class Bridge:
         """
         Only one instance of Bridge per a thread/port combo
         """
-        port = kwargs.get('port', Bridge.DEFAULT_PORT)
-        if not hasattr(Bridge, 'local'):
-            Bridge.local = threading.local()
-        if not hasattr(Bridge.local, 'bridges'):
-            Bridge.local.bridges = {}
-        if port not in Bridge.local.bridges.keys():
-            Bridge.local.bridges[port] = []
-            return super(Bridge, cls).__new__(cls)
+        port = kwargs.get('port', _Bridge.DEFAULT_PORT)
+        if not hasattr(_Bridge, 'local'):
+            _Bridge.local = threading.local()
+        if not hasattr(_Bridge.local, 'bridges'):
+            _Bridge.local.bridges = {}
+        if port not in _Bridge.local.bridges.keys():
+            _Bridge.local.bridges[port] = []
+            return super(_Bridge, cls).__new__(cls)
 
         # clear old old refs that have been GCed
         remaining = []
-        for i in range(len(Bridge.local.bridges[port])):
-            if Bridge.local.bridges[port][i]() is not None:
-                remaining.append(Bridge.local.bridges[port][i])
-        Bridge.local.bridges[port] = remaining
-        if len(Bridge.local.bridges[port]) == 0:
-            return super(Bridge, cls).__new__(cls)
+        for i in range(len(_Bridge.local.bridges[port])):
+            if _Bridge.local.bridges[port][i]() is not None:
+                remaining.append(_Bridge.local.bridges[port][i])
+        _Bridge.local.bridges[port] = remaining
+        if len(_Bridge.local.bridges[port]) == 0:
+            return super(_Bridge, cls).__new__(cls)
             
-        return Bridge.local.bridges[port][0]()
+        return _Bridge.local.bridges[port][0]()
 
 
     def __init__(
@@ -256,7 +257,7 @@ class Bridge:
             If True, ListArray will be iterated and give lists
         """
         self._weak_self_ref = weakref.ref(self)
-        Bridge.local.bridges[port].append(self._weak_self_ref)
+        _Bridge.local.bridges[port].append(self._weak_self_ref)
         if hasattr(self, '_ip_address'):
             return #already initialized
         self._ip_address = ip_address
@@ -265,7 +266,7 @@ class Bridge:
         self._debug = debug
         self._timeout = timeout
         self._iterate = iterate
-        self._main_socket = DataSocket(
+        self._main_socket = _DataSocket(
             zmq.Context.instance(), port, zmq.REQ, debug=debug, ip_address=self._ip_address
         )
         self._main_socket.send({"command": "connect", "debug": debug})
@@ -273,7 +274,7 @@ class Bridge:
         reply_json = self._main_socket.receive(timeout=timeout)
         if reply_json is None:
              raise TimeoutError(
-                f"Socket timed out after {timeout} milliseconds. Is Micro-Manager running and is the ZMQ server on {port} option enabled?"
+                f"Socket timed out after {timeout} milliseconds"
             )
         if reply_json["type"] == "exception":
             raise Exception(reply_json["message"])
@@ -288,17 +289,22 @@ class Bridge:
                 )
             )
 
+    def _send(self, message, timeout=None):
+        """
+        Send a message over the main socket
+        """
+        return self._main_socket.send(message, timeout=timeout)
 
-    def __enter__(self):
-        warn('\nThe Bridge context manager (i.e. with Bridge...) is deprecated and will be \n'
-             'removed in a future version. Bridge does not need to be explicitly created anymore.  \n'
-             'Instead use the classes JavaObject, JavaClass, Core, Studio, Magellan', DeprecationWarning, stacklevel=2)
-        return self
-
-    def __exit__(self, exc_type, exc_val, exc_tb):
-        pass
+    def _receive(self, timeout=None):
+        """
+        Send a message over the main socket
+        """
+        return self._main_socket.receive(timeout=timeout)
 
     def _deserialize_object(self, serialized_object) -> typing.Type["_JavaObjectShadow"]:
+        """
+        Deserialize the serialized description of a Java object and return a constructor for the shadow
+        """
         return self._class_factory.create(
             serialized_object, convert_camel_case=self._convert_camel_case
         )
@@ -349,13 +355,13 @@ class Bridge:
         self._main_socket.send(message)
         serialized_object = self._main_socket.receive()
         if new_socket:
-            socket = DataSocket(
-                zmq.Context.instance(), serialized_object["port"], zmq.REQ, ip_address=self._ip_address
-            )
+            # create a new bridge over a different port
+            bridge = _Bridge(port=serialized_object["port"], ip_address=self._ip_address, timeout=self._timeout)
         else:
-            socket = self._main_socket
-        return self._deserialize_object(serialized_object)(socket=socket,
-                                                           serialized_object=serialized_object, bridge=self)
+            bridge = self
+
+        java_shadow_constructor = self._deserialize_object(serialized_object)
+        return java_shadow_constructor(serialized_object=serialized_object, bridge=bridge)
 
     def _get_java_class(self, classpath: str, new_socket: bool=False):
         """
@@ -381,70 +387,17 @@ class Bridge:
         serialized_object = self._main_socket.receive()
 
         if new_socket:
-            socket = DataSocket(
-                zmq.Context.instance(), serialized_object["port"], zmq.REQ, ip_address=self._ip_address
-            )
+            # create a new bridge over a different port
+            bridge = _Bridge(port=serialized_object["port"], ip_address=self._ip_address, timeout=self._timeout)
         else:
-            socket = self._main_socket
+            bridge = self
         return self._class_factory.create(
             serialized_object, convert_camel_case=self._convert_camel_case
-        )(socket=socket, serialized_object=serialized_object, bridge=self)
+        )(serialized_object=serialized_object, bridge=bridge)
 
-    def _connect_push(self, port):
-        """
-        Connect a push socket on the given port
-        :param port:
-        :return:
-        """
-        return DataSocket(
-            zmq.Context.instance(), port, zmq.PUSH, debug=self._debug, ip_address=self._ip_address
-        )
-
-    def _connect_pull(self, port):
-        """
-        Connect to a pull socket on the given port
-        :param port:
-        :return:
-        """
-        return DataSocket(
-            zmq.Context.instance(), port, zmq.PULL, debug=self._debug, ip_address=self._ip_address
-        )
-
-    def get_magellan(self):
-        """
-        DEPRECATED
-        instead use "from pycromanager import Magellan; magellan = Magellan()"
-
-        return an instance of the Micro-Magellan API
-        """
-        warn('Deprecated. use "from pycromanager import Magellan; magellan = Magellan()"', DeprecationWarning, stacklevel=2)
-        return self._construct_java_object("org.micromanager.magellan.api.MagellanAPI")
-
-    def get_core(self):
-        """
-        DEPRECATED
-        instead use "from pycromanager import Core; core = Core()"
-
-
-        Connect to CMMCore and return object that has its methods
-
-        :return: Python "shadow" object for micromanager core
-        """
-        warn('Deprecated. use "from pycromanager import Core; core = Core()"', DeprecationWarning, stacklevel=2)
-        if hasattr(self, "core"):
-            return getattr(self, "core")
-        self.core = self._construct_java_object("mmcorej.CMMCore")
-        return self.core
-
-    def get_studio(self):
-        """
-        DEPRECATED use "from pycromanager import Studio; studio = Studio()"
-
-        return an instance of the Studio object that provides access to micro-manager Java APIs
-        """
-        warn('Deprecated. use "from pycromanager import Studio; studio = Studio()"', DeprecationWarning, stacklevel=2)
-
-        return self._construct_java_object("org.micromanager.Studio")
+    def __del__(self):
+        if self._debug:
+            print("DEBUG: desctructor for {} on port {}".format(str(self), self._port))
 
 
 class _JavaClassFactory:
@@ -509,8 +462,8 @@ class _JavaClassFactory:
                 python_class_name_translation,  # Name, based on the original java name
                 (_JavaObjectShadow,),  # Inheritance
                 {
-                    "__init__": lambda instance, socket, serialized_object, bridge: _JavaObjectShadow.__init__(
-                        instance, socket, serialized_object, bridge
+                    "__init__": lambda instance, serialized_object, bridge: _JavaObjectShadow.__init__(
+                        instance, serialized_object, bridge
                     ),
                     **static_attributes,
                     **fields,
@@ -521,10 +474,13 @@ class _JavaClassFactory:
             self.classes[_java_class] = newclass
             return newclass
 
-
 class _JavaObjectShadow:
     """
     Generic class for serving as a python interface for a java class using a zmq server backend
+
+    Every instance of this class is assciated with one particular port on which the corresponding
+    Java server that is keeping track of it exists. But it can be used with multiple Bridge objects,
+    depending which thread the object is used from
     """
 
     _interfaces = (
@@ -532,14 +488,15 @@ class _JavaObjectShadow:
     )
     _java_class = None
 
-    def __init__(self, socket, serialized_object, bridge: Bridge):
-        self._socket = socket
+    def __init__(self, serialized_object, bridge: _Bridge):
         self._hash_code = serialized_object["hash-code"]
-        self._bridge = bridge
-        # register objects with bridge so it can tell Java side to release them before socket shuts down
-        socket._register_java_object(self)
+        self._bridges = (bridge,)
+        self._debug = bridge._debug
+        self._port = bridge._port
         self._closed = False
-        # atexit.register(self._close)
+        # In case there's an exception rather than normal garbage collection,
+        # this makes sure cleanup occurs properly
+        atexit.register(self._close)
         self._close_lock = Lock()
 
     def _close(self):
@@ -553,18 +510,54 @@ class _JavaObjectShadow:
                 "hash-code": self._hash_code,
                 "java_class_name": self._java_class # for debugging
                 }
-            if self._bridge._debug:
-                "closing: {}".format(self)
-            self._socket.send(message)
-            reply_json = self._socket.receive()
+            self._send(message)
+            reply_json = self._receive()
+
             if reply_json["type"] == "exception":
                 raise Exception(reply_json["value"])
             self._closed = True
+            self._bridges = None
+
+    def _send(self, message):
+        """
+        Send message over the appropriate Bridge
+        """
+        return self._get_bridge()._send(message)
+
+    def _receive(self):
+        """
+        Receive message over appropriate bridge
+        """
+        return self._get_bridge()._receive()
+
+    def _get_bridge(self):
+        """
+        If this object is being called from a different thread than previously.
+        Because ZMQ sockets are not thread safe, a different Brdige must be used to make this call
+        Add this new bridge to the list so that it doesn't get garbage colllected and have to be re-created
+        if this object is used from the calling thread again
+        """
+        bridge_to_use = _Bridge.__new__(_Bridge, port=self._port)
+        if bridge_to_use not in self._bridges:
+            if self._debug:
+                print('DEBUG: added new bridge')
+                print(self._bridges)
+                print(bridge_to_use)
+            bridge_to_use.__init__(port=self._port,
+                                   convert_camel_case=self._bridges[0]._convert_camel_case,
+                                   ip_address=self._bridges[0]._ip_address,
+                                   timeout=self._bridges[0]._timeout,
+                                   debug=self._debug,
+                                   iterate=self._bridges[0]._iterate)
+            self._bridges = (*self._bridges, bridge_to_use)
+        return bridge_to_use
 
     def __del__(self):
         """
         Tell java side this object is garbage collected so it can do the same if needed
         """
+        if self._debug:
+            print('DEBUG: destructor for {}'.format(str(self)))
         self._close()
 
     def _access_field(self, name):
@@ -573,8 +566,8 @@ class _JavaObjectShadow:
         :return:
         """
         message = {"command": "get-field", "hash-code": self._hash_code, "name": name}
-        self._socket.send(message)
-        return self._deserialize(self._socket.receive())
+        self._send(message)
+        return self._deserialize(self._receive())
 
     def _set_field(self, name, value):
         """
@@ -587,8 +580,8 @@ class _JavaObjectShadow:
             "name": name,
             "value": _serialize_arg(value),
         }
-        self._socket.send(message)
-        reply = self._deserialize(self._socket.receive())
+        self._send(message)
+        reply = self._deserialize(self._receive())
 
     def _translate_call(self, method_specs, fn_args: tuple, static: bool):
         """
@@ -600,6 +593,7 @@ class _JavaObjectShadow:
         kwargs :
              hold possible polymorphic args, or none
         """
+
         # args that are none are placeholders to allow for polymorphism and not considered part of the spec
         # fn_args = [a for a in fn_args if a is not None]
         valid_method_spec, deserialize_types = _check_method_args(method_specs, fn_args)
@@ -614,9 +608,8 @@ class _JavaObjectShadow:
             "argument-deserialization-types": deserialize_types,
         }
         message["arguments"] = _package_arguments(valid_method_spec, fn_args)
-
-        self._socket.send(message)
-        recieved = self._socket.receive()
+        self._send(message)
+        recieved = self._receive()
         return self._deserialize(recieved)
 
     def _deserialize(self, json_return):
@@ -633,9 +626,7 @@ class _JavaObjectShadow:
             raise Exception(json_return["value"])
         elif json_return["type"] == "null":
             return None
-        elif json_return["type"] == "primitive":
-            return json_return["value"]
-        elif json_return["type"] == "string":
+        elif json_return["type"] == "primitive" or json_return["type"] == "string":
             return json_return["value"]
         elif json_return["type"] == "list":
             return [self._deserialize(obj) for obj in json_return["value"]]
@@ -647,12 +638,11 @@ class _JavaObjectShadow:
         elif json_return["type"] == "unserialized-object":
 
             # inherit socket from parent object
-            obj = self._bridge._deserialize_object(json_return)(
-                socket=self._socket, serialized_object=json_return, bridge=self._bridge
-            )
+            java_shadow_constructor = self._get_bridge()._deserialize_object(json_return)
+            obj = java_shadow_constructor(serialized_object=json_return, bridge=self._get_bridge())
 
             # if object is iterable, go through the elements
-            if self._bridge._iterate and hasattr(obj, 'iterator') :
+            if self._get_bridge()._iterate and hasattr(obj, 'iterator'):
                 it = obj.iterator()
                 elts = []
                 has_next = it.hasNext if hasattr(it, 'hasNext') else it.has_next
@@ -725,7 +715,7 @@ def _serialize_arg(arg):
 
 def _check_single_method_spec(method_spec, fn_args):
     """
-    Check if a single method specificiation is compatible with the arguments the function recieved
+    Check if a single method specification is compatible with the arguments the function received
 
     Parameters
     ----------
@@ -946,7 +936,7 @@ if __name__ == "__main__":
     # Test basic bridge operations
     import traceback
 
-    b = Bridge()
+    b = _Bridge()
     try:
         s = b.get_studio()
     except:

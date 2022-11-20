@@ -1,4 +1,4 @@
-from pycromanager import MagellanAcquisition, multi_d_acquisition_events, Bridge
+from pycromanager import MagellanAcquisition, multi_d_acquisition_events
 import numpy as np
 
 

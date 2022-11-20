@@ -12,7 +12,7 @@ import numpy as np
 import copy
 import matplotlib.pyplot as plt
 import matplotlib as mpl
-from pycromanager.utility.PropertyMap import PropertyMap, PropertyMapArray, Property, PropertyArray
+from misc.PropertyMap import PropertyMap, PropertyMapArray, Property, PropertyArray
 
 
 @dataclass

@@ -13,3 +13,4 @@ while core.getRemainingImageCount() > 0 or core.isSequenceRunning():
     else:
         core.sleep(5)
 
+pass

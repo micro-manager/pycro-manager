@@ -1,4 +1,4 @@
-from pycromanager import Bridge, Acquisition
+from pycromanager import _Bridge, Acquisition
 import numpy as np
 
 

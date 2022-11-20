@@ -34,7 +34,7 @@ events = multi_d_acquisition_events(
 )
 # read the number of z steps
 num_z_steps = len(set([event["axes"]["z"] for event in events]))
-save_dir = "/Users/henrypinkard/tmp"
+save_dir = 'C:/Program Files/Micro-Manager-2.0'
 save_name = "max_intesnity_acq"
 
 with Acquisition(directory=save_dir, name=save_name, image_process_fn=img_process_fn) as acq:

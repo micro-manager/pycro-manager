@@ -1,15 +1,12 @@
-import os
 import subprocess
 import platform
 import atexit
 import threading
 
-from pycromanager.bridge import Bridge
-from pycromanager.java_classes import Core
+from pycromanager.zmq_bridge._bridge import _Bridge
 import copy
 import types
 import numpy as np
-import gc
 
 
 SUBPROCESSES = []
@@ -22,9 +19,8 @@ def cleanup():
 atexit.register(cleanup)
 
 def start_headless(
-    mm_app_path: str, config_file: str=None, java_loc: str=None, core_log_path: str=None, buffer_size_mb: int=1024,
-        port: int=Bridge.DEFAULT_PORT, timeout: int=5000, **core_kwargs
-):
+    mm_app_path: str, config_file: str='', java_loc: str=None, core_log_path: str='', buffer_size_mb: int=1024,
+        port: int=_Bridge.DEFAULT_PORT, debug=False):
     """
     Start a Java process that contains the neccessary libraries for pycro-manager to run,
     so that it can be run independently of the Micro-Manager GUI/application. This calls
@@ -51,11 +47,8 @@ def start_headless(
         Size of circular buffer in MB in MMCore
     port : int
         Default port to use for ZMQServer
-    timeout : int, default 5000
-        Timeout for connection to server in milliseconds
-    **core_kwargs
-        Passed on to the Core constructor
-
+    debug : bool
+        Print debug messages
     """
 
     classpath = mm_app_path + '/plugins/Micro-Manager/*'
@@ -67,7 +60,7 @@ def start_headless(
             java_loc = "java"
     # This starts Java process and instantiates essential objects (core,
     # acquisition engine, ZMQServer)
-    SUBPROCESSES.append(subprocess.Popen(
+    process = subprocess.Popen(
             [
                 java_loc,
                 "-classpath",
@@ -78,35 +71,23 @@ def start_headless(
                 # This is used by MM desktop app but breaks things on MacOS...Don't think its neccessary
                 # "-XX:MaxDirectMemorySize=1000",
                 "org.micromanager.remote.HeadlessLauncher",
-                str(port)
-            ], cwd=mm_app_path
+                str(port),
+                config_file,
+                str(buffer_size_mb),
+                core_log_path,
+            ], cwd=mm_app_path, stdout=subprocess.PIPE
         )
-    )
+    SUBPROCESSES.append(process)
 
-    # This can be used to launch headless mode in the same process
-    # def launch_fn():
-    #     os.system(
-    #         'cd {} && {} -classpath "{}" -Dsun.java2d.dpiaware=false -Xmx2000m org.micromanager.remote.HeadlessLauncher {}'.format(
-    #             mm_app_path, java_loc, classpath, port))
-    # threading.Thread(target=launch_fn, args=()).start()
-
-    # Initialize core
-    core = Core(timeout=timeout, port=port, **core_kwargs)
-
-    core.wait_for_system()
-    if config_file is not None:
-        core.load_system_configuration(config_file)
-    core.set_circular_buffer_memory_footprint(buffer_size_mb)
-
-    if core_log_path is not None:
-        core.enable_stderr_log(True)
-        core.enable_debug_log(True)
-        core.set_primary_log_file(core_log_path)
-
-    core = None
-    gc.collect()
-
-
+    output = process.stdout.readline()
+    if "STARTED" not in output.decode('utf-8'):
+        raise Exception('Error starting headless mode')
+    if debug:
+        print('Headless mode started')
+        def logger():
+            while True:
+                print(process.stdout.readline().decode('utf-8'))
+        threading.Thread(target=logger).start()
 
 
 def multi_d_acquisition_events(

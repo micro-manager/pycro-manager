@@ -2,13 +2,13 @@
 This example shows how to use pycromanager to interact with the micro-manager core.
 Aside from the setup section, each following section can be run independently
 """
-from pycromanager import Bridge, Core
+from pycromanager import _Bridge, Core
 import numpy as np
 import matplotlib.pyplot as plt
 
 #### Setup ####
 # establish communication with Magellan
-with Bridge() as bridge:
+with _Bridge() as bridge:
     # get object representing micro-manager core
     core = bridge.get_core()
 
