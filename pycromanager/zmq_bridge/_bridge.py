@@ -273,7 +273,7 @@ class _Bridge:
         self._class_factory = _JavaClassFactory()
         reply_json = self._main_socket.receive(timeout=timeout)
         if reply_json is None:
-             raise TimeoutError(
+             raise Exception(
                 f"Socket timed out after {timeout} milliseconds"
             )
         if reply_json["type"] == "exception":

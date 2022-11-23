@@ -12,11 +12,15 @@ import java.util.function.Function;
 import mmcorej.TaggedImage;
 import mmcorej.org.json.JSONException;
 import mmcorej.org.json.JSONObject;
+import org.micromanager.acqj.api.AcquisitionAPI;
 import org.micromanager.acqj.main.AcqEngMetadata;
 import org.micromanager.acqj.api.TaggedImageProcessor;
+import org.micromanager.acqj.main.Acquisition;
 import org.micromanager.internal.zmq.ZMQPullSocket;
 import org.micromanager.internal.zmq.ZMQPushSocket;
 import org.micromanager.internal.zmq.ZMQUtil;
+
+// TODO: this class now duplicates functionality of AsyncImageProcessor in AcqEngJ
 
 /**
  * Implements an ImageProcessor that sends/recieves images from a remote source
@@ -142,7 +146,8 @@ public class RemoteImageProcessor implements TaggedImageProcessor {
    }
 
    @Override
-   public void setDequeues(LinkedBlockingDeque<TaggedImage> source, LinkedBlockingDeque<TaggedImage> sink) {
+   public void setAcqAndDequeues(AcquisitionAPI acq,
+                           LinkedBlockingDeque<TaggedImage> source, LinkedBlockingDeque<TaggedImage> sink) {
       source_ = source;
       sink_ = sink;
    }
