@@ -1,9 +1,11 @@
-name: Run Pytest
+name: Build and test
 
-on: [pull_request]
+on:
+  pull_request:
+    branches: [ main ]
 
 jobs:
-  build:
+  test:
 
     runs-on: windows-latest
 

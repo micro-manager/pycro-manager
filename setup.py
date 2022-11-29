@@ -33,8 +33,7 @@ setuptools.setup(
         "test": [
             "pytest",
             "wget",
-            "requests",
-            "re"
+            "requests"
         ]
     },
     classifiers=[
