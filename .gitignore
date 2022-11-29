@@ -25,3 +25,5 @@ java/target
 .ipynb_checkpoints
 #vim
 *.swp
+#vs code
+.vscode/
