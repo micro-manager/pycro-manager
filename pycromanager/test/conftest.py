@@ -37,7 +37,6 @@ def install_mm(download_mm_nightly):
     os.mkdir(mm_install_dir)
 
     cmd = f"{mm_installer} /SP /VERYSILENT /SUPRESSMSGBOXES /CURRENTUSER /DIR={mm_install_dir} /LOG={mm_install_log_path}"
-    print(cmd)
 
     subprocess.run(cmd, shell=True)
 
