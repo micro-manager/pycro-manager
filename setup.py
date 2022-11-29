@@ -32,6 +32,9 @@ setuptools.setup(
     extras_require={
         "test": [
             "pytest",
+            "wget",
+            "requests",
+            "re"
         ]
     },
     classifiers=[
