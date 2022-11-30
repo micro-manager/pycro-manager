@@ -34,6 +34,10 @@ def install_mm(download_mm_nightly):
     mm_installer = download_mm_nightly
     mm_install_dir = os.path.join(os.path.expanduser('~'), "Micro-Manager-nightly")
     mm_install_log_path = os.path.join(os.path.dirname(mm_installer), "mm_install.log")
+
+    # remove install dir if it exists, better to remove it at cleanup instead
+    if os.path.exists(mm_install_dir):
+        shutil.rmtree(mm_install_dir)
     os.mkdir(mm_install_dir)
 
     cmd = f"{mm_installer} /SP /VERYSILENT /SUPRESSMSGBOXES /CURRENTUSER /DIR={mm_install_dir} /LOG={mm_install_log_path}"
@@ -55,6 +59,6 @@ def launch_mm_headless(install_mm):
 
     start_headless(mm_install_dir, config_file)
 
-    yield
-
-    cleanup()
+    # yield None
+    #
+    # cleanup()
