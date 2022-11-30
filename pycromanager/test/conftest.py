@@ -19,8 +19,8 @@ def find_jar(pathname, jar_name):
             return path
 
 
-@pytest.fixture(scope="session")
-def download_mm_nightly():
+@pytest.fixture()
+def download_mm_nightly(printer):
     # get latest mm nightly build
     mm_windows_downloads = "https://download.micro-manager.org/nightly/2.0/Windows/"
     webpage = requests.get(mm_windows_downloads)
@@ -29,7 +29,7 @@ def download_mm_nightly():
     url = "https://download.micro-manager.org" + m.group(1)
 
     # download
-    print(f"Downloading Micro-manager nightly build: {url.split('/')[-1]}")
+    printer(f"Downloading Micro-manager nightly build: {url.split('/')[-1]}")
     mm_installer = os.path.join(os.getcwd(), 'mm_nightly_build.exe')
     if not os.path.exists(mm_installer):
         wget.download(url, out=mm_installer)
@@ -40,8 +40,8 @@ def download_mm_nightly():
     os.remove(mm_installer)
 
 
-@pytest.fixture(scope="session")
-def install_mm(download_mm_nightly):
+@pytest.fixture()
+def install_mm(printer, download_mm_nightly):
     mm_installer = download_mm_nightly
     mm_install_dir = os.path.join(os.path.expanduser('~'), "Micro-Manager-nightly")
     mm_install_log_path = os.path.join(os.path.dirname(mm_installer), "mm_install.log")
@@ -72,12 +72,11 @@ def install_mm(download_mm_nightly):
 
     # remove install dir if it exists, better to remove it at cleanup instead
     if os.path.exists(mm_install_dir):
-        print(f'Removing previous Micro-manager installation at: {mm_install_dir}')
+        printer(f'Removing previous Micro-manager installation at: {mm_install_dir}')
         shutil.rmtree(mm_install_dir)
     os.mkdir(mm_install_dir)
 
-    print(f'Installing Micro-manager nightly build at: {mm_install_dir}')
-    print(f'Micro-manager install log saved at: {mm_install_log_path}')
+    printer(f'Installing Micro-manager nightly build at: {mm_install_dir}')
     cmd = f"{mm_installer} /SP /VERYSILENT /SUPRESSMSGBOXES /CURRENTUSER /DIR={mm_install_dir} /LOG={mm_install_log_path}"
 
     subprocess.run(cmd, shell=True)
@@ -90,11 +89,12 @@ def install_mm(download_mm_nightly):
     # shutil.rmtree(mm_install_dir)
 
 
-@pytest.fixture(scope="session")
-def launch_mm_headless(install_mm):
+@pytest.fixture()
+def launch_mm_headless(printer, install_mm):
     mm_install_dir = install_mm
     config_file = os.path.join(mm_install_dir, 'MMConfig_demo.cfg')
 
+    printer('Launching Micro-manager in headless mode.')
     start_headless(mm_install_dir, config_file)
 
     # yield None
