@@ -5,7 +5,6 @@ import pytest
 import wget
 import requests
 import re
-import glob
 from pycromanager import start_headless
 from pycromanager.acq_util import cleanup
 
@@ -17,6 +16,18 @@ def find_jar(pathname, jar_name):
         match = p.match(path)
         if match:
             return path
+
+
+def replace_jars(printer, new_file_path, old_file_path, jar_names: list):
+    for jar_name in jar_names:
+        new_jar = find_jar(new_file_path, jar_name)
+        old_jar = find_jar(old_file_path, jar_name)
+        if new_jar is None:
+            FileNotFoundError(f'{jar_name} not found in {new_file_path}')
+
+        printer(f'Replacing {old_jar} in {old_file_path} with {new_jar}.')
+        os.remove(os.path.join(old_file_path, old_jar))
+        shutil.copy2(os.path.join(new_file_path, new_jar), os.path.join(old_file_path, old_jar))
 
 
 @pytest.fixture()
@@ -59,17 +70,6 @@ def install_mm(printer, download_mm_nightly):
             or not os.path.isdir(os.path.join(java_path, 'target/dependency')):
         raise FileNotFoundError('Please build Java dependencies before running pytest.')
 
-    PycroManagerJava_path = find_jar(os.path.join(java_path, 'target'), 'PycroManagerJava')
-    AcqEngJ_path = find_jar(os.path.join(java_path, 'target/dependency'), 'AcqEngJ')
-    NDTiffStorage_path = find_jar(os.path.join(java_path, 'target/dependency'), 'NDTiffStorage')
-    NDViewer_path = find_jar(os.path.join(java_path, 'target/dependency'), 'NDViewer')
-
-    if not PycroManagerJava_path \
-            or not AcqEngJ_path \
-            or not NDTiffStorage_path \
-            or not NDViewer_path:
-        raise FileNotFoundError('Please build Java dependencies before running pytest.')
-
     # remove install dir if it exists, better to remove it at cleanup instead
     if os.path.exists(mm_install_dir):
         printer(f'Removing previous Micro-manager installation at: {mm_install_dir}')
@@ -78,8 +78,13 @@ def install_mm(printer, download_mm_nightly):
 
     printer(f'Installing Micro-manager nightly build at: {mm_install_dir}')
     cmd = f"{mm_installer} /SP /VERYSILENT /SUPRESSMSGBOXES /CURRENTUSER /DIR={mm_install_dir} /LOG={mm_install_log_path}"
-
     subprocess.run(cmd, shell=True)
+
+    # update pycromanager jar files with those newly compiled
+    replace_jars(printer, os.path.join(java_path, 'target'), os.path.join(mm_install_dir, 'plugins/Micro-Manager'),
+                 ['PycroManagerJava'])
+    replace_jars(printer, os.path.join(java_path, 'target/dependency'), os.path.join(mm_install_dir, 'plugins/Micro-Manager'),
+                 ['AcqEngJ', 'NDTiffStorage', 'NDViewer'])
 
     yield mm_install_dir
 
