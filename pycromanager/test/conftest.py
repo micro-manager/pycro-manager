@@ -40,7 +40,7 @@ def download_mm_nightly():
     url = "https://download.micro-manager.org" + m.group(1)
 
     # download
-    print(f"Downloading Micro-manager nightly build: {url.split('/')[-1]}")
+    print(f"\nDownloading Micro-manager nightly build: {url.split('/')[-1]}")
     mm_installer = os.path.join(os.getcwd(), 'mm_nightly_build.exe')
     if not os.path.exists(mm_installer):
         wget.download(url, out=mm_installer)
