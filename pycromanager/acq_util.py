@@ -79,8 +79,13 @@ def start_headless(
         )
     SUBPROCESSES.append(process)
 
-    output = process.stdout.readline()
-    if "STARTED" not in output.decode('utf-8'):
+    started = False
+    output = True
+    # Some drivers output various status messages which need to be skipped over to look for the STARTED token.
+    while output and not started:
+        output = process.stdout.readline()
+        started = "STARTED" in output.decode('utf-8')
+    if not started:
         raise Exception('Error starting headless mode')
     if debug:
         print('Headless mode started')
