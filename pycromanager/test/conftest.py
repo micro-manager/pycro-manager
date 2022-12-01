@@ -18,20 +18,20 @@ def find_jar(pathname, jar_name):
             return path
 
 
-def replace_jars(printer, new_file_path, old_file_path, jar_names: list):
+def replace_jars(new_file_path, old_file_path, jar_names: list):
     for jar_name in jar_names:
         new_jar = find_jar(new_file_path, jar_name)
         old_jar = find_jar(old_file_path, jar_name)
         if new_jar is None:
             FileNotFoundError(f'{jar_name} not found in {new_file_path}')
 
-        printer(f'Replacing {old_jar} in {old_file_path} with {new_jar}.')
+        print(f'Replacing {old_jar} in {old_file_path} with {new_jar}.')
         os.remove(os.path.join(old_file_path, old_jar))
         shutil.copy2(os.path.join(new_file_path, new_jar), os.path.join(old_file_path, old_jar))
 
 
-@pytest.fixture()
-def download_mm_nightly(printer):
+@pytest.fixture(scope="session")
+def download_mm_nightly():
     # get latest mm nightly build
     mm_windows_downloads = "https://download.micro-manager.org/nightly/2.0/Windows/"
     webpage = requests.get(mm_windows_downloads)
@@ -40,7 +40,7 @@ def download_mm_nightly(printer):
     url = "https://download.micro-manager.org" + m.group(1)
 
     # download
-    printer(f"Downloading Micro-manager nightly build: {url.split('/')[-1]}")
+    print(f"Downloading Micro-manager nightly build: {url.split('/')[-1]}")
     mm_installer = os.path.join(os.getcwd(), 'mm_nightly_build.exe')
     if not os.path.exists(mm_installer):
         wget.download(url, out=mm_installer)
@@ -51,8 +51,8 @@ def download_mm_nightly(printer):
     os.remove(mm_installer)
 
 
-@pytest.fixture()
-def install_mm(printer, download_mm_nightly):
+@pytest.fixture(scope="session")
+def install_mm(download_mm_nightly):
     mm_installer = download_mm_nightly
     mm_install_dir = os.path.join(os.path.expanduser('~'), "Micro-Manager-nightly")
     mm_install_log_path = os.path.join(os.path.dirname(mm_installer), "mm_install.log")
@@ -72,18 +72,18 @@ def install_mm(printer, download_mm_nightly):
 
     # remove install dir if it exists, better to remove it at cleanup instead
     if os.path.exists(mm_install_dir):
-        printer(f'Removing previous Micro-manager installation at: {mm_install_dir}')
+        print(f'Removing previous Micro-manager installation at: {mm_install_dir}')
         shutil.rmtree(mm_install_dir)
     os.mkdir(mm_install_dir)
 
-    printer(f'Installing Micro-manager nightly build at: {mm_install_dir}')
+    print(f'Installing Micro-manager nightly build at: {mm_install_dir}')
     cmd = f"{mm_installer} /SP /VERYSILENT /SUPRESSMSGBOXES /CURRENTUSER /DIR={mm_install_dir} /LOG={mm_install_log_path}"
     subprocess.run(cmd, shell=True)
 
     # update pycromanager jar files with those newly compiled
-    replace_jars(printer, os.path.join(java_path, 'target'), os.path.join(mm_install_dir, 'plugins/Micro-Manager'),
+    replace_jars(os.path.join(java_path, 'target'), os.path.join(mm_install_dir, 'plugins', 'Micro-Manager'),
                  ['PycroManagerJava'])
-    replace_jars(printer, os.path.join(java_path, 'target/dependency'), os.path.join(mm_install_dir, 'plugins/Micro-Manager'),
+    replace_jars(os.path.join(java_path, 'target/dependency'), os.path.join(mm_install_dir, 'plugins', 'Micro-Manager'),
                  ['AcqEngJ', 'NDTiffStorage', 'NDViewer'])
 
     yield mm_install_dir
@@ -94,12 +94,23 @@ def install_mm(printer, download_mm_nightly):
     # shutil.rmtree(mm_install_dir)
 
 
-@pytest.fixture()
-def launch_mm_headless(printer, install_mm):
+@pytest.fixture(scope="session")
+def setup_data_folder():
+    data_folder_path = os.path.join(os.getcwd(), 'temp_data')
+    if not os.path.isdir(data_folder_path):
+        os.mkdir(data_folder_path)
+
+    yield data_folder_path
+
+    shutil.rmtree(data_folder_path)
+
+
+@pytest.fixture(scope="session")
+def launch_mm_headless(install_mm):
     mm_install_dir = install_mm
     config_file = os.path.join(mm_install_dir, 'MMConfig_demo.cfg')
 
-    printer('Launching Micro-manager in headless mode.')
+    print('Launching Micro-manager in headless mode.')
     start_headless(mm_install_dir, config_file)
 
     # yield None
