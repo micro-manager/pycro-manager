@@ -46,7 +46,8 @@ def test_zstack_seq_acq(launch_mm_headless, setup_data_folder):
 
     def hook_fn(_events):
         assert check_acq_sequenced(_events, 10)
-        return None  # no need to actually acquire the data
+        # TODO: replace with `return None` once #461 is fixed
+        return _events  # no need to actually acquire the data
 
     events = multi_d_acquisition_events(z_start=0, z_end=9, z_step=1)
 
