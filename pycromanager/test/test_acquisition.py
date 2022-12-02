@@ -23,6 +23,7 @@ def test_timelapse_acq(launch_mm_headless, setup_data_folder):
         dataset = acq.get_dataset()
 
     assert np.all([dataset.has_image(time=t) for t in range(10)])
+    dataset.close()
 
 
 def test_timelapse_seq_acq(launch_mm_headless, setup_data_folder):
@@ -38,6 +39,7 @@ def test_timelapse_seq_acq(launch_mm_headless, setup_data_folder):
         dataset = acq.get_dataset()
 
     assert np.all([dataset.has_image(time=t) for t in range(10)])
+    dataset.close()
 
 
 def test_zstack_seq_acq(launch_mm_headless, setup_data_folder):
@@ -79,3 +81,4 @@ def test_multi_d_acq(launch_mm_headless, setup_data_folder):
 
     data = dataset.as_array(axes=['time', 'channel', 'z'])
     assert data.shape[:-2] == (10, 2, 6)
+    dataset.close()
