@@ -193,7 +193,7 @@ def multi_d_acquisition_events(
         if len(order) == 0:
             yield event
             return
-        elif order[0] == "t" and num_time_points is not None:
+        elif order[0] == "t" and num_time_points is not None and num_time_points > 0:
             time_indices = np.arange(num_time_points)
             for time_index in time_indices:
                 new_event = copy.deepcopy(event)
