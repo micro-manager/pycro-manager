@@ -13,6 +13,7 @@ import mmcorej.org.json.JSONObject;
 import org.micromanager.internal.zmq.ZMQPushSocket;
 import org.micromanager.ndtiffstorage.ImageWrittenListener;
 import org.micromanager.ndtiffstorage.IndexEntryData;
+import org.micromanager.ndtiffstorage.NDTiffStorage;
 
 /**
  * A class that broadcasts information about images that have finsihed saving to disk
@@ -29,9 +30,9 @@ public class RemoteStorageMonitor implements ImageWrittenListener {
    private final String diskLocation_;
    private final JSONObject summaryMetadata_;
 
-   public RemoteStorageMonitor(JSONObject summaryMetadata, String diskLocation) {
-      diskLocation_ = diskLocation;
-      summaryMetadata_ = summaryMetadata;
+   public RemoteStorageMonitor(NDTiffStorage storage) {
+      diskLocation_ = storage.getDiskLocation();
+      summaryMetadata_ = storage.getSummaryMetadata();
       pushSocket_ = new ZMQPushSocket<IndexEntryData>(
               t -> {
                  try {
