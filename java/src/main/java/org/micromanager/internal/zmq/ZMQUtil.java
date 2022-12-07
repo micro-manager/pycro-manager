@@ -579,6 +579,7 @@ public class ZMQUtil {
                classes.add(Class.forName(packageName + '.' + file.getName().
                        substring(0, file.getName().length() - 6)));
             } catch (ClassNotFoundException ex) {
+               ex.printStackTrace();
 //               studio_.logs().logError("Failed to load class: " + file.getName());
             }
          }
