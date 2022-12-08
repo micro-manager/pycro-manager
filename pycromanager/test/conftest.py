@@ -98,12 +98,12 @@ def install_mm(download_mm_nightly):
     replace_jars(os.path.join(java_path, 'target/dependency'), os.path.join(mm_install_dir, 'plugins', 'Micro-Manager'),
                  ['AcqEngJ', 'NDTiffStorage', 'NDViewer'])
 
-    yield mm_install_dir
+     yield mm_install_dir
 
     # cleanup
     os.remove(mm_install_log_path)
     # fails, because MM is still running, I think
-    # shutil.rmtree(mm_install_dir)
+    shutil.rmtree(mm_install_dir)
 
 
 @pytest.fixture(scope="session")
@@ -125,6 +125,6 @@ def launch_mm_headless(install_mm):
     print('Launching Micro-manager in headless mode.')
     start_headless(mm_install_dir, config_file)
 
-    # yield None
-    #
-    # cleanup()
+    yield
+
+    cleanup()
