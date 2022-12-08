@@ -34,6 +34,7 @@ def replace_jars(new_file_path, old_file_path, jar_names: list):
         if new_jar_name is None:
             FileNotFoundError(f'{jar_name} not found in {new_file_path}')
 
+        # Only replace jar file if newly compiled file version is larger
         if new_jar_version[0] > old_jar_version[0] or \
                 new_jar_version[1] > old_jar_version[1] or \
                 new_jar_version[2] > old_jar_version[2]:
