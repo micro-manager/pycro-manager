@@ -79,8 +79,13 @@ def start_headless(
         )
     SUBPROCESSES.append(process)
 
-    output = process.stdout.readline()
-    if "STARTED" not in output.decode('utf-8'):
+    started = False
+    output = True
+    # Some drivers output various status messages which need to be skipped over to look for the STARTED token.
+    while output and not started:
+        output = process.stdout.readline()
+        started = "STARTED" in output.decode('utf-8')
+    if not started:
         raise Exception('Error starting headless mode')
     if debug:
         print('Headless mode started')
@@ -91,7 +96,7 @@ def start_headless(
 
 
 def multi_d_acquisition_events(
-    num_time_points: int=1,
+    num_time_points: int=None,
     time_interval_s: float=0,
     z_start: float=None,
     z_end: float=None,
@@ -111,7 +116,7 @@ def multi_d_acquisition_events(
     Parameters
     ----------
     num_time_points : int
-        How many time points if it is a timelapse (Default value = 1)
+        How many time points if it is a timelapse (Default value = None)
     time_interval_s : float
         the minimum interval between consecutive time points in seconds. Keep at 0 to go as
         fast as possible (Default value = 0)
@@ -193,7 +198,7 @@ def multi_d_acquisition_events(
         if len(order) == 0:
             yield event
             return
-        elif order[0] == "t" and num_time_points != 1:
+        elif order[0] == "t" and num_time_points is not None and num_time_points > 0:
             time_indices = np.arange(num_time_points)
             for time_index in time_indices:
                 new_event = copy.deepcopy(event)

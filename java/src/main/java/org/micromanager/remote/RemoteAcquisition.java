@@ -27,22 +27,6 @@ public class RemoteAcquisition extends Acquisition implements AcquisitionAPI, Vi
       eventSource.setAcquisition(this);
    }
 
-
-   public NDTiffAPI getStorage() {
-      return getDataSink() == null ? null : ((RemoteViewerStorageAdapter) getDataSink()).getStorage();
-   }
-
-   /**
-    * Called by python side
-    * @return
-    */
-   public RemoteStorageMonitor getStorageMonitor() {
-      if (getDataSink() == null) {
-         return null;
-      }
-      return ((RemoteViewerStorageAdapter) getDataSink()).getStorageMonitor();
-   }
-
    /**
     * Called by python side
     */

@@ -13,7 +13,6 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.function.Consumer;
 import java.util.function.Function;
-import java.util.function.Predicate;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -172,6 +171,29 @@ public class ZMQServer extends ZMQSocketWrapper {
    }
 
    /**
+    * Traverse the class/interface inheritance hierarchy
+    * @param potentialPackages
+    */
+   private void traverseInheritedPackages(Set<String> potentialPackages, Class classOrInterface) {
+      try {
+         if (classOrInterface == null) {
+            return;
+         }
+         potentialPackages.add(classOrInterface.getPackage().getName());
+         // superclasses
+         if (classOrInterface.getSuperclass() != null) {
+            traverseInheritedPackages(potentialPackages, classOrInterface.getSuperclass());
+         }
+         // interfaces
+         for (Class c : classOrInterface.getInterfaces()) {
+            traverseInheritedPackages(potentialPackages, c);
+         }
+      } catch (Exception e) {
+         e.printStackTrace();
+      }
+   }
+
+   /**
     * Generate every possible combination of parameters given multiple interfaces for classes so that
     * the correct method can be located. Also fill in argVals with the correct objects or primitives
     *
@@ -181,7 +203,7 @@ public class ZMQServer extends ZMQSocketWrapper {
     * @throws JSONException
     * @throws UnsupportedEncodingException
     */
-   private LinkedList<LinkedList<Class>> getParamCombos(JSONObject message, Object[] argVals) throws JSONException,
+   private LinkedList<LinkedList<Class>> getArgumentSignatures(JSONObject message, Object[] argVals) throws JSONException,
            UnsupportedEncodingException {
 
       //get argument values
@@ -212,6 +234,7 @@ public class ZMQServer extends ZMQSocketWrapper {
          }
       }
 
+
       //get classes
       Object[] argClasses = new Object[message.getJSONArray("arguments").length()];
       for (int i = 0; i < argVals.length; i++) {
@@ -220,14 +243,8 @@ public class ZMQServer extends ZMQSocketWrapper {
                  && message.getJSONArray("arguments").getJSONObject(i).has("hash-code")) {
             //abstract to superclasses/interfaces in the API
             Set<String> potentialPackages = new TreeSet<String>();
-            Class clazz = argVals[i].getClass();
-            while (clazz.getSuperclass() != null) {
-               for (Class c : clazz.getInterfaces()){
-                  potentialPackages.add(c.getPackage().getName());
-               }
-               potentialPackages.add(clazz.getPackage().getName());
-               clazz = clazz.getSuperclass();
-            }
+            traverseInheritedPackages(potentialPackages, argVals[i].getClass());
+
             //build up a list of valid packages
             Set<Class> apiClasses = new HashSet<Class>();
             for (String packageName : potentialPackages) {
@@ -298,16 +315,16 @@ public class ZMQServer extends ZMQSocketWrapper {
 
       Object[] argVals = new Object[message.getJSONArray("arguments").length()];
 
-      LinkedList<LinkedList<Class>> paramCombos = getParamCombos(message, argVals);
+      LinkedList<LinkedList<Class>> paramCombos = getArgumentSignatures(message, argVals);
 
       Constructor mathcingConstructor = null;
-      if (paramCombos.isEmpty()) { //Constructor with no argumetns
+      if (paramCombos.isEmpty()) { //Constructor with no arguments
          try {
             mathcingConstructor = baseClass.getConstructor(new Class[]{});
          } catch (Exception ex) {
             throw new RuntimeException(ex);
          }
-      } else { //Figure out which constructor matches given argumetns
+      } else { //Figure out which constructor matches given arguments
          for (LinkedList<Class> argList : paramCombos) {
             Class[] classArray = argList.stream().toArray(Class[]::new);
             try {
@@ -339,7 +356,7 @@ public class ZMQServer extends ZMQSocketWrapper {
 
       String methodName = message.getString("name");
       Object[] argVals = new Object[message.getJSONArray("arguments").length()];
-      LinkedList<LinkedList<Class>> paramCombos = getParamCombos(message, argVals);
+      LinkedList<LinkedList<Class>> paramCombos = getArgumentSignatures(message, argVals);
 
       Method matchingMethod = null;
       if (paramCombos.isEmpty()) {
