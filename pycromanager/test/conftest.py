@@ -98,7 +98,14 @@ def install_mm(download_mm_nightly):
     replace_jars(os.path.join(java_path, 'target/dependency'), os.path.join(mm_install_dir, 'plugins', 'Micro-Manager'),
                  ['AcqEngJ', 'NDTiffStorage', 'NDViewer'])
 
-     yield mm_install_dir
+    # os.remove(os.path.join(mm_install_dir, 'mmgr_dal_DemoCamera.dll'))
+    # os.remove(os.path.join(mm_install_dir, 'MMConfig_demo.cfg'))
+    # shutil.copy2(r'C:\Users\Cameron\micromanager_build\mmCoreAndDevices\build\Release\x64\mmgr_dal_DemoCamera.dll',
+    #              os.path.join(mm_install_dir, 'mmgr_dal_DemoCamera.dll'))
+    # shutil.copy2(r'C:\Users\Cameron\micromanager_build\micro-manager\bindist\any-platform\MMConfig_demo.cfg',
+    #              os.path.join(mm_install_dir, 'MMConfig_demo.cfg'))
+
+    yield mm_install_dir
 
     # cleanup
     os.remove(mm_install_log_path)
