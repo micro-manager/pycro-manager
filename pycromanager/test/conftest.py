@@ -10,24 +10,36 @@ from pycromanager.acq_util import cleanup
 
 
 def find_jar(pathname, jar_name):
-    p = re.compile(jar_name + r"-\d+.\d+\.\d+.jar")
+    p = re.compile(jar_name + r"-(\d+).(\d+).(\d+).jar")
 
-    for path in os.listdir(pathname):
-        match = p.match(path)
+    path = None
+    version = (0, 0, 0)
+    for _path in os.listdir(pathname):
+        match = p.match(_path)
         if match:
-            return path
+            # get file with the latest version
+            _version = tuple([int(i) for i in match.groups()])
+            if _version[0] > version[0] or _version[1] > version[1] or _version[2] > version[2]:
+                version = _version
+                path = _path
+
+    return path, version
 
 
 def replace_jars(new_file_path, old_file_path, jar_names: list):
     for jar_name in jar_names:
-        new_jar = find_jar(new_file_path, jar_name)
-        old_jar = find_jar(old_file_path, jar_name)
-        if new_jar is None:
+        new_jar_name, new_jar_version = find_jar(new_file_path, jar_name)
+        old_jar_name, old_jar_version = find_jar(old_file_path, jar_name)
+        if new_jar_name is None:
             FileNotFoundError(f'{jar_name} not found in {new_file_path}')
 
-        print(f'Replacing {old_jar} in {old_file_path} with {new_jar}.')
-        os.remove(os.path.join(old_file_path, old_jar))
-        shutil.copy2(os.path.join(new_file_path, new_jar), os.path.join(old_file_path, old_jar))
+        if new_jar_version[0] > old_jar_version[0] or \
+                new_jar_version[1] > old_jar_version[1] or \
+                new_jar_version[2] > old_jar_version[2]:
+
+            print(f'Replacing {old_jar_name} in {old_file_path} with {new_jar_name}.')
+            os.remove(os.path.join(old_file_path, old_jar_name))
+            shutil.copy2(os.path.join(new_file_path, new_jar_name), os.path.join(old_file_path, old_jar_name))
 
 
 @pytest.fixture(scope="session")
