@@ -21,8 +21,8 @@ def test_timelapse_acq(launch_mm_headless, setup_data_folder):
     with Acquisition(setup_data_folder, 'acq', show_display=False,
                      pre_hardware_hook_fn=hook_fn) as acq:
         acq.acquire(events)
-        dataset = acq.get_dataset()
 
+    dataset = acq.get_dataset()
     assert np.all([dataset.has_image(time=t) for t in range(10)])
     dataset.close()
 
@@ -37,8 +37,8 @@ def test_timelapse_seq_acq(launch_mm_headless, setup_data_folder):
     with Acquisition(setup_data_folder, 'acq', show_display=False,
                      pre_hardware_hook_fn=hook_fn) as acq:
         acq.acquire(events)
-        dataset = acq.get_dataset()
 
+    dataset = acq.get_dataset()
     assert np.all([dataset.has_image(time=t) for t in range(10)])
     dataset.close()
 
@@ -50,8 +50,8 @@ def test_empty_list_acq(launch_mm_headless, setup_data_folder):
 
     with Acquisition(setup_data_folder, 'acq', show_display=False) as acq:
         acq.acquire(events)
-        dataset = acq.get_dataset()
 
+    dataset = acq.get_dataset()
     assert dataset is None
 
 
@@ -62,8 +62,8 @@ def test_empty_dict_acq(launch_mm_headless, setup_data_folder):
 
     with Acquisition(setup_data_folder, 'acq', show_display=False) as acq:
         acq.acquire(events)
-        dataset = acq.get_dataset()
 
+    dataset = acq.get_dataset()
     assert dataset is None
 
 
@@ -74,8 +74,8 @@ def test_empty_mda_acq(launch_mm_headless, setup_data_folder):
 
     with Acquisition(setup_data_folder, 'acq', show_display=False) as acq:
         acq.acquire(events)
-        dataset = acq.get_dataset()
 
+    dataset = acq.get_dataset()
     assert dataset is None
 
 
@@ -84,8 +84,8 @@ def test_single_snap_acq(launch_mm_headless, setup_data_folder):
 
     with Acquisition(setup_data_folder, 'acq', show_display=False) as acq:
         acq.acquire(events)
-        dataset = acq.get_dataset()
 
+    dataset = acq.get_dataset()
     assert np.all([dataset.has_image(time=t) for t in range(1)])
     dataset.close()
 
@@ -119,7 +119,8 @@ def test_multi_d_acq(launch_mm_headless, setup_data_folder):
 
     with Acquisition(setup_data_folder, 'acq', show_display=False) as acq:
         acq.acquire(events)
-        dataset = acq.get_dataset()
+
+    dataset = acq.get_dataset()
 
     for t in range(10):
         for z in range(6):

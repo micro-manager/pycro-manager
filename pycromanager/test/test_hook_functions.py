@@ -17,8 +17,8 @@ def test_img_process_fn(launch_mm_headless, setup_data_folder):
     with Acquisition(setup_data_folder, 'acq', show_display=False,
                      image_process_fn=hook_fn) as acq:
         acq.acquire(events)
-        dataset = acq.get_dataset()
 
+    dataset = acq.get_dataset()
     data = dataset.as_array(axes=['time'])
     assert np.sum(data[0]) > 0
     assert np.sum(data[1]) == 0
@@ -35,6 +35,6 @@ def test_img_process_fn_no_save(launch_mm_headless):
     with Acquisition(directory=None, name='acq', show_display=False,
                      image_process_fn=hook_fn) as acq:
         acq.acquire(events)
-        dataset = acq.get_dataset()
+        dataset = acq.get_dataset()  # Can this be moved out of the Acquisition context?
 
     assert dataset is None
