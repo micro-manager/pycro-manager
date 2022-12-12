@@ -66,7 +66,6 @@ def _run_acq_hook(acquisition, pull_port,
                     elif len(params) == 2:
                         new_event_msg = hook_fn(event_msg, event_queue)
                 except Exception as e:
-                    exception = e
                     acquisition.abort(e)
                     # Cancel the execution of event because there was an exception
                     new_event_msg = None
@@ -151,8 +150,8 @@ def _run_image_processor(
             image = np.reshape(pixels, [metadata["Height"], metadata["Width"]])
 
         params = signature(process_fn).parameters
+        processed = None
         if len(params) == 2 or len(params) == 3:
-            processed = None
             try:
                 if len(params) == 2:
                     processed = process_fn(image, metadata)
