@@ -11,7 +11,7 @@ config_file = mm_app_path + "/MMConfig_demo.cfg"
 java_loc = "/Library/Java/JavaVirtualMachines/zulu-8.jdk/Contents/Home/bin/java"
 # java_loc = r"C:\Users\henry\.jdk\jdk8u322-b06\jre\bin\java.exe"
 # java_loc = None
-start_headless(mm_app_path, config_file, java_loc=java_loc, timeout=5000)
+start_headless(mm_app_path, config_file, java_loc=java_loc)
 
 core = Core()
 core.snap_image()
