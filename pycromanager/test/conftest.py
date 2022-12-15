@@ -1,4 +1,5 @@
 import os
+import sys
 import shutil
 import subprocess
 import pytest
@@ -67,52 +68,61 @@ def download_mm_nightly():
 
 @pytest.fixture(scope="session")
 def install_mm(download_mm_nightly):
-    mm_installer = download_mm_nightly
+    mm_app_found = False
     mm_install_dir = os.path.join(os.path.expanduser('~'), "Micro-Manager-nightly")
-    mm_install_log_path = os.path.join(os.path.dirname(mm_installer), "mm_install.log")
 
-    # check that java dependencies are present
-    if os.path.isdir('java'):
-        java_path = os.path.abspath('java')
-    # in case cwd is '/pycromanager/test'
-    elif os.path.isdir('../../java'):
-        java_path = os.path.abspath('../../java')
+    if os.path.isdir(mm_install_dir):
+        # Check if Micro-manager installation is present in mm_install_dir.
+        # If so, the latest Micro-manager nightly build will not be installed.
+        mm_app_found = True
+        print(f'Existing Micro-manager installation found at {mm_install_dir}')
     else:
-        raise RuntimeError('Could not find pycro-manager/java path')
+        # Install Micro-manager nightly build. Currently only supported on Windows platforms
+        if sys.platform.startswith('win'):
+            mm_installer = download_mm_nightly
+            mm_install_log_path = os.path.join(os.path.dirname(mm_installer), "mm_install.log")
+        else:
+            raise RuntimeError('Micro-manager nightly build installation is currently only supported on Windows platforms.')
+        
+        os.mkdir(mm_install_dir)
+        
+        print(f'Installing Micro-manager nightly build at: {mm_install_dir}')
+        cmd = f"{mm_installer} /SP /VERYSILENT /SUPRESSMSGBOXES /CURRENTUSER /DIR={mm_install_dir} /LOG={mm_install_log_path}"
+        subprocess.run(cmd, shell=True)
 
-    if not os.path.isdir(os.path.join(java_path, 'target')) \
-            or not os.path.isdir(os.path.join(java_path, 'target/dependency')):
-        raise FileNotFoundError('Please build Java dependencies before running pytest.')
+        # find pycro-manager/java path
+        if os.path.isdir('java'):
+            java_path = os.path.abspath('java')
+        # in case cwd is '/pycromanager/test'
+        elif os.path.isdir('../../java'):
+            java_path = os.path.abspath('../../java')
+        else:
+            raise RuntimeError('Could not find pycro-manager/java path')
 
-    # remove install dir if it exists, better to remove it at cleanup instead
-    if os.path.exists(mm_install_dir):
-        print(f'Removing previous Micro-manager installation at: {mm_install_dir}')
-        shutil.rmtree(mm_install_dir)
-    os.mkdir(mm_install_dir)
-
-    print(f'Installing Micro-manager nightly build at: {mm_install_dir}')
-    cmd = f"{mm_installer} /SP /VERYSILENT /SUPRESSMSGBOXES /CURRENTUSER /DIR={mm_install_dir} /LOG={mm_install_log_path}"
-    subprocess.run(cmd, shell=True)
-
-    # update pycromanager jar files with those newly compiled
-    replace_jars(os.path.join(java_path, 'target'), os.path.join(mm_install_dir, 'plugins', 'Micro-Manager'),
+        # Update pycromanager jar files packaged with the Micro-manager nightly build
+        # Files are updated only if they are larger version
+        if os.path.isdir(os.path.join(java_path, 'target')):
+            replace_jars(os.path.join(java_path, 'target'), os.path.join(mm_install_dir, 'plugins', 'Micro-Manager'),
                  ['PycroManagerJava'])
-    replace_jars(os.path.join(java_path, 'target/dependency'), os.path.join(mm_install_dir, 'plugins', 'Micro-Manager'),
+        if os.path.isdir(os.path.join(java_path, 'target/dependency')):
+            replace_jars(os.path.join(java_path, 'target/dependency'), os.path.join(mm_install_dir, 'plugins', 'Micro-Manager'),
                  ['AcqEngJ', 'NDTiffStorage', 'NDViewer'])
 
-    # os.remove(os.path.join(mm_install_dir, 'mmgr_dal_DemoCamera.dll'))
-    # os.remove(os.path.join(mm_install_dir, 'MMConfig_demo.cfg'))
-    # shutil.copy2(r'C:\Users\Cameron\micromanager_build\mmCoreAndDevices\build\Release\x64\mmgr_dal_DemoCamera.dll',
-    #              os.path.join(mm_install_dir, 'mmgr_dal_DemoCamera.dll'))
-    # shutil.copy2(r'C:\Users\Cameron\micromanager_build\micro-manager\bindist\any-platform\MMConfig_demo.cfg',
-    #              os.path.join(mm_install_dir, 'MMConfig_demo.cfg'))
+        # temp
+        # os.remove(os.path.join(mm_install_dir, 'mmgr_dal_DemoCamera.dll'))
+        # os.remove(os.path.join(mm_install_dir, 'MMConfig_demo.cfg'))
+        # shutil.copy2(r'C:\Users\Cameron\micromanager_build\mmCoreAndDevices\build\Release\x64\mmgr_dal_DemoCamera.dll',
+        #              os.path.join(mm_install_dir, 'mmgr_dal_DemoCamera.dll'))
+        # shutil.copy2(r'C:\Users\Cameron\micromanager_build\micro-manager\bindist\any-platform\MMConfig_demo.cfg',
+        #              os.path.join(mm_install_dir, 'MMConfig_demo.cfg'))
 
     yield mm_install_dir
 
-    # cleanup
-    os.remove(mm_install_log_path)
-    # fails, because MM is still running, I think
-    # shutil.rmtree(mm_install_dir)
+    # cleanup only if Micro-manager was installed in this session
+    if not mm_app_found:
+        os.remove(mm_install_log_path)
+        # fails, because MM is still running, I think
+        # shutil.rmtree(mm_install_dir)
 
 
 @pytest.fixture(scope="session")
@@ -134,7 +144,6 @@ def launch_mm_headless(install_mm):
     print('Launching Micro-manager in headless mode.')
     start_headless(mm_install_dir, config_file)
 
-    # yield None
+    # yield
     #
     # cleanup()
-    # time.sleep(5)  # give the os a few secs to shut down MM

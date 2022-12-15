@@ -14,6 +14,7 @@ SUBPROCESSES = []
 def cleanup():
     for p in SUBPROCESSES:
         p.terminate()
+        p.wait()  # wait for process to terminate
 
 # make sure any Java processes are cleaned up when Python exits
 atexit.register(cleanup)
