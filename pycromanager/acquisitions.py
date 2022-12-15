@@ -321,7 +321,7 @@ class Acquisition(object, metaclass=NumpyDocstringInheritanceMeta):
         data_sink = self._remote_acq.get_data_sink()
         if data_sink is not None:
             ndtiff_storage = data_sink.get_storage()
-            self._remote_storage_monitor = JavaObject('org.micromanager.remote.RemoteStorageMonitor', args=(ndtiff_storage,))
+            self._remote_storage_monitor = JavaObject('org.micromanager.remote.RemoteStorageMonitor', port=self._port, args=(ndtiff_storage,))
             ndtiff_storage.add_image_written_listener(self._remote_storage_monitor)
             self._dataset = Dataset(remote_storage_monitor=self._remote_storage_monitor)
             if image_saved_fn is not None:
