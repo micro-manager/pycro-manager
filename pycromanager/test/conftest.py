@@ -142,8 +142,14 @@ def launch_mm_headless(install_mm):
     config_file = os.path.join(mm_install_dir, 'MMConfig_demo.cfg')
 
     print('Launching Micro-manager in headless mode.')
-    start_headless(mm_install_dir, config_file)
+    java_loc = None
+    # MM doesn't ship with Java on Mac so allow it to be defined here
+    if "JAVA" in os.environ:
+        java_loc = os.environ["JAVA"]
 
-    # yield
-    #
-    # cleanup()
+    start_headless(mm_install_dir, config_file, java_loc=java_loc)
+
+    yield
+
+    cleanup()
+    pass
