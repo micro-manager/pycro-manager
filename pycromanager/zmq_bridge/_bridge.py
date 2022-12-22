@@ -865,7 +865,7 @@ _CLASS_NAME_MAPPING = {
 }
 #Used for deserializing java arrarys into numpy arrays
 _JAVA_ARRAY_TYPE_NUMPY_DTYPE = {
-    "boolean[]": np.bool,
+    "boolean[]": np.bool_,
     "byte[]": np.uint8,
     "short[]": np.int16,
     "char[]": np.uint16,
