@@ -457,7 +457,10 @@ public class ZMQUtil {
             //On to the next one
          } catch (NoClassDefFoundError e) {
             //On to the next one
+         } catch (UnsupportedClassVersionError e) {
+            System.err.println(path + e.getMessage());
          }
+
       }
       throw new RuntimeException("Class not found on any classloaders");
    }

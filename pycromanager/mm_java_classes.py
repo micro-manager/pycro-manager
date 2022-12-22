@@ -84,7 +84,7 @@ class Core(JavaObject):
         try:
             return JavaObject("mmcorej.CMMCore", new_socket=new_socket,
                       port=port, timeout=timeout, convert_camel_case=convert_camel_case, debug=debug)
-        except Exception() as e:
+        except Exception as e:
             raise Exception("Couldn't create Core. Is Micro-Manager running and is the ZMQ server on {port} option enabled?")
 
     def get_core_callback(self, callback_fn=None, bridge_port=DEFAULT_BRIDGE_PORT):
