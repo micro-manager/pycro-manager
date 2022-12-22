@@ -496,7 +496,7 @@ class _JavaObjectShadow:
         self._closed = False
         # In case there's an exception rather than normal garbage collection,
         # this makes sure cleanup occurs properly
-        atexit.register(self._close)
+        atexit.register(weakref.ref(self._close))
         self._close_lock = Lock()
 
     def _close(self):
