@@ -66,7 +66,6 @@ def _run_acq_hook(acquisition, pull_port,
                     elif len(params) == 2:
                         new_event_msg = hook_fn(event_msg, event_queue)
                 except Exception as e:
-                    exception = e
                     acquisition.abort(e)
                     # Cancel the execution of event because there was an exception
                     new_event_msg = None
@@ -151,8 +150,8 @@ def _run_image_processor(
             image = np.reshape(pixels, [metadata["Height"], metadata["Width"]])
 
         params = signature(process_fn).parameters
+        processed = None
         if len(params) == 2 or len(params) == 3:
-            processed = None
             try:
                 if len(params) == 2:
                     processed = process_fn(image, metadata)
@@ -322,7 +321,7 @@ class Acquisition(object, metaclass=NumpyDocstringInheritanceMeta):
         data_sink = self._remote_acq.get_data_sink()
         if data_sink is not None:
             ndtiff_storage = data_sink.get_storage()
-            self._remote_storage_monitor = JavaObject('org.micromanager.remote.RemoteStorageMonitor', args=(ndtiff_storage,))
+            self._remote_storage_monitor = JavaObject('org.micromanager.remote.RemoteStorageMonitor', port=self._port, args=(ndtiff_storage,))
             ndtiff_storage.add_image_written_listener(self._remote_storage_monitor)
             self._dataset = Dataset(remote_storage_monitor=self._remote_storage_monitor)
             if image_saved_fn is not None:
