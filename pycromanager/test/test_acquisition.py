@@ -44,7 +44,7 @@ def test_timelapse_seq_acq(launch_mm_headless, setup_data_folder):
 
 
 # TODO: unskip when ready
-@pytest.mark.skip(reason="Test locally first")
+@pytest.mark.skip(reason="Implement event checks in acquisition.py")
 def test_empty_list_acq(launch_mm_headless, setup_data_folder):
     events = []
 
@@ -56,7 +56,7 @@ def test_empty_list_acq(launch_mm_headless, setup_data_folder):
 
 
 # TODO: unskip when ready
-@pytest.mark.skip(reason="Test locally first")
+@pytest.mark.skip(reason="Implement event checks in acquisition.py")
 def test_empty_dict_acq(launch_mm_headless, setup_data_folder):
     events = {}
 
@@ -67,8 +67,6 @@ def test_empty_dict_acq(launch_mm_headless, setup_data_folder):
     assert dataset is None
 
 
-# TODO: unskip when ready
-@pytest.mark.skip(reason="Test locally first")
 def test_empty_mda_acq(launch_mm_headless, setup_data_folder):
     events = multi_d_acquisition_events()
 
