@@ -30,8 +30,10 @@ setuptools.setup(
     ],
     python_requires=">=3.6",
     extras_require={
-        "test": [
+        "dev": [
             "pytest",
+            "wget",
+            "requests"
         ]
     },
     classifiers=[
