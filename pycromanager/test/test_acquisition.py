@@ -66,15 +66,15 @@ def test_empty_dict_acq(launch_mm_headless, setup_data_folder):
     dataset = acq.get_dataset()
     assert dataset is None
 
-
-def test_empty_mda_acq(launch_mm_headless, setup_data_folder):
-    events = multi_d_acquisition_events()
-
-    with Acquisition(setup_data_folder, 'acq', show_display=False) as acq:
-        acq.acquire(events)
-
-    dataset = acq.get_dataset()
-    assert dataset is None
+# TODO: what should intended behavior be here?
+# def test_empty_mda_acq(launch_mm_headless, setup_data_folder):
+#     events = multi_d_acquisition_events()
+#
+#     with Acquisition(setup_data_folder, 'acq', show_display=False) as acq:
+#         acq.acquire(events)
+#
+#     dataset = acq.get_dataset()
+#     assert dataset is None
 
 
 def test_single_snap_acq(launch_mm_headless, setup_data_folder):
