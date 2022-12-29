@@ -6,7 +6,7 @@ def image_saved_fn(axes, dataset):
     print(np.mean(pixels))
     # Do something with image pixels/metadata
 
-dir = 'C:/Program Files/Micro-Manager-2.0'
+dir = '/Users/henrypinkard/tmp'
 with Acquisition(directory=dir, name="tcz_acq", debug=False,
                  image_saved_fn=image_saved_fn) as acq:
     events = multi_d_acquisition_events(

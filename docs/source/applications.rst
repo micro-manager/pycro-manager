@@ -13,7 +13,6 @@ Have an application you'd like to contribute to this page? Please `reach out <ht
 	application_notebooks/intermittent_Z_T.ipynb
 	application_notebooks/multi-d-acq-tutorial.ipynb
 	application_notebooks/TZYX_fast_sequencing_z_indexing.ipynb
-	application_notebooks/convert_MM_MDA_data_into_zarr.ipynb
 	application_notebooks/pycro_manager_imjoy_tutorial.ipynb
 	application_notebooks/Denoising acquired images using deep learning.ipynb
 	application_notebooks/Single_shot_autofocus_pycromanager.ipynb
@@ -21,7 +20,7 @@ Have an application you'd like to contribute to this page? Please `reach out <ht
 	application_notebooks/guiding_acq_with_neural_network_attention.ipynb
 	application_notebooks/Auto_CycIF.ipynb
 	application_notebooks/closedloop_headless_demo.ipynb
-	application_notebooks/external_master_tutorial.ipynb
+	application_notebooks/external_hardware_triggering_tutorial.ipynb
 	application_notebooks/Learned_adaptive_multiphoton_illumination.ipynb
 	application_notebooks/PSF_viewer.ipynb
 
@@ -34,9 +33,6 @@ Have an application you'd like to contribute to this page? Please `reach out <ht
 
 :doc:`application_notebooks/TZYX_fast_sequencing_z_indexing`
 	This notebook acquires a fast TZYX data series. The camera is run at reduced ROI to achieve higher framerate (here 200 frames per second). Movement of the z stage is "sequenced" to speed up acquisition. The z stage advances to the next position in the sequence when a trigger from the camera is received. This eliminates delays due to software communication.
-
-:doc:`application_notebooks/convert_MM_MDA_data_into_zarr`
-	This notebook explains how to use pycro-manger to readout the data saved by Micro-manager's multi-dimensional acquisition and convert it into zarr format. This is useful when the data is large (more than hundreds of GBs). Currently there is no python reader that can directly readout the large multi-dimensional data saved by Micromanger. The Pycro-Manager Java Python Bridge makes this possible.
 
 :doc:`application_notebooks/pycro_manager_imjoy_tutorial`
 	This tutorial notebook shows how you can combine pycro-manager with `ImJoy <https://imjoy.io/>`_ which is a web framework for building rich and powerful interactive analysis tools. 
@@ -60,7 +56,7 @@ Have an application you'd like to contribute to this page? Please `reach out <ht
 :doc:`application_notebooks/closedloop_headless_demo`
 	This tutorial shows how to use pycro-manager for a simple closed-loop (CL) experiment in python. CL perturbations are triggered by signals derived from data acquired from the sample itself during a live recording session. Well-designed CL experiments are crucial for systems neuroscience (our research domain), but this example can be adapted for any field. Specifically we perform some canonical image processing (template filtering with 2d gaussian kernel, thresholding, median filtering), then find local peaks, then take a window of pixel values around each peak. We use these pixel values to trigger our arbitrary "stimulus" function which can e.g. change optical settings on the microscope, call a separate program, send a serial port command etc.
 
-:doc:`application_notebooks/external_master_tutorial`
+:doc:`application_notebooks/external_hardware_triggering_tutorial`
 	This tutorial shows how to setup Pycro-Manager to run a microscope that utilizes an external controller as the master clock. Specifically, this tutorial controls a light-sheet microscope where a sample with fluorescent labels is scanned at a constant speed through an oblique light sheet. The stage controller provides the TTL signals that ensure the camera is synchronized to the scanning stage. This approach makes use of `post hardware` and `post camera` hook functions built into Pycro-Manager. Using these hook functions, it is possible to rapidly build and acquire a multiple terabyte acquisition consisting of millions of images.
 
 :doc:`application_notebooks/Learned_adaptive_multiphoton_illumination`

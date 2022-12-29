@@ -12,17 +12,16 @@ The following shows all possible fields in an acquisition event (not all of whic
 .. code-block:: python
 
   event = {
-	#A dictionary with the positions along various axes (e.g. time point indez,
-	#z-slice index, etc) a 'channel' axis is not required as it is inferred 
+	#A dictionary with the positions along various axes (e.g. time point index,
+	#z-slice index, etc.). Positions can either be integers or strings
 	#automatically
-	'axes': {'axis1_name': integer_value,
-			 'axis2_name': integer_value},
+	'axes': {
+		'axis1_name': 1,
+		'axis2_name': 0, 
+		'channel': 'DAPI'},
 
 	#The config of group and setting corresponding to this channel
-	'channel': {
-		'group': 'name_of_micro_manager_config_group',
-		'config': 'setting_of_micro_manager_config_group'
-	},
+	'config_group': ['name_of_micro_manager_config_group', 'setting_of_micro_manager_config_group'],
 
 	'exposure': exposure_time_in_ms,
 
@@ -35,12 +34,10 @@ The following shows all possible fields in an acquisition event (not all of whic
 	#For XY stages
 	'x': x_position_in_µm,
 	'y': y_position_in_µm,
+
 	#If xy stage positions are in a grid
 	'row': row_index_of_xy_position,
 	'col': col_index_of_xy_position,
-
-	#Turn of autoshutter, and keep the shutter open while acquiring
-	'keep_shutter_open': True,
 
 	#Other arbitrary hardware settings can be encoded in a list of strings with
 	#each entry containing the name of the device, the name of the property,
