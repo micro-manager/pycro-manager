@@ -95,7 +95,6 @@ def start_headless(
                 print(process.stdout.readline().decode('utf-8'))
         threading.Thread(target=logger).start()
 
-
 def multi_d_acquisition_events(
     num_time_points: int=None,
     time_interval_s: float=0,
@@ -230,7 +229,8 @@ def multi_d_acquisition_events(
         elif order[0] == "c" and channel_group is not None and channels is not None:
             for i in range(len(channels)):
                 new_event = copy.deepcopy(event)
-                new_event["channel"] = {"group": channel_group, "config": channels[i]}
+                new_event["config_group"] = [channel_group,  channels[i]]
+                new_event["axes"]["channel"] = channels[i]
                 if channel_exposures_ms is not None:
                     new_event["exposure"] = channel_exposures_ms[i]
                 if keep_shutter_open_between_channels:
@@ -264,6 +264,5 @@ def multi_d_acquisition_events(
 
     appender(generate_events(base_event, order))
     return events
-
 
 

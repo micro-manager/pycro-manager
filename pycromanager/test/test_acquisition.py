@@ -66,15 +66,15 @@ def test_empty_dict_acq(launch_mm_headless, setup_data_folder):
     dataset = acq.get_dataset()
     assert dataset is None
 
-
-def test_empty_mda_acq(launch_mm_headless, setup_data_folder):
-    events = multi_d_acquisition_events()
-
-    with Acquisition(setup_data_folder, 'acq', show_display=False) as acq:
-        acq.acquire(events)
-
-    dataset = acq.get_dataset()
-    assert dataset is None
+# TODO: what should intended behavior be here?
+# def test_empty_mda_acq(launch_mm_headless, setup_data_folder):
+#     events = multi_d_acquisition_events()
+#
+#     with Acquisition(setup_data_folder, 'acq', show_display=False) as acq:
+#         acq.acquire(events)
+#
+#     dataset = acq.get_dataset()
+#     assert dataset is None
 
 
 def test_single_snap_acq(launch_mm_headless, setup_data_folder):
@@ -123,7 +123,7 @@ def test_multi_d_acq(launch_mm_headless, setup_data_folder):
     for t in range(10):
         for z in range(6):
             for ch in ["DAPI", "FITC"]:
-                assert dataset.has_image(time=t, channel_name=ch, z=z)
+                assert dataset.has_image(time=t, channel=ch, z=z)
 
     data = dataset.as_array(axes=['time', 'channel', 'z'])
     assert data.shape[:-2] == (10, 2, 6)
