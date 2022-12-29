@@ -229,7 +229,7 @@ def multi_d_acquisition_events(
         elif order[0] == "c" and channel_group is not None and channels is not None:
             for i in range(len(channels)):
                 new_event = copy.deepcopy(event)
-                new_event["config_group"] = (channel_group,  channels[i])
+                new_event["config_group"] = [channel_group,  channels[i]]
                 new_event["axes"]["channel"] = channels[i]
                 if channel_exposures_ms is not None:
                     new_event["exposure"] = channel_exposures_ms[i]
