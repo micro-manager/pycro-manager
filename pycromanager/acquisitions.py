@@ -754,14 +754,16 @@ class MagellanAcquisition(Acquisition):
 
 def _validate_acq_events(events: dict or list):
     """
+    Validate if supplied events are a dictionary or a list of dictionaries
 
     Parameters
     ----------
-    events: dict or list
-        Validate if supplied event is a dictionary or a list of dictionaries
+    events : dict or list
 
     Returns
     -------
+    bool
+        True if events are valid, False otherwise
 
     """
     if isinstance(events, dict):
@@ -778,6 +780,19 @@ def _validate_acq_events(events: dict or list):
         return False
 
 def _validate_acq_dict(event: dict):
+    """
+    Validate event dictionary
+
+    Parameters
+    ----------
+    event : dict
+
+    Returns
+    -------
+    bool
+        True if event dict is valid, False otherwise
+
+    """
     if 'axes' in event.keys():
         return True
     else:
