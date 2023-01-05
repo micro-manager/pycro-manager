@@ -43,38 +43,39 @@ def test_timelapse_seq_acq(launch_mm_headless, setup_data_folder):
     dataset.close()
 
 
-# TODO: unskip when ready
-@pytest.mark.skip(reason="Implement event checks in acquisition.py")
 def test_empty_list_acq(launch_mm_headless, setup_data_folder):
     events = []
 
-    with Acquisition(setup_data_folder, 'acq', show_display=False) as acq:
-        acq.acquire(events)
-
-    dataset = acq.get_dataset()
-    assert dataset is None
+    with pytest.raises(Exception):
+        with Acquisition(setup_data_folder, 'acq', show_display=False) as acq:
+            acq.acquire(events)
 
 
-# TODO: unskip when ready
-@pytest.mark.skip(reason="Implement event checks in acquisition.py")
 def test_empty_dict_acq(launch_mm_headless, setup_data_folder):
     events = {}
 
+    with pytest.raises(Exception):
+        with Acquisition(setup_data_folder, 'acq', show_display=False) as acq:
+            acq.acquire(events)
+
+
+def test_empty_dict_list_acq(launch_mm_headless, setup_data_folder):
+    events = [{}, {}]
+
+    with pytest.raises(Exception):
+        with Acquisition(setup_data_folder, 'acq', show_display=False) as acq:
+            acq.acquire(events)
+
+
+# TODO: what should intended behavior be here?
+def test_empty_mda_acq(launch_mm_headless, setup_data_folder):
+    events = multi_d_acquisition_events()
+
     with Acquisition(setup_data_folder, 'acq', show_display=False) as acq:
         acq.acquire(events)
 
     dataset = acq.get_dataset()
     assert dataset is None
-
-# TODO: what should intended behavior be here?
-# def test_empty_mda_acq(launch_mm_headless, setup_data_folder):
-#     events = multi_d_acquisition_events()
-#
-#     with Acquisition(setup_data_folder, 'acq', show_display=False) as acq:
-#         acq.acquire(events)
-#
-#     dataset = acq.get_dataset()
-#     assert dataset is None
 
 
 def test_single_snap_acq(launch_mm_headless, setup_data_folder):
