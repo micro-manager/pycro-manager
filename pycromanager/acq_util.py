@@ -181,7 +181,14 @@ def multi_d_acquisition_events(
         z_positions = xyz_positions[:, 2][:, None]
 
     if has_zsteps:
-        z_rel = np.arange(z_start, z_end + z_step, z_step)
+        z_step = abs(z_step) 
+        if z_start < z_end: 
+            z_rel = np.arange(z_start, z_end + z_step, z_step) 
+            input(f'{z_rel}')
+        else:   
+            z_rel = np.arange(z_start, z_end , -z_step)
+            input(f'{z_rel}')
+            
         if z_positions is None:
             z_positions = z_rel
             if xy_positions is not None:
@@ -265,4 +272,9 @@ def multi_d_acquisition_events(
     appender(generate_events(base_event, order))
     return events
 
+
+t = multi_d_acquisition_events(z_start = 0,
+                           z_end = 3,
+                           z_step = -1)
+print(t)
 

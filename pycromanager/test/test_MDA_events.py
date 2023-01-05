@@ -84,6 +84,22 @@ def test_time_points():
     ]
     assert expected == multi_d_acquisition_events(num_time_points=5, time_interval_s=10)
 
+def test_negative_z_step_direction():
+    expected = [
+        {"axes": {"z": 0}, "z": 0},
+        {"axes": {"z": 1}, "z": 1},
+        {"axes": {"z": 2}, "z": 2},
+        {"axes": {"z": 3}, "z": 3},
+    ]
+    assert expected == multi_d_acquisition_events(z_start=0, z_end=3, z_step=-1)
+    
+def test_positive_z_step_direction():
+    expected = [
+        {'axes': {'z': 0}, 'z': 0}, 
+        {'axes': {'z': 1}, 'z': -1}, 
+        {'axes': {'z': 2}, 'z': -2}
+    ]
+    assert expected == multi_d_acquisition_events(z_start=0, z_end=-3, z_step=1) 
 
 def test_order():
     expected = [
