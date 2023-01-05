@@ -411,7 +411,11 @@ class Acquisition(object, metaclass=NumpyDocstringInheritanceMeta):
             # manual shutdown
             self._event_queue.put(None)
             return
-        self._event_queue.put(event_or_events)
+
+        if _validate_acq_events(event_or_events):
+            self._event_queue.put(event_or_events)
+        else:
+            raise Exception('Supplied acquisition events are not valid.')
 
     def abort(self, exception=None):
         """
@@ -748,3 +752,48 @@ class MagellanAcquisition(Acquisition):
             self._remote_acq = magellan_api.create_explore_acquisition(False).get_acquisition()
             self._event_queue = None
 
+def _validate_acq_events(events: dict or list):
+    """
+    Validate if supplied events are a dictionary or a list of dictionaries
+
+    Parameters
+    ----------
+    events : dict or list
+
+    Returns
+    -------
+    bool
+        True if events are valid, False otherwise
+
+    """
+    if isinstance(events, dict):
+        return _validate_acq_dict(events)
+    elif isinstance(events, list):
+        valid_events = []
+        for event in events:
+            if isinstance(event, dict):
+                valid_events.append(_validate_acq_dict(event))
+            else:
+                return False
+        return len(valid_events) > 0 and all(valid_events)
+    else:
+        return False
+
+def _validate_acq_dict(event: dict):
+    """
+    Validate event dictionary
+
+    Parameters
+    ----------
+    event : dict
+
+    Returns
+    -------
+    bool
+        True if event dict is valid, False otherwise
+
+    """
+    if 'axes' in event.keys():
+        return True
+    else:
+        return False
