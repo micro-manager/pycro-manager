@@ -184,10 +184,10 @@ def multi_d_acquisition_events(
         z_step = abs(z_step) 
         if z_start < z_end: 
             z_rel = np.arange(z_start, z_end + z_step, z_step) 
-            input(f'{z_rel}')
+            
         else:   
             z_rel = np.arange(z_start, z_end , -z_step)
-            input(f'{z_rel}')
+            
             
         if z_positions is None:
             z_positions = z_rel
