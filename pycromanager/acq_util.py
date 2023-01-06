@@ -273,8 +273,4 @@ def multi_d_acquisition_events(
     return events
 
 
-t = multi_d_acquisition_events(z_start = 0,
-                           z_end = 3,
-                           z_step = -1)
-print(t)
 
