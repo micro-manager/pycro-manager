@@ -130,9 +130,6 @@ def test_multi_d_acq(launch_mm_headless, setup_data_folder):
     dataset.close()
 
 
-# TODO: unskip when ready
-@pytest.mark.skip(reason="""Skip until micro-manager/pycro-manager#457 is resolved and 
-                            micro-manager/mmCoreAndDevices#307 and micro-manager/micro-manager#1582 are merged""")
 def test_channel_seq_acq(launch_mm_headless, setup_data_folder):
     mmc = Core()
     mmc.set_property('LED', 'Sequence', 'On')
@@ -149,9 +146,6 @@ def test_channel_seq_acq(launch_mm_headless, setup_data_folder):
         acq.acquire(events)
 
 
-# TODO: unskip when ready
-@pytest.mark.skip(reason="""Skip until micro-manager/pycro-manager#457 is resolved and 
-                            micro-manager/mmCoreAndDevices#307 and micro-manager/micro-manager#1582 are merged""")
 def test_channel_z_seq_acq(launch_mm_headless, setup_data_folder):
     mmc = Core()
     mmc.set_property('Z', 'UseSequences', 'Yes')
@@ -159,7 +153,8 @@ def test_channel_z_seq_acq(launch_mm_headless, setup_data_folder):
 
     events = multi_d_acquisition_events(z_start=0, z_end=4, z_step=1,
                                         channel_group='Channel-Multiband',
-                                        channels=['DAPI', 'FITC', 'Rhodamine', 'Cy5'])
+                                        channels=['DAPI', 'FITC', 'Rhodamine', 'Cy5'],
+                                        order='tpcz')
 
     def hook_fn(_events):
         assert check_acq_sequenced(_events, len(events)), 'Sequenced acquisition is not built correctly'
@@ -170,18 +165,54 @@ def test_channel_z_seq_acq(launch_mm_headless, setup_data_folder):
         acq.acquire(events)
 
 
-# TODO: unskip when ready
-@pytest.mark.skip(reason="""Skip until micro-manager/pycro-manager#457 is resolved and 
-                            micro-manager/mmCoreAndDevices#307 and micro-manager/micro-manager#1582 are merged""")
+def test_z_channel_seq_acq(launch_mm_headless, setup_data_folder):
+    mmc = Core()
+    mmc.set_property('Z', 'UseSequences', 'Yes')
+    mmc.set_property('LED', 'Sequence', 'On')
+
+    events = multi_d_acquisition_events(z_start=0, z_end=4, z_step=1,
+                                        channel_group='Channel-Multiband',
+                                        channels=['DAPI', 'FITC', 'Rhodamine', 'Cy5'],
+                                        order='tpzc')
+
+    def hook_fn(_events):
+        assert check_acq_sequenced(_events, len(events)), 'Sequenced acquisition is not built correctly'
+        return None  # no need to actually acquire the data
+
+    with Acquisition(setup_data_folder, 'acq', show_display=False,
+                     pre_hardware_hook_fn=hook_fn) as acq:
+        acq.acquire(events)
+
+
+def test_channel_seq_z_noseq_acq(launch_mm_headless, setup_data_folder):
+    mmc = Core()
+    mmc.set_property('Z', 'UseSequences', 'No')
+    mmc.set_property('LED', 'Sequence', 'On')
+
+    events = multi_d_acquisition_events(z_start=0, z_end=4, z_step=1,
+                                        channel_group='Channel-Multiband',
+                                        channels=['DAPI', 'FITC', 'Rhodamine', 'Cy5'],
+                                        order='tpzc')
+
+    def hook_fn(_events):
+        assert check_acq_sequenced(_events, 4), 'Sequenced acquisition is not built correctly'
+        return None  # no need to actually acquire the data
+
+    with Acquisition(setup_data_folder, 'acq', show_display=False,
+                     pre_hardware_hook_fn=hook_fn) as acq:
+        acq.acquire(events)
+
+
 def test_time_channel_z_seq_acq(launch_mm_headless, setup_data_folder):
     mmc = Core()
     mmc.set_property('Z', 'UseSequences', 'Yes')
     mmc.set_property('LED', 'Sequence', 'On')
 
-    events = multi_d_acquisition_events(num_time_points=3, time_interval_s=0,
+    events = multi_d_acquisition_events(num_time_points=2, time_interval_s=0,
                                         z_start=0, z_end=4, z_step=1,
                                         channel_group='Channel-Multiband',
-                                        channels=['DAPI', 'FITC', 'Rhodamine', 'Cy5'])
+                                        channels=['DAPI', 'FITC', 'Rhodamine', 'Cy5'],
+                                        order='tpcz')
 
     def hook_fn(_events):
         assert check_acq_sequenced(_events, len(events)), 'Sequenced acquisition is not built correctly'
