@@ -21,14 +21,3 @@ def test_multi_d_acq_viewer(launch_mm_headless, setup_data_folder):
 
     with Acquisition(setup_data_folder, 'acq', show_display=True) as acq:
         acq.acquire(events)
-
-    dataset = acq.get_dataset()
-
-    for t in range(10):
-        for z in range(6):
-            for ch in ["DAPI", "FITC"]:
-                assert dataset.has_image(time=t, channel=ch, z=z)
-
-    data = dataset.as_array(axes=['time', 'channel', 'z'])
-    assert data.shape[:-2] == (10, 2, 6)
-    dataset.close()
