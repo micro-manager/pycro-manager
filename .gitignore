@@ -19,7 +19,7 @@ pycromanager/test/temp_data
 
 # intelliJ
 java/src/main/java/.idea/
-java/src/main/java/pycromanager.iml
+*.iml
 #maven
 java/target
 .idea/
