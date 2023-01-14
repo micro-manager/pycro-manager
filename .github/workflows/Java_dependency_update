@@ -1,0 +1,52 @@
+# When NDTiff, AcqEngJ, or NDViewer update, a automatic push
+# to the dependencies branch of pycro-manager will be generated
+# that updates the version in their POM.xml files
+# This script should then:
+#   1) Update the minor or patch version of PMJava accordingly
+#   2) Open a pull request from the dependency branch to the main branch to 
+#      trigger automatic build of pycro-manager Java
+
+name: Pycro-ManagerJava update
+
+on:
+  push:
+    branches:
+      - dependencies
+    paths:
+       - 'java/pom.xml'
+
+jobs:
+  update-pycromanger-java:
+    runs-on: ubuntu-latest
+    steps:
+    - name: create pull request
+      run: gh pr create -B main -H dependencies --title 'Java dependency update' --body 'Created by Github action'
+      env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    
+    - name: Checkout-PM
+      uses: actions/checkout@v2
+      with:
+        path: 'pycro-manager'
+        repository: henrypinkard/pycro-manager
+        ref: dependencies
+        token: ${{ secrets.GITHUB_TOKEN }}
+        
+    - name: update-version
+      run: |
+        cd pycro-manager
+        # fast forward to get code updates on main branch
+        git merge main -m "dependency update merge"
+        pip install semantic_version
+        python update_PMJava.py
+        
+    - name: commit
+      run: |
+        cd pycro-manager
+        git config --local user.email "github-actions[bot]@users.noreply.github.com"
+        git config --local user.name "NDTiff-Bot"
+        git commit -am "update NDTiff version"
+    - name: push
+      run: |
+        cd pycro-manager
+        git push https://henrypinkard:${{ secrets.PYCRO_TOKEN }}@github.com/micro-manager/pycro-manager.git  
