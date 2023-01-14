@@ -235,6 +235,8 @@ def test_channel_noseq_z_seq_acq(launch_mm_headless, setup_data_folder):
     events = multi_d_acquisition_events(z_start=0, z_end=4, z_step=1,
                                         channel_group='Channel-Multiband',
                                         channels=['DAPI', 'FITC', 'Rhodamine', 'Cy5'],
+                                        # channels may have different exposure time
+                                        channel_exposures_ms=[5, 10, 15, 20],
                                         order='tpcz')
 
     def hook_fn(_events):
@@ -287,6 +289,30 @@ def test_time_z_channel_seq_acq(launch_mm_headless, setup_data_folder):
 
     def hook_fn(_events):
         assert check_acq_sequenced(_events, len(events)), 'Sequenced acquisition is not built correctly'
+        return None  # no need to actually acquire the data
+
+    with Acquisition(setup_data_folder, 'acq', show_display=False,
+                     pre_hardware_hook_fn=hook_fn) as acq:
+        acq.acquire(events)
+
+
+def test_time_noseq_z_channel_seq_acq(launch_mm_headless, setup_data_folder):
+    """
+    Test that channels and z can be sequenced when timepoints are not sequenced
+
+    """
+    mmc = Core()
+    mmc.set_property('Z', 'UseSequences', 'Yes')
+    mmc.set_property('LED', 'Sequence', 'On')
+
+    events = multi_d_acquisition_events(num_time_points=2, time_interval_s=2,
+                                        z_start=0, z_end=4, z_step=1,
+                                        channel_group='Channel-Multiband',
+                                        channels=['DAPI', 'FITC', 'Rhodamine', 'Cy5'],
+                                        order='tpzc')
+
+    def hook_fn(_events):
+        assert check_acq_sequenced(_events, 20), 'Sequenced acquisition is not built correctly'
         return None  # no need to actually acquire the data
 
     with Acquisition(setup_data_folder, 'acq', show_display=False,
