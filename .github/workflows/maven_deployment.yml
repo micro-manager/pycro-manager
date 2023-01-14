@@ -16,10 +16,10 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Sleep for 10min or so-so libraries are available
-        uses: juliangruber/sleep-action@v1
-        with:
-          time: 200s
+#       - name: Sleep for 10min or so-so libraries are available
+#         uses: juliangruber/sleep-action@v1
+#         with:
+#           time: 200s
     
       - uses: actions/checkout@v2
 
