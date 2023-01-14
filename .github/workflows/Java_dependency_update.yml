@@ -19,11 +19,6 @@ jobs:
   update-pycromanger-java:
     runs-on: ubuntu-latest
     steps:
-    - name: create pull request
-      run: gh pr create -B main -H dependencies --title 'Java dependency update' --body 'Created by Github action'
-      env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-    
     - name: Checkout-PM
       uses: actions/checkout@v2
       with:
