@@ -67,7 +67,7 @@ tree = ET.parse(f)
 root = tree.getroot()
 dependency = root.find("version").text
 # Update the version in the xml file
-dependency.find("version").text = str(pm_version)
+root.find("version").text = str(pm_version)
 print('\t\tupdated to version: ', pm_version)
 
          
