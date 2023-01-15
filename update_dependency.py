@@ -10,13 +10,15 @@ import os
 dep_name = sys.argv[1]
 git_repos_dir = str(Path(__file__).parent.parent) + '/'
 
+print(git_repos_dir)
+print(os.listdir(git_repos_dir))
+
 if('java' in os.listdir(git_repos_dir + dep_name)):
     pom_path = git_repos_dir + 'java/pom.xml'
 else:
     pom_path = git_repos_dir + 'pom.xml'
 
-print(os.getcwd())
-print(os.listdir(os.getcwd()))
+
     
 # Get the latest version number
 tree = ET.parse(pom_path)
