@@ -16,7 +16,7 @@ else:
     pom_path = git_repos_dir + 'pom.xml'
 
 print(os.getcwd())
-print(os.listdir(os.getcwd))
+print(os.listdir(os.getcwd()))
     
 # Get the latest version number
 tree = ET.parse(pom_path)
