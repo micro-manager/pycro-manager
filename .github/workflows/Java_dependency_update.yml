@@ -19,17 +19,17 @@ jobs:
   update-pycromanger-java:
     runs-on: ubuntu-latest
     steps:
-    - name: Checkout-PM
+    - name: Checkout Pycro-Manager dependencies branch
       uses: actions/checkout@v2
       with:
-        path: 'pycro-manager'
+        path: ''
         repository: micro-manager/pycro-manager
         fetch-depth: 0 # check out all branches so main can be merged
         token: ${{ secrets.GITHUB_TOKEN }}
+        ref: dependencies
         
     - name: update-version
       run: |
-        cd pycro-manager
         # fast forward to get code updates on main branch
         git merge origin/main -m "dependency update merge"
         pip install semantic_version
@@ -37,7 +37,6 @@ jobs:
         
     - name: commit
       run: |
-        cd pycro-manager
         git config --local user.email "github-actions[bot]@users.noreply.github.com"
         git config --local user.name "PycroManager-Bot"
         git commit -am "update PycromanagerJava version"
