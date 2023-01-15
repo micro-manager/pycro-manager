@@ -11,6 +11,10 @@ from semantic_version import Version
 from pathlib import Path
 
 git_repos_dir = Path(__file__).parent.parent 
+print('structure')
+print(Path(__file__))
+print(Path(__file__).parent)
+print(Path(__file__).parent.parent)
 poms = {'NDTiffStorage': '/NDTiffStorage/java/pom.xml',
         'NDViewer': '/NDViewer/pom.xml',
         'AcqEngJ': '/AcqEngJ/pom.xml'}
