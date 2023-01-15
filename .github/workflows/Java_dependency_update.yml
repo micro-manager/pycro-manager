@@ -23,15 +23,15 @@ jobs:
       uses: actions/checkout@v2
       with:
         path: 'pycro-manager'
-        repository: henrypinkard/pycro-manager
-        ref: dependencies
+        repository: micro-manager/pycro-manager
+        fetch-depth: 0 # check out all branches so main can be merged
         token: ${{ secrets.GITHUB_TOKEN }}
         
     - name: update-version
       run: |
         cd pycro-manager
         # fast forward to get code updates on main branch
-        git merge main -m "dependency update merge"
+        git merge origin/main -m "dependency update merge"
         pip install semantic_version
         python update_PMJava.py
         
