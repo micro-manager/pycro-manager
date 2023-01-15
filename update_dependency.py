@@ -10,13 +10,11 @@ import os
 dep_name = sys.argv[1]
 git_repos_dir = str(Path(__file__).parent.parent) + '/'
 
-print(git_repos_dir)
-print(os.listdir(git_repos_dir))
 
 if('java' in os.listdir(git_repos_dir + dep_name)):
-    pom_path = git_repos_dir + 'java/pom.xml'
+    pom_path = git_repos_dir + dep_name + '/java/pom.xml'
 else:
-    pom_path = git_repos_dir + 'pom.xml'
+    pom_path = git_repos_dir + dep_name + '/pom.xml'
 
 
     
