@@ -41,6 +41,10 @@ jobs:
       run: |
         git commit -am "update PycromanagerJava version"
         
+    - name: push
+      run: |
+        git push https://henrypinkard:${{ secrets.GITHUB_TOKEN }}@github.com/micro-manager/pycro-manager.git  
+ 
     - name: create pull request
       run: gh pr create -H dependencies -B main --title 'Java version auto-update' --body 'Created by Github action'
       env:
