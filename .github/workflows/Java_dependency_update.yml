@@ -37,9 +37,9 @@ jobs:
         pip install semantic_version
         python update_PMJava.py
         
-#     - name: commit
-#       run: |
-#         git commit -am "update PycromanagerJava version"
+    - name: commit
+      run: |
+        git commit -am "update PycromanagerJava version"
         
     - name: create pull request
       run: gh pr create -H dependencies -B main --title 'Java version auto-update' --body 'Created by Github action'
