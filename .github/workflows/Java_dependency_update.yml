@@ -23,8 +23,7 @@ jobs:
       uses: actions/checkout@v2
       with:
         path: 'pycro-manager'
-        repository: henrypinkard/pycro-manager
-        ref: dependencies
+        repository: micro-manager/pycro-manager
         fetch-depth: 0 # check out all branches so main can be merged
         token: ${{ secrets.GITHUB_TOKEN }}
         

@@ -2,49 +2,35 @@
 Script for updating NDTiff to latest version
 """
 
+import xml.etree.ElementTree as ET
 from pathlib import Path
-import re
-import os
-import git 
 
-
-
-# get latest version numbers of NDTiff, AcqEngJ, NDViewer, PycormanagerJava from their repsective files
-versions = {}
 git_repos_dir = Path(__file__).parent.parent 
 poms = {'NDTiffStorage': '/NDTiffStorage/java/pom.xml'}
+versions = {}
 
+# Get the latest version numbers
 for lib in poms.keys():
-	f = str(git_repos_dir) + poms[lib]
-	with open(f) as pom_file:
-		s = pom_file.read()
-		versions[lib] = s.split('<version>')[1].split('</version')[0]
+    f = str(git_repos_dir) + poms[lib]
+    tree = ET.parse(f)
+    root = tree.getroot()
+    versions[lib] = root.find('version').text
 
-
-redeploys = []
-# ###### update dependencies in PycroManageJava
-print('Updating PycroManageJava pom')
+# Update the version in PycroManagerJava pom.xml
 f = str(git_repos_dir) + '/pycro-manager/java/pom.xml'
-with open(f, 'r') as infile:
-    data = infile.read()
+tree = ET.parse(f)
+root = tree.getroot()
 
-for lib_name in versions:
-	new_ver = versions[lib_name]
-	allf = re.findall('{}</artifactId>\n.*?<version>(.*?)</version>'.format(lib_name), data, )
-	old_ver = allf[0]
-	if new_ver != old_ver:
-		redeploys.append(lib_name)
-	# if lib_name == 'PycroManagerJava' && old_ver != new_ver:
-
-
-	print('{}:\t\tCurrent: {}\tNew: {}'.format(lib_name, old_ver, new_ver))
-	data = re.sub('{}</artifactId>\n.*?<version>(.*?)</version>'.format(lib_name),
-		'{}</artifactId>\n     <version>{}</version>'.format(lib_name, new_ver), data, )
-
-
-# Rewrite file
-with open(f, 'w') as outfile:
-    outfile.write(data)
-
-
-
+#Find the dependency element of NDTiffStorage
+dependency = root.find("./dependencies/dependency[artifactId='NDTiffStorage']")
+if dependency is not None:
+    old_version = dependency.find("version").text
+    new_version = versions['NDTiffStorage']
+    if old_version != new_version:
+        dependency.find("version").text = new_version
+         tree.write(f)
+        print(f"NDTiffStorage version updated from {old_version} to {new_version} in {f}")
+    else:
+        print("NDTiffStorage version is already up to date")
+else:
+    print(f"NDTiffStorage is not being used by PycroManagerJava. No update needed")
