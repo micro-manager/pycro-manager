@@ -50,5 +50,5 @@ jobs:
         gh pr create -H dependencies -B main --title 'Java version auto-update' --body 'Created by Github action'
         gh pr merge --auto --merge
       env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.PYCRO_TOKEN }}
 
