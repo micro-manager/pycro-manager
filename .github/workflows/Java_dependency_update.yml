@@ -23,7 +23,7 @@ jobs:
       uses: actions/checkout@v2
       with:
         path: 'pycro-manager'
-        repository: henrypinkard/pycro-manager
+        repository: micro-manager/pycro-manager
         ref: dependencies
         token: ${{ secrets.GITHUB_TOKEN }}
         
