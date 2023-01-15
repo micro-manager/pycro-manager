@@ -28,7 +28,7 @@ if dependency is not None:
     new_version = versions['NDTiffStorage']
     if old_version != new_version:
         dependency.find("version").text = new_version
-         tree.write(f)
+        tree.write(f)
         print(f"NDTiffStorage version updated from {old_version} to {new_version} in {f}")
     else:
         print("NDTiffStorage version is already up to date")
