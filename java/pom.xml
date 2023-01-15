@@ -8,7 +8,6 @@
     <description>The Java components of Pycro-Manager</description>
     <url>https://github.com/micro-manager/pycro-manager</url>
   
-  
     <properties>
         <maven.compiler.source>1.8</maven.compiler.source>
         <maven.compiler.target>1.8</maven.compiler.target>
@@ -65,7 +64,7 @@
       <dependency>
          <groupId>org.micro-manager.ndtiffstorage</groupId>
          <artifactId>NDTiffStorage</artifactId>
-     <version>2.8.0</version>
+     <version>2.9.11</version>
       </dependency>
   </dependencies>
 
@@ -135,7 +134,7 @@
     </plugin>
       </plugins>
      </build>
-
+  
 
     <distributionManagement>
 <!--       <snapshotRepository>
