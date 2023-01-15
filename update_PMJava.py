@@ -1,71 +1,75 @@
-"""
-Called by github actions to update Pycro-ManagerJava version when
-one of AcqEngJ, NDTiff, NDViewer changes their versions
-
-If any one of these changes their minor or patch versions, the minor/patch
-version will be incremented
-"""
-
 import xml.etree.ElementTree as ET
 from semantic_version import Version
 from pathlib import Path
+import requests
+
+def read_versions(root):
+    versions = {}
+    versions['PycroManagerJava'] = Version(root.find("version").text)
+    # iterate through the dependencies and get NDTiff, NDViewer, and AcqEngJ
+    dependencies = root.findall(".//dependency")
+    for dependency in dependencies:
+        artifactId = dependency.find("artifactId").text
+        version = dependency.find("version").text
+        if artifactId in ["NDTiffStorage", "NDViewer", "AcqEngJ"]:
+            versions[artifactId] = Version(version)
+    return versions
 
 git_repos_dir = Path(__file__).parent.parent 
-poms = {'NDTiffStorage': '/NDTiffStorage/java/pom.xml',
-        'NDViewer': '/NDViewer/pom.xml',
-        'AcqEngJ': '/AcqEngJ/pom.xml'}
-updated_versions = {}
 
-# Get the latest version numbers
-for lib in poms.keys():
-    f = str(git_repos_dir) + poms[lib]
-    tree = ET.parse(f)
-    root = tree.getroot()
-    updated_versions[lib] = root.find('version').text
-
-# Update the version in PycroManagerJava pom.xml
+# Read the copy of the pom on the dependencies branch
 f = str(git_repos_dir) + '/pycro-manager/java/pom.xml'
 tree = ET.parse(f)
 root = tree.getroot()
 
-# Update the dependency versions
-print('Dependencies')
-minor_version_increased = False
-patch_version_increased = False
-for lib_name in versions:
-    dependency = root.find("./dependencies/dependency[artifactId='{}']".format(lib_name))
-    if dependency is not None:
-        old_version = dependency.find("version").text
-        new_version = updated_versions[lib_name]
-        print('\t', lib_name, '\told: ', old_version, '\tnew: ', new_version)
-        if Version(new_version) > Version(old_version):
-            if Version(new_version).minor > Version(old_version).minor:
-                minor_version_increased = True
-            elif Version(new_version).patch > Version(old_version).patch:
-                patch_version_increased = True
-            # Update the version in the xml file
-            dependency.find("version").text = new_version
-            print('\t\tupdated to version: ', new_version)
+updated_versions = read_versions(root)
 
 
-print('\nPycroManagerJava')
-# Read the PM Java version from the main branch
+# Read the the versions currently on the main branch
 url = f'https://raw.githubusercontent.com/micro-manager/pycro-manager/main/java/pom.xml'
 response = requests.get(url)
 root = ET.fromstring(response.text)
-current_pm_version = Version(root.find("version").text)
 
-new_version = Version(str(current_pm_version))
+main_branch_versions = read_versions(root)
+
+
+# Compare these versions to the main branch in order to figure out what updates have occured
+minor_version_increased = False
+patch_version_increased = False
+for lib_name in main_branch_versions.keys():
+    old_version = main_branch_versions[lib_name]
+    new_version = updated_versions[lib_name]
+    print('\t', lib_name, '\t\told: ', old_version, '\tnew: ', new_version)
+    if new_version > old_version:
+        if new_version.minor > old_version.minor:
+            minor_version_increased = True
+        elif new_version.patch > old_version.patch:
+            patch_version_increased = True
+    elif old_version > new_version:
+        raise Exception('The main branch version of {} is greater than the '
+                        'dependency branch. something has gone wrong'.format(lib_name))
+
+if updated_versions['PycroManagerJava'] > main_branch_versions['PycroManagerJava']:
+    pm_version = updated_versions['PycroManagerJava']
+else:
+    pm_version = main_branch_versions['PycroManagerJava']
+    
 if minor_version_increased:
-    new_version = new_version.next_minor()
+    pm_version = pm_version.next_minor()
 elif patch_version_increased:
-    new_version = new_version.next_patch()
+    pm_version = pm_version.next_patch()
 
-if (new_version > current_pm_version):
-    print('\t Updated: \told', current_pm_version, '\tnew', new_version)
+    
+# Resave dependecies branch pom with latest versions
+f = str(git_repos_dir) + '/pycro-manager/java/pom.xml'
+tree = ET.parse(f)
+root = tree.getroot()
+dependency = root.find("./dependencies/dependency[artifactId='{}']".format('PycroManagerJava'))
+  
+# Update the version in the xml file
+dependency.find("version").text = str(pm_version)
+print('\t\tupdated to version: ', pm_version)
 
-
-root.find("version").text = str(new_version)
-            
+         
 # Resave the xml file
 tree.write(f)
