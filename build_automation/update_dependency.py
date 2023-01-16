@@ -1,5 +1,6 @@
 """
 Script for updating NDTiff/AcqEngJ/NDViewer to latest version
+It runs on the dependency-update branch and is called by an action in NDTiff/AcqEngJ/NDViewer repo
 """
 
 import xml.etree.ElementTree as ET
