@@ -35,7 +35,7 @@ while True:
     else:
         print(f"waiting for {dep_name}-{latest_version_number} for {time.time() - start} s\r", end='')
         time.sleep(5)
-print('Dependency available')
+print(f"Dependency available: {dep_name}-{latest_version_number}")
 
 
 # Update the version in PycroManagerJava pom.xml
