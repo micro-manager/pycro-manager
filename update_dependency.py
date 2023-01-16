@@ -6,6 +6,8 @@ import xml.etree.ElementTree as ET
 from pathlib import Path
 import sys
 import os
+import requests
+import time
 
 dep_name = sys.argv[1]
 git_repos_dir = str(Path(__file__).parent.parent) + '/'
@@ -16,12 +18,26 @@ if('java' in os.listdir(git_repos_dir + dep_name)):
 else:
     pom_path = git_repos_dir + dep_name + '/pom.xml'
 
-
     
 # Get the latest version number
 tree = ET.parse(pom_path)
 root = tree.getroot()
 latest_version_number = root.find('version').text
+
+# Wait for the version to become available, because there is a delay after it is deployed
+url = f'https://s01.oss.sonatype.org/service/local/repositories/releases' \
+    '/content/org/micro-manager/{dep_name.lower()}/{dep_name}/{latest_version_number}/{dep_name}-{latest_version_number}.jar'
+
+start = time.time()
+while True:
+    response = requests.head(url)
+    if response.status_code == 200:
+        break
+    else:
+        print(f"waiting for {dep_name}-{latest_version_number} for {time.time() - start} s\r", end='')
+        time.sleep(5)
+print('Dependency available')
+
 
 # Update the version in PycroManagerJava pom.xml
 f = str(git_repos_dir) + '/pycro-manager/java/pom.xml'
