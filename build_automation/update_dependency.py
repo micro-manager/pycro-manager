@@ -25,7 +25,8 @@ root = tree.getroot()
 latest_version_number = root.find('version').text
 
 # Wait for the version to become available, because there is a delay after it is deployed
-url = f"https://s01.oss.sonatype.org/service/local/repositories/releases/content/org/micro-manager/{dep_name.lower()}/{dep_name}/{latest_version_number}/{dep_name}-{latest_version_number}.jar"
+url = f"https://repo.maven.apache.org/maven2/org/micro-manager/{dep_name.lower()}/{dep_name}/{latest_version_number}/{dep_name}-{latest_version_number}.jar
+# url = f"https://s01.oss.sonatype.org/service/local/repositories/releases/content/org/micro-manager/{dep_name.lower()}/{dep_name}/{latest_version_number}/{dep_name}-{latest_version_number}.jar"
 
 start = time.time()
 while True:
