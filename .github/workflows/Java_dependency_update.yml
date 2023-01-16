@@ -31,14 +31,14 @@ jobs:
     - name: update-version
       run: |
         # fast forward to get code updates on main branch
+        git config --local user.email "github-actions[bot]@users.noreply.github.com"
+        git config --local user.name "PycroManager-Bot"
         git merge origin/main -m "dependency update merge"
         pip install semantic_version
         python update_PMJava.py
         
     - name: commit
       run: |
-        git config --local user.email "github-actions[bot]@users.noreply.github.com"
-        git config --local user.name "PycroManager-Bot"
         git commit -am "update PycromanagerJava version"
         
     - name: push
@@ -46,7 +46,9 @@ jobs:
         git push https://henrypinkard:${{ secrets.GITHUB_TOKEN }}@github.com/micro-manager/pycro-manager.git  
  
     - name: create pull request
-      run: gh pr create -B dependencies -H main --title 'Java version auto-update' --body 'Created by Github action'
+      run: |
+        gh pr create -H dependencies -B main --title 'Java version auto-update' --body 'Created by Github action'
+        gh pr merge --auto --merge
       env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.PYCRO_TOKEN }}
 

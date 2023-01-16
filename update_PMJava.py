@@ -65,10 +65,9 @@ elif patch_version_increased:
 f = str(git_repos_dir) + '/pycro-manager/java/pom.xml'
 tree = ET.parse(f)
 root = tree.getroot()
-dependency = root.find("./dependencies/dependency[artifactId='{}']".format('PycroManagerJava'))
-  
+dependency = root.find("version").text
 # Update the version in the xml file
-dependency.find("version").text = str(pm_version)
+root.find("version").text = str(pm_version)
 print('\t\tupdated to version: ', pm_version)
 
          
