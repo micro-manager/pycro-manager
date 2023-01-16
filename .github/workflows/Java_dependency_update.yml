@@ -11,7 +11,7 @@ name: Pycro-ManagerJava update
 on:
   push:
     branches:
-      - dependencies
+      - dependency-update
     paths:
        - 'java/pom.xml'
 
@@ -26,7 +26,7 @@ jobs:
         repository: micro-manager/pycro-manager
         fetch-depth: 0 # check out all branches so main can be merged
         token: ${{ secrets.GITHUB_TOKEN }}
-        ref: dependencies
+        ref: dependency-update
         
     - name: update-version
       run: |
@@ -35,7 +35,7 @@ jobs:
         git config --local user.name "PycroManager-Bot"
         git merge origin/main -m "dependency update merge"
         pip install semantic_version
-        python update_PMJava.py
+        python build_automation/update_PycroManagerJava.py
         
     - name: commit
       run: |
@@ -47,7 +47,7 @@ jobs:
  
     - name: create pull request
       run: |
-        gh pr create -H dependencies -B main --title 'Java version auto-update' --body 'Created by Github action'
+        gh pr create -H dependency-update -B main --title 'Java version auto-update' --body 'Created by Github action'
         gh pr merge --auto --merge
       env:
           GITHUB_TOKEN: ${{ secrets.PYCRO_TOKEN }}

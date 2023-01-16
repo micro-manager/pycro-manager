@@ -16,7 +16,7 @@ def read_versions(root):
     return versions
 
 
-git_repos_dir = Path(__file__).parent.parent 
+git_repos_dir = Path(__file__).parent.parent.parent
 
 # Read the copy of the pom on the dependencies branch
 f = str(git_repos_dir) + '/pycro-manager/java/pom.xml'
@@ -55,9 +55,9 @@ if updated_versions['PycroManagerJava'] > main_branch_versions['PycroManagerJava
 else:
     pm_version = main_branch_versions['PycroManagerJava']
     
-if minor_version_increased:
-    pm_version = pm_version.next_minor()
-elif patch_version_increased:
+if minor_version_increased or patch_version_increased:
+#     pm_version = pm_version.next_minor()
+# elif patch_version_increased:
     pm_version = pm_version.next_patch()
 
     
