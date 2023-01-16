@@ -53,7 +53,7 @@ jobs:
       uses: actions/checkout@v3
       with:
         path: ''
-        repository: henrypinkard/micro-manager
+        repository: micro-manager/micro-manager
         fetch-depth: 0 # check out all branches so main can be merged
         token: ${{ secrets.GITHUB_TOKEN }}
         ref: dependency-update
