@@ -35,7 +35,7 @@ jobs:
         git config --local user.name "PycroManager-Bot"
         git merge origin/main -m "dependency update merge"
         pip install semantic_version
-        python update_PMJava.py
+        python build_automation/update_PycroManagerJava.py
         
     - name: commit
       run: |
