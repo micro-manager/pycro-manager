@@ -8,7 +8,7 @@ import xml.etree.ElementTree as ET
 from semantic_version import Version
 from pathlib import Path
 import requests
-
+import time
 
 def read_versions(root):
     versions = {}
