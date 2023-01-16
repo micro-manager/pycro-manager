@@ -22,7 +22,7 @@ def read_versions(root):
             versions[artifactId] = Version(version)
     return versions
 
-git_repos_dir = Path(__file__).parent.parent 
+git_repos_dir = Path(__file__).parent.parent.parent
 ivy_path = git_repos_dir + '/micro-manager/buildscripts/ivy.xml'
   
 # Read from pom.xml in pycromanager
