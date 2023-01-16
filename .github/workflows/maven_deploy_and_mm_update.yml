@@ -52,32 +52,43 @@ jobs:
     - name: Checkout Micro-Manager dependencies branch
       uses: actions/checkout@v3
       with:
-        path: ''
+        path: 'mm'
         repository: micro-manager/micro-manager
         fetch-depth: 0 # check out all branches so main can be merged
         token: ${{ secrets.GITHUB_TOKEN }}
         ref: dependency-update
+    
+    - name: Checkout pycro-manager # To get the update_mm_ivy.py script
+      uses: actions/checkout@v3
+      with:
+        path: pm
+        repository: micro-manager/pycro-manager
+        token: ${{ secrets.GITHUB_TOKEN }}
+        ref: main
         
     - name: update-version
       run: |
+        cd pm
         # fast forward to get code updates on main branch
         git config --local user.email "github-actions[bot]@users.noreply.github.com"
         git config --local user.name "PycroManager-Bot"
-        git merge origin/main -m "dependency update merge"
         pip install semantic_version
         python build_automation/update_mm_ivy.py
         
     - name: commit
       run: |
+        cd mm
         git commit -am "update PycromanagerJava and dependencies"
         
     - name: push
       run: |
+        cd mm
         git push https://henrypinkard:${{ secrets.GITHUB_TOKEN }}@github.com/micro-manager/micro-manager.git  
  
     - name: create pull request
       run: |
-        gh pr create -H dependency-update -B main --title 'Pycro-Manager and dependencies' --body 'Created by Github action'
+        cd mm
+        gh pr create -H dependency-update -B main --title 'Update pycro-Manager and dependencies' --body 'Created by Github action'
         #gh pr merge --auto --merge
       env:
           GITHUB_TOKEN: ${{ secrets.PYCRO_TOKEN }}
