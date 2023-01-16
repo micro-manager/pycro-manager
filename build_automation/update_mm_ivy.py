@@ -1,7 +1,7 @@
 """
 This script reads the versions of pycromanager and its dependencies from the pom file 
 and makes updates to the micro-manager ivy.xml file
-
+It runs upon changes to the java/pom.xml file of the main branch
 """
 
 import xml.etree.ElementTree as ET
@@ -23,7 +23,7 @@ def read_versions(root):
     return versions
 
 git_repos_dir = Path(__file__).parent.parent.parent
-ivy_path = git_repos_dir + '/micro-manager/buildscripts/ivy.xml'
+ivy_path = str(git_repos_dir) + '/micro-manager/buildscripts/ivy.xml'
   
 # Read from pom.xml in pycromanager
 f = str(git_repos_dir) + '/pycro-manager/java/pom.xml'
