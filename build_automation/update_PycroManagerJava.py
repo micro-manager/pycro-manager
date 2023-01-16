@@ -55,9 +55,9 @@ if updated_versions['PycroManagerJava'] > main_branch_versions['PycroManagerJava
 else:
     pm_version = main_branch_versions['PycroManagerJava']
     
-if minor_version_increased:
-    pm_version = pm_version.next_minor()
-elif patch_version_increased:
+if minor_version_increased or patch_version_increased:
+#     pm_version = pm_version.next_minor()
+# elif patch_version_increased:
     pm_version = pm_version.next_patch()
 
     
