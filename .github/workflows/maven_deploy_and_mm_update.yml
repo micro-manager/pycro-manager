@@ -65,7 +65,7 @@ jobs:
         git config --local user.name "PycroManager-Bot"
         git merge origin/main -m "dependency update merge"
         pip install semantic_version
-        python update_mm_ivy.py.py
+        python update_mm_ivy.py
         
     - name: commit
       run: |
