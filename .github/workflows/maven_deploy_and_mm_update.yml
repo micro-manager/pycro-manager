@@ -77,7 +77,7 @@ jobs:
  
     - name: create pull request
       run: |
-        gh pr create -H dependency-update -B main --title 'Java version auto-update' --body 'Created by Github action'
-        gh pr merge --auto --merge
+        gh pr create -H dependency-update -B main --title 'Pycro-Manager and dependencies' --body 'Created by Github action'
+        #gh pr merge --auto --merge
       env:
           GITHUB_TOKEN: ${{ secrets.PYCRO_TOKEN }}
