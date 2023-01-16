@@ -70,8 +70,8 @@ jobs:
       run: |
         cd pycro-manager
         # fast forward to get code updates on main branch
-        git config --local user.email "github-actions[bot]@users.noreply.github.com"
-        git config --local user.name "PycroManager-Bot"
+        git config --global user.email "github-actions[bot]@users.noreply.github.com"
+        git config --global user.name "PycroManager-Bot"
         pip install semantic_version
         python build_automation/update_mm_ivy.py
         
