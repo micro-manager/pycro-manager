@@ -63,7 +63,8 @@ tree.write(ivy_path)
 # Wait for PycroManagerJava to become available, because there is a delay after it is deployed
 dep_name = 'PycroManagerJava'
 latest_version_number = str(updated_versions[dep_name])
-url = f"https://s01.oss.sonatype.org/service/local/repositories/releases/content/org/micro-manager/{dep_name.lower()}/{dep_name}/{latest_version_number}/{dep_name}-{latest_version_number}.jar"
+url = f"https://repo.maven.apache.org/maven2/org/micro-manager/{dep_name.lower()}/{dep_name}/{latest_version_number}/{dep_name}-{latest_version_number}.jar
+# url = f"https://s01.oss.sonatype.org/service/local/repositories/releases/content/org/micro-manager/{dep_name.lower()}/{dep_name}/{latest_version_number}/{dep_name}-{latest_version_number}.jar"
 
 start = time.time()
 while True:
