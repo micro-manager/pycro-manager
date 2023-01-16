@@ -10,7 +10,7 @@ import requests
 import time
 
 dep_name = sys.argv[1]
-git_repos_dir = str(Path(__file__).parent.parent) + '/'
+git_repos_dir = str(Path(__file__).parent.parent.parent) + '/'
 
 
 if('java' in os.listdir(git_repos_dir + dep_name)):
