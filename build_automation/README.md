@@ -14,7 +14,7 @@ The following is the flow of actions and checks that occurs to automate continuo
   - (Somehow this doesn’t trigger ****Java_dependency_update.yml…?****)
 - and opens an automerging pull request from the dependency-update branch onto main
 
-(Note: if only the version of PycroManagerJava changes, the process begins here)
+_(Note: if only the version of PycroManagerJava changes, the process begins here)_
 
 **3. PR to main triggers pycro-manager's tests to make sure everything is working with new dependencies. If it passes, it is merged and then triggers [maven_deploy_and_mm_update.yml](https://github.com/micro-manager/pycro-manager/blob/main/.github/workflows/maven_deploy_and_mm_update.yml)**
 - which deploys a new maven version of Pycro-ManagerJava
