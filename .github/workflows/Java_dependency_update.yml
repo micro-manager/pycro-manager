@@ -43,6 +43,7 @@ jobs:
         
     - name: push
       run: |
+        git pull # Get changes in case of simultaneous calls to script
         git push https://henrypinkard:${{ secrets.GITHUB_TOKEN }}@github.com/micro-manager/pycro-manager.git  
  
     - name: create pull request
