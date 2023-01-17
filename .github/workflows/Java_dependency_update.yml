@@ -43,9 +43,11 @@ jobs:
         
     - name: push
       run: |
+        git pull # Get changes in case of simultaneous calls to script
         git push https://henrypinkard:${{ secrets.GITHUB_TOKEN }}@github.com/micro-manager/pycro-manager.git  
  
     - name: create pull request
+      continue-on-error: true
       run: |
         gh pr create -H dependency-update -B main --title 'Java dependency auto-update' --body 'Created by Github action (https://github.com/micro-manager/pycro-manager/blob/dependency-update/.github/workflows/Java_dependency_update.yml)'
         gh pr merge --auto --merge
