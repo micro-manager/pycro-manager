@@ -75,6 +75,8 @@ jobs:
         # fast forward to get code updates on main branch
         git config --global user.email "github-actions[bot]@users.noreply.github.com"
         git config --global user.name "PycroManager-Bot"
+        git config pull.rebase false
+        git merge origin/main -m "dependency update merge"
         pip install semantic_version lxml
         python build_automation/update_mm_ivy.py
         
