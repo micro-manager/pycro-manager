@@ -1,5 +1,5 @@
 # When NDTiff, AcqEngJ, or NDViewer update, a automatic push
-# to the dependencies branch of pycro-manager will be generated
+# to the dependency-update branch of pycro-manager will be generated
 # that updates the version in their POM.xml files
 # This script should then:
 #   1) Update the minor or patch version of PMJava accordingly
@@ -34,7 +34,7 @@ jobs:
         # fast forward to get code updates on main branch
         git config --local user.email "github-actions[bot]@users.noreply.github.com"
         git config --local user.name "PycroManager-Bot"
-        git config pull.rebase true
+        git config pull.rebase false
         git merge origin/main -m "dependency update merge"
         pip install semantic_version
         python build_automation/update_PycroManagerJava.py
