@@ -1,0 +1,94 @@
+# Deploy new version of pycromanager java to maven, and then update micro-manager ivy file,
+# push to dependencies branch, and make a pull request 
+
+# This workflow will build a Java project with Maven
+# For more information see: https://help.github.com/actions/language-and-framework-guides/building-and-testing-java-with-maven
+
+name: Maven depolyment and MM update
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - '**pom.xml'
+
+jobs:
+  maven-deploy:
+    name: Release on Sonatype OSS
+    runs-on: ubuntu-latest
+
+    steps:
+    
+      - uses: actions/checkout@v2
+
+      - name: Set up JDK 8
+        uses: actions/setup-java@v1
+        with:
+          java-version: 8
+
+      - name: Set up Apache Maven Central
+        uses: actions/setup-java@v1
+        with: # running setup-java again overwrites the settings.xml
+          java-version: 8
+          server-id: ossrh
+          server-username: OSSRH_USERNAME
+          server-password: OSSRH_PASSWORD
+          gpg-private-key: ${{ secrets.MAVEN_GPG_PRIVATE_KEY }}
+          gpg-passphrase: MAVEN_GPG_PASSPHRASE
+          
+      - name: Publish to Apache Maven Central
+        run: mvn deploy --file java/pom.xml -Dgpg.passphrase=${{ secrets.MAVEN_GPG_PASSPHRASE }}
+        env:
+          OSSRH_USERNAME: ${{ secrets.OSSRH_USERNAME }}
+          OSSRH_PASSWORD: ${{ secrets.OSSRH_PASSWORD }}
+          MAVEN_GPG_PASSPHRASE: ${{ secrets.MAVEN_GPG_PASSPHRASE }}
+
+
+  mm-update:
+    needs: maven-deploy
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout Micro-Manager dependencies branch
+      uses: actions/checkout@v3
+      with:
+        path: 'mm'
+        repository: micro-manager/micro-manager
+        fetch-depth: 0 # check out all branches so main can be merged
+        token: ${{ secrets.GITHUB_TOKEN }}
+        ref: dependency-update
+    
+    - name: Checkout pycro-manager # To get the update_mm_ivy.py script
+      uses: actions/checkout@v3
+      with:
+        path: pm
+        repository: micro-manager/pycro-manager
+        token: ${{ secrets.GITHUB_TOKEN }}
+        ref: main
+        
+    - name: update-version
+      run: |
+        cd pm
+        # fast forward to get code updates on main branch
+        git config --local user.email "github-actions[bot]@users.noreply.github.com"
+        git config --local user.name "PycroManager-Bot"
+        pip install semantic_version
+        python build_automation/update_mm_ivy.py
+        
+    - name: commit
+      run: |
+        cd mm
+        git commit -am "update PycromanagerJava and dependencies"
+        
+    - name: push
+      run: |
+        cd mm
+        git push https://henrypinkard:${{ secrets.GITHUB_TOKEN }}@github.com/micro-manager/micro-manager.git  
+ 
+    - name: create pull request
+      run: |
+        cd mm
+        gh pr create -H dependency-update -B main --title 'Update pycro-Manager and dependencies' --body 'Created by Github action'
+        #gh pr merge --auto --merge
+      env:
+          GITHUB_TOKEN: ${{ secrets.PYCRO_TOKEN }}
