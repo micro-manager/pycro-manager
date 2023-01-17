@@ -45,7 +45,7 @@ matches = re.finditer(r'name="([^"]*)" rev="[^"]*"', xml)
 # Iterate through the matches and replace the rev attribute with the corresponding value from the dictionary
 for match in matches:
     name = match.group(1)
-    if name in new_rev_dict:
+    if name in updated_versions:
         new_rev = updated_versions[name]
         xml = xml.replace(match.group(), 'name="{}" rev="{}"'.format(name, new_rev))
 
