@@ -5,10 +5,12 @@ It runs upon changes to the java/pom.xml file of the main branch
 """
 
 import xml.etree.ElementTree as ET
+from lxml import etree
 from semantic_version import Version
 from pathlib import Path
 import requests
-
+import time
+import re
 
 def read_versions(root):
     versions = {}
@@ -33,38 +35,29 @@ root = tree.getroot()
 updated_versions = read_versions(root)
 
 
-tree = ET.parse(ivy_path)
-root = tree.getroot()
+#Update the version numbers in the ivy file
+with open(ivy_path, 'r') as file:
+    xml = file.read()
 
-dependencies = {
-    "org.micro-manager.ndviewer": {"name":"NDViewer"},
-    "org.micro-manager.acqengj": {"name":"AcqEngJ"},
-    "org.micro-manager.ndtiffstorage": {"name":"NDTiffStorage"},
-    "org.micro-manager.pycro-manager": {"name":"PycroManagerJava"},
-}
+# Use regular expression to search for name and rev attributes
+matches = re.finditer(r'name="([^"]*)" rev="[^"]*"', xml)
 
+# Iterate through the matches and replace the rev attribute with the corresponding value from the dictionary
+for match in matches:
+    name = match.group(1)
+    if name in updated_versions:
+        new_rev = updated_versions[name]
+        xml = xml.replace(match.group(), 'name="{}" rev="{}"'.format(name, new_rev))
 
+with open(ivy_path, 'w') as file:
+    file.write(xml)
 
-for dependency in root.iter("dependency"):
-    if "org" not in dependency.attrib:
-        continue
-    org = dependency.attrib["org"]
-    name = dependency.attrib["name"]
-    if org in dependencies and name == dependencies[org]["name"]:
-        new_version = str(updated_versions[dependencies[org]["name"]])
-        print(dependencies[org]["name"], '\t', dependency.attrib["rev"],  'to\t', new_version)
-        dependency.attrib["rev"] = new_version
-
-
-tree.write(ivy_path)
-
-
-
+    
 # Wait for PycroManagerJava to become available, because there is a delay after it is deployed
 dep_name = 'PycroManagerJava'
 latest_version_number = str(updated_versions[dep_name])
-url = f"https://repo.maven.apache.org/maven2/org/micro-manager/{dep_name.lower()}/{dep_name}/{latest_version_number}/{dep_name}-{latest_version_number}.jar"
-# url = f"https://s01.oss.sonatype.org/service/local/repositories/releases/content/org/micro-manager/{dep_name.lower()}/{dep_name}/{latest_version_number}/{dep_name}-{latest_version_number}.jar"
+url = f"https://repo.maven.apache.org/maven2/org/micro-manager/pycro-manager/{dep_name}/{latest_version_number}/{dep_name}-{latest_version_number}.jar"
+# url = f"https://s01.oss.sonatype.org/service/local/repositories/releases/content/org/micro-manager/pycro-manager/{dep_name}/{latest_version_number}/{dep_name}-{latest_version_number}.jar"
 
 start = time.time()
 while True:

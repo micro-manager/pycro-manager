@@ -16,6 +16,7 @@ dist/
 __pycache__/
 
 pycromanager/test/temp_data
+scripts/debug.py
 
 # intelliJ
 java/src/main/java/.idea/

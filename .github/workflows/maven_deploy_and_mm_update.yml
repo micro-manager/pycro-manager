@@ -20,17 +20,20 @@ jobs:
 
     steps:
     
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
 
       - name: Set up JDK 8
-        uses: actions/setup-java@v1
+        uses: actions/setup-java@v3
         with:
           java-version: 8
+          distribution: 'zulu'
 
       - name: Set up Apache Maven Central
-        uses: actions/setup-java@v1
+        uses: actions/setup-java@v3
         with: # running setup-java again overwrites the settings.xml
           java-version: 8
+          distribution: 'zulu'
+
           server-id: ossrh
           server-username: OSSRH_USERNAME
           server-password: OSSRH_PASSWORD
@@ -52,43 +55,45 @@ jobs:
     - name: Checkout Micro-Manager dependencies branch
       uses: actions/checkout@v3
       with:
-        path: 'mm'
+        path: micro-manager
         repository: micro-manager/micro-manager
         fetch-depth: 0 # check out all branches so main can be merged
-        token: ${{ secrets.GITHUB_TOKEN }}
+        token: ${{ secrets.PYCRO_TOKEN }}
         ref: dependency-update
     
     - name: Checkout pycro-manager # To get the update_mm_ivy.py script
       uses: actions/checkout@v3
       with:
-        path: pm
+        path: pycro-manager
         repository: micro-manager/pycro-manager
         token: ${{ secrets.GITHUB_TOKEN }}
         ref: main
         
     - name: update-version
       run: |
-        cd pm
+        cd pycro-manager
         # fast forward to get code updates on main branch
-        git config --local user.email "github-actions[bot]@users.noreply.github.com"
-        git config --local user.name "PycroManager-Bot"
-        pip install semantic_version
+        git config --global user.email "github-actions[bot]@users.noreply.github.com"
+        git config --global user.name "PycroManager-Bot"
+        git config pull.rebase false
+        git merge origin/main -m "dependency update merge"
+        pip install semantic_version lxml
         python build_automation/update_mm_ivy.py
         
     - name: commit
       run: |
-        cd mm
+        cd micro-manager
         git commit -am "update PycromanagerJava and dependencies"
         
     - name: push
       run: |
-        cd mm
-        git push https://henrypinkard:${{ secrets.GITHUB_TOKEN }}@github.com/micro-manager/micro-manager.git  
+        cd micro-manager
+        git push https://henrypinkard:${{ secrets.PYCRO_TOKEN }}@github.com/micro-manager/micro-manager.git  
  
     - name: create pull request
       run: |
-        cd mm
+        cd micro-manager
         gh pr create -H dependency-update -B main --title 'Update pycro-Manager and dependencies' --body 'Created by Github action'
-        #gh pr merge --auto --merge
+        gh pr merge --auto --merge
       env:
           GITHUB_TOKEN: ${{ secrets.PYCRO_TOKEN }}
