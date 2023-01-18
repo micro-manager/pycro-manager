@@ -1,5 +1,6 @@
 import numpy as np
 import pytest
+import time
 from pycromanager import Acquisition, Core, multi_d_acquisition_events
 
 
@@ -318,3 +319,26 @@ def test_time_noseq_z_channel_seq_acq(launch_mm_headless, setup_data_folder):
     with Acquisition(setup_data_folder, 'acq', show_display=False,
                      pre_hardware_hook_fn=hook_fn) as acq:
         acq.acquire(events)
+
+def test_time_noseq_z_seq_interval_acq(launch_mm_headless, setup_data_folder):
+    """
+    Test that timepoints are spaced by time_interval_s if the z/channel acquisition is sequenced
+
+    """
+    mmc = Core()
+    mmc.set_property('Z', 'UseSequences', 'Yes')
+
+    events = multi_d_acquisition_events(num_time_points=2, time_interval_s=5,
+                                        z_start=0, z_end=4, z_step=1)
+
+    def hook_fn(_events):
+        assert check_acq_sequenced(_events, 5), 'Sequenced acquisition is not built correctly'
+        return _events  # no need to actually acquire the data
+
+    t_start = time.time()
+    with Acquisition(setup_data_folder, 'acq', show_display=False,
+                     pre_hardware_hook_fn=hook_fn) as acq:
+        acq.acquire(events)
+    t_end = time.time()
+
+    assert(t_end-t_start > 5), 'Acquisition timing is not accurate'
