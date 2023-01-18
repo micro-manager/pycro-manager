@@ -54,7 +54,7 @@
       <dependency>
          <groupId>org.micro-manager.acqengj</groupId>
          <artifactId>AcqEngJ</artifactId>
-     <version>0.23.3</version>
+     <version>0.23.4</version>
       </dependency>
       <dependency>
          <groupId>org.micro-manager.ndviewer</groupId>
