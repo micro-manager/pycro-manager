@@ -333,7 +333,7 @@ def test_time_noseq_z_seq_interval_acq(launch_mm_headless, setup_data_folder):
 
     def hook_fn(_events):
         assert check_acq_sequenced(_events, 5), 'Sequenced acquisition is not built correctly'
-        return _events  # no need to actually acquire the data
+        return _events
 
     t_start = time.time()
     with Acquisition(setup_data_folder, 'acq', show_display=False,
