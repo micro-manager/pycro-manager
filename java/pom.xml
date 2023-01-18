@@ -60,7 +60,7 @@
       <dependency>
          <groupId>org.micro-manager.ndviewer</groupId>
          <artifactId>NDViewer</artifactId>
-     <version>0.8.0</version>
+     <version>0.8.1</version>
       </dependency>
       <dependency>
          <groupId>org.micro-manager.ndtiffstorage</groupId>
