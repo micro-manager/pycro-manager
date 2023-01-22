@@ -17,6 +17,7 @@ jobs:
   maven-deploy:
     name: Release on Sonatype OSS
     runs-on: ubuntu-latest
+    if: ${{ github.repository == 'micro-manager/pycro-manager' }}
 
     steps:
     
