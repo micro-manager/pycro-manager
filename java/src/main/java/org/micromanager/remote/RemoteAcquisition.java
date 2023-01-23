@@ -9,6 +9,7 @@ import org.micromanager.acqj.api.AcquisitionAPI;
 import org.micromanager.acqj.main.Acquisition;
 import org.micromanager.ndtiffstorage.NDTiffAPI;
 import org.micromanager.ndviewer.api.ViewerAcquisitionInterface;
+import org.micromanager.ndviewer.api.ViewerInterface;
 
 /**
  * Class that serves as the java counterpart to a python acquisition
@@ -16,7 +17,7 @@ import org.micromanager.ndviewer.api.ViewerAcquisitionInterface;
  *
  * @author henrypinkard
  */
-public class RemoteAcquisition extends Acquisition implements AcquisitionAPI, ViewerAcquisitionInterface {
+public class RemoteAcquisition extends Acquisition implements ViewerAcquisitionInterface {
 
    private RemoteEventSource eventSource_;
 
@@ -34,6 +35,13 @@ public class RemoteAcquisition extends Acquisition implements AcquisitionAPI, Vi
       return eventSource_.getPort();
    }
 
+   /**
+    * Called by python side
+    */
+   public ViewerInterface getViewer() {
+      return ((RemoteViewerStorageAdapter) getDataSink()).getViewer();
+   }
+
    @Override
    public void abort() {
       super.abort();
@@ -44,6 +52,7 @@ public class RemoteAcquisition extends Acquisition implements AcquisitionAPI, Vi
    public void togglePaused() {
       setPaused(!isPaused());
    }
+
 
    @Override
    public void abort(Exception e) {

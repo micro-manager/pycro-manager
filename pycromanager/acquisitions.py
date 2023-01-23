@@ -319,6 +319,8 @@ class Acquisition(object, metaclass=NumpyDocstringInheritanceMeta):
         # Load remote storage
 
         data_sink = self._remote_acq.get_data_sink()
+        if show_display:
+            self._nd_viewer = self._remote_acq.get_viewer()
         if data_sink is not None:
             ndtiff_storage = data_sink.get_storage()
             self._remote_storage_monitor = JavaObject('org.micromanager.remote.RemoteStorageMonitor', port=self._port, args=(ndtiff_storage,))
@@ -437,6 +439,13 @@ class Acquisition(object, metaclass=NumpyDocstringInheritanceMeta):
             # The Java side cant shut this down because it is upstream of the remote acquisition
             self._event_queue.put(None)
         self._remote_acq.abort()
+
+    def get_viewer(self):
+        """
+        Return a reference to the Java-side NDViewer, if the show_display argument
+        was set to True
+        """
+        return self._nd_viewer
 
     ########  Context manager (i.e. "with Acquisition...") ###########
     def __enter__(self):
