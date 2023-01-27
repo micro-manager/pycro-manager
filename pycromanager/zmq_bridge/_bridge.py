@@ -736,7 +736,7 @@ def _check_single_method_spec(method_spec, fn_args):
                 and arg_val.dtype.type != _JAVA_ARRAY_TYPE_NUMPY_DTYPE[arg_java_type]
             ):
                 return False
-        elif not any(
+        elif arg_java_type not in _JAVA_TYPE_NAME_TO_CASTABLE_PYTHON_TYPE or not any(
             [
                 isinstance(arg_val, acceptable_type)
                 for acceptable_type in _JAVA_TYPE_NAME_TO_CASTABLE_PYTHON_TYPE[arg_java_type]
