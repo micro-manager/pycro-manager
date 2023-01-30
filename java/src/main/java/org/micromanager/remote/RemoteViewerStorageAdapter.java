@@ -28,7 +28,7 @@ import org.micromanager.ndviewer.api.ViewerAcquisitionInterface;
  *
  * @author henrypinkard
  */
-public class RemoteViewerStorageAdapter implements DataSourceInterface, DataSink {
+class RemoteViewerStorageAdapter implements DataSourceInterface, DataSink {
 
    private ExecutorService displayCommunicationExecutor_;
 
@@ -93,6 +93,10 @@ public class RemoteViewerStorageAdapter implements DataSourceInterface, DataSink
       if (showViewer_) {
          createDisplay(summaryMetadata);
       }
+   }
+
+   public ViewerInterface getViewer() {
+      return viewer_;
    }
 
    public NDTiffAPI getStorage() {

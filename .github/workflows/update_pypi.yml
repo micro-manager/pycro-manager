@@ -9,6 +9,8 @@ on:
 jobs:
   deploy:
     runs-on: ubuntu-latest
+    if: ${{ github.repository == 'micro-manager/pycro-manager' }}
+    
     steps:
     - uses: actions/checkout@v2
     - name: Install Python
