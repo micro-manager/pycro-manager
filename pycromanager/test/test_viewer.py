@@ -23,6 +23,9 @@ def test_multi_d_acq_NDViewer(launch_mm_headless, setup_data_folder):
     with Acquisition(setup_data_folder, 'acq', show_display=True) as acq:
         acq.acquire(events)
 
+    # close viewer
+    acq.get_viewer().close()
+
 
 def test_multi_d_acq_napari_viewer(launch_mm_headless, setup_data_folder):
     events = multi_d_acquisition_events(
