@@ -396,10 +396,6 @@ class Acquisition(object, metaclass=NumpyDocstringInheritanceMeta):
         if hasattr(self, '_event_thread'):
             self._event_thread.join()
 
-        # Close open datasets
-        if self._dataset is not None:
-            self._dataset.close()
-
         self._finished = True
 
     def acquire(self, event_or_events: dict or list):
