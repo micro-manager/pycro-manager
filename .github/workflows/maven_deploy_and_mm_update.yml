@@ -53,14 +53,15 @@ jobs:
     needs: maven-deploy
     runs-on: ubuntu-latest
     steps:
-    - name: Checkout Micro-Manager dependencies branch
+    - name: Checkout Micro-Manager branch
       uses: actions/checkout@v3
       with:
         path: micro-manager
         repository: micro-manager/micro-manager
-        fetch-depth: 0 # check out all branches so main can be merged
+#         fetch-depth: 0 # check out all branches so main can be merged
         ssh-key: ${{ secrets.MM_SSH_DEPLOY }}
-        ref: main
+        ref: ${{ github.ref_name }}  # Use matching branch
+    
     
     - name: Checkout pycro-manager # To get the update_mm_ivy.py script
       uses: actions/checkout@v3
