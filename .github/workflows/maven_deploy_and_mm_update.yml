@@ -60,7 +60,7 @@ jobs:
         repository: micro-manager/micro-manager
         fetch-depth: 0 # check out all branches so main can be merged
         token: ${{ secrets.PYCRO_TOKEN }}
-        ref: dependency-update
+        ref: main
     
     - name: Checkout pycro-manager # To get the update_mm_ivy.py script
       uses: actions/checkout@v3
@@ -74,16 +74,16 @@ jobs:
       run: |
         cd pycro-manager
         # fast forward to get code updates on main branch
-        git config --global user.email "github-actions[bot]@users.noreply.github.com"
+        git config --global user.email "41898282+github-actions[bot]@users.noreply.github.com"
         git config --global user.name "PycroManager-Bot"
         git config pull.rebase false
-        git merge origin/main -m "dependency update merge"
         pip install semantic_version lxml
         python build_automation/update_mm_ivy.py
         
     - name: commit
       run: |
         cd micro-manager
+        git checkout -b dependency-update-from-pycro-manager
         git commit -am "update PycromanagerJava and dependencies"
         
     - name: push
@@ -94,7 +94,7 @@ jobs:
     - name: create pull request
       run: |
         cd micro-manager
-        gh pr create -H dependency-update -B main --title 'Update pycro-Manager and dependencies' --body 'Created by Github action'
-        gh pr merge --auto --merge
+        gh pr create -H dependency-update-from-pycro-manager -B main --title 'Update pycro-Manager and dependencies' --body 'Created by Github action'
+        gh pr merge --auto --merge --delete-branch
       env:
           GITHUB_TOKEN: ${{ secrets.PYCRO_TOKEN }}
