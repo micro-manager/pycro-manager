@@ -95,6 +95,6 @@ jobs:
       run: |
         cd micro-manager
         gh pr create -H dependency-update-from-pycro-manager -B main --title 'Update pycro-Manager and dependencies' --body 'Created by Github action'
-        gh pr merge --auto --merge --delete-branch
+        gh pr merge --auto --merge --delete-branch --squash
       env:
           GITHUB_TOKEN: ${{ secrets.PYCRO_TOKEN }}
