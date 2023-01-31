@@ -10,8 +10,8 @@ on:
   push:
     branches:
       - main
-    paths:
-      - '**pom.xml'
+#     paths:
+#       - '**pom.xml'
 
 jobs:
   maven-deploy:
@@ -54,7 +54,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - name: Checkout Micro-Manager branch
-      uses: actions/checkout@v3
+      uses: actions/checkout@v2
       with:
         path: micro-manager
         repository: micro-manager/micro-manager
