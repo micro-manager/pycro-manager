@@ -59,7 +59,7 @@ jobs:
         path: micro-manager
         repository: micro-manager/micro-manager
         fetch-depth: 0 # check out all branches so main can be merged
-        token: ${{ secrets.PYCRO_TOKEN }}
+        ssh: ${{ secrets.MM_SSH_DEPLOY }}
         ref: main
     
     - name: Checkout pycro-manager # To get the update_mm_ivy.py script
@@ -89,12 +89,12 @@ jobs:
     - name: push
       run: |
         cd micro-manager
-        git push https://henrypinkard:${{ secrets.PYCRO_TOKEN }}@github.com/micro-manager/micro-manager.git  
+        git push
  
     - name: create pull request
       run: |
         cd micro-manager
         gh pr create -H dependency-update-from-pycro-manager -B main --title 'Update pycro-Manager and dependencies' --body 'Created by Github action'
-        gh pr merge --auto --merge --delete-branch --squash
+        gh pr merge --auto --delete-branch --squash
       env:
-          GITHUB_TOKEN: ${{ secrets.PYCRO_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.MM_SSH_DEPLOY }}
