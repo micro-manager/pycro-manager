@@ -23,7 +23,7 @@ def start_napari_signalling(viewer, dataset):
             try:
                 viewer.layers['pycromanager preview'].data = image
             except KeyError:
-                viewer.add_image(image)
+                viewer.add_image(image, name='pycromanager preview')
 
 
     @thread_worker(connect={'yielded': update_layer})
