@@ -59,7 +59,7 @@ jobs:
         path: micro-manager
         repository: micro-manager/micro-manager
         fetch-depth: 0 # check out all branches so main can be merged
-        ssh: ${{ secrets.MM_SSH_DEPLOY }}
+        ssh-key: ${{ secrets.MM_SSH_DEPLOY }}
         ref: main
     
     - name: Checkout pycro-manager # To get the update_mm_ivy.py script
