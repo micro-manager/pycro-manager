@@ -21,8 +21,8 @@ def start_napari_signalling(viewer, dataset):
         """
         if image is not None:
             try:
-                viewer.layers[0].data = image
-            except IndexError:
+                viewer.layers['pycromanager preview'].data = image
+            except KeyError:
                 viewer.add_image(image)
 
 
