@@ -18,7 +18,7 @@ on:
 jobs:
 
   # Use a filter to determine whether to deploy new java version
-  checkjavaversion:
+  changes:
     if: ${{ github.repository == 'micro-manager/pycro-manager' }}
     runs-on: ubuntu-latest
     # Required permissions
@@ -26,25 +26,29 @@ jobs:
       pull-requests: read
     # Set job outputs to values from filter step
     outputs:
-      changed: ${{ steps.filter.outputs.changed }}
+      java: ${{ steps.filter.outputs.java }}
       python: ${{ steps.filter.outputs.python }}
     steps:
     - uses: actions/checkout@v3
+    # For pull requests it's not necessary to checkout the code
     - uses: dorny/paths-filter@v2
       id: filter
       with:
         filters: |
-          changed:
+          java:
             - '**pom.xml'
           python:
             - 'pycromanager/_version.py'
-
+            
+            
   maven-deploy:
     # This workflow will build a Java project with Maven
     # For more information see: https://help.github.com/actions/language-and-framework-guides/building-and-testing-java-with-maven
 
-    needs: checkjavaversion
-    if: ${{ needs.checkjavaversion.outputs.changed == 'true' }} 
+    needs: changes
+    if: |
+      - ${{ github.repository == 'micro-manager/pycro-manager' }}
+      - ${{ needs.changes.outputs.java == 'true' }}]
       
     name: Release PycroManagerJava on Sonatype OSS
     runs-on: ubuntu-latest 
@@ -80,9 +84,11 @@ jobs:
 
 
   mm-update:
-    needs: [checkjavaversion, maven-deploy]
-    if: ${{ needs.checkjavaversion.outputs.changed == 'true' }} 
-
+    needs: [changes, maven-deploy]
+    if: |
+      - ${{ github.repository == 'micro-manager/pycro-manager' }}
+      - ${{ needs.changes.outputs.java == 'true' }}]
+      
     name: Open a PR in micro-manager/micro-manager to update java dependencies
     runs-on: ubuntu-latest
     permissions:
