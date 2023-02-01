@@ -41,7 +41,7 @@ jobs:
 
     needs: check-java-version
     #if: ${{ github.repository == 'micro-manager/pycro-manager'  && needs.check-java-version.outputs.changed == 'true' }}
-    if: ${{ github.repository == 'micro-manager/pycro-manager' }}
+    if: ${{ needs.check-java-version.outputs.changed == 'true' }}
 
       
     name: Release PycroManagerJava on Sonatype OSS
