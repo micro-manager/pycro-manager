@@ -32,7 +32,7 @@ jobs:
       with:
         filters: |
           changed:
-            - '**pom.xml'
+            - 'java/pom.xml'
             
             
   maven-deploy:
