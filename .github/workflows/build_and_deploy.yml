@@ -42,7 +42,7 @@ jobs:
     # For more information see: https://help.github.com/actions/language-and-framework-guides/building-and-testing-java-with-maven
 
     needs: java-changes
-    if: ${{ needs.changes.outputs.changed == 'true' }} 
+    if: ${{ needs.java-changes.outputs.changed == 'true' }} 
       
     name: Release PycroManagerJava on Sonatype OSS
     runs-on: ubuntu-latest 
@@ -79,7 +79,7 @@ jobs:
 
   mm-update:
     needs: [java-changes, maven-deploy]
-    if: ${{ needs.changes.outputs.changed == 'true' }} 
+    if: ${{ needs.java-changes.outputs.changed == 'true' }} 
 
     name: Open a PR in micro-manager/micro-manager to update java dependencies
     runs-on: ubuntu-latest
@@ -173,7 +173,7 @@ jobs:
       with:
         filters: |
           python-version-changed:
-            - 'pycromanager/_version.py
+            - 'pycromanager/_version.py'
       
     - uses: actions/checkout@v3
     - name: Install Python
