@@ -65,7 +65,7 @@ jobs:
       with:
         application_id: ${{ secrets.MM_PR_MANAGER_ID }}
         application_private_key: ${{ secrets.MM_PR_MANAGER_PRIVATE_KEY }}
-        permissions: "pull-requests:write"
+        permissions: "pull-requests:write,actions:write"
       
     - name: Checkout Micro-Manager branch
       uses: actions/checkout@v2
