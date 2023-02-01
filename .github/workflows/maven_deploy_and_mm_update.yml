@@ -111,7 +111,13 @@ jobs:
         cd micro-manager
         PR_URL=$(gh pr create -H dependency_update_from_pycromanager -B main --title 'Update Pycro-Manager and dependencies' --body 'Created by Github action')
         echo "Created pull request $PR_URL"
-        gh pr merge $PR_URL --auto --delete-branch --merge
-        # wait for PR to merge
-        # gh pr checks $PR_URL --watch
+        # supposedly you can use --delete-branch here, but as of 2-1-23 it doesn't work
+        gh pr merge $PR_URL --auto --merge
+        # wait for status checks and PR to merge
+        if gh --repo micro-manager/micro-manager pr checks https://github.com/micro-manager/micro-manager/pull/1623 --watch | grep -q "fail"; then
+          # raise an error 
+          set -e
+        else
+          # The PR passed all checks in micro-manager. Now it is safe to assume its in the nightly builds
+        fi
 
