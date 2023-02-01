@@ -1,9 +1,6 @@
 # Deploy new version of pycromanager java to maven, and then update micro-manager ivy file,
 # push to dependencies branch, and make a pull request 
 
-# This workflow will build a Java project with Maven
-# For more information see: https://help.github.com/actions/language-and-framework-guides/building-and-testing-java-with-maven
-
 name: Maven depolyment and MM update
 
 on:
@@ -14,11 +11,40 @@ on:
       - '**pom.xml'
 
 jobs:
-  maven-deploy:
-    name: Release on Sonatype OSS
-    runs-on: ubuntu-latest
-    
+
+  # Use a filter to determine whether to deploy new java version, python version, or both
+  changes:
     if: ${{ github.repository == 'micro-manager/pycro-manager' }}
+    runs-on: ubuntu-latest
+    # Required permissions
+    permissions:
+      pull-requests: read
+    # Set job outputs to values from filter step
+    outputs:
+      java: ${{ steps.filter.outputs.java }}
+      python: ${{ steps.filter.outputs.python }}
+    steps:
+    # For pull requests it's not necessary to checkout the code
+    - uses: dorny/paths-filter@v2
+      id: filter
+      with:
+        filters: |
+          java:
+            - '**pom.xml'
+          python:
+            - 'pycromanager/_version.py'
+
+  maven-deploy:
+    # This workflow will build a Java project with Maven
+    # For more information see: https://help.github.com/actions/language-and-framework-guides/building-and-testing-java-with-maven
+
+    needs: changes
+    if: |
+      - ${{ github.repository == 'micro-manager/pycro-manager' }}
+      - ${{ needs.changes.outputs.java == 'true' }}]
+
+    name: Release PycroManagerJava on Sonatype OSS
+    runs-on: ubuntu-latest 
 
     steps:
     
@@ -51,7 +77,11 @@ jobs:
 
 
   mm-update:
-    needs: maven-deploy
+    needs: [changes, maven-deploy]
+    if: |
+      - ${{ github.repository == 'micro-manager/pycro-manager' }}
+      - ${{ needs.changes.outputs.java == 'true' }}]
+    name: Open a PR in micro-manager/micro-manager to update java dependencies
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -104,7 +134,7 @@ jobs:
         application_id: ${{ secrets.MM_PR_BOT_APP_ID }}
         application_private_key: ${{ secrets.MM_PR_BOT_PRIVATE_KEY }}
         
-    - name: create pull request
+    - name: create pull request wait for merge
       env:
         GITHUB_TOKEN: ${{ steps.get_workflow_token.outputs.token }}
       run: |
@@ -119,5 +149,39 @@ jobs:
           set -e
         else
           # The PR passed all checks in micro-manager. Now it is safe to assume its in the nightly builds
+          # delete the branch created for sending in the update
+          git push origin --delete dependency_update_from_pycromanager
         fi
 
+
+  pypi-deploy:
+    # Once any changes to java have gone into micro-manager, a new version of PM can be deployed to PyPi
+    needs: [changes, maven-deploy]
+    if: |
+      - ${{ github.repository == 'micro-manager/pycro-manager' }}
+      - ${{ needs.changes.outputs.python == 'true' }}]
+
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v3
+    - name: Install Python
+      uses: actions/setup-python@v2
+      with:
+        python-version: '3.x'
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install packaging setuptools twine wheel
+    - name: Publish the Python package
+      env:
+        TWINE_USERNAME: __token__
+        TWINE_PASSWORD: ${{ secrets.PYPI_API_TOKEN }}
+      run: |
+        python setup.py sdist bdist_wheel
+        twine upload dist/*
+#     - name: Create git tag
+#       run: |
+#         version=$(python -c "from pycromanager._version import __version__; print(__version__)")
+#         git tag $version
+#         git push origin $version
