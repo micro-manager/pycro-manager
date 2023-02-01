@@ -5,7 +5,7 @@
 #  await for PR to merge into new MM version
 #  then publish new version to pypi
 
-name: Maven depolyment and MM update
+name: Build and deploy Java and Python components of Pycro-Manager
 
 on:
   push:
