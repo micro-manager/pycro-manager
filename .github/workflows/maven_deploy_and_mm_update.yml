@@ -10,8 +10,8 @@ on:
   push:
     branches:
       - main
-#     paths:
-#       - '**pom.xml'
+    paths:
+      - '**pom.xml'
 
 jobs:
   maven-deploy:
@@ -24,30 +24,30 @@ jobs:
     
       - uses: actions/checkout@v3
 
-#       - name: Set up JDK 8
-#         uses: actions/setup-java@v3
-#         with:
-#           java-version: 8
-#           distribution: 'zulu'
+      - name: Set up JDK 8
+        uses: actions/setup-java@v3
+        with:
+          java-version: 8
+          distribution: 'zulu'
 
-#       - name: Set up Apache Maven Central
-#         uses: actions/setup-java@v3
-#         with: # running setup-java again overwrites the settings.xml
-#           java-version: 8
-#           distribution: 'zulu'
+      - name: Set up Apache Maven Central
+        uses: actions/setup-java@v3
+        with: # running setup-java again overwrites the settings.xml
+          java-version: 8
+          distribution: 'zulu'
 
-#           server-id: ossrh
-#           server-username: OSSRH_USERNAME
-#           server-password: OSSRH_PASSWORD
-#           gpg-private-key: ${{ secrets.MAVEN_GPG_PRIVATE_KEY }}
-#           gpg-passphrase: MAVEN_GPG_PASSPHRASE
+          server-id: ossrh
+          server-username: OSSRH_USERNAME
+          server-password: OSSRH_PASSWORD
+          gpg-private-key: ${{ secrets.MAVEN_GPG_PRIVATE_KEY }}
+          gpg-passphrase: MAVEN_GPG_PASSPHRASE
           
-#       - name: Publish to Apache Maven Central
-#         run: mvn deploy --file java/pom.xml -Dgpg.passphrase=${{ secrets.MAVEN_GPG_PASSPHRASE }}
-#         env:
-#           OSSRH_USERNAME: ${{ secrets.OSSRH_USERNAME }}
-#           OSSRH_PASSWORD: ${{ secrets.OSSRH_PASSWORD }}
-#           MAVEN_GPG_PASSPHRASE: ${{ secrets.MAVEN_GPG_PASSPHRASE }}
+      - name: Publish to Apache Maven Central
+        run: mvn deploy --file java/pom.xml -Dgpg.passphrase=${{ secrets.MAVEN_GPG_PASSPHRASE }}
+        env:
+          OSSRH_USERNAME: ${{ secrets.OSSRH_USERNAME }}
+          OSSRH_PASSWORD: ${{ secrets.OSSRH_PASSWORD }}
+          MAVEN_GPG_PASSPHRASE: ${{ secrets.MAVEN_GPG_PASSPHRASE }}
 
 
   mm-update:
