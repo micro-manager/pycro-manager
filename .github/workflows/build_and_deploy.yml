@@ -48,7 +48,7 @@ jobs:
     needs: check-java-version
     if: |
       - ${{ github.repository == 'micro-manager/pycro-manager' }}
-      - ${{ needs.check-java-version.outputs.changed == 'true' }}]
+      - ${{ needs.check-java-version.outputs.changed == 'true' }}
       
     name: Release PycroManagerJava on Sonatype OSS
     runs-on: ubuntu-latest 
@@ -87,7 +87,7 @@ jobs:
     needs: [check-java-version, maven-deploy]
     if: |
       - ${{ github.repository == 'micro-manager/pycro-manager' }}
-      - ${{ needs.check-java-version.outputs.changed == 'true' }}]
+      - ${{ needs.check-java-version.outputs.changed == 'true' }}
       
     name: Open a PR in micro-manager/micro-manager to update java dependencies
     runs-on: ubuntu-latest
@@ -161,7 +161,7 @@ jobs:
           git push origin --delete dependency_update_from_pycromanager
         fi
 
-
+      
   pypi-deploy:
     # Once any changes to java have gone into micro-manager, a new version of PM can be deployed to PyPi
     needs: [check-java-version, mm-update, maven-deploy]
@@ -169,8 +169,16 @@ jobs:
     
     # Run if java update is complete, or is skipped, see: 
     # https://github.com/actions/runner/issues/491#issuecomment-850884422
+#    if: |
+#     - always() && !contains(needs.*.result, 'failure') &&  !contains(needs.*.result, 'cancelled')
     if: |
-      - always() && !contains(needs.*.result, 'failure') &&  !contains(needs.*.result, 'cancelled')
+      - always()
+      - ${{ !contains(needs.*.result, 'failure') }}
+      - ${{ !contains(needs.*.result, 'cancelled') }}
+      - ${{ needs.check-java-version.outputs.python == 'true' }}
+      
+     # - ${{ needs.check-java-version.outputs.changed == 'true' }}
+
 
     runs-on: ubuntu-latest
     
