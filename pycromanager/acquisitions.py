@@ -455,9 +455,9 @@ class Acquisition(object, metaclass=NumpyDocstringInheritanceMeta):
         was set to True. The returned object is either an instance of NDViewer or napari.Viewer()
         """
         if self._napari_viewer is None:
-            return self._napari_viewer
-        else:
             return self._nd_viewer
+        else:
+            return self._napari_viewer
 
     ########  Context manager (i.e. "with Acquisition...") ###########
     def __enter__(self):
