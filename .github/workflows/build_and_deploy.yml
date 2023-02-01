@@ -162,57 +162,57 @@ jobs:
         fi
 
       
-  pypi-deploy:
-    # Once any changes to java have gone into micro-manager, a new version of PM can be deployed to PyPi
-    needs: [check-java-version, mm-update, maven-deploy]
-    name: Deploy new version to PyPi if needed
+#   pypi-deploy:
+#     # Once any changes to java have gone into micro-manager, a new version of PM can be deployed to PyPi
+#     needs: [check-java-version, mm-update, maven-deploy]
+#     name: Deploy new version to PyPi if needed
     
-    # Run if java update is complete, or is skipped, see: 
-    # https://github.com/actions/runner/issues/491#issuecomment-850884422
-    if: |
-      - ${{ github.repository == 'micro-manager/pycro-manager' && always() && needs.check-java-version.outputs.python == 'true' && !contains(needs.*.result, 'failure') &&  !contains(needs.*.result, 'cancelled')}}
-#     - always() && !contains(needs.*.result, 'failure') &&  !contains(needs.*.result, 'cancelled')
-  #  if: |
-   #   - always()
-    #  - ${{ !contains(needs.*.result, 'failure') }}
-   #   - ${{ !contains(needs.*.result, 'cancelled') }}
-    #  - ${{ needs.check-java-version.outputs.python == 'true' }}
+#     # Run if java update is complete, or is skipped, see: 
+#     # https://github.com/actions/runner/issues/491#issuecomment-850884422
+#     if: |
+#       - ${{ github.repository == 'micro-manager/pycro-manager' && always() && needs.check-java-version.outputs.python == 'true' && !contains(needs.*.result, 'failure') &&  !contains(needs.*.result, 'cancelled')}}
+# #     - always() && !contains(needs.*.result, 'failure') &&  !contains(needs.*.result, 'cancelled')
+#   #  if: |
+#    #   - always()
+#     #  - ${{ !contains(needs.*.result, 'failure') }}
+#    #   - ${{ !contains(needs.*.result, 'cancelled') }}
+#     #  - ${{ needs.check-java-version.outputs.python == 'true' }}
       
-     # - ${{ needs.check-java-version.outputs.changed == 'true' }}
+#      # - ${{ needs.check-java-version.outputs.changed == 'true' }}
 
 
-    runs-on: ubuntu-latest
+#     runs-on: ubuntu-latest
     
-    steps:
-    - uses: dorny/paths-filter@v2
-      id: filter
-      with:
-        filters: |
-          python-version-changed:
-            - 'pycromanager/_version.py'
+#     steps:
+#     - uses: dorny/paths-filter@v2
+#       id: filter
+#       with:
+#         filters: |
+#           python-version-changed:
+#             - 'pycromanager/_version.py'
       
-    - uses: actions/checkout@v3
-    - name: Install Python
-      if: steps.filter.outputs.python-version-changed == 'true'
-      uses: actions/setup-python@v2
-      with:
-        python-version: '3.x'
-    - name: Install dependencies
-      if: steps.filter.outputs.python-version-changed == 'true'
-      run: |
-        python -m pip install --upgrade pip
-        pip install packaging setuptools twine wheel
-    - name: Publish the Python package
-      if: steps.filter.outputs.python-version-changed == 'true'
-      env:
-        TWINE_USERNAME: __token__
-        TWINE_PASSWORD: ${{ secrets.PYPI_API_TOKEN }}
-      run: |
-        python setup.py sdist bdist_wheel
-        twine upload dist/*
-        
-#     - name: Create git tag
+#     - uses: actions/checkout@v3
+#     - name: Install Python
+#       if: steps.filter.outputs.python-version-changed == 'true'
+#       uses: actions/setup-python@v2
+#       with:
+#         python-version: '3.x'
+#     - name: Install dependencies
+#       if: steps.filter.outputs.python-version-changed == 'true'
 #       run: |
-#         version=$(python -c "from pycromanager._version import __version__; print(__version__)")
-#         git tag $version
-#         git push origin $version
+#         python -m pip install --upgrade pip
+#         pip install packaging setuptools twine wheel
+#     - name: Publish the Python package
+#       if: steps.filter.outputs.python-version-changed == 'true'
+#       env:
+#         TWINE_USERNAME: __token__
+#         TWINE_PASSWORD: ${{ secrets.PYPI_API_TOKEN }}
+#       run: |
+#         python setup.py sdist bdist_wheel
+#         twine upload dist/*
+        
+# #     - name: Create git tag
+# #       run: |
+# #         version=$(python -c "from pycromanager._version import __version__; print(__version__)")
+# #         git tag $version
+# #         git push origin $version
