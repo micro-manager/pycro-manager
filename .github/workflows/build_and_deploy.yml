@@ -28,6 +28,7 @@ jobs:
       java: ${{ steps.filter.outputs.java }}
       python: ${{ steps.filter.outputs.python }}
     steps:
+    - uses: actions/checkout@v3
     # For pull requests it's not necessary to checkout the code
     - uses: dorny/paths-filter@v2
       id: filter
