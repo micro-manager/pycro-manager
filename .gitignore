@@ -5,6 +5,7 @@ venv
 test/sandbox.py
 test/sandbox2.py
 test/sandbox_headless.py
+bash_sandbox.sh
 
 build/
 dist/
