@@ -1,5 +1,9 @@
-# Deploy new version of pycromanager java to maven, and then update micro-manager ivy file,
-# push to dependencies branch, and make a pull request 
+# If changes to java versions
+#  Deploy new version of pycromanager java to maven, 
+#  and then update micro-manager ivy file and make PR
+# If changes to python version
+#  await for PR to merge into new MM version
+#  then publish new version to pypi
 
 name: Maven depolyment and MM update
 
@@ -157,6 +161,7 @@ jobs:
   pypi-deploy:
     # Once any changes to java have gone into micro-manager, a new version of PM can be deployed to PyPi
     needs: [changes, maven-deploy]
+    name: Deploy new version to PyPi
     if: |
       - ${{ github.repository == 'micro-manager/pycro-manager' }}
       - ${{ needs.changes.outputs.python == 'true' }}]
@@ -180,6 +185,7 @@ jobs:
       run: |
         python setup.py sdist bdist_wheel
         twine upload dist/*
+        
 #     - name: Create git tag
 #       run: |
 #         version=$(python -c "from pycromanager._version import __version__; print(__version__)")
