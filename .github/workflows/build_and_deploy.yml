@@ -178,8 +178,7 @@ jobs:
     name: Deploy new version to PyPi
     # Run if java update is complete, or is skipped, see: 
     # https://github.com/actions/runner/issues/491#issuecomment-850884422
-    if: always() 
-    # ${{ needs.python-changes.outputs.changed == 'true' }}
+    if: always() && ${{ needs.python-changes.outputs.changed == 'true' }}
       
       #!contains(needs.*.result, 'failure') &&
       #!contains(needs.*.result, 'cancelled')
