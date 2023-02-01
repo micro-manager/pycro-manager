@@ -17,9 +17,6 @@ jobs:
   maven-deploy:
     name: Release on Sonatype OSS
     runs-on: ubuntu-latest
-    permissions:
-      contents: write
-      pull-requests: write 
     
     if: ${{ github.repository == 'micro-manager/pycro-manager' }}
 
@@ -56,6 +53,9 @@ jobs:
   mm-update:
     needs: maven-deploy
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write 
     steps:
     - name: Checkout Micro-Manager branch
       uses: actions/checkout@v2
