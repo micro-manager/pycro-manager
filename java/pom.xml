@@ -26,7 +26,7 @@
           <organization>UCSF/HHMI</organization>
        </developer>
     </developers>
-
+  
     <scm>
       <url>https://github.com/micro-manager/pycro-manager</url>
       <connection>scm:git:git://github.com/micro-manager/pycro-manager.git</connection>
