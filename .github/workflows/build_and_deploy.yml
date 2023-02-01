@@ -17,8 +17,8 @@ on:
 
 jobs:
 
-  # Use a filter to determine whether to deploy new java version, python version, or both
-  changes:
+  # Use a filter to determine whether to deploy new java version
+  java-changes:
     if: ${{ github.repository == 'micro-manager/pycro-manager' }}
     runs-on: ubuntu-latest
     # Required permissions
@@ -26,8 +26,7 @@ jobs:
       pull-requests: read
     # Set job outputs to values from filter step
     outputs:
-      java: ${{ steps.filter.outputs.java }}
-      python: ${{ steps.filter.outputs.python }}
+      changed: ${{ steps.filter.outputs.changed }}
     steps:
     - uses: actions/checkout@v3
     # For pull requests it's not necessary to checkout the code
@@ -35,17 +34,15 @@ jobs:
       id: filter
       with:
         filters: |
-          java:
+          changed:
             - '**pom.xml'
-          python:
-            - 'pycromanager/_version.py'
 
   maven-deploy:
     # This workflow will build a Java project with Maven
     # For more information see: https://help.github.com/actions/language-and-framework-guides/building-and-testing-java-with-maven
 
-    needs: changes
-    if: ${{ needs.changes.outputs.java == 'true' }} 
+    needs: java-changes
+    if: ${{ needs.changes.outputs.changed == 'true' }} 
       
     name: Release PycroManagerJava on Sonatype OSS
     runs-on: ubuntu-latest 
@@ -81,8 +78,8 @@ jobs:
 
 
   mm-update:
-    needs: [changes, maven-deploy]
-    if: ${{ needs.changes.outputs.java == 'true' }} 
+    needs: [java-changes, maven-deploy]
+    if: ${{ needs.changes.outputs.changed == 'true' }} 
 
     name: Open a PR in micro-manager/micro-manager to update java dependencies
     runs-on: ubuntu-latest
@@ -156,16 +153,32 @@ jobs:
           git push origin --delete dependency_update_from_pycromanager
         fi
 
+  python-changes:
+    if: ${{ github.repository == 'micro-manager/pycro-manager' }}
+    runs-on: ubuntu-latest
+    # Required permissions
+    permissions:
+      pull-requests: read
+    # Set job outputs to values from filter step
+    outputs:
+      changed: ${{ steps.filter.outputs.changed }}
+    steps:
+    - uses: actions/checkout@v3
+    # For pull requests it's not necessary to checkout the code
+    - uses: dorny/paths-filter@v2
+      id: filter
+      with:
+        filters: |
+          changed:
+            - 'pycromanager/_version.py'
 
   pypi-deploy:
     # Once any changes to java have gone into micro-manager, a new version of PM can be deployed to PyPi
-    needs: [changes, mm-update, maven-deploy]
+    needs: [java-changes, mm-update, maven-deploy, python-changes]
     name: Deploy new version to PyPi
     # Run if java update is complete, or is skipped, see: 
     # https://github.com/actions/runner/issues/491#issuecomment-850884422
-    if: always() 
-      #&&
-      #${{ needs.changes.outputs.python == 'true' }}
+    if: ${{ needs.python-changes.outputs.changed == 'true' }}
       
       #!contains(needs.*.result, 'failure') &&
       #!contains(needs.*.result, 'cancelled')
