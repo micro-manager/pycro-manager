@@ -17,6 +17,10 @@ jobs:
   maven-deploy:
     name: Release on Sonatype OSS
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write 
+    
     if: ${{ github.repository == 'micro-manager/pycro-manager' }}
 
     steps:
