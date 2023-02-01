@@ -158,16 +158,16 @@ jobs:
 
   pypi-deploy:
     # Once any changes to java have gone into micro-manager, a new version of PM can be deployed to PyPi
-    needs: [changes, mm-update]
+    needs: [changes]
     name: Deploy new version to PyPi
     # Run if java update is complete, or is skipped, see: 
     # https://github.com/actions/runner/issues/491#issuecomment-850884422
     if: |
-      always()
-      #&&
+      always() &&
+      ${{ needs.changes.outputs.python == 'true' }}
       #(needs.mm-update.result == 'success' || needs.mm-update.result == 'skipped')
       #&&
-      #${{ needs.changes.outputs.python == 'true' }}
+
     runs-on: ubuntu-latest
     
     steps:
