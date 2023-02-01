@@ -40,7 +40,8 @@ jobs:
     # For more information see: https://help.github.com/actions/language-and-framework-guides/building-and-testing-java-with-maven
 
     needs: check-java-version
-    if: ${{ github.repository == 'micro-manager/pycro-manager'  && needs.check-java-version.outputs.changed == 'true' }}
+    #if: ${{ github.repository == 'micro-manager/pycro-manager'  && needs.check-java-version.outputs.changed == 'true' }}
+    if: ${{ github.repository == 'micro-manager/pycro-manager' }}
 
       
     name: Release PycroManagerJava on Sonatype OSS
