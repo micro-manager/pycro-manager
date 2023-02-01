@@ -164,9 +164,10 @@ jobs:
     # https://github.com/actions/runner/issues/491#issuecomment-850884422
     if: |
       always() &&
-      ${{ needs.changes.outputs.python == 'true' }} &&
-      !contains(needs.*.result, 'failure') &&
-      !contains(needs.*.result, 'cancelled')
+      always()
+      #${{ needs.changes.outputs.python == 'true' }} &&
+      #!contains(needs.*.result, 'failure') &&
+      #!contains(needs.*.result, 'cancelled')
       #(needs.mm-update.result == 'success' || needs.mm-update.result == 'skipped')
 
     runs-on: ubuntu-latest
