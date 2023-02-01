@@ -57,6 +57,16 @@ jobs:
       contents: write
       pull-requests: write 
     steps:
+    
+    # https://michaelheap.com/ultimate-guide-github-actions-authentication/
+    - name: Get Token
+      id: get_workflow_token
+      uses: peter-murray/workflow-application-token-action@v1
+      with:
+        application_id: ${{ secrets.MM_PR_MANAGER_ID }}
+        application_private_key: ${{ secrets.MM_PR_MANAGER_PRIVATE_KEY }}
+        
+      
     - name: Checkout Micro-Manager branch
       uses: actions/checkout@v2
       with:
@@ -102,5 +112,4 @@ jobs:
         gh pr create -H dependency-update-from-pycro-manager -B main --title 'Update pycro-Manager and dependencies' --body 'Created by Github action'
         gh pr merge --auto --delete-branch --squash
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }} 
+          GITHUB_TOKEN: ${{ steps.get_workflow_token.outputs.token }}
