@@ -149,7 +149,7 @@ jobs:
         # supposedly you can use --delete-branch here, but as of 2-1-23 it doesn't work
         gh pr merge $PR_URL --auto --merge
         # wait for status checks and PR to merge
-        if gh --repo micro-manager/micro-manager pr checks https://github.com/micro-manager/micro-manager/pull/1623 --watch | grep -q "fail"; then
+        if gh pr checks $PR_URL --watch | grep -q "fail"; then
           # raise an error 
           set -e
         else
