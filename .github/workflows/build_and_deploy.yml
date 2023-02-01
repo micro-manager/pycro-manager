@@ -161,7 +161,7 @@ jobs:
 
   pypi-deploy:
     # Once any changes to java have gone into micro-manager, a new version of PM can be deployed to PyPi
-    needs: [changes, maven-deploy]
+    needs: [changes, mm-update]
     name: Deploy new version to PyPi
     if: |
       - ${{ github.repository == 'micro-manager/pycro-manager' }}
