@@ -153,37 +153,16 @@ jobs:
           git push origin --delete dependency_update_from_pycromanager
         fi
 
-  python-changes:
-    if: ${{ github.repository == 'micro-manager/pycro-manager' }}
-    runs-on: ubuntu-latest
-    # Required permissions
-    permissions:
-      pull-requests: read
-    # Set job outputs to values from filter step
-    outputs:
-      changed: ${{ steps.filter.outputs.changed }}
-    steps:
-    - uses: actions/checkout@v3
-    # For pull requests it's not necessary to checkout the code
-    - uses: dorny/paths-filter@v2
-      id: filter
-      with:
-        filters: |
-          changed:
-            - 'pycromanager/_version.py'
 
   pypi-deploy:
     # Once any changes to java have gone into micro-manager, a new version of PM can be deployed to PyPi
-    needs: [java-changes, mm-update, maven-deploy, python-changes]
+    needs: [java-changes, mm-update, maven-deploy]
     name: Deploy new version to PyPi
     # Run if java update is complete, or is skipped, see: 
     # https://github.com/actions/runner/issues/491#issuecomment-850884422
-    if: 
-      always() &&
-      ${{ needs.python-changes.outputs.changed == 'true' }}
+    if: always() &&
       !contains(needs.*.result, 'failure') &&
       !contains(needs.*.result, 'cancelled')
-      #(needs.mm-update.result == 'success' || needs.mm-update.result == 'skipped')
 
     runs-on: ubuntu-latest
     
