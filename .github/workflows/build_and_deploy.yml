@@ -155,54 +155,54 @@ jobs:
 
 
 
-  check-python-version:
-    if: ${{ github.repository == 'micro-manager/pycro-manager' }}
-    runs-on: ubuntu-latest
-    permissions:
-      pull-requests: read
-    outputs:
-      changed: ${{ steps.filter.outputs.changed }}
-    steps:
-    - uses: actions/checkout@v3
-    - uses: dorny/paths-filter@v2
-      id: filter
-      with:
-        filters: |
-          changed:
-            - 'pycromanager/_version.py'
+#   check-python-version:
+#     if: ${{ github.repository == 'micro-manager/pycro-manager' }}
+#     runs-on: ubuntu-latest
+#     permissions:
+#       pull-requests: read
+#     outputs:
+#       changed: ${{ steps.filter.outputs.changed }}
+#     steps:
+#     - uses: actions/checkout@v3
+#     - uses: dorny/paths-filter@v2
+#       id: filter
+#       with:
+#         filters: |
+#           changed:
+#             - 'pycromanager/_version.py'
 
       
-  pypi-deploy:
-    # Once any changes to java have gone into micro-manager, a new version of PM can be deployed to PyPi
-    needs: [check-java-version, mm-update, maven-deploy, check-python-version]
-    name: Deploy new version to PyPi if needed
+#   pypi-deploy:
+#     # Once any changes to java have gone into micro-manager, a new version of PM can be deployed to PyPi
+#     needs: [check-java-version, mm-update, maven-deploy, check-python-version]
+#     name: Deploy new version to PyPi if needed
     
-    # Run if 
-    #    java update is complete without errors and new version is merged into MM main (or no java update)
-    #   and python version changed
-    # weird syntax needed, see: https://github.com/actions/runner/issues/491#issuecomment-850884422
-    if: ${{ github.repository == 'micro-manager/pycro-manager' && always() && needs.check-python-version.outputs.changed == 'true' && !contains(needs.*.result, 'failure') &&  !contains(needs.*.result, 'cancelled')}}
+#     # Run if 
+#     #    java update is complete without errors and new version is merged into MM main (or no java update)
+#     #   and python version changed
+#     # weird syntax needed, see: https://github.com/actions/runner/issues/491#issuecomment-850884422
+#     if: ${{ github.repository == 'micro-manager/pycro-manager' && always() && needs.check-python-version.outputs.changed == 'true' && !contains(needs.*.result, 'failure') &&  !contains(needs.*.result, 'cancelled')}}
 
-    runs-on: ubuntu-latest
+#     runs-on: ubuntu-latest
     
-    steps:
+#     steps:
    
-    - uses: actions/checkout@v3
-    - name: Install Python
-      uses: actions/setup-python@v2
-      with:
-        python-version: '3.x'
-    - name: Install dependencies
-      run: |
-        python -m pip install --upgrade pip
-        pip install packaging setuptools twine wheel
-    - name: Publish the Python package
-      env:
-        TWINE_USERNAME: __token__
-        TWINE_PASSWORD: ${{ secrets.PYPI_API_TOKEN }}
-      run: |
-        python setup.py sdist bdist_wheel
-        twine upload dist/*
+#     - uses: actions/checkout@v3
+#     - name: Install Python
+#       uses: actions/setup-python@v2
+#       with:
+#         python-version: '3.x'
+#     - name: Install dependencies
+#       run: |
+#         python -m pip install --upgrade pip
+#         pip install packaging setuptools twine wheel
+#     - name: Publish the Python package
+#       env:
+#         TWINE_USERNAME: __token__
+#         TWINE_PASSWORD: ${{ secrets.PYPI_API_TOKEN }}
+#       run: |
+#         python setup.py sdist bdist_wheel
+#         twine upload dist/*
         
 #     - name: Create git tag
 #       run: |
