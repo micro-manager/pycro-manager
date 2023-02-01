@@ -39,10 +39,13 @@ def test_multi_d_acq_napari_viewer(launch_mm_headless, setup_data_folder):
         order="tcz",
     )
 
-    acq = Acquisition(setup_data_folder, 'acq', show_display='napari')
+    viewer = napari.Viewer()
+
+    acq = Acquisition(setup_data_folder, 'acq', napari_viewer=viewer)
     acq.acquire(events)
     acq.mark_finished()
 
     napari.run()
+    acq.get_dataset().close()
     acq.await_completion()
 
