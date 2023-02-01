@@ -12,7 +12,7 @@ on:
     branches:
       - main
     paths:
-      - '**pom.xml'
+      - 'java/pom.xml'
       - 'pycromanager/_version.py'
 
 jobs:
