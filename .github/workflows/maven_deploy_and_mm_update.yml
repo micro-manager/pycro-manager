@@ -109,6 +109,9 @@ jobs:
         GITHUB_TOKEN: ${{ steps.get_workflow_token.outputs.token }}
       run: |
         cd micro-manager
-        gh pr create -H dependency_update_from_pycromanager -B main --title 'Update Pycro-Manager and dependencies' --body 'Created by Github action'
-        gh pr merge --auto --delete-branch --merge
+        PR_URL=$(gh pr create -H dependency_update_from_pycromanager -B main --title 'Update Pycro-Manager and dependencies' --body 'Created by Github action')
+        echo "Created pull request $PR_URL"
+        gh pr merge $PR_URL --auto --delete-branch --merge
+        # wait for PR to merge
+        # gh pr checks $PR_URL --watch
 
