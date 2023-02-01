@@ -18,7 +18,7 @@ on:
 jobs:
 
   # Use a filter to determine whether to deploy new java version
-  javachanges:
+  changes:
     if: ${{ github.repository == 'micro-manager/pycro-manager' }}
     runs-on: ubuntu-latest
     # Required permissions
@@ -26,7 +26,8 @@ jobs:
       pull-requests: read
     # Set job outputs to values from filter step
     outputs:
-      changed: ${{ steps.filter.outputs.changed }}
+      java: ${{ steps.filter.outputs.java }}
+      python: ${{ steps.filter.outputs.python }}
     steps:
     - uses: actions/checkout@v3
     # For pull requests it's not necessary to checkout the code
@@ -34,17 +35,17 @@ jobs:
       id: filter
       with:
         filters: |
-          changed:
+          java:
             - '**pom.xml'
-          dummy: 
-           - 'pycromanager/version.py'
+          python:
+            - 'pycromanager/_version.py'
 
   maven-deploy:
     # This workflow will build a Java project with Maven
     # For more information see: https://help.github.com/actions/language-and-framework-guides/building-and-testing-java-with-maven
 
-    needs: javachanges
-    if: ${{ needs.javachanges.outputs.changed == 'true' }} 
+    needs: changes
+    if: ${{ needs.changes.outputs.java == 'true' }} 
       
     name: Release PycroManagerJava on Sonatype OSS
     runs-on: ubuntu-latest 
@@ -80,8 +81,8 @@ jobs:
 
 
   mm-update:
-    needs: [javachanges, maven-deploy]
-    if: ${{ needs.javachanges.outputs.changed == 'true' }} 
+    needs: [changes, maven-deploy]
+    if: ${{ needs.changes.outputs.changed == 'true' }} 
 
     name: Open a PR in micro-manager/micro-manager to update java dependencies
     runs-on: ubuntu-latest
@@ -156,49 +157,49 @@ jobs:
         fi
 
 
-  pypi-deploy:
-    # Once any changes to java have gone into micro-manager, a new version of PM can be deployed to PyPi
-    needs: [javachanges, mm-update, maven-deploy]
-    name: Deploy new version to PyPi if needed
+#   pypi-deploy:
+#     # Once any changes to java have gone into micro-manager, a new version of PM can be deployed to PyPi
+#     needs: [javachanges, mm-update, maven-deploy]
+#     name: Deploy new version to PyPi if needed
     
-    # Run if java update is complete, or is skipped, see: 
-    # https://github.com/actions/runner/issues/491#issuecomment-850884422
-    if: always() &&
-      !contains(needs.*.result, 'failure') &&
-      !contains(needs.*.result, 'cancelled')
+#     # Run if java update is complete, or is skipped, see: 
+#     # https://github.com/actions/runner/issues/491#issuecomment-850884422
+#     if: always() &&
+#       !contains(needs.*.result, 'failure') &&
+#       !contains(needs.*.result, 'cancelled')
 
-    runs-on: ubuntu-latest
+#     runs-on: ubuntu-latest
     
-    steps:
-    - uses: dorny/paths-filter@v2
-      id: filter
-      with:
-        filters: |
-          python-version-changed:
-            - 'pycromanager/_version.py'
+#     steps:
+#     - uses: dorny/paths-filter@v2
+#       id: filter
+#       with:
+#         filters: |
+#           python-version-changed:
+#             - 'pycromanager/_version.py'
       
-    - uses: actions/checkout@v3
-    - name: Install Python
-      if: steps.filter.outputs.python-version-changed == 'true'
-      uses: actions/setup-python@v2
-      with:
-        python-version: '3.x'
-    - name: Install dependencies
-      if: steps.filter.outputs.python-version-changed == 'true'
-      run: |
-        python -m pip install --upgrade pip
-        pip install packaging setuptools twine wheel
-    - name: Publish the Python package
-      if: steps.filter.outputs.python-version-changed == 'true'
-      env:
-        TWINE_USERNAME: __token__
-        TWINE_PASSWORD: ${{ secrets.PYPI_API_TOKEN }}
-      run: |
-        python setup.py sdist bdist_wheel
-        twine upload dist/*
-        
-#     - name: Create git tag
+#     - uses: actions/checkout@v3
+#     - name: Install Python
+#       if: steps.filter.outputs.python-version-changed == 'true'
+#       uses: actions/setup-python@v2
+#       with:
+#         python-version: '3.x'
+#     - name: Install dependencies
+#       if: steps.filter.outputs.python-version-changed == 'true'
 #       run: |
-#         version=$(python -c "from pycromanager._version import __version__; print(__version__)")
-#         git tag $version
-#         git push origin $version
+#         python -m pip install --upgrade pip
+#         pip install packaging setuptools twine wheel
+#     - name: Publish the Python package
+#       if: steps.filter.outputs.python-version-changed == 'true'
+#       env:
+#         TWINE_USERNAME: __token__
+#         TWINE_PASSWORD: ${{ secrets.PYPI_API_TOKEN }}
+#       run: |
+#         python setup.py sdist bdist_wheel
+#         twine upload dist/*
+        
+# #     - name: Create git tag
+# #       run: |
+# #         version=$(python -c "from pycromanager._version import __version__; print(__version__)")
+# #         git tag $version
+# #         git push origin $version
