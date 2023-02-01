@@ -87,13 +87,13 @@ jobs:
     - name: commit
       run: |
         cd micro-manager
-        git checkout -b dependency_update_from_pycro_manager
+        git checkout -b deps
         git commit -am "update PycromanagerJava and dependencies"
         
     - name: push
       run: |
         cd micro-manager
-        git push --set-upstream origin dependency_update_from_pycro_manager
+        git push --set-upstream origin deps
  
     # Get token for using gh CLI
     # https://michaelheap.com/ultimate-guide-github-actions-authentication/
@@ -109,6 +109,6 @@ jobs:
         GITHUB_TOKEN: ${{ steps.get_workflow_token.outputs.token }}
       run: |
         cd micro-manager
-        gh pr create -H dependency_update_from_pycro_manager -B main --title 'Update Pycro-Manager and dependencies' --body 'Created by Github action'
-        gh pr merge --auto --delete-branch --squash
+        gh pr create -H deps -B main --title 'Update Pycro-Manager and dependencies' --body 'Created by Github action'
+        gh pr merge --auto --delete-branch --merge
 
