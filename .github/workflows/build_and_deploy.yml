@@ -45,7 +45,7 @@ jobs:
     # For more information see: https://help.github.com/actions/language-and-framework-guides/building-and-testing-java-with-maven
 
     needs: changes
-    if: ${{ needs.changes.outputs.java == 'true' }}]
+    if: ${{ needs.changes.outputs.java == 'true' }}
 
     name: Release PycroManagerJava on Sonatype OSS
     runs-on: ubuntu-latest 
@@ -82,7 +82,7 @@ jobs:
 
   mm-update:
     needs: [changes, maven-deploy]
-    if:  ${{ needs.changes.outputs.java == 'true' }}]
+    if:  ${{ needs.changes.outputs.java == 'true' }}
     name: Open a PR in micro-manager/micro-manager to update java dependencies
     runs-on: ubuntu-latest
     permissions:
@@ -160,7 +160,7 @@ jobs:
     # Once any changes to java have gone into micro-manager, a new version of PM can be deployed to PyPi
     needs: [changes, mm-update]
     name: Deploy new version to PyPi
-    if: ${{ needs.changes.outputs.python == 'true' }}]
+    if: ${{ needs.changes.outputs.python == 'true' }}
 
     runs-on: ubuntu-latest
     
