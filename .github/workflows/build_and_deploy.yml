@@ -158,7 +158,7 @@ jobs:
 
   pypi-deploy:
     # Once any changes to java have gone into micro-manager, a new version of PM can be deployed to PyPi
-    needs: [java-changes, mm-update, maven-deploy]
+    needs: [javachanges, mm-update, maven-deploy]
     name: Deploy new version to PyPi if needed
     
     # Run if java update is complete, or is skipped, see: 
