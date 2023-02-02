@@ -44,7 +44,7 @@ jobs:
     if: ${{ needs.check-java-version.outputs.changed == 'true' }}
 
       
-    name: Release PycroManagerJava on Sonatype OSS
+    name: Deploy PycroManagerJava.jar to Sonatype OSS
     runs-on: ubuntu-latest 
 
     steps:
@@ -106,7 +106,7 @@ jobs:
         token: ${{ secrets.GITHUB_TOKEN }}
         ref: main
         
-    - name: update-version
+    - name: Wait for new version to be available and update ivy.xml
       run: |
         cd pycro-manager
         git config --global user.email "41898282+github-actions[bot]@users.noreply.github.com"
@@ -118,12 +118,16 @@ jobs:
     - name: commit
       run: |
         cd micro-manager
+        # delete any errant existing version of the update branch
+        git branch -D dependency_update_from_pycromanager 2>/dev/null || true
         git checkout -b dependency_update_from_pycromanager
-        git commit -am "update PycromanagerJava and dependencies"
+        git commit -am "Update PycromanagerJava version (and possibly its dependencies)"
         
     - name: push
       run: |
         cd micro-manager
+        # delete any errant existing branch, and ignore error if one exists
+        git push origin --delete dependency_update_from_pycromanager 2>/dev/null || true
         git push --set-upstream origin dependency_update_from_pycromanager
  
     # Get token for using gh CLI
@@ -140,22 +144,49 @@ jobs:
         GITHUB_TOKEN: ${{ steps.get_workflow_token.outputs.token }}
       run: |
         cd micro-manager
+        # Create pull request to merge into micro-manager/micro-manager main branch
         PR_URL=$(gh pr create -H dependency_update_from_pycromanager -B main --title 'Update Pycro-Manager and dependencies' --body 'Created by Github action')
         echo "Created pull request $PR_URL"
+        
         # supposedly you can use --delete-branch here, but as of 2-1-23 it doesn't work
         gh pr merge $PR_URL --auto --merge
+        
         # wait for status checks and PR to merge
+        while true; do
         if gh pr checks $PR_URL --watch | grep -q "fail"; then
           # raise an error 
+          echo "checks failed"
           set -e
         else
-          # The PR passed all checks in micro-manager. Now it is safe to assume its in the nightly builds
-          # delete the branch created for sending in the update
-          git push origin --delete dependency_update_from_pycromanager
+          # The PR passed all checks in micro-manager. 
+          echo "checks passed"
+          break
         fi
+        sleep 10 # is this needed in addition to --watch?
+        fi
+        done
+        
+        
+        # Block until PR merged or closed
+        while true; do
+        if gh pr view $PR_URL --json state | grep -q "MERGED"; then
+          echo "success merge"
+          break
+        elif gh pr view $PR_URL --json state | grep -q "CLOSED"; then
+          echo "pull request closed"
+          break
+        else
+          echo "waiting on pull request status"
+          sleep 10
+        fi
+        done
+
+        # Now it is safe to assume its in the nightly builds
+        # delete the branch created for sending in the update
+        git push origin --delete dependency_update_from_pycromanager
 
 
-
+  # After java deps have updated in MM, time to check if a new python version is needed
   check-python-version:
     if: ${{ github.repository == 'micro-manager/pycro-manager' }}
     runs-on: ubuntu-latest
