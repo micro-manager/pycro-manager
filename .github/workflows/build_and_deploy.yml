@@ -109,7 +109,6 @@ jobs:
       with:
         path: micro-manager
         repository: micro-manager/micro-manager
-#        ssh-key: ${{ secrets.MM_SSH_DEPLOY }}
         token: ${{ steps.get_workflow_token.outputs.token }}
         ref: ${{ github.ref_name }}  # Use matching branch
     
