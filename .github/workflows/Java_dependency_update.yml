@@ -15,6 +15,10 @@ on:
     paths:
        - 'java/pom.xml'
 
+# ensure that only one instance of this action can run at a time so weird
+# stuff with updates colliding doesnt happen
+concurrency: dependency_update
+
 jobs:
   update-pycromanger-java:
     runs-on: ubuntu-latest
