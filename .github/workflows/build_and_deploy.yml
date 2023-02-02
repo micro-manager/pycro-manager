@@ -91,6 +91,23 @@ jobs:
       contents: write
       pull-requests: write 
     steps:
+    
+    # Get token for using gh CLI
+    # https://michaelheap.com/ultimate-guide-github-actions-authentication/
+ #   - name: Get Token
+  #    id: get_workflow_token
+   #   uses: peter-murray/workflow-application-token-action@v1
+    #  with:
+     #   application_id: ${{ secrets.MM_PR_BOT_APP_ID }}
+      #  application_private_key: ${{ secrets.MM_PR_BOT_PRIVATE_KEY }}
+        
+    - name: Get Token
+      id: get_workflow_token      
+      uses: getsentry/action-github-app-token@v2
+      with:
+        app_id: ${{ secrets.MM_PR_BOT_APP_ID }}
+        private_key: ${{ secrets.MM_PR_BOT_PRIVATE_KEY }}
+      
       
     - name: Checkout Micro-Manager branch
       uses: actions/checkout@v3
@@ -103,10 +120,12 @@ jobs:
     
     - name: Checkout pycro-manager # To get the update_mm_ivy.py script
       uses: actions/checkout@v3
+      env:
+        GITHUB_TOKEN: ${{ steps.get_workflow_token.outputs.token }}
+     
       with:
         path: pycro-manager
         repository: micro-manager/pycro-manager
-        token: ${{ secrets.GITHUB_TOKEN }}
         ref: main
         
     - name: Wait for new version to be available and update ivy.xml
@@ -132,15 +151,7 @@ jobs:
       run: |
         cd micro-manager
         git push --set-upstream origin dependency_update_from_pycromanager
- 
-    # Get token for using gh CLI
-    # https://michaelheap.com/ultimate-guide-github-actions-authentication/
-    - name: Get Token
-      id: get_workflow_token
-      uses: peter-murray/workflow-application-token-action@v1
-      with:
-        application_id: ${{ secrets.MM_PR_BOT_APP_ID }}
-        application_private_key: ${{ secrets.MM_PR_BOT_PRIVATE_KEY }}
+
         
     - name: create pull request wait for merge
       env:
