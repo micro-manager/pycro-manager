@@ -123,14 +123,14 @@ jobs:
         cd micro-manager
         # delete any errant existing version of the update branch
         git branch -D dependency_update_from_pycromanager 2>/dev/null || true
+        git push origin --delete dependency_update_from_pycromanager 2>/dev/null || true
+
         git checkout -b dependency_update_from_pycromanager
         git commit -am "Update PycromanagerJava version (and possibly its dependencies)"
         
     - name: push
       run: |
         cd micro-manager
-        # delete any errant existing branch, and ignore error if one exists
-        git push origin --delete dependency_update_from_pycromanager 2>/dev/null || true
         git push --set-upstream origin dependency_update_from_pycromanager
  
     # Get token for using gh CLI
