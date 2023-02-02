@@ -166,7 +166,6 @@ jobs:
           break
         fi
         sleep 10 # is this needed in addition to --watch?
-        fi
         done
         
         
