@@ -35,20 +35,20 @@ jobs:
     
     - name: Checkout Pycro-Manager dependencies branch
       uses: actions/checkout@v3
-      env:
-        GITHUB_TOKEN: ${{ steps.get_workflow_token.outputs.token }}
+  #    env:
+   #     GITHUB_TOKEN: ${{ steps.get_workflow_token.outputs.token }}
         
       with:
         path: ''
         repository: micro-manager/pycro-manager
-        fetch-depth: 0 # check out all branches so main can be merged
+        token: steps.get_workflow_token.outputs.token
         ref:  ${{ github.ref_name }}  # Use matching branch
         
     - name: update-version
       run: |
         # fast forward to get code updates on main branch
-        git config --local user.email "github-actions[bot]@users.noreply.github.com"
-        git config --local user.name "PycroManager-Bot"
+        git config --global user.email "41898282+github-actions[bot]@users.noreply.github.com"
+        git config --global user.name "PycroManager-Bot"
         git config pull.rebase false
         pip install semantic_version
         python build_automation/update_PycroManagerJava.py
