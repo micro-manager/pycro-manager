@@ -1,5 +1,5 @@
 # When NDTiff, AcqEngJ, or NDViewer update, a automatic push
-# to the dependency-update branch of pycro-manager will be generated
+# to the *-update branch of pycro-manager will be generated
 # that updates the version in their POM.xml files
 # This script should then:
 #   1) Update the minor or patch version of PMJava accordingly
@@ -11,7 +11,9 @@ name: Pycro-ManagerJava update
 on:
   push:
     branches:
-      - dependency-update
+      - ndtiff-update
+      - acqengj-update
+      - ndviewer-update
     paths:
        - 'java/pom.xml'
 
@@ -23,14 +25,24 @@ jobs:
   update-pycromanger-java:
     runs-on: ubuntu-latest
     steps:
+    
+    - name: Get Token
+      id: get_workflow_token      
+      uses: getsentry/action-github-app-token@v2
+      with:
+        app_id: ${{ secrets.MM_PR_BOT_APP_ID }}
+        private_key: ${{ secrets.MM_PR_BOT_PRIVATE_KEY }}
+    
     - name: Checkout Pycro-Manager dependencies branch
       uses: actions/checkout@v3
+      env:
+        GITHUB_TOKEN: ${{ steps.get_workflow_token.outputs.token }}
+        
       with:
         path: ''
         repository: micro-manager/pycro-manager
         fetch-depth: 0 # check out all branches so main can be merged
-        token: ${{ secrets.GITHUB_TOKEN }}
-        ref: dependency-update
+        ref:  ${{ github.ref_name }}  # Use matching branch
         
     - name: update-version
       run: |
@@ -38,24 +50,33 @@ jobs:
         git config --local user.email "github-actions[bot]@users.noreply.github.com"
         git config --local user.name "PycroManager-Bot"
         git config pull.rebase false
-        git merge origin/main -m "dependency update merge"
         pip install semantic_version
         python build_automation/update_PycroManagerJava.py
         
     - name: commit
       run: |
-        git commit -am "update PycromanagerJava version"
+        git commit -am "update PycromanagerJava version in response to ${{ github.ref_name }} (Created by Github action)"
+        
         
     - name: push
       run: |
-        git pull # Get changes in case of simultaneous calls to script
-        git push https://henrypinkard:${{ secrets.GITHUB_TOKEN }}@github.com/micro-manager/pycro-manager.git  
+        # update the version of PycroManagerJava (on this *-update branch )
+        # Seems like this would trigger an infinite loop because this push triggers this action but for some reason that doesnt happen
+        git push --set-upstream origin  ${{ github.ref_name }}
+ 
  
     - name: create pull request
-      continue-on-error: true
+      # make a PR from *-update branch of PM to main branch
+      env:
+        GITHUB_TOKEN: ${{ steps.get_workflow_token.outputs.token }}
+        
       run: |
         gh pr create -H dependency-update -B main --title 'Java dependency auto-update' --body 'Created by Github action (https://github.com/micro-manager/pycro-manager/blob/dependency-update/.github/workflows/Java_dependency_update.yml)'
         gh pr merge --auto --merge
-      env:
-          GITHUB_TOKEN: ${{ secrets.PYCRO_TOKEN }}
+        
+        PR_URL=$(gh pr create -H ${{ github.ref_name }} -B main --title 'Update PycroManagerJava version' --body 'As a result of java dependency update (Created by Github action)')
+        echo "Created pull request $PR_URL"
+        
+        # supposedly you can use --delete-branch here, but as of 2-1-23 it doesn't work
+        gh pr merge $PR_URL --auto --merge
 
