@@ -15,6 +15,9 @@ on:
       - 'java/pom.xml'
       - 'pycromanager/_version.py'
 
+# ensure only one instance of the script runs at a given time
+concurrency: PM_version_update
+
 jobs:
 
   # Use a filter to determine whether to deploy new java version
