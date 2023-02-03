@@ -2,20 +2,20 @@
     <modelVersion>4.0.0</modelVersion>
     <groupId>org.micro-manager.pycro-manager</groupId>
     <artifactId>PycroManagerJava</artifactId>
-     <version>0.34.1</version>
+     <version>0.35.26</version>
+
     <packaging>jar</packaging>
     <name>Pycro-Manager Java</name>
     <description>The Java components of Pycro-Manager</description>
     <url>https://github.com/micro-manager/pycro-manager</url>
-   
-  
+
     <properties>
         <maven.compiler.source>1.8</maven.compiler.source>
         <maven.compiler.target>1.8</maven.compiler.target>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
     </properties>
-    
-    <developers>
+ 
+     <developers>
        <developer>
           <id>henrypinkard</id>
           <name>Henry Pinkard</name>
@@ -27,7 +27,7 @@
           <organization>UCSF/HHMI</organization>
        </developer>
     </developers>
-
+  
     <scm>
       <url>https://github.com/micro-manager/pycro-manager</url>
       <connection>scm:git:git://github.com/micro-manager/pycro-manager.git</connection>
@@ -55,7 +55,7 @@
       <dependency>
          <groupId>org.micro-manager.acqengj</groupId>
          <artifactId>AcqEngJ</artifactId>
-     <version>0.22.2</version>
+     <version>0.23.5</version>
       </dependency>
       <dependency>
          <groupId>org.micro-manager.ndviewer</groupId>

@@ -15,7 +15,10 @@ def read_versions(root):
             versions[artifactId] = Version(version)
     return versions
 
-git_repos_dir = Path(__file__).parent.parent 
+
+#git_repos_dir = Path(__file__).parent.parent 
+
+git_repos_dir = Path(__file__).parent.parent.parent
 
 # Read the copy of the pom on the dependencies branch
 f = str(git_repos_dir) + '/pycro-manager/java/pom.xml'
