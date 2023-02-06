@@ -214,7 +214,8 @@ class Acquisition(object, metaclass=NumpyDocstringInheritanceMeta):
         pre_hardware_hook_fn: callable=None,
         post_hardware_hook_fn: callable=None,
         post_camera_hook_fn: callable=None,
-        show_display: bool or str=True,
+        show_display: bool=True,
+        napari_viewer=None,
         image_saved_fn: callable=None,
         process: bool=False,
         saving_queue_size: int=20,
@@ -258,8 +259,12 @@ class Acquisition(object, metaclass=NumpyDocstringInheritanceMeta):
             startSequence. A common use case for this hook is when one want to send TTL triggers to the camera from an
             external timing device that synchronizes with other hardware. Accepts either one argument (the current
             acquisition event) or two arguments (current event, event_queue)
-        show_display : bool or str
-            If True, show the image viewer window. If False, show no viewer. If 'napari', show napari as the viewer
+        show_display : bool
+            If True, show the image viewer window. If False, show no viewer.
+        napari_viewer : napari.Viewer
+            Provide a napari viewer to display acquired data in napari (https://napari.org/) rather than the built-in
+            NDViewer. None by default. Data is added to the 'pycromanager preview' layer, which may be pre-configured by
+            the user
         image_saved_fn : Callable
             function that takes two arguments (the Axes of the image that just finished saving, and the Dataset)
             or three arguments (Axes, Dataset and the event_queue) and gets called whenever a new image is written to
@@ -288,6 +293,8 @@ class Acquisition(object, metaclass=NumpyDocstringInheritanceMeta):
         self._exception = None
         self._port = port
         self._timeout = timeout
+        self._nd_viewer = None
+        self._napari_viewer = None
 
         # Get a dict of all named argument values (or default values when nothing provided)
         arg_names = [k for k in signature(Acquisition.__init__).parameters.keys() if k != 'self']
@@ -317,10 +324,7 @@ class Acquisition(object, metaclass=NumpyDocstringInheritanceMeta):
         self._start_events()
 
         # Load remote storage
-
         data_sink = self._remote_acq.get_data_sink()
-        if show_display:
-            self._nd_viewer = self._remote_acq.get_viewer()
         if data_sink is not None:
             ndtiff_storage = data_sink.get_storage()
             self._remote_storage_monitor = JavaObject('org.micromanager.remote.RemoteStorageMonitor', port=self._port, args=(ndtiff_storage,))
@@ -343,15 +347,20 @@ class Acquisition(object, metaclass=NumpyDocstringInheritanceMeta):
                 self._storage_monitor_thread = self._dataset._add_storage_monitor_fn(
                     self, _storage_monitor_fn, callback_fn=None, debug=self._debug)
 
-
-        if show_display == 'napari':
-            try:
-                import napari
-            except:
-                raise Exception('Napari must be installed in order to use this feature')
-            from pycromanager.napari_util import start_napari_signalling
-            viewer = napari.Viewer()
-            start_napari_signalling(viewer, self.get_dataset())
+        if show_display:
+            if napari_viewer is None:
+                # using NDViewer
+                self._nd_viewer = self._remote_acq.get_viewer()
+            else:
+                # using napari viewer
+                try:
+                    import napari
+                except:
+                    raise Exception('Napari must be installed in order to use this feature')
+                from pycromanager.napari_util import start_napari_signalling
+                assert isinstance(napari_viewer, napari.Viewer), 'napari_viewer must be an instance of napari.Viewer'
+                self._napari_viewer = napari_viewer
+                start_napari_signalling(self._napari_viewer, self.get_dataset())
 
 
     ########  Public API ###########
@@ -442,10 +451,13 @@ class Acquisition(object, metaclass=NumpyDocstringInheritanceMeta):
 
     def get_viewer(self):
         """
-        Return a reference to the Java-side NDViewer, if the show_display argument
-        was set to True
+        Return a reference to the current viewer, if the show_display argument
+        was set to True. The returned object is either an instance of NDViewer or napari.Viewer()
         """
-        return self._nd_viewer
+        if self._napari_viewer is None:
+            return self._nd_viewer
+        else:
+            return self._napari_viewer
 
     ########  Context manager (i.e. "with Acquisition...") ###########
     def __enter__(self):
@@ -531,7 +543,9 @@ class Acquisition(object, metaclass=NumpyDocstringInheritanceMeta):
         core = Core(port=self._port, timeout=self._timeout, debug=self._debug)
         acq_factory = JavaObject("org.micromanager.remote.RemoteAcquisitionFactory",
             port=self._port, args=[core], debug=self._debug)
-        show_viewer = kwargs['show_display'] == True and (kwargs['directory'] is not None and kwargs['name'] is not None)
+        show_viewer = kwargs['show_display'] is True and\
+                      kwargs['napari_viewer'] is None and\
+                      (kwargs['directory'] is not None and kwargs['name'] is not None)
 
         self._remote_acq = acq_factory.create_acquisition(
             kwargs['directory'],
@@ -684,7 +698,9 @@ class XYTiledAcquisition(Acquisition):
             "org.micromanager.remote.RemoteAcquisitionFactory", port=self._port, args=[core]
         )
 
-        show_viewer = kwargs['show_display'] and (kwargs['directory'] is not None and kwargs['name'] is not None)
+        show_viewer = kwargs['show_display'] is True and\
+                      kwargs['napari_viewer'] is None and\
+                      (kwargs['directory'] is not None and kwargs['name'] is not None)
         if type(self.tile_overlap) is tuple:
             x_overlap, y_overlap = self.tile_overlap
         else:
