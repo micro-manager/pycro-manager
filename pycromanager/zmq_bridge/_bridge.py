@@ -12,6 +12,7 @@ from threading import Lock
 import threading
 import weakref
 import atexit
+import traceback
 
 
 class _DataSocket:
@@ -541,6 +542,8 @@ class _JavaObjectShadow:
         if bridge_to_use not in self._bridges:
             if self._debug:
                 print('DEBUG: added new bridge')
+                for line in traceback.format_stack():
+                    print(line.strip())
                 print(self._bridges)
                 print(bridge_to_use)
             bridge_to_use.__init__(port=self._port,
