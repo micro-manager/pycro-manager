@@ -243,9 +243,4 @@ jobs:
       run: |
         python setup.py sdist bdist_wheel
         twine upload dist/*
-        
-    - name: Create git tag
-      run: |
-        version=$(python -c "from pycromanager._version import __version__; print(__version__)")
-        git tag $version
-        git push origin $version
+
