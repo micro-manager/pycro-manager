@@ -399,6 +399,7 @@ class _Bridge:
     def __del__(self):
         if self._debug:
             print("DEBUG: desctructor for {} on port {}".format(str(self), self._port))
+            print("DEBUG:      running on thread {}".format(threading.current_thread().name))
 
 
 class _JavaClassFactory:
@@ -539,6 +540,9 @@ class _JavaObjectShadow:
         if this object is used from the calling thread again
         """
         bridge_to_use = _Bridge.__new__(_Bridge, port=self._port)
+        if self._debug:
+            # print the name of the current thread
+            print('DEBUG: getting bridge', threading.current_thread().name)
         if bridge_to_use not in self._bridges:
             if self._debug:
                 print('DEBUG: added new bridge')
@@ -561,6 +565,7 @@ class _JavaObjectShadow:
         """
         if self._debug:
             print('DEBUG: destructor for {}'.format(str(self)))
+            print('DEBUG:       thread name: {}'.format(threading.current_thread().name))
         self._close()
 
     def _access_field(self, name):
