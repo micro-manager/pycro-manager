@@ -16,4 +16,5 @@ import gc
 
 core = Core(debug=True)
 print(core)
+core = None
 pass
