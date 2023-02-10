@@ -1,7 +1,7 @@
 .. _viewers:
 
 **************************
-Live preview
+Image viewers
 **************************
 
 By default data acquired by ``pycromanager`` is displayed in the Java-based `NDViewer <https://github.com/micro-manager/NDViewer>`_. 

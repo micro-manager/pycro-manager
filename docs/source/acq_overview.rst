@@ -10,7 +10,7 @@ The :class:`Acquisition<pycromanager.Acquisition>` class is a powerful abstracti
 
    **Pycro-Manager's high-level programming interface.** The data acquisition process in Pycro-Manager starts with (blue) a source of acquisition events (from either a programming or GUI). These events are passed to (green) the acquisition engine, which optimizes them to take advantage of hardware triggering where available, sends instructions to hardware, and acquires images. (Magenta) The resulting images are then saved and displayed in the GUI. The three main abstractions of the Pycro-Manager high-level programming interface (acquisition events, acquisition hooks, and image processors) enable fine-grained control and customization of this process.
 
-An :class:`Acquisition<pycromanager.Acquisition>` can be run alongside the Micro-Manager GUI, or can be launched without it in :ref:`headless_mode`. ``pycromanager`` provides different options for :ref:`viewers` of acquired data. By turning off the default image viewer, the :class:`Acquisition<pycromanager.Acquisition>` class can be used as a data acquisition backend for custom applications.
+An :class:`Acquisition<pycromanager.Acquisition>` can be run alongside the Micro-Manager GUI, or can be launched without it in :ref:`headless_mode`. ``pycromanager`` provides different :ref:`viewers` of acquired data. By turning off the image viewer, the :class:`Acquisition<pycromanager.Acquisition>` class can be used as a data acquisition backend for custom applications.
 
 Several different :ref:`acq_events` are possible within the :class:`Acquisition<pycromanager.Acquisition>` class.
 

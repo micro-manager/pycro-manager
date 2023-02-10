@@ -21,9 +21,9 @@ def start_napari_signalling(viewer, dataset):
         """
         if image is not None:
             try:
-                viewer.layers['pycromanager preview'].data = image
+                viewer.layers['pycromanager acquisition'].data = image
             except KeyError:
-                viewer.add_image(image, name='pycromanager preview')
+                viewer.add_image(image, name='pycromanager acquisition')
 
 
     @thread_worker(connect={'yielded': update_layer})

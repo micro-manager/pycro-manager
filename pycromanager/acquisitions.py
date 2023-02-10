@@ -263,7 +263,7 @@ class Acquisition(object, metaclass=NumpyDocstringInheritanceMeta):
             If True, show the image viewer window. If False, show no viewer.
         napari_viewer : napari.Viewer
             Provide a napari viewer to display acquired data in napari (https://napari.org/) rather than the built-in
-            NDViewer. None by default. Data is added to the 'pycromanager preview' layer, which may be pre-configured by
+            NDViewer. None by default. Data is added to the 'pycromanager acquisition' layer, which may be pre-configured by
             the user
         image_saved_fn : Callable
             function that takes two arguments (the Axes of the image that just finished saving, and the Dataset)
