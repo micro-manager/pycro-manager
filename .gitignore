@@ -30,3 +30,5 @@ java/target
 *.swp
 #vs code
 .vscode/
+#OS files
+.DS_Store

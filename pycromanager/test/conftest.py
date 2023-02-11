@@ -32,17 +32,16 @@ def replace_jars(new_file_path, old_file_path, jar_names: list):
     for jar_name in jar_names:
         new_jar_name, new_jar_version = find_jar(new_file_path, jar_name)
         old_jar_name, old_jar_version = find_jar(old_file_path, jar_name)
-        if new_jar_name is None:
-            FileNotFoundError(f'{jar_name} not found in {new_file_path}')
 
-        # Only replace jar file if newly compiled file version is larger
-        if new_jar_version[0] > old_jar_version[0] or \
-                new_jar_version[1] > old_jar_version[1] or \
-                new_jar_version[2] > old_jar_version[2]:
+        if new_jar_name is not None:
+            # Only replace jar file if newly compiled file version is larger
+            if new_jar_version[0] > old_jar_version[0] or \
+                    new_jar_version[1] > old_jar_version[1] or \
+                    new_jar_version[2] > old_jar_version[2]:
 
-            print(f'Replacing {old_jar_name} in {old_file_path} with {new_jar_name}.')
-            os.remove(os.path.join(old_file_path, old_jar_name))
-            shutil.copy2(os.path.join(new_file_path, new_jar_name), os.path.join(old_file_path, old_jar_name))
+                print(f'Replacing {old_jar_name} in {old_file_path} with {new_jar_name}.')
+                os.remove(os.path.join(old_file_path, old_jar_name))
+                shutil.copy2(os.path.join(new_file_path, new_jar_name), os.path.join(old_file_path, old_jar_name))
 
 
 @pytest.fixture(scope="session")
@@ -79,11 +78,16 @@ def install_mm(download_mm_nightly):
         print(f'Existing Micro-manager installation found at {mm_install_dir}')
     else:
         # Install Micro-manager nightly build. Currently only supported on Windows platforms
+        # To run tests on other platform, please place a working Micro-manager installation in "~/Micro-Manager-nightly"
         if sys.platform.startswith('win'):
             mm_installer = download_mm_nightly
             mm_install_log_path = os.path.join(os.path.dirname(mm_installer), "mm_install.log")
         else:
-            raise RuntimeError('Micro-manager nightly build installation is currently only supported on Windows platforms.')
+            raise RuntimeError(
+                '''Micro-manager nightly build installation is currently only supported on Windows platforms. 
+            To run tests on other platform, please place a working Micro-manager installation in 
+            "~/Micro-Manager-nightly"'''
+            )
         
         os.mkdir(mm_install_dir)
         
@@ -105,17 +109,15 @@ def install_mm(download_mm_nightly):
         if os.path.isdir(os.path.join(java_path, 'target')):
             replace_jars(os.path.join(java_path, 'target'), os.path.join(mm_install_dir, 'plugins', 'Micro-Manager'),
                  ['PycroManagerJava'])
+        # Copy dependency jar files if present in target/dependency
         if os.path.isdir(os.path.join(java_path, 'target/dependency')):
             replace_jars(os.path.join(java_path, 'target/dependency'), os.path.join(mm_install_dir, 'plugins', 'Micro-Manager'),
                  ['AcqEngJ', 'NDTiffStorage', 'NDViewer'])
-
-        # temp
-        # os.remove(os.path.join(mm_install_dir, 'mmgr_dal_DemoCamera.dll'))
-        # os.remove(os.path.join(mm_install_dir, 'MMConfig_demo.cfg'))
-        # shutil.copy2(r'C:\Users\Cameron\micromanager_build\mmCoreAndDevices\build\Release\x64\mmgr_dal_DemoCamera.dll',
-        #              os.path.join(mm_install_dir, 'mmgr_dal_DemoCamera.dll'))
-        # shutil.copy2(r'C:\Users\Cameron\micromanager_build\micro-manager\bindist\any-platform\MMConfig_demo.cfg',
-        #              os.path.join(mm_install_dir, 'MMConfig_demo.cfg'))
+        # Copy dependency jar files if present in ../../REPO_NAME/target
+        for repo_name in ['AcqEngJ', 'NDTiffStorage', 'NDViewer']:
+            if os.path.isdir(os.path.join(java_path, f'../../{repo_name}/target')):
+                replace_jars(os.path.join(java_path, f'../../{repo_name}/target'),
+                             os.path.join(mm_install_dir, 'plugins', 'Micro-Manager'), [repo_name])
 
     yield mm_install_dir
 

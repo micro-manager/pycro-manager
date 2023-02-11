@@ -2,7 +2,7 @@
   :width: 600
   :alt: Alternative text
 
-``pycromanager`` is a multi-purpose python package for the control of microscope hardware and the acquisition of data. It is designed for perfomance and flexibility to be used in a variety of applications. It can be used in parallel with the Micro-Manager desktop application to expand its capabilities, independently of the main Micro-Manager GUI directly from python, with other user interfaces like `Napari <https://napari.org/>`_, or as a backend to custom applications that work on a single machine or across a network.
+``pycromanager`` is a multi-purpose python package for the control of microscope hardware and the acquisition of data. It is designed for performance and flexibility to be used in a variety of applications. It can be used in parallel with the Micro-Manager desktop application to expand its capabilities, independently of the main Micro-Manager GUI directly from python, with other user interfaces like `napari <https://napari.org/>`_, or as a backend to custom applications that work on a single machine or across a network.
 
 Information on the original motivations for Pycro-Manager can be found in the `publication <https://rdcu.be/cghwk>`_, though its capabilities have since expanded. 
 
