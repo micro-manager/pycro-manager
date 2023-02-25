@@ -350,7 +350,8 @@ class Acquisition(object, metaclass=NumpyDocstringInheritanceMeta):
         if show_display:
             if napari_viewer is None:
                 # using NDViewer
-                self._nd_viewer = self._remote_acq.get_viewer()
+                if not hasattr(self, '_nd_viewer'): # magellan acquisitions grab this themself
+                    self._nd_viewer = self._remote_acq.get_viewer()
             else:
                 # using napari viewer
                 try:
@@ -767,15 +768,15 @@ class MagellanAcquisition(Acquisition):
         pass # Magellan handles this on Java side
 
     def _create_remote_acquisition(self, **kwargs):
+        magellan_api = Magellan()
         if self.magellan_acq_index is not None:
-            #TODO: magellan acquisitions may miss images written
-            magellan_api = Magellan()
-            self._remote_acq = magellan_api.create_acquisition(self.magellan_acq_index, False).get_acquisition()
-            self._event_queue = None
+            #TODO: magellan acquisitions may miss images written?
+            magellan_acq = magellan_api.create_acquisition(self.magellan_acq_index, False)
         elif self.magellan_explore:
-            magellan_api = Magellan()
-            self._remote_acq = magellan_api.create_explore_acquisition(False).get_acquisition()
-            self._event_queue = None
+            magellan_acq = magellan_api.create_explore_acquisition(False)
+        self._nd_viewer = magellan_acq.get_viewer()
+        self._remote_acq = magellan_acq.get_acquisition()
+        self._event_queue = None
 
 def _validate_acq_events(events: dict or list):
     """
