@@ -215,8 +215,7 @@ class _Bridge:
     _EXPECTED_ZMQ_SERVER_VERSION = "4.2.0"
 
     _bridge_creation_lock = threading.Lock()
-    local = threading.local()
-    local.cached_bridges_by_port = {}
+    _cached_bridges_by_port_and_thread = {}
 
 
     def __new__(cls, port: int=DEFAULT_PORT, timeout: int=DEFAULT_TIMEOUT, convert_camel_case: bool=True,
@@ -226,16 +225,29 @@ class _Bridge:
         """
         # synchronize this method so multiple threads don't try to create a bridge at the same time
         with _Bridge._bridge_creation_lock:
+            thread_id = threading.current_thread().ident
+            port_thread_id = (port, thread_id)
+
             # return the existing cached bridge if it exists, otherwise make a new one
-            if port in _Bridge.local.cached_bridges_by_port:
-                bridge = _Bridge.local.cached_bridges_by_port[port]()
+            if port_thread_id in _Bridge._cached_bridges_by_port_and_thread.keys():
+                bridge = _Bridge._cached_bridges_by_port_and_thread[port_thread_id]()
                 if bridge is None:
                     raise Exception("Bridge for port {} and thread {} has been "
                                     "closed but not removed".format(port, threading.current_thread().name))
                 if debug:
                     print("DEBUG: returning cached bridge for port {} thread {}".format(
                         port, threading.current_thread().name))
-                return bridge
+                return bridge           
+
+            # if port in _Bridge.local.cached_bridges_by_port:
+            #     bridge = _Bridge.local.cached_bridges_by_port[port]()
+            #     if bridge is None:
+            #         raise Exception("Bridge for port {} and thread {} has been "
+            #                         "closed but not removed".format(port, threading.current_thread().name))
+            #     if debug:
+            #         print("DEBUG: returning cached bridge for port {} thread {}".format(
+            #             port, threading.current_thread().name))
+            #     return bridge
             else:
                 if debug:
                     print("DEBUG: creating new beidge for port {} thread {}".format(
@@ -261,12 +273,20 @@ class _Bridge:
         iterate : bool
             If True, ListArray will be iterated and give lists
         """
-        if port in _Bridge.local.cached_bridges_by_port:
-            return # already initialized
-        # store weak refs so that the existence of thread/port bridge caching doesn't prevent
-        # the garbage collection of unused bridge objects
-        self._weak_self_ref = weakref.ref(self)
-        _Bridge.local.cached_bridges_by_port[port] = self._weak_self_ref
+        with _Bridge._bridge_creation_lock:
+            thread_id = threading.current_thread().ident
+            port_thread_id = (port, thread_id)
+            if port_thread_id in _Bridge._cached_bridges_by_port_and_thread.keys():
+                return # already initialized
+            # if port in _Bridge.local.cached_bridges_by_port:
+            #     return # already initialized
+
+            # store weak refs so that the existence of thread/port bridge caching doesn't prevent
+            # the garbage collection of unused bridge objects
+            self._weak_self_ref = weakref.ref(self)
+            # _Bridge.local.cached_bridges_by_port[port] = self._weak_self_ref
+            _Bridge._cached_bridges_by_port_and_thread[port_thread_id] = self._weak_self_ref 
+
         self._ip_address = ip_address
         self.port = port
         self._convert_camel_case = convert_camel_case
@@ -295,6 +315,22 @@ class _Bridge:
                     reply_json["version"], self._EXPECTED_ZMQ_SERVER_VERSION
                 )
             )
+
+
+    def __del__(self):
+        with _Bridge._bridge_creation_lock:
+            thread_id = threading.current_thread().ident
+            port_thread_id = (self.port, thread_id)
+            del _Bridge._cached_bridges_by_port_and_thread[port_thread_id]
+
+
+            # del _Bridge.local.cached_bridges_by_port[self.port]
+            if self._debug:
+                print("DEBUG: BRIDGE DESCTRUCTOR for {} on port {} thread {}".format(
+                    str(self), self.port, threading.current_thread().name))
+                print("DEBUG:      running on thread {}".format(threading.current_thread().name))
+
+
 
     def _send(self, message, timeout=None):
         """
@@ -408,14 +444,6 @@ class _Bridge:
         return self._class_factory.create(
             serialized_object, convert_camel_case=self._convert_camel_case
         )(serialized_object=serialized_object, bridge=bridge)
-
-    def __del__(self):
-        with _Bridge._bridge_creation_lock:
-            del _Bridge.local.cached_bridges_by_port[self.port]
-            if self._debug:
-                print("DEBUG: BRIDGE DESCTRUCTOR for {} on port {} thread {}".format(
-                    str(self), self.port, threading.current_thread().name))
-                print("DEBUG:      running on thread {}".format(threading.current_thread().name))
 
 
 class _JavaClassFactory:
