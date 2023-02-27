@@ -15,9 +15,9 @@ import org.micromanager.ndtiffstorage.NDTiffStorage;
 import org.micromanager.ndtiffstorage.MultiresNDTiffAPI;
 import org.micromanager.ndtiffstorage.NDTiffAPI;
 import org.micromanager.ndviewer.api.DataSourceInterface;
-import org.micromanager.ndviewer.api.ViewerInterface;
+import org.micromanager.ndviewer.api.NDViewerAPI;
 import org.micromanager.ndviewer.main.NDViewer;
-import org.micromanager.ndviewer.api.ViewerAcquisitionInterface;
+import org.micromanager.ndviewer.api.NDViewerAcqInterface;
 
 /**
  * The class is the glue needed in order for Acquisition engine, viewer, and data storage
@@ -32,7 +32,7 @@ class RemoteViewerStorageAdapter implements DataSourceInterface, DataSink {
 
    private ExecutorService displayCommunicationExecutor_;
 
-   private volatile ViewerInterface viewer_;
+   private volatile NDViewerAPI viewer_;
    private volatile Acquisition acq_;
    private volatile MultiresNDTiffAPI storage_;
    private final boolean showViewer_, storeData_, xyTiled_;
@@ -95,7 +95,7 @@ class RemoteViewerStorageAdapter implements DataSourceInterface, DataSink {
       }
    }
 
-   public ViewerInterface getViewer() {
+   public NDViewerAPI getViewer() {
       return viewer_;
    }
 
@@ -108,7 +108,7 @@ class RemoteViewerStorageAdapter implements DataSourceInterface, DataSink {
       displayCommunicationExecutor_ = Executors.newSingleThreadExecutor((Runnable r)
               -> new Thread(r, "Image viewer communication thread"));
 
-      viewer_ = new NDViewer(this, (ViewerAcquisitionInterface) acq_,
+      viewer_ = new NDViewer(this, (NDViewerAcqInterface) acq_,
               summaryMetadata, AcqEngMetadata.getPixelSizeUm(summaryMetadata), AcqEngMetadata.isRGB(summaryMetadata));
 
       viewer_.setWindowTitle(name_ + (acq_ != null
