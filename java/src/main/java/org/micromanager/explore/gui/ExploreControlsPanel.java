@@ -1,13 +1,17 @@
 package org.micromanager.explore.gui;
 
-import javax.swing.DefaultCellEditor;
-import javax.swing.JTextField;
-import javax.swing.SwingConstants;
+import javax.swing.*;
 import javax.swing.table.DefaultTableCellRenderer;
 
-import org.micromanager.explore.ExploreOverlayer;
-import org.micromanager.explore.XYTiledAcqViewerStorageAdapater;
+import net.miginfocom.swing.MigLayout;
+import org.micromanager.explore.ChannelGroupSettings;
+import org.micromanager.acqj.internal.ZAxis;
+import org.micromanager.explore.ExploreAcquisition;
 import org.micromanager.ndviewer.api.ControlsPanelInterface;
+import org.micromanager.ndviewer.api.OverlayerPlugin;
+
+import java.awt.*;
+import java.util.HashMap;
 
 /**
  *
@@ -15,20 +19,25 @@ import org.micromanager.ndviewer.api.ControlsPanelInterface;
  */
 public class ExploreControlsPanel extends javax.swing.JPanel implements ControlsPanelInterface {
 
-   private ChannelGroupSettings channels_; 
-   private XYTiledAcqViewerStorageAdapater manager_;
-   private ExploreZSliders zSliders_;
-   private ExploreOverlayer overlayer_;
+   private ChannelGroupSettings channels_;
+   private ExploreAcquisition acquisition_;
+   private HashMap<String, ExploreZSliders> zSlidersList_ = new HashMap<>();
+   private OverlayerPlugin overlayer_;
 
    /**
     * Creates new form ExploreChannelsPanel.
     */
-   public ExploreControlsPanel(XYTiledAcqViewerStorageAdapater manager, ExploreOverlayer overlayer,
-                               ChannelGroupSettings channels) {
+   public ExploreControlsPanel(ExploreAcquisition acquisition, OverlayerPlugin overlayer,
+                               ChannelGroupSettings channels, HashMap<String, ZAxis> zAxes) {
       channels_ = channels;
       overlayer_ = overlayer;
-      manager_ = manager;
-      zSliders_ = new ExploreZSliders(manager);
+      try {
+         for (String name : zAxes.keySet()) {
+            zSlidersList_.put(name, new ExploreZSliders(acquisition, zAxes.get(name)));
+         }
+      } catch (Exception e) {
+         throw new RuntimeException(e);
+      }
       initComponents();
 
 
@@ -43,24 +52,29 @@ public class ExploreControlsPanel extends javax.swing.JPanel implements Controls
       channelsTable_.getColumnModel().getColumn(2).setCellRenderer(renderer);
       channelsTable_.getColumnModel().getColumn(0).setMaxWidth(30); //Acitve checkbox column
       if (channels_ == null) {
-         jScrollPane2.setVisible(false);
+         channelsScrollPane_.setVisible(false);
          selectUseAllButton_.setVisible(false);
          syncExposuresButton_.setVisible(false);
       }
    }
    
-   public void updateControls(Integer zIndex) {
-      zSliders_.updateExploreZControls(zIndex);
+   public void updateGUIToReflectHardwareZPosition(String name, Integer zIndex) {
+      // iterate through zsliders and update the one with the given name
+      for (String slidersName : zSlidersList_.keySet()) {
+         if (slidersName.equals(name)) {
+            zSlidersList_.get(name).updateZDrivelocation(zIndex);
+         }
+      }
    }
 
    @Override
    public void selected() {
-      overlayer_.setActive(true);
+//      overlayer_.setActive(true);
    }
-   
+
    @Override
    public void deselected() {
-      overlayer_.setActive(false);
+//      overlayer_.setActive(false);
    }
 
    @Override
@@ -70,10 +84,12 @@ public class ExploreControlsPanel extends javax.swing.JPanel implements Controls
 
    @Override
    public void close() {
-      manager_ = null;
+      acquisition_ = null;
       channelsTable_ = null;
-      zSliders_.onDisplayClose();
-      zSliders_ = null;
+      for (ExploreZSliders zSliders : zSlidersList_.values()) {
+         zSliders.onDisplayClose();
+      }
+      zSlidersList_ = null;
    }
 
 
@@ -87,19 +103,12 @@ public class ExploreControlsPanel extends javax.swing.JPanel implements Controls
    // <editor-fold defaultstate="collapsed" desc="Generated Code">//GEN-BEGIN:initComponents
    private void initComponents() {
 
-      zPanelPanel_ = new javax.swing.JPanel();
-      zPanelPanel_.add(zSliders_);
-      jPanel2 = new javax.swing.JPanel();
-      jPanel1 = new javax.swing.JPanel();
       acquireAtCurrentButton_ = new javax.swing.JButton();
       selectUseAllButton_ = new javax.swing.JButton();
       syncExposuresButton_ = new javax.swing.JButton();
-      jScrollPane2 = new javax.swing.JScrollPane();
+      channelsScrollPane_ = new javax.swing.JScrollPane();
       channelsTable_ = new javax.swing.JTable();
 
-      zPanelPanel_.setLayout(new java.awt.FlowLayout(java.awt.FlowLayout.LEFT, 0, 0));
-
-      jPanel1.setLayout(new java.awt.FlowLayout(java.awt.FlowLayout.LEFT));
 
       acquireAtCurrentButton_.setText("Acquire at current position");
       acquireAtCurrentButton_.addActionListener(new java.awt.event.ActionListener() {
@@ -107,7 +116,6 @@ public class ExploreControlsPanel extends javax.swing.JPanel implements Controls
             acquireAtCurrentButtonActionPerformed(evt);
          }
       });
-      jPanel1.add(acquireAtCurrentButton_);
 
       selectUseAllButton_.setText("Select all");
       selectUseAllButton_.addActionListener(new java.awt.event.ActionListener() {
@@ -115,7 +123,6 @@ public class ExploreControlsPanel extends javax.swing.JPanel implements Controls
             selectUseAllButtonActionPerformed(evt);
          }
       });
-      jPanel1.add(selectUseAllButton_);
 
       syncExposuresButton_.setText("Sync exposures");
       syncExposuresButton_.addActionListener(new java.awt.event.ActionListener() {
@@ -123,51 +130,34 @@ public class ExploreControlsPanel extends javax.swing.JPanel implements Controls
             syncExposuresButtonActionPerformed(evt);
          }
       });
-      jPanel1.add(syncExposuresButton_);
+
 
       channelsTable_.setModel(new SimpleChannelTableModel(channels_));
-      jScrollPane2.setViewportView(channelsTable_);
+      channelsScrollPane_.setViewportView(channelsTable_);
 
-      javax.swing.GroupLayout jPanel2Layout = new javax.swing.GroupLayout(jPanel2);
-      jPanel2.setLayout(jPanel2Layout);
-      jPanel2Layout.setHorizontalGroup(
-            jPanel2Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-            .addGroup(jPanel2Layout.createSequentialGroup()
-            .addContainerGap()
-            .addComponent(jPanel1, javax.swing.GroupLayout.PREFERRED_SIZE,
-                  javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
-            .addContainerGap(javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
-            .addComponent(jScrollPane2, javax.swing.GroupLayout.Alignment.TRAILING)
-      );
-      jPanel2Layout.setVerticalGroup(
-            jPanel2Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-            .addGroup(jPanel2Layout.createSequentialGroup()
-            .addComponent(jPanel1, javax.swing.GroupLayout.PREFERRED_SIZE,
-                  javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
-            .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-            .addComponent(jScrollPane2, javax.swing.GroupLayout.DEFAULT_SIZE,
-                  298, Short.MAX_VALUE))
-      );
 
-      javax.swing.GroupLayout layout = new javax.swing.GroupLayout(this);
-      this.setLayout(layout);
-      layout.setHorizontalGroup(
-            layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-            .addComponent(zPanelPanel_, javax.swing.GroupLayout.DEFAULT_SIZE,
-                  javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
-            .addComponent(jPanel2, javax.swing.GroupLayout.DEFAULT_SIZE,
-                  javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
-      );
-      layout.setVerticalGroup(
-            layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-            .addGroup(layout.createSequentialGroup()
-            .addComponent(zPanelPanel_, javax.swing.GroupLayout.PREFERRED_SIZE,
-                  javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
-            .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-            .addComponent(jPanel2, javax.swing.GroupLayout.DEFAULT_SIZE,
-                  javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
-      );
-   } // </editor-fold>//GEN-END:initComponents
+      this.setLayout(new MigLayout());
+      setMaximumSize(new Dimension(getPreferredSize().width, getPreferredSize().height));
+
+      this.add(acquireAtCurrentButton_, "wrap");
+
+      JPanel sliderPanel = new JPanel(new MigLayout());
+      for (ExploreZSliders zSliders : zSlidersList_.values()) {
+         sliderPanel.add(zSliders, "grow, wrap");
+      }
+
+      this.add(sliderPanel, "growx, wrap");
+      sliderPanel.setPreferredSize(new Dimension(650,
+              sliderPanel.getPreferredSize().height));
+
+      JPanel buttonPanel = new JPanel(new FlowLayout());
+      buttonPanel.add(selectUseAllButton_);
+      buttonPanel.add(syncExposuresButton_);
+      this.add(buttonPanel, "wrap");
+      this.add(channelsScrollPane_, "growx" );
+
+
+   }
 
    private void syncExposuresButtonActionPerformed(java.awt.event.ActionEvent evt) {
       ((SimpleChannelTableModel) channelsTable_.getModel()).synchronizeExposures();
@@ -180,7 +170,11 @@ public class ExploreControlsPanel extends javax.swing.JPanel implements Controls
    } //GEN-LAST:event_selectUseAllButton_ActionPerformed
 
    private void acquireAtCurrentButtonActionPerformed(java.awt.event.ActionEvent evt) {
-      manager_.acquireTileAtCurrentPosition();
+      try {
+         acquisition_.acquireTileAtCurrentLocation();
+      } catch (Exception e) {
+         JOptionPane.showMessageDialog(this, e.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);
+      }
    } //GEN-LAST:event_acquireAtCurrentButton_ActionPerformed
 
 
@@ -188,8 +182,7 @@ public class ExploreControlsPanel extends javax.swing.JPanel implements Controls
    private javax.swing.JButton acquireAtCurrentButton_;
    private javax.swing.JTable channelsTable_;
    private javax.swing.JPanel jPanel1;
-   private javax.swing.JPanel jPanel2;
-   private javax.swing.JScrollPane jScrollPane2;
+   private javax.swing.JScrollPane channelsScrollPane_;
    private javax.swing.JButton selectUseAllButton_;
    private javax.swing.JButton syncExposuresButton_;
    private javax.swing.JPanel zPanelPanel_;

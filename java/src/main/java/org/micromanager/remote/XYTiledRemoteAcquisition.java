@@ -7,11 +7,13 @@ package org.micromanager.remote;
 
 import org.micromanager.acqj.api.AcquisitionAPI;
 import org.micromanager.acqj.main.XYTiledAcquisition;
+import org.micromanager.acqj.util.xytiling.CameraTilingStageTranslator;
 import org.micromanager.ndtiffstorage.NDTiffAPI;
 import org.micromanager.ndviewer.api.NDViewerAPI;
 import org.micromanager.ndviewer.api.NDViewerAcqInterface;
 
 /**
+ * XYTiled acquisition that accepts events froma  remote source
  * Class that serves as the java counterpart to a python acquisition
  *
  *
@@ -64,4 +66,8 @@ public class XYTiledRemoteAcquisition extends XYTiledAcquisition
       return eventSource_.isFinished();
    }
 
+   @Override
+   public CameraTilingStageTranslator getPixelStageTranslator() {
+      return pixelStageTranslator_;
+   }
 }

@@ -1,4 +1,4 @@
-package org.micromanager.explore.gui;
+package org.micromanager.explore;
 
 import java.awt.Color;
 import java.util.ArrayList;

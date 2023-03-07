@@ -8,13 +8,13 @@ import java.util.function.Consumer;
 import mmcorej.TaggedImage;
 import mmcorej.org.json.JSONObject;
 import org.micromanager.acqj.main.AcqEngMetadata;
-import org.micromanager.acqj.api.DataSink;
+import org.micromanager.acqj.api.AcqEngJDataSink;
 import org.micromanager.acqj.main.Acquisition;
 import org.micromanager.acqj.internal.Engine;
 import org.micromanager.ndtiffstorage.NDTiffStorage;
 import org.micromanager.ndtiffstorage.MultiresNDTiffAPI;
 import org.micromanager.ndtiffstorage.NDTiffAPI;
-import org.micromanager.ndviewer.api.DataSourceInterface;
+import org.micromanager.ndviewer.api.NDViewerDataSource;
 import org.micromanager.ndviewer.api.NDViewerAPI;
 import org.micromanager.ndviewer.main.NDViewer;
 import org.micromanager.ndviewer.api.NDViewerAcqInterface;
@@ -22,13 +22,13 @@ import org.micromanager.ndviewer.api.NDViewerAcqInterface;
 /**
  * The class is the glue needed in order for Acquisition engine, viewer, and data storage
  * to be able to be used together, since they are independent libraries that do not know about one
- * another. It implements the Acquisition engine API for a {@link DataSink} interface, dispatching acquired images
- * to viewer and storage as appropriate. It implements viewers {@link DataSourceInterface} interface, so
+ * another. It implements the Acquisition engine API for a {@link AcqEngJDataSink} interface, dispatching acquired images
+ * to viewer and storage as appropriate. It implements viewers {@link NDViewerDataSource} interface, so
  * that images in storage can be passed to the viewer to display.
  *
  * @author henrypinkard
  */
-class RemoteViewerStorageAdapter implements DataSourceInterface, DataSink {
+class RemoteViewerStorageAdapter implements NDViewerDataSource, AcqEngJDataSink {
 
    private ExecutorService displayCommunicationExecutor_;
 
@@ -123,6 +123,8 @@ class RemoteViewerStorageAdapter implements DataSourceInterface, DataSink {
       final Future added;
       if (xyTiled_) {
          // Convert event row/col to image row/col
+         // TODO: Maybe this should come via the event in the image metadata rather than
+         // seperate tags?
          axes.put(AcqEngMetadata.AXES_GRID_COL , AcqEngMetadata.getGridCol(taggedImg.tags));
          axes.put(AcqEngMetadata.AXES_GRID_ROW , AcqEngMetadata.getGridRow(taggedImg.tags));
 
@@ -148,9 +150,10 @@ class RemoteViewerStorageAdapter implements DataSourceInterface, DataSink {
             public void run() {
                try {
                   if (added != null) {
-                     // Needed to make sure multi res data at higher resolutions kept up to date
-                     // I think because lower resolutions aren't stored temporarily
-                     // This could potentially be changed in the storage class
+                     // This is needed to make sure multi res data at higher
+                     // resolutions kept up to date I think because lower resolutions
+                     // aren't stored temporarily. This could potentially be
+                     // changed in the storage class
                      added.get();
                   }
                } catch (Exception e) {
@@ -241,10 +244,6 @@ class RemoteViewerStorageAdapter implements DataSourceInterface, DataSink {
    @Override
    public boolean anythingAcquired() {
       return acq_.anythingAcquired();
-   }
-
-   boolean isXYTiled() {
-      return xyTiled_;
    }
 
    int getOverlapX() {

@@ -7,7 +7,7 @@ import threading
 from inspect import signature
 import time
 from pycromanager.zmq_bridge._bridge import deserialize_array
-from pycromanager.zmq_bridge.wrappers import PullSocket, PushSocket, JavaObject
+from pycromanager.zmq_bridge.wrappers import PullSocket, PushSocket, JavaObject, JavaClass
 from pycromanager.zmq_bridge.wrappers import DEFAULT_BRIDGE_PORT as DEFAULT_PORT
 from pycromanager.mm_java_classes import Core, Magellan
 from ndtiff import Dataset
@@ -350,8 +350,7 @@ class Acquisition(object, metaclass=NumpyDocstringInheritanceMeta):
         if show_display:
             if napari_viewer is None:
                 # using NDViewer
-                if not hasattr(self, '_nd_viewer'): # magellan acquisitions grab this themself
-                    self._nd_viewer = self._remote_acq.get_viewer()
+                self._nd_viewer = self._remote_acq.get_viewer()
             else:
                 # using napari viewer
                 try:
@@ -500,7 +499,10 @@ class Acquisition(object, metaclass=NumpyDocstringInheritanceMeta):
             )
             self._remote_acq.add_image_processor(java_processor)
             self._processor_thread = self._start_processor(
-                java_processor, kwargs['image_process_fn'], self._event_queue, process=kwargs['process'])
+                java_processor, kwargs['image_process_fn'],
+                # Some acquisitions (e.g. Explore acquisitions) create events on Java side
+                self._event_queue if hasattr(self, '_event_queue') else None,
+                process=kwargs['process'])
 
 
     def _initialize_hooks(self, **kwargs):
@@ -719,6 +721,76 @@ class XYTiledAcquisition(Acquisition):
             kwargs['saving_queue_size'],
             kwargs['core_log_debug'],
         )
+
+class ExploreAcquisition(Acquisition):
+    """
+    Launches a user interface for an "Explore Acquisition"--a type of XYTiledAcquisition
+    in which acquisition events come from the user dynamically driving the stage and selecting
+    areas to image
+    """
+
+    def __init__(
+            self,
+            directory: str,
+            name: str,
+            z_step_um: float,
+            tile_overlap: int or tuple,
+            channel_group: str = None,
+            image_process_fn: callable=None,
+            pre_hardware_hook_fn: callable=None,
+            post_hardware_hook_fn: callable=None,
+            post_camera_hook_fn: callable=None,
+            show_display: bool=True,
+            image_saved_fn: callable=None,
+            process: bool=False,
+            saving_queue_size: int=20,
+            timeout: int=500,
+            port: int=DEFAULT_PORT,
+            debug: bool=False,
+            core_log_debug: bool=False,
+    ):
+        """
+        Parameters
+        ----------
+         z_step_um : str
+            spacing between successive z planes, in microns
+         tile_overlap : int or tuple of int
+            If given, XY tiles will be laid out in a grid and multi-resolution saving will be
+            actived. Argument can be a two element tuple describing the pixel overlaps between adjacent
+            tiles. i.e. (pixel_overlap_x, pixel_overlap_y), or an integer to use the same overlap for both.
+            For these features to work, the current hardware configuration must have a valid affine transform
+            between camera coordinates and XY stage coordinates
+        channel_group : str
+            Name of a config group that provides selectable channels
+        """
+        self.tile_overlap = tile_overlap
+        self.channel_group = channel_group
+        self.z_step_um = z_step_um
+        # Collct all argument values except the ones specific to ExploreAcquisitions
+        arg_names = list(signature(self.__init__).parameters.keys())
+        arg_names.remove('tile_overlap')
+        arg_names.remove('z_step_um')
+        arg_names.remove('channel_group')
+        l = locals()
+        named_args = {arg_name: l[arg_name] for arg_name in arg_names}
+        super().__init__(**named_args)
+
+    def _create_remote_acquisition(self, port, **kwargs):
+        if type(self.tile_overlap) is tuple:
+            x_overlap, y_overlap = self.tile_overlap
+        else:
+            x_overlap = self.tile_overlap
+            y_overlap = self.tile_overlap
+
+        ui_class = JavaClass('org.micromanager.explore.ExploreAcqUIAndStorage')
+        ui = ui_class.create(kwargs['directory'], kwargs['name'], x_overlap, y_overlap, self.z_step_um, self.channel_group)
+        self._remote_acq = ui.get_acquisition()
+
+    def _start_events(self, **kwargs):
+        pass # These come from the user
+
+    def _create_event_queue(self, **kwargs):
+        pass # Comes from the user
 
 
 class MagellanAcquisition(Acquisition):

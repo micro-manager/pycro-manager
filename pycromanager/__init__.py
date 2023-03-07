@@ -1,6 +1,6 @@
 name = "pycromanager"
 
-from pycromanager.acquisitions import Acquisition, MagellanAcquisition, XYTiledAcquisition
+from pycromanager.acquisitions import Acquisition, MagellanAcquisition, XYTiledAcquisition, ExploreAcquisition
 from pycromanager.acq_util import start_headless, multi_d_acquisition_events
 from ndtiff import Dataset
 from pycromanager.mm_java_classes import Studio, Magellan, Core

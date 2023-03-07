@@ -15,9 +15,14 @@
 //               INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES.
 //
 
-package org.micromanager.explore;
+package org.micromanager.explore.gui;
 
-import org.micromanager.explore.gui.ExploreMouseListener;
+import org.micromanager.acqj.main.AcqEngMetadata;
+import org.micromanager.acqj.main.XYTiledAcquisition;
+import org.micromanager.acqj.util.xytiling.CameraTilingStageTranslator;
+import org.micromanager.explore.ExploreAcquisition;
+import org.micromanager.explore.ExploreAcqUIAndStorage;
+import org.micromanager.ndviewer.api.NDViewerAPI;
 import org.micromanager.ndviewer.api.OverlayerPlugin;
 import org.micromanager.ndviewer.overlay.Overlay;
 import org.micromanager.ndviewer.overlay.Roi;
@@ -37,17 +42,20 @@ public class ExploreOverlayer implements OverlayerPlugin {
    private static final Color TRANSPARENT_GREEN = new Color(0, 255, 0, 100);
    private static final Color TRANSPARENT_MAGENTA = new Color(255, 0, 255, 100);
 
-   private XYTiledAcqViewerStorageAdapater viewerStorageAdapter_;
-   private ExploreMouseListener mouseListener_;
+   private ExploreMouseListenerAPI mouseListener_;
    private boolean active_ = true;
+   private CameraTilingStageTranslator pixelStageTranslator_;
+   private NDViewerAPI viewer_;
+   private XYTiledAcquisition acq_;
 
-   public ExploreOverlayer(XYTiledAcqViewerStorageAdapater adapater, ExploreMouseListener mouseListener) {
-      viewerStorageAdapter_ = adapater;
+   public ExploreOverlayer(NDViewerAPI viewer,
+                           ExploreMouseListenerAPI mouseListener,
+                           XYTiledAcquisition acq) {
       mouseListener_ = mouseListener;
-
+      pixelStageTranslator_ = acq.getPixelStageTranslator();
+      viewer_ = viewer;
+      acq_ = acq;
    }
-
-
 
    public void setActive(boolean b) {
       active_ = b;
@@ -62,6 +70,7 @@ public class ExploreOverlayer implements OverlayerPlugin {
          Overlay easyOverlay = new Overlay();
          //Create a simple overlay and send it to EDT for display
          addExploreToOverlay(easyOverlay, magnification, g, displayImageSize);
+         viewer_.setOverlay(easyOverlay);
       }
    }
 
@@ -87,9 +96,14 @@ public class ExploreOverlayer implements OverlayerPlugin {
       } else if (mouseListener_.getMouseDragStartPointLeft() != null) {
          //highlight multiple tiles when mouse dragging    
          Point dragStart = mouseListener_.getMouseDragStartPointLeft();
-         Point p2Tiles = viewerStorageAdapter_.getTileIndicesFromDisplayedPixel(currentMouseLocation.x,
-               currentMouseLocation.y);
-         Point p1Tiles = viewerStorageAdapter_.getTileIndicesFromDisplayedPixel(dragStart.x, dragStart.y);
+         Point p2Tiles = pixelStageTranslator_.getTileIndicesFromDisplayedPixel(
+                 viewer_.getMagnification(),
+                 currentMouseLocation.x, currentMouseLocation.y,
+                  viewer_.getViewOffset().x, viewer_.getViewOffset().y);
+         Point p1Tiles = pixelStageTranslator_.getTileIndicesFromDisplayedPixel(
+                 viewer_.getMagnification(),
+                 dragStart.x, dragStart.y,
+                 viewer_.getViewOffset().x, viewer_.getViewOffset().y);
          highlightTilesOnOverlay(overlay, Math.min(p1Tiles.y, p2Tiles.y),
                Math.max(p1Tiles.y, p2Tiles.y),
                Math.min(p1Tiles.x, p2Tiles.x),
@@ -97,12 +111,13 @@ public class ExploreOverlayer implements OverlayerPlugin {
                TRANSPARENT_BLUE, magnification);
       } else if (currentMouseLocation != null) {
          //draw single highlighted tile under mouse
-         Point coords = viewerStorageAdapter_.getTileIndicesFromDisplayedPixel(
-                 currentMouseLocation.x, currentMouseLocation.y);
+         Point coords = pixelStageTranslator_.getTileIndicesFromDisplayedPixel(
+                 viewer_.getMagnification(),
+                 currentMouseLocation.x, currentMouseLocation.y,
+                 viewer_.getViewOffset().x, viewer_.getViewOffset().y);
          highlightTilesOnOverlay(overlay, coords.y, coords.y, coords.x, coords.x,
                  TRANSPARENT_BLUE, magnification); //highligth single tile
-      } else if (!viewerStorageAdapter_.anythingAcquired()) {
-
+      } else if (!acq_.anythingAcquired()) {
          String[] text = {"Explore mode controls:", "",
                "Left click or left click and drag to select tiles",
             "Left click again to confirm", "Right click and drag to pan",
@@ -110,15 +125,29 @@ public class ExploreOverlayer implements OverlayerPlugin {
          addTextBox(text, overlay, g, displayImageSize);
       }
       //      always draw tiles waiting to be acquired
-      LinkedBlockingQueue<ExploreAcquisition.ExploreTileWaitingToAcquire> tiles
-              = viewerStorageAdapter_.getTilesWaitingToAcquireAtVisibleSlice();
+      LinkedBlockingQueue<HashMap<String, Object>> tiles = getTilesWaitingToAcquireAtVisibleSlice();
       if (tiles != null) {
-         for (ExploreAcquisition.ExploreTileWaitingToAcquire t : tiles) {
-            highlightTilesOnOverlay(overlay, t.row, t.row, t.col, t.col,
-                  TRANSPARENT_GREEN, magnification);
+         for (HashMap<String, Object> t : tiles) {
+            try {
+               highlightTilesOnOverlay(overlay,
+                       (Integer) t.get(AcqEngMetadata.AXES_GRID_ROW), (Integer) t.get(AcqEngMetadata.AXES_GRID_ROW),
+                       (Integer) t.get(AcqEngMetadata.AXES_GRID_COL), (Integer) t.get(AcqEngMetadata.AXES_GRID_COL),
+                       TRANSPARENT_GREEN, magnification);
+            } catch (Exception e) {
+               e.printStackTrace();
+            }
          }
       }
    }
+
+   private LinkedBlockingQueue<HashMap<String, Object>> getTilesWaitingToAcquireAtVisibleSlice() {
+      HashMap<String, Integer> zAxisPositions = new HashMap<String, Integer>();
+      for (String zAxisName : acq_.getZAxes().keySet()) {
+         zAxisPositions.put(zAxisName, (Integer) viewer_.getAxisPosition(zAxisName));
+      }
+      return ((ExploreAcquisition) acq_).getTilesWaitingToAcquireAtSlice(zAxisPositions);
+   }
+
 
    private void addTextBox(String[] text, Overlay overlay, Graphics g,
                            Point2D.Double displayImageSize) {
@@ -152,10 +181,12 @@ public class ExploreOverlayer implements OverlayerPlugin {
 
    private void highlightTilesOnOverlay(Overlay base, long row1, long row2, long col1,
            long col2, Color color, double magnification) {
-      Point topLeft = viewerStorageAdapter_.getDisplayedPixel(row1, col1);
-      int width = (int) Math.round(viewerStorageAdapter_.getDisplayTileWidth()
+      Point topLeft = pixelStageTranslator_.getDisplayedPixel(
+              viewer_.getMagnification(), row1, col1, viewer_.getViewOffset().x,
+              viewer_.getViewOffset().y);
+      int width = (int) Math.round(pixelStageTranslator_.getDisplayTileWidth()
             * (col2 - col1 + 1) * magnification);
-      int height = (int) Math.round(viewerStorageAdapter_.getDisplayTileHeight()
+      int height = (int) Math.round(pixelStageTranslator_.getDisplayTileHeight()
             * (row2 - row1 + 1) * magnification);
       Roi rect = new Roi(topLeft.x, topLeft.y, width, height);
       rect.setFillColor(color);

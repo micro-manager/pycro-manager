@@ -26,6 +26,7 @@ import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.LinkedList;
 import java.util.Set;
 //import java.util.concurrent.*;
@@ -39,22 +40,24 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.DoubleStream;
 import javax.swing.SwingUtilities;
+
 import mmcorej.TaggedImage;
 import mmcorej.org.json.JSONException;
 import mmcorej.org.json.JSONObject;
-import org.micromanager.acqj.api.DataSink;
+import org.micromanager.acqj.api.AcqEngJDataSink;
 import org.micromanager.acqj.internal.Engine;
+import org.micromanager.acqj.internal.ZAxis;
 import org.micromanager.acqj.main.AcqEngMetadata;
 import org.micromanager.acqj.main.Acquisition;
 import org.micromanager.acqj.main.XYTiledAcquisition;
-import org.micromanager.acqj.util.xytiling.PixelStageTranslator;
+import org.micromanager.acqj.util.xytiling.CameraTilingStageTranslator;
 import org.micromanager.acqj.util.xytiling.XYStagePosition;
-import org.micromanager.explore.gui.ChannelGroupSettings;
 import org.micromanager.explore.gui.ExploreControlsPanel;
 import org.micromanager.explore.gui.ExploreMouseListener;
+import org.micromanager.explore.gui.ExploreOverlayer;
 import org.micromanager.ndtiffstorage.MultiresNDTiffAPI;
 import org.micromanager.ndtiffstorage.NDTiffStorage;
-import org.micromanager.ndviewer.api.DataSourceInterface;
+import org.micromanager.ndviewer.api.NDViewerDataSource;
 import org.micromanager.ndviewer.api.OverlayerPlugin;
 import org.micromanager.ndviewer.api.NDViewerAcqInterface;
 import org.micromanager.ndviewer.api.NDViewerAPI;
@@ -62,11 +65,13 @@ import org.micromanager.ndviewer.main.NDViewer;
 import org.micromanager.ndviewer.overlay.Overlay;
 
 /**
- * Created by magellan acquisition to manage viewer, data storage, and
- * conversion between pixel coordinate space (which the viewer and storage work
- * in) and the stage coordiante space (which the acquisition works in).
+ * This class links data storage, viewer, and acquisition, acting as
+ * an intermediary when neccessary to implement functionality specific to
+ * Explore acquisitions. For example, it removes the row and column axes
+ * from the data stored on disk before passing to the viewer, so that
+ * they display as one contiguous image.
  */
-public class XYTiledAcqViewerStorageAdapater implements DataSink, DataSourceInterface {
+public class ExploreAcqUIAndStorage implements AcqEngJDataSink, NDViewerDataSource {
 
    private static final int SAVING_QUEUE_SIZE = 30;
 
@@ -83,17 +88,26 @@ public class XYTiledAcqViewerStorageAdapater implements DataSink, DataSourceInte
            = new LinkedList<Consumer<HashMap<String, Object>>>();
 
    private OverlayerPlugin overlayer_;
-   protected double pixelSizeZ_;
-   protected double zOrigin_;
 
-   protected ZAcquisitionInterface acq_;
-   ExploreMouseListener mouseListener_;
+   protected ExploreAcquisition acq_;
+   protected ExploreMouseListener mouseListener_;
+   protected ExploreControlsPanel exploreControlsPanel_;
    private Consumer<String> logger_;
-   public final boolean explore_;
    private ChannelGroupSettings channels_;
 
-   public XYTiledAcqViewerStorageAdapater(String dir, String name, boolean showDisplay,
-                                          boolean exploreUI, ChannelGroupSettings exploreChannels, Consumer<String> logger) {
+
+   public static ExploreAcqUIAndStorage create(String dir, String name,
+           int overlapX, int overlapY, double zStep, String channelGroup) throws Exception {
+      ChannelGroupSettings channels = new ChannelGroupSettings(channelGroup);
+      ExploreAcqUIAndStorage exploreAcqUIAndStorage = new ExploreAcqUIAndStorage(
+              dir, name, true, channels, (String s) -> {});
+      ExploreAcquisition acquisition = new ExploreAcquisition(overlapX, overlapY, zStep,
+              channels, exploreAcqUIAndStorage);
+      return exploreAcqUIAndStorage;
+   }
+
+   public ExploreAcqUIAndStorage(String dir, String name, boolean showDisplay,
+                                 ChannelGroupSettings exploreChannels, Consumer<String> logger) {
       displayCommunicationExecutor_ = Executors.newSingleThreadExecutor((Runnable r)
               -> new Thread(r, "Magellan viewer communication thread"));
       logger_ = logger;
@@ -101,14 +115,16 @@ public class XYTiledAcqViewerStorageAdapater implements DataSink, DataSourceInte
       name_ = name;
       loadedData_ = false;
       showDisplay_ = showDisplay;
-      explore_ = exploreUI;
-      if (explore_) {
-         channels_ = exploreChannels;
-      }
+      channels_ = exploreChannels;
+   }
+
+   public ExploreAcqUIAndStorage(String dir, String name, boolean showDisplay,
+                                ChannelGroupSettings exploreChannels) {
+      this(dir, name, showDisplay, exploreChannels, (String s) -> {});
    }
 
    //Constructor for opening loaded data
-   public XYTiledAcqViewerStorageAdapater(String dir, Consumer<String> logger) throws IOException {
+   public ExploreAcqUIAndStorage(String dir, Consumer<String> logger) throws IOException {
       logger_ = logger;
       displayCommunicationExecutor_ = Executors.newSingleThreadExecutor((Runnable r)
               -> new Thread(r, "Magellan viewer communication thread"));
@@ -117,19 +133,19 @@ public class XYTiledAcqViewerStorageAdapater implements DataSink, DataSourceInte
       loadedData_ = true;
       showDisplay_ = true;
       summaryMetadata_ = storage_.getSummaryMetadata();
-      explore_ = false;
       createDisplay();
    }
    public NDViewerAPI getViewer() {
       return display_;
    }
 
+   public ExploreAcquisition getAcquisition() {
+      return acq_;
+   }
+
    @Override
    public void initialize(Acquisition acq, JSONObject summaryMetadata) {
-      acq_ = (ZAcquisitionInterface) acq;
-
-      pixelSizeZ_ = acq_.getZStep();
-      zOrigin_ =  acq_.getZOrigin();
+      acq_ = (ExploreAcquisition) acq;
 
       summaryMetadata_ = summaryMetadata;
 
@@ -161,8 +177,12 @@ public class XYTiledAcqViewerStorageAdapater implements DataSink, DataSourceInte
 
    private void moveViewToVisibleArea() {
       //check for valid tiles (at lowest res) at this slice
-      Set<Point> tiles = getTileIndicesWithDataAt(
-              (Integer) display_.getAxisPosition(AcqEngMetadata.Z_AXIS));
+
+      Set<Point> tiles = new HashSet<Point>();
+      for (String zName : acq_.getZAxes().keySet()) {
+         tiles.addAll(getTileIndicesWithDataAt(zName,
+                 (Integer) display_.getAxisPosition(zName)));
+      }
       if (tiles.size() == 0) {
          return;
       }
@@ -175,10 +195,10 @@ public class XYTiledAcqViewerStorageAdapater implements DataSink, DataSourceInte
       //Check if any point is visible, if so return
       for (Point p : tiles) {
          //calclcate limits on margin of tile that must remain in view
-         long tileX1 = (long) ((0.1 + p.x) * getDisplayTileWidth());
-         long tileX2 = (long) ((0.9 + p.x) * getDisplayTileWidth());
-         long tileY1 = (long) ((0.1 + p.y) * getDisplayTileHeight());
-         long tileY2 = (long) ((0.9 + p.y) * getDisplayTileHeight());
+         long tileX1 = (long) ((0.1 + p.x) * acq_.getPixelStageTranslator().getDisplayTileWidth());
+         long tileX2 = (long) ((0.9 + p.x) * acq_.getPixelStageTranslator().getDisplayTileWidth());
+         long tileY1 = (long) ((0.1 + p.y) * acq_.getPixelStageTranslator().getDisplayTileHeight());
+         long tileY2 = (long) ((0.9 + p.y) * acq_.getPixelStageTranslator().getDisplayTileHeight());
          //get bounds of viewing area
          long fovX1 = (long) display_.getViewOffset().x;
          long fovY1 = (long) display_.getViewOffset().y;
@@ -203,10 +223,10 @@ public class XYTiledAcqViewerStorageAdapater implements DataSink, DataSourceInte
          currentY = (long) display_.getViewOffset().y;
 
          //calclcate limits on margin of tile that must remain in view
-         long tileX1 = (long) ((0.1 + p.x) * getDisplayTileWidth());
-         long tileX2 = (long) ((0.9 + p.x) * getDisplayTileWidth());
-         long tileY1 = (long) ((0.1 + p.y) * getDisplayTileHeight());
-         long tileY2 = (long) ((0.9 + p.y) * getDisplayTileHeight());
+         long tileX1 = (long) ((0.1 + p.x) * acq_.getPixelStageTranslator().getDisplayTileWidth());
+         long tileX2 = (long) ((0.9 + p.x) * acq_.getPixelStageTranslator().getDisplayTileWidth());
+         long tileY1 = (long) ((0.1 + p.y) * acq_.getPixelStageTranslator().getDisplayTileHeight());
+         long tileY2 = (long) ((0.9 + p.y) * acq_.getPixelStageTranslator().getDisplayTileHeight());
          //get bounds of viewing area
          long fovX1 = (long) display_.getViewOffset().x;
          long fovY1 = (long) display_.getViewOffset().y;
@@ -263,37 +283,7 @@ public class XYTiledAcqViewerStorageAdapater implements DataSink, DataSourceInte
       display_.setViewOffset(newPoint.x, newPoint.y);
    }
 
-   public LinkedBlockingQueue<ExploreAcquisition.ExploreTileWaitingToAcquire>
-   getTilesWaitingToAcquireAtVisibleSlice() {
-      return ((ExploreAcquisition) acq_).getTilesWaitingToAcquireAtSlice(
-              (Integer) display_.getAxisPosition(AcqEngMetadata.Z_AXIS));
-   }
-
-   public Point getTileIndicesFromDisplayedPixel(int x, int y) {
-      double scale = display_.getMagnification();
-      int fullResX = (int) ((x / scale) + display_.getViewOffset().x);
-      int fullResY = (int) ((y / scale) + display_.getViewOffset().y);
-      int xTileIndex = fullResX / getDisplayTileWidth() - (fullResX >= 0 ? 0 : 1);
-      int yTileIndex = fullResY / getDisplayTileHeight() - (fullResY >= 0 ? 0 : 1);
-      return new Point(xTileIndex, yTileIndex);
-   }
-
-   /**
-    * return the pixel location in coordinates at appropriate res level of the
-    * top left pixel for the given row/column
-    *
-    * @param row
-    * @param col
-    * @return
-    */
-   public Point getDisplayedPixel(long row, long col) {
-      double scale = display_.getMagnification();
-      int x = (int) ((col * getDisplayTileWidth() - display_.getViewOffset().x) * scale);
-      int y = (int) ((row * getDisplayTileHeight() - display_.getViewOffset().y) * scale);
-      return new Point(x, y);
-   }
-
-   //OVerride zoom and pan to restrain viewer to explored region in explore acqs
+   //Override zoom and pan to restrain viewer to explored region in explore acqs
    public void pan(int dx, int dy) {
       display_.pan(dx, dy);
       if (getBounds() == null) {
@@ -309,9 +299,6 @@ public class XYTiledAcqViewerStorageAdapater implements DataSink, DataSourceInte
          display_.update();
       }
    }
-
-
-
 
    private void createDisplay() {
       //create display
@@ -329,39 +316,45 @@ public class XYTiledAcqViewerStorageAdapater implements DataSink, DataSourceInte
                -> AcqEngMetadata.getStageZIntended(tags));
 
          //add mouse listener for the canvas
-         if (explore_) {
-            mouseListener_ = new ExploreMouseListener(this, (ExploreAcquisition) acq_, display_, logger_);
             //add overlayer
-            overlayer_ = new ExploreOverlayer(this, mouseListener_);
+            mouseListener_ = createMouseListener();
+            overlayer_ = createOverlayer();
+
             display_.setOverlayerPlugin(overlayer_);
 
-            ExploreControlsPanel exploreControls = new ExploreControlsPanel(this,
-                    (ExploreOverlayer) overlayer_, channels_);
-            display_.addControlPanel(exploreControls);
+            exploreControlsPanel_ = new ExploreControlsPanel(acq_,
+                     overlayer_,  channels_, acq_.getZAxes());
+            display_.addControlPanel(exploreControlsPanel_);
 
             display_.setCustomCanvasMouseListener(mouseListener_);
 
+            display_.addSetImageHook(new Consumer<HashMap<String, Object>>() {
+               @Override
+               public void accept(HashMap<String, Object> axes) {
 
 
-
-            if (explore_) {
-               display_.addSetImageHook(new Consumer<HashMap<String, Object>>() {
-                  @Override
-                  public void accept(HashMap<String, Object> axes) {
-                     if (axes.containsKey(AcqEngMetadata.Z_AXIS)) {
-                        Integer i = (Integer) axes.get(AcqEngMetadata.Z_AXIS);
-                        exploreControls.updateControls(i);
+                  // iterate through z devices and update their current z position
+                  for (String name : acq_.getZAxes().keySet()) {
+                     if (axes.containsKey(name)) {
+                        Integer i = (Integer) axes.get(name);
+                        exploreControlsPanel_.updateGUIToReflectHardwareZPosition(name, i);
                      }
                   }
-               });
-            }
-         }
-
+               }
+            });
 
       } catch (Exception e) {
          e.printStackTrace();
          logger_.accept("Couldn't create display succesfully");
       }
+   }
+
+   protected OverlayerPlugin createOverlayer() {
+      return new ExploreOverlayer(display_, mouseListener_, acq_);
+   }
+
+   protected ExploreMouseListener createMouseListener() {
+      return new ExploreMouseListener(acq_, display_, logger_);
    }
 
    public void putImage(final TaggedImage taggedImg) {
@@ -424,7 +417,7 @@ public class XYTiledAcqViewerStorageAdapater implements DataSink, DataSourceInte
    }
 
    public boolean isFinished() {
-      return storage_ == null ? true : storage_.isFinished();
+      return storage_.isFinished();
    }
 
    public String getDiskLocation() {
@@ -465,7 +458,7 @@ public class XYTiledAcqViewerStorageAdapater implements DataSink, DataSourceInte
          SwingUtilities.invokeLater(new Runnable() {
             @Override
             public void run() {
-               XYTiledAcqViewerStorageAdapater.this.close();
+               ExploreAcqUIAndStorage.this.close();
             }
          });
       }
@@ -473,6 +466,18 @@ public class XYTiledAcqViewerStorageAdapater implements DataSink, DataSourceInte
 
    @Override
    public int getImageBitDepth(HashMap<String, Object> axesPositions) {
+      // make a copy so we dont modify the original
+      axesPositions = new HashMap<String, Object>(axesPositions);
+      // Need to add back in row and column of a image thats in the data
+      for (HashMap<String, Object> storedAxesPosition : storage_.getAxesSet()) {
+         for (String axis : axesPositions.keySet()) {
+            if (!storedAxesPosition.containsKey(axis) || !axesPositions.containsKey(axis)) {
+               continue;
+            }
+         }
+         axesPositions = storedAxesPosition;
+         break;
+      }
       return storage_.getEssentialImageMetadata(axesPositions).bitDepth;
    }
 
@@ -487,30 +492,14 @@ public class XYTiledAcqViewerStorageAdapater implements DataSink, DataSourceInte
          throw new RuntimeException("This shouldnt happen");
       }
    }
-   
-   private PixelStageTranslator getPixelStageTranslator() {
-      return ((XYTiledAcquisition) acq_).getPixelStageTranslator();
-   }
-
-   public int getDisplayTileHeight() {
-      return getPixelStageTranslator() == null ? 0
-            : getPixelStageTranslator().getDisplayTileHeight();
-   }
-
-   public int getDisplayTileWidth() {
-      return getPixelStageTranslator() == null ? 0
-            : getPixelStageTranslator().getDisplayTileWidth();
-   }
-
-   public boolean isExploreAcquisition() {
-      return explore_;
-   }
 
    public int[] getBounds() {
-      if (isExploreAcquisition() && !loadedData_) {
+      // Explore acquisition has no bounds while active
+      // Could uncomment below if loaded data mode added
+//      if (isExploreAcquisition() && !loadedData_) {
          return null;
-      }
-      return storage_.getImageBounds();
+//      }
+//      return storage_.getImageBounds();
    }
 
    @Override
@@ -561,78 +550,21 @@ public class XYTiledAcqViewerStorageAdapater implements DataSink, DataSourceInte
       return simpleFileName;
    }
 
-   public Point2D.Double stageCoordsFromPixelCoords(int x, int y) {
-      return stageCoordsFromPixelCoords(x, y, display_.getMagnification(),
-            display_.getViewOffset());
-   }
-
-   /**
-    *
-    * @param absoluteX x coordinate in the full Res stitched image
-    * @param absoluteY y coordinate in the full res stitched image
-    * @return stage coordinates of the given pixel position
-    */
-   public Point2D.Double stageCoordsFromPixelCoords(int absoluteX, int absoluteY,
-           double mag, Point2D.Double offset) {
-      long newX = (long) (absoluteX / mag + offset.x);
-      long newY = (long) (absoluteY / mag + offset.y);
-      return getPixelStageTranslator().getStageCoordsFromPixelCoords(newX, newY);
-   }
-
-   public int getFullResPositionIndexFromStageCoords(double xPos, double yPos) {
-      return getPixelStageTranslator().getFullResPositionIndexFromStageCoords(xPos, yPos);
-   }
-
-   /* 
-    * @param stageCoords x and y coordinates of image in stage space
-    * @return absolute, full resolution pixel coordinate of given stage posiiton
-    */
-   public Point pixelCoordsFromStageCoords(double x, double y, double magnification,
-           Point2D.Double offset) {
-      Point fullResCoords = getPixelStageTranslator().getPixelCoordsFromStageCoords(x, y);
-      return new Point(
-              (int) ((fullResCoords.x - offset.x) * magnification),
-              (int) ((fullResCoords.y - offset.y) * magnification));
-   }
-
-   public XYStagePosition getXYPosition(int posIndex) {
-      return getPixelStageTranslator().getXYPosition(posIndex);
-   }
 
    public int getMaxResolutionIndex() {
       return storage_.getNumResLevels() - 1;
    }
 
-   public Set<Point> getTileIndicesWithDataAt(int zIndex) {
-      return storage_.getTileIndicesWithDataAt(zIndex);
+   public Set<Point> getTileIndicesWithDataAt(String zName, int zIndex) {
+      return storage_.getTileIndicesWithDataAt(zName ,zIndex);
    }
-
-   public double getZStep() {
-      return pixelSizeZ_;
-   }
-
-
-   public void setOverlay(Overlay surfOverlay) {
-      display_.setOverlay(surfOverlay);
-   }
-
-   public void acquireTileAtCurrentPosition() {
-      ((ExploreAcquisition) acq_).acquireTileAtCurrentLocation();
-   }
-
-   public void setExploreZLimits(double zTop, double zBottom) {
-      ((ExploreAcquisition) acq_).setZLimits(zTop, zBottom);
-   }
-
 
    public Point2D.Double getStageCoordinateOfViewCenter() {
-      return getPixelStageTranslator().getStageCoordsFromPixelCoords(
+      return acq_.getPixelStageTranslator().getStageCoordsFromPixelCoords(
               (long) (display_.getViewOffset().x + display_.getFullResSourceDataSize().x / 2),
               (long) (display_.getViewOffset().y + display_.getFullResSourceDataSize().y / 2));
 
    }
-
-
 
    public void initializeViewerToLoaded(
            HashMap<String, Object> axisMins, HashMap<String, Object> axisMaxs) {
@@ -649,28 +581,4 @@ public class XYTiledAcqViewerStorageAdapater implements DataSink, DataSourceInte
             axisMins, axisMaxs);
    }
 
-   public Set<HashMap<String, Object>> getAxesSet() {
-      return storage_.getAxesSet();
-   }
-
-   public Point2D.Double[] getDisplayTileCorners(XYStagePosition pos) {
-      return getPixelStageTranslator().getDisplayTileCornerStageCoords(pos);
-   }
-
-
-   public double getZCoordinateOfDisplayedSlice() {
-      int index = (Integer) display_.getAxisPosition(AcqEngMetadata.Z_AXIS);
-      return index * getZStep() + zOrigin_;
-   }
-
-   public int zCoordinateToZIndex(double z) {
-      return (int) ((z - zOrigin_) / pixelSizeZ_);
-   }
-
-   public ExploreMouseListener getExploreMouseListener() {
-      if (explore_) {
-         return mouseListener_;
-      }
-      return null;
-   }
 }

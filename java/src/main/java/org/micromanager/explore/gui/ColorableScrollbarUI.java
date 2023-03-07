@@ -33,14 +33,20 @@ public class ColorableScrollbarUI extends BasicScrollBarUI {
 
    private static final Color DARK_GREEN = new Color(0, 70, 0);
    
-   private int displayedSliceIndex_;
-   private int  minSliceIndex_;
-   private int maxSliceIndex_;
-   
+   private volatile int displayedSliceIndex_;
+   private volatile int  minSliceIndex_;
+   private volatile int maxSliceIndex_;
+   private String name_;
+
+   public ColorableScrollbarUI(String name) {
+      name_ = name;
+   }
+
    public void setHighlightedIndices(int currentIndex, int min, int max) {
       displayedSliceIndex_ = currentIndex;
       minSliceIndex_ = min;
       maxSliceIndex_ = max;
+//      System.out.println("Name " + name_ + " set highlighted indices to " + currentIndex + ", " + min + ", " + max);
    }
    
    @Override
@@ -58,7 +64,8 @@ public class ColorableScrollbarUI extends BasicScrollBarUI {
       int numPositions = ((JScrollBar) c).getMaximum() - ((JScrollBar) c).getMinimum();
       //show range of z scrollbar inlight green
       g.setColor(new Color(180, 220, 180));
-        
+
+//      System.out.println("painting "+name_+ " with slices " + minSliceIndex_ + ", " + maxSliceIndex_);
       int rangeStart = (int) ((minSliceIndex_ - ((JScrollBar) c).getMinimum())
             / (double) numPositions * trackBounds.width) + trackBounds.x;
       int rangeWidth = (int) ((maxSliceIndex_ - minSliceIndex_ + 1)

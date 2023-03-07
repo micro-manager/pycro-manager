@@ -22,6 +22,7 @@ import javax.swing.event.TableModelListener;
 import javax.swing.table.AbstractTableModel;
 import mmcorej.CMMCore;
 import org.micromanager.acqj.internal.Engine;
+import org.micromanager.explore.ChannelGroupSettings;
 
 
 /**

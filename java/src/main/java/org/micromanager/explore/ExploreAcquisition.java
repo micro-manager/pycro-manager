@@ -19,10 +19,15 @@ package org.micromanager.explore;
 
 import java.awt.geom.Point2D;
 import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.Set;
+import java.util.TreeSet;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.CopyOnWriteArraySet;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -32,16 +37,20 @@ import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.Predicate;
 import java.util.stream.Stream;
+
+import mmcorej.org.json.JSONException;
 import mmcorej.org.json.JSONObject;
+import org.micromanager.acqj.api.AcqEngJDataSink;
+import org.micromanager.acqj.api.AcquisitionHook;
 import org.micromanager.acqj.internal.Engine;
 import org.micromanager.acqj.main.AcqEngMetadata;
+import org.micromanager.acqj.main.Acquisition;
 import org.micromanager.acqj.main.AcquisitionEvent;
 import org.micromanager.acqj.main.XYTiledAcquisition;
 import org.micromanager.acqj.util.AcqEventModules;
 import org.micromanager.acqj.util.AcquisitionEventIterator;
 import org.micromanager.acqj.util.ChannelSetting;
 import org.micromanager.acqj.util.xytiling.XYStagePosition;
-import org.micromanager.explore.gui.ChannelGroupSettings;
 import org.micromanager.ndtiffstorage.NDTiffAPI;
 import org.micromanager.ndviewer.api.NDViewerAPI;
 import org.micromanager.ndviewer.api.NDViewerAcqInterface;
@@ -53,67 +62,70 @@ import org.micromanager.remote.PycroManagerCompatibleAcq;
  * @author Henry
  */
 public class ExploreAcquisition extends XYTiledAcquisition
-        implements PycroManagerCompatibleAcq, NDViewerAcqInterface, ZAcquisitionInterface {
+        implements PycroManagerCompatibleAcq, NDViewerAcqInterface {
 
-   private boolean started_ = false;
-   private volatile double zTop_;
-   private volatile double zBottom_;
    private List<XYStagePosition> positions_;
 
-   //Map with slice index as keys used to get rid of duplicate events
-   private ConcurrentHashMap<Integer, LinkedBlockingQueue<ExploreTileWaitingToAcquire>>
-         queuedTileEvents_ = new ConcurrentHashMap<>();
+   private Set<HashMap<String, Object>> queuedTileEvents_ = new CopyOnWriteArraySet<>();
 
    private ExecutorService submittedSequenceMonitorExecutor_ =
          Executors.newSingleThreadExecutor((Runnable r) -> {
             return new Thread(r, "Submitted sequence monitor");
          });
 
-   private String zStage_;
-
-   private final double zOrigin_;
-   private final double zStep_;
-   private int minSliceIndex_;
-   private int maxSliceIndex_;
    private Consumer<String> logger_;
    ChannelGroupSettings channels_;
 
-   public ExploreAcquisition(int pixelOverlapX, int pixelOverlapY, double ZStep, ChannelGroupSettings channels,
-                             XYTiledAcqViewerStorageAdapater adapter,
-                             Consumer<String> logger) {
+   public ExploreAcquisition(int pixelOverlapX, int pixelOverlapY, double zStep, ChannelGroupSettings channels,
+                             ExploreAcqUIAndStorage adapter) throws Exception {
+      this(pixelOverlapX, pixelOverlapY, zStep, channels, adapter, (String s) -> {
+      });
+   }
+
+   public ExploreAcquisition(int pixelOverlapX, int pixelOverlapY, double zStep, ChannelGroupSettings channels,
+                             AcqEngJDataSink adapter,
+                             Consumer<String> logger) throws Exception {
       super(adapter,
-              pixelOverlapX, pixelOverlapY,
+              pixelOverlapX, pixelOverlapY, zStep,
               // Add metadata specific to Magellan explore
               new Consumer<JSONObject>() {
                  @Override
                  public void accept(JSONObject summaryMetadata) {
                     AcqEngMetadata.setExploreAcq(summaryMetadata, true);
-                    AcqEngMetadata.setZStepUm(summaryMetadata, ZStep);
+                    AcqEngMetadata.setZStepUm(summaryMetadata, zStep);
                  }
               });
       logger_ = logger;
-      zStep_ = ZStep;
       channels_ = channels;
-      try {
-         zStage_ = Engine.getCore().getFocusDevice();
-         //start at current z position
-         zTop_ = Engine.getCore().getPosition(zStage_);
-         zOrigin_ = zTop_;
-         zBottom_ = Engine.getCore().getPosition(zStage_);
-      } catch (Exception ex) {
-         logger.accept("Couldn't get focus device position");
-         throw new RuntimeException();
-      }
+
       createXYPositions();
+
+      // Add acquisition hook that removes tiles from queue just before they are acquired
+      // so that the display can reflect this
+      addHook(new AcquisitionHook() {
+         @Override
+         public AcquisitionEvent run(AcquisitionEvent event) {
+               if (queuedTileEvents_.contains(event.getAxisPositions())) {
+                  queuedTileEvents_.remove(event.getAxisPositions());
+            };
+            return event;
+         }
+
+         @Override
+         public void close() {
+
+         }
+      }, Acquisition.BEFORE_HARDWARE_HOOK);
    }
 
-   public double getZOrigin() {
-      return zOrigin_;
+   public double getZOrigin(String name) {
+      return getZAxes().get(name).zOrigin_um_;
    }
 
-   public double getZStep() {
-      return zStep_;
+   public double getZStep(String name) {
+      return getZAxes().get(name).zStep_um_;
    }
+
 
    @Override
    public boolean isFinished() {
@@ -126,25 +138,18 @@ public class ExploreAcquisition extends XYTiledAcquisition
       submittedSequenceMonitorExecutor_.shutdownNow();
    }
 
-   @Override
-   public void start() {
-      super.start();
-      started_ = true;
-   }
-
-
-
    /**
     * Submit a iterator of acquisition events for execution.
     *
     * @param iter an iterator of acquisition events
     * @return
     */
+   @Override
    public Future submitEventIterator(Iterator<AcquisitionEvent> iter) {
       return submittedSequenceMonitorExecutor_.submit(() -> {
          Future iteratorFuture = null;
          try {
-            iteratorFuture = Engine.getInstance().submitEventIterator(iter);
+            iteratorFuture = super.submitEventIterator(iter);
             iteratorFuture.get();
          } catch (InterruptedException ex) {
             iteratorFuture.cancel(true);
@@ -172,22 +177,33 @@ public class ExploreAcquisition extends XYTiledAcquisition
 
    /**
     *
-    * @param sliceIndex 0 based slice index
     * @return
     */
-   public LinkedBlockingQueue<ExploreTileWaitingToAcquire>
-            getTilesWaitingToAcquireAtSlice(int sliceIndex) {
-      return queuedTileEvents_.get(sliceIndex);
+   public LinkedBlockingQueue<HashMap<String, Object>> getTilesWaitingToAcquireAtSlice(
+           HashMap<String, Integer> zAxisPositions) {
+      LinkedBlockingQueue<HashMap<String, Object>> tiles = new LinkedBlockingQueue<>();
+      for (HashMap<String, Object> axes : queuedTileEvents_) {
+         boolean match = true;
+         for (String zName : zAxisPositions.keySet()) {
+            if (!axes.get(zName).equals(zAxisPositions.get(zName))) {
+               match = false;
+               break;
+            }
+         }
+         if (match) {
+            tiles.add(axes);
+         }
+      }
+      return tiles;
    }
 
-   public void acquireTileAtCurrentLocation() {
+   public void acquireTileAtCurrentLocation() throws Exception {
       double xPos;
       double yPos;
       double zPos;
 
       try {
          //get current XY and Z Positions
-         zPos = Engine.getCore().getPosition(Engine.getCore().getFocusDevice());
          xPos = Engine.getCore().getXPosition();
          yPos = Engine.getCore().getYPosition();
       } catch (Exception ex) {
@@ -195,21 +211,39 @@ public class ExploreAcquisition extends XYTiledAcquisition
          return;
       }
 
-      int sliceIndex = (int) Math.round((zPos - zOrigin_) / zStep_);
-      int posIndex = ((XYTiledAcqViewerStorageAdapater) getDataSink())
-            .getFullResPositionIndexFromStageCoords(xPos, yPos);
 
-      submitEvents(new int[]{(int) ((XYTiledAcqViewerStorageAdapater) getDataSink())
-                  .getXYPosition(posIndex).getGridRow()},
-              new int[]{(int) ((XYTiledAcqViewerStorageAdapater) getDataSink())
-                    .getXYPosition(posIndex).getGridCol()}, sliceIndex, sliceIndex);
+      HashMap<String, Integer> zTopIndex = new HashMap<String, Integer>();
+      HashMap<String, Integer> zBottomIndex = new HashMap<String, Integer>();
+      // get slice axes for all z devices
+      for (String zName : getZDeviceNames()) {
+         double zPosition = Engine.getCore().getPosition(zName);
+         int zIndex = (int) Math.round((zPosition - getZOrigin(zName)) / getZStep(zName));
+         zTopIndex.put(zName, zIndex);
+         zBottomIndex.put(zName, zIndex);
+      }
+
+
+      int posIndex = pixelStageTranslator_.getFullResPositionIndexFromStageCoords(xPos, yPos);
+
+      submitEvents(new int[]{(int) pixelStageTranslator_.getXYPosition(posIndex).getGridRow()},
+              new int[]{(int) pixelStageTranslator_.getXYPosition(posIndex).getGridCol()}, zTopIndex, zBottomIndex);
    }
 
    public void acquireTiles(final int r1, final int c1, final int r2, final int c2) {
       //So it doesnt slow down GUI
       new Thread(() -> {
-         int minZIndex = getZLimitMinSliceIndex();
-         int maxZIndex = getZLimitMaxSliceIndex();
+         HashMap<String, Integer> zMinIndices = new HashMap<String, Integer>();
+         HashMap<String, Integer> zMaxIndices = new HashMap<String, Integer>();
+
+         for (String zName : getZDeviceNames()) {
+            try {
+               zMinIndices.put(zName, getZLimitLowerSliceIndex(zName));
+               zMaxIndices.put(zName, getZLimitUpperSliceIndex(zName));
+            } catch (Exception e) {
+               throw new RuntimeException(e);
+            }
+         }
+
 
          //order tile indices properly
          int row1 = Math.min(r1, r2);
@@ -231,14 +265,15 @@ public class ExploreAcquisition extends XYTiledAcquisition
                newPositionCols[i] = c;
             }
          }
-         submitEvents(newPositionRows, newPositionCols, minZIndex, maxZIndex);
+         submitEvents(newPositionRows, newPositionCols, zMinIndices, zMaxIndices);
 
       }).start();
 
    }
 
-   private void submitEvents(int[] newPositionRows, int[] newPositionCols, int minZIndex,
-                             int maxZIndex) {
+   private void submitEvents(int[] newPositionRows, int[] newPositionCols,
+                             HashMap<String, Integer> zMinIndices,
+                               HashMap<String, Integer> zMaxIndices) {
       int[] posIndices = getPixelStageTranslator()
               .getPositionIndices(newPositionRows, newPositionCols);
       List<XYStagePosition> allPositions = getPixelStageTranslator().getPositionList();
@@ -249,7 +284,10 @@ public class ExploreAcquisition extends XYTiledAcquisition
       ArrayList<Function<AcquisitionEvent, Iterator<AcquisitionEvent>>> acqFunctions
               = new ArrayList<Function<AcquisitionEvent, Iterator<AcquisitionEvent>>>();
       acqFunctions.add(positions(selectedXYPositions));
-      acqFunctions.add(AcqEventModules.zStack(minZIndex, maxZIndex + 1, zStep_, zOrigin_));
+      for (String zName :  getZDeviceNames()) {
+         acqFunctions.add(AcqEventModules.moveStage(zName, zMinIndices.get(zName),
+                 zMaxIndices.get(zName) + 1, getZStep(zName), getZOrigin(zName)));
+      }
       if (channels_ != null && channels_.getNumChannels() > 0) {
          ArrayList<ChannelSetting> channels = new ArrayList<ChannelSetting>();
             for (String name : channels_.getChannelNames()) {
@@ -261,8 +299,9 @@ public class ExploreAcquisition extends XYTiledAcquisition
          acqFunctions.add(AcqEventModules.channels(channels));
       }
 
-      Iterator<AcquisitionEvent> iterator = new AcquisitionEventIterator(
-              new AcquisitionEvent(this), acqFunctions, monitorSliceIndices());
+      AcquisitionEvent baseEvent = new AcquisitionEvent(this);
+      Iterator<AcquisitionEvent> iterator = new AcquisitionEventIterator(baseEvent,
+              acqFunctions, monitorSliceIndices());
 
       //Get rid of duplicates, send to acquisition engine 
       Predicate<AcquisitionEvent> predicate = filterExistingEventsAndDisplayQueuedTiles();
@@ -274,11 +313,6 @@ public class ExploreAcquisition extends XYTiledAcquisition
          }
       }
 
-      Function<AcquisitionEvent, AcquisitionEvent> removeTileToAcquireFn = (AcquisitionEvent e) -> {
-         queuedTileEvents_.get(e.getZIndex()).remove(new ExploreTileWaitingToAcquire(e.getGridRow(),
-                 e.getGridCol(), e.getZIndex(), e.getConfigPreset()));
-         return e;
-      };
 
       ArrayList<Function<AcquisitionEvent, Iterator<AcquisitionEvent>>> list
               = new ArrayList<Function<AcquisitionEvent, Iterator<AcquisitionEvent>>>();
@@ -287,8 +321,8 @@ public class ExploreAcquisition extends XYTiledAcquisition
       };
       list.add(fn);
 
-      submitEventIterator(new AcquisitionEventIterator(null, list,
-            removeTileToAcquireFn));
+      AcquisitionEvent event = new AcquisitionEvent(this);
+      submitEventIterator(new AcquisitionEventIterator(event, list));
    }
 
    private Function<AcquisitionEvent, Iterator<AcquisitionEvent>>
@@ -319,31 +353,23 @@ public class ExploreAcquisition extends XYTiledAcquisition
 
    private Predicate<AcquisitionEvent> filterExistingEventsAndDisplayQueuedTiles() {
       return (AcquisitionEvent event) -> {
-         try {
-            //add tile tile to list waiting to acquire for drawing purposes
-            if (!queuedTileEvents_.containsKey(event.getZIndex())) {
-               queuedTileEvents_.put(event.getZIndex(),
-                     new LinkedBlockingQueue<ExploreTileWaitingToAcquire>());
-            }
-
-            ExploreTileWaitingToAcquire tile = new ExploreTileWaitingToAcquire(event.getGridRow(),
-                    event.getGridCol(), event.getZIndex(), event.getConfigPreset());
-            if (queuedTileEvents_.get(event.getZIndex()).contains(tile)) {
-               return false; //This tile is already waiting to be acquired
-            }
-            queuedTileEvents_.get(event.getZIndex()).put(tile);
-            return true;
-         } catch (InterruptedException ex) {
-            throw new RuntimeException(ex);
+         if (queuedTileEvents_.contains(event.getAxisPositions())) {
+            return false; //This tile is already waiting to be acquired
          }
+         // add tile to list waiting to acquire for drawing purposes
+         queuedTileEvents_.add(event.getAxisPositions());
+         return true;
       };
-
    }
 
    private Function<AcquisitionEvent, AcquisitionEvent> monitorSliceIndices() {
       return (AcquisitionEvent event) -> {
-         minSliceIndex_ = Math.min(minSliceIndex_, getZLimitMinSliceIndex());
-         maxSliceIndex_ = Math.max(maxSliceIndex_, getZLimitMaxSliceIndex());
+
+         for (String name : getZDeviceNames()) {
+            getZAxes().get(name).lowestExploredZIndex_ = Math.min( getZAxes().get(name).lowestExploredZIndex_, getZLimitLowerSliceIndex(name));
+            getZAxes().get(name).highestExploredZIndex_ = Math.max( getZAxes().get(name).highestExploredZIndex_, getZLimitUpperSliceIndex(name));
+         }
+
          return event;
       };
    }
@@ -353,33 +379,26 @@ public class ExploreAcquisition extends XYTiledAcquisition
     *
     * @return
     */
-   private int getZLimitMinSliceIndex() {
-      return (int) Math.round((zTop_ - zOrigin_) / zStep_);
+   private int getZLimitLowerSliceIndex(String name) {
+
+      return getZAxes().get(name).exploreLowerZIndexLimit_;
    }
 
    /**
     * get max slice index for current settings in explore acquisition.
     */
-   private int getZLimitMaxSliceIndex() {
-      return (int) Math.round((zBottom_ - zOrigin_) / zStep_);
+   private int getZLimitUpperSliceIndex(String name) {
+      return getZAxes().get(name).exploreUpperZIndexLimit_;
    }
 
-   /**
-    * get z coordinate for slice position.
-    */
-   private double getZCoordinate(int sliceIndex) {
-      return zOrigin_ + zStep_ * sliceIndex;
-   }
-
-   public void setZLimits(double zTop, double zBottom) {
-      //Convention: z top should always be lower than zBottom
-      zBottom_ = Math.max(zTop, zBottom);
-      zTop_ = Math.min(zTop, zBottom);
+   public void setZLimits(String name, double zTop, double zBottom) {
+      getZAxes().get(name).exploreLowerZIndexLimit_ = (int) ((Math.min(zTop, zBottom) - getZOrigin(name)) / getZAxes().get(name).zStep_um_);
+      getZAxes().get(name).exploreUpperZIndexLimit_ = (int) ((Math.max(zTop, zBottom) - getZOrigin(name)) / getZAxes().get(name).zStep_um_);
    }
 
    @Override
    public NDTiffAPI getStorage() {
-      return ((XYTiledAcqViewerStorageAdapater) dataSink_).getStorage();
+      return ((ExploreAcqUIAndStorage) dataSink_).getStorage();
    }
 
    @Override
@@ -389,38 +408,8 @@ public class ExploreAcquisition extends XYTiledAcquisition
 
    @Override
    public NDViewerAPI getViewer() {
-      return ((XYTiledAcqViewerStorageAdapater) dataSink_).getViewer();
+      return ((ExploreAcqUIAndStorage) dataSink_).getViewer();
    }
 
-   //slice and row/col index of an acquisition event in the queue
-   public class ExploreTileWaitingToAcquire {
-
-      public long row;
-      public long col;
-      public long sliceIndex;
-      public String channelName = null;
-
-      public ExploreTileWaitingToAcquire(long r, long c, int z, String ch) {
-         row = r;
-         col = c;
-         sliceIndex = z;
-         channelName = ch;
-      }
-
-      @Override
-      public boolean equals(Object other) {
-         String otherChannel = ((ExploreTileWaitingToAcquire) other).channelName;
-         if (((ExploreTileWaitingToAcquire) other).col
-               == col && ((ExploreTileWaitingToAcquire) other).row == row
-                 && ((ExploreTileWaitingToAcquire) other).sliceIndex == sliceIndex) {
-            if (otherChannel == null && channelName == null) {
-               return true;
-            }
-            return otherChannel.equals(channelName);
-         }
-         return false;
-      }
-
-   }
 }
 
