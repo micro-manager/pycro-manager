@@ -237,17 +237,7 @@ class _Bridge:
                 if debug:
                     print("DEBUG: returning cached bridge for port {} thread {}".format(
                         port, threading.current_thread().name))
-                return bridge           
-
-            # if port in _Bridge.local.cached_bridges_by_port:
-            #     bridge = _Bridge.local.cached_bridges_by_port[port]()
-            #     if bridge is None:
-            #         raise Exception("Bridge for port {} and thread {} has been "
-            #                         "closed but not removed".format(port, threading.current_thread().name))
-            #     if debug:
-            #         print("DEBUG: returning cached bridge for port {} thread {}".format(
-            #             port, threading.current_thread().name))
-            #     return bridge
+                return bridge
             else:
                 if debug:
                     print("DEBUG: creating new beidge for port {} thread {}".format(
@@ -278,14 +268,11 @@ class _Bridge:
             port_thread_id = (port, thread_id)
             if port_thread_id in _Bridge._cached_bridges_by_port_and_thread.keys():
                 return # already initialized
-            # if port in _Bridge.local.cached_bridges_by_port:
-            #     return # already initialized
-
+            self._port_thread_id = port_thread_id
             # store weak refs so that the existence of thread/port bridge caching doesn't prevent
             # the garbage collection of unused bridge objects
             self._weak_self_ref = weakref.ref(self)
-            # _Bridge.local.cached_bridges_by_port[port] = self._weak_self_ref
-            _Bridge._cached_bridges_by_port_and_thread[port_thread_id] = self._weak_self_ref 
+            _Bridge._cached_bridges_by_port_and_thread[port_thread_id] = self._weak_self_ref
 
         self._ip_address = ip_address
         self.port = port
@@ -319,12 +306,11 @@ class _Bridge:
 
     def __del__(self):
         with _Bridge._bridge_creation_lock:
-            thread_id = threading.current_thread().ident
-            port_thread_id = (self.port, thread_id)
-            del _Bridge._cached_bridges_by_port_and_thread[port_thread_id]
-
-
-            # del _Bridge.local.cached_bridges_by_port[self.port]
+            # Have to cache the port thread id in the bridge instance and then
+            # use it to figure out which one to delete rather than checking the current thread
+            # because for some reason at exit time this method can get called by a different thread
+            # than the one that created the bridge
+            del _Bridge._cached_bridges_by_port_and_thread[self._port_thread_id]
             if self._debug:
                 print("DEBUG: BRIDGE DESCTRUCTOR for {} on port {} thread {}".format(
                     str(self), self.port, threading.current_thread().name))
