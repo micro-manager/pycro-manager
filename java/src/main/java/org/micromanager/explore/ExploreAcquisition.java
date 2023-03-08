@@ -337,10 +337,6 @@ public class ExploreAcquisition extends XYTiledAcquisition
          } else {
             for (int index = 0; index < positions.size(); index++) {
                AcquisitionEvent posEvent = event.copy();
-               //These tell it what to acquire
-               posEvent.setGridCol(positions.get(index).getGridCol());
-               posEvent.setGridRow(positions.get(index).getGridRow());
-               //These tell how to store it
                posEvent.setAxisPosition(AcqEngMetadata.AXES_GRID_ROW, positions.get(index)
                      .getGridRow());
                posEvent.setAxisPosition(AcqEngMetadata.AXES_GRID_COL, positions.get(index)

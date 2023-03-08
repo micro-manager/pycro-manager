@@ -122,12 +122,6 @@ class RemoteViewerStorageAdapter implements NDViewerDataSource, AcqEngJDataSink 
       HashMap<String, Object> axes = AcqEngMetadata.getAxes(taggedImg.tags);
       final Future added;
       if (xyTiled_) {
-         // Convert event row/col to image row/col
-         // TODO: Maybe this should come via the event in the image metadata rather than
-         // seperate tags?
-         axes.put(AcqEngMetadata.AXES_GRID_COL , AcqEngMetadata.getGridCol(taggedImg.tags));
-         axes.put(AcqEngMetadata.AXES_GRID_ROW , AcqEngMetadata.getGridRow(taggedImg.tags));
-
          added = storage_.putImageMultiRes(taggedImg.pix, taggedImg.tags, axes,
                  AcqEngMetadata.isRGB(taggedImg.tags),
                  AcqEngMetadata.getBitDepth(taggedImg.tags),
