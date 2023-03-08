@@ -314,6 +314,10 @@ class Acquisition(object, metaclass=NumpyDocstringInheritanceMeta):
         self._initialize_image_processor(**named_args)
         self._initialize_hooks(**named_args)
 
+        # Acquistiion.start is now deprecated, so this can be removed later
+        # Acquisitions now get started automatically when the first events submitted
+        # but Magellan acquisitons (and probably others that generate their own events)
+        # will need some new method to submit events only after image processors etc have been added
         self._remote_acq.start()
         self._dataset_disk_location = (
             self._remote_acq.get_data_sink().get_storage().get_disk_location()
@@ -842,12 +846,9 @@ class MagellanAcquisition(Acquisition):
     def _create_remote_acquisition(self, **kwargs):
         magellan_api = Magellan()
         if self.magellan_acq_index is not None:
-            #TODO: magellan acquisitions may miss images written?
-            magellan_acq = magellan_api.create_acquisition(self.magellan_acq_index, False)
+            self._remote_acq = magellan_api.create_acquisition(self.magellan_acq_index, False)
         elif self.magellan_explore:
-            magellan_acq = magellan_api.create_explore_acquisition(False)
-        self._nd_viewer = magellan_acq.get_viewer()
-        self._remote_acq = magellan_acq.get_acquisition()
+            self._remote_acq = magellan_api.create_explore_acquisition(False)
         self._event_queue = None
 
 def _validate_acq_events(events: dict or list):

@@ -56,6 +56,7 @@ import org.micromanager.explore.gui.ExploreControlsPanel;
 import org.micromanager.explore.gui.ExploreMouseListener;
 import org.micromanager.explore.gui.ExploreOverlayer;
 import org.micromanager.ndtiffstorage.MultiresNDTiffAPI;
+import org.micromanager.ndtiffstorage.NDTiffAPI;
 import org.micromanager.ndtiffstorage.NDTiffStorage;
 import org.micromanager.ndviewer.api.NDViewerDataSource;
 import org.micromanager.ndviewer.api.OverlayerPlugin;
@@ -171,9 +172,6 @@ public class ExploreAcqUIAndStorage implements AcqEngJDataSink, NDViewerDataSour
    public MultiresNDTiffAPI getStorage() {
       return storage_;
    }
-
-
-
 
    private void moveViewToVisibleArea() {
       //check for valid tiles (at lowest res) at this slice

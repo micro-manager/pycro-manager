@@ -181,6 +181,9 @@ public class ExploreAcquisition extends XYTiledAcquisition
     */
    public LinkedBlockingQueue<HashMap<String, Object>> getTilesWaitingToAcquireAtSlice(
            HashMap<String, Integer> zAxisPositions) {
+      if (queuedTileEvents_ == null) {
+         return null;
+      }
       LinkedBlockingQueue<HashMap<String, Object>> tiles = new LinkedBlockingQueue<>();
       for (HashMap<String, Object> axes : queuedTileEvents_) {
          boolean match = true;
