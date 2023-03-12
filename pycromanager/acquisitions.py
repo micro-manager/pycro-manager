@@ -888,7 +888,7 @@ def _validate_acq_dict(event: dict):
 
     """
     if 'axes' not in event.keys():
-        raise Exception('event dictionary must contain an \'axes\' key')
+        warnings.warn('event dictionary must contain an \'axes\' key. This event will be ignored')
     if 'row' in event.keys():
         warnings.warn('adding \'row\' as a top level key in the event dictionary is deprecated and will be disallowed in '
                       'a future version. Instead, add \'row\' as a key in the \'axes\' dictionary')
