@@ -409,10 +409,6 @@ public class ExploreAcquisition extends XYTiledAcquisition
       return -1;
    }
 
-   @Override
-   public NDViewerAPI getViewer() {
-      return ((ExploreAcqUIAndStorage) dataSink_).getViewer();
-   }
 
 }
 

@@ -64,6 +64,8 @@ import org.micromanager.ndviewer.api.NDViewerAcqInterface;
 import org.micromanager.ndviewer.api.NDViewerAPI;
 import org.micromanager.ndviewer.main.NDViewer;
 import org.micromanager.ndviewer.overlay.Overlay;
+import org.micromanager.remote.PycroManagerCompatibleAcq;
+import org.micromanager.remote.PycroManagerCompatibleUI;
 
 /**
  * This class links data storage, viewer, and acquisition, acting as
@@ -72,7 +74,8 @@ import org.micromanager.ndviewer.overlay.Overlay;
  * from the data stored on disk before passing to the viewer, so that
  * they display as one contiguous image.
  */
-public class ExploreAcqUIAndStorage implements AcqEngJDataSink, NDViewerDataSource {
+public class ExploreAcqUIAndStorage implements AcqEngJDataSink, NDViewerDataSource,
+      PycroManagerCompatibleUI {
 
    private static final int SAVING_QUEUE_SIZE = 30;
 

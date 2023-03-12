@@ -41,11 +41,6 @@ public class XYTiledRemoteAcquisition extends XYTiledAcquisition
    }
 
    @Override
-   public NDViewerAPI getViewer() {
-      return ((RemoteViewerStorageAdapter) dataSink_).getViewer();
-   }
-
-   @Override
    public void abort() {
       super.abort();
       eventSource_.abort();

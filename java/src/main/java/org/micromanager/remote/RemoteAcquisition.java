@@ -33,10 +33,6 @@ public class RemoteAcquisition extends Acquisition
       return eventSource_.getPort();
    }
 
-   @Override
-   public NDViewerAPI getViewer() {
-      return ((RemoteViewerStorageAdapter) getDataSink()).getViewer();
-   }
 
    @Override
    public void abort() {

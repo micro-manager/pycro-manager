@@ -19,9 +19,5 @@ public interface PycroManagerCompatibleAcq {
     */
    public int getEventPort();
 
-   /**
-    * Get reference to NDViewer displaying this acquisitions data
-    */
-   public NDViewerAPI getViewer();
 
 }
