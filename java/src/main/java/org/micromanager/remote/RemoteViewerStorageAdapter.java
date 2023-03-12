@@ -28,7 +28,7 @@ import org.micromanager.ndviewer.api.NDViewerAcqInterface;
  *
  * @author henrypinkard
  */
-class RemoteViewerStorageAdapter implements NDViewerDataSource, AcqEngJDataSink {
+class RemoteViewerStorageAdapter implements NDViewerDataSource, AcqEngJDataSink, PycroManagerCompatibleUI {
 
    private ExecutorService displayCommunicationExecutor_;
 
@@ -45,17 +45,17 @@ class RemoteViewerStorageAdapter implements NDViewerDataSource, AcqEngJDataSink 
 
 
    /**
-    *
-    * @param showViewer create and show a viewer
+    * @param showViewer          create and show a viewer
     * @param dataStorageLocation where should data be saved to disk
-    * @param name name for data storage and viewer
-    * @param xyTiled true if using XY tiling/multiresolution features
-    * @param tileOverlapX X pixel overlap between adjacent tiles if using XY tiling/multiresolution
-    * @param tileOverlapY Y pixel overlap between adjacent tiles if using XY tiling/multiresolution
-    * @param maxResLevel The maximum resolution level index if using XY tiling/multiresolution
+    * @param name                name for data storage and viewer
+    * @param xyTiled             true if using XY tiling/multiresolution features
+    * @param tileOverlapX        X pixel overlap between adjacent tiles if using XY tiling/multiresolution
+    * @param tileOverlapY        Y pixel overlap between adjacent tiles if using XY tiling/multiresolution
+    * @param maxResLevel         The maximum resolution level index if using XY tiling/multiresolution
     */
-   public RemoteViewerStorageAdapter(boolean showViewer,  String dataStorageLocation,
-                                     String name, boolean xyTiled, int tileOverlapX, int tileOverlapY,
+   public RemoteViewerStorageAdapter(boolean showViewer, String dataStorageLocation,
+                                     String name, boolean xyTiled, int tileOverlapX,
+                                     int tileOverlapY,
                                      Integer maxResLevel, int savingQueueSize) {
       showViewer_ = showViewer;
       storeData_ = dataStorageLocation != null;
@@ -69,7 +69,7 @@ class RemoteViewerStorageAdapter implements NDViewerDataSource, AcqEngJDataSink 
    }
 
    public void initialize(Acquisition acq, JSONObject summaryMetadata) {
-      acq_ =  acq;
+      acq_ = acq;
 
       if (storeData_) {
          if (xyTiled_) {
@@ -79,13 +79,13 @@ class RemoteViewerStorageAdapter implements NDViewerDataSource, AcqEngJDataSink 
          }
 
          storage_ = new NDTiffStorage(dir_, name_,
-                 summaryMetadata, tileOverlapX_, tileOverlapY_,
-                 xyTiled_, maxResLevel_, savingQueueSize_,
-                 //Debug logging function without storage having to directly depend on core
-                 acq_.isDebugMode() ? ((Consumer<String>) s -> {
-                    Engine.getCore().logMessage(s);
-                 }) : null, true
-                 );
+               summaryMetadata, tileOverlapX_, tileOverlapY_,
+               xyTiled_, maxResLevel_, savingQueueSize_,
+               //Debug logging function without storage having to directly depend on core
+               acq_.isDebugMode() ? ((Consumer<String>) s -> {
+                  Engine.getCore().logMessage(s);
+               }) : null, true
+         );
          name_ = storage_.getUniqueAcqName();
 
       }
@@ -95,6 +95,7 @@ class RemoteViewerStorageAdapter implements NDViewerDataSource, AcqEngJDataSink 
       }
    }
 
+   @Override
    public NDViewerAPI getViewer() {
       return viewer_;
    }
@@ -122,12 +123,6 @@ class RemoteViewerStorageAdapter implements NDViewerDataSource, AcqEngJDataSink 
       HashMap<String, Object> axes = AcqEngMetadata.getAxes(taggedImg.tags);
       final Future added;
       if (xyTiled_) {
-         // Convert event row/col to image row/col
-         // TODO: Maybe this should come via the event in the image metadata rather than
-         // seperate tags?
-         axes.put(AcqEngMetadata.AXES_GRID_COL , AcqEngMetadata.getGridCol(taggedImg.tags));
-         axes.put(AcqEngMetadata.AXES_GRID_ROW , AcqEngMetadata.getGridRow(taggedImg.tags));
-
          added = storage_.putImageMultiRes(taggedImg.pix, taggedImg.tags, axes,
                  AcqEngMetadata.isRGB(taggedImg.tags),
                  AcqEngMetadata.getBitDepth(taggedImg.tags),
