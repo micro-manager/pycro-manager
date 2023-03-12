@@ -1,6 +1,8 @@
 """
 The Pycro-manager Acquisiton system
 """
+import warnings
+
 import numpy as np
 import multiprocessing
 import threading
@@ -427,10 +429,8 @@ class Acquisition(object, metaclass=NumpyDocstringInheritanceMeta):
             self._event_queue.put(None)
             return
 
-        if _validate_acq_events(event_or_events):
-            self._event_queue.put(event_or_events)
-        else:
-            raise Exception('Supplied acquisition events are not valid.')
+        _validate_acq_events(event_or_events)
+        self._event_queue.put(event_or_events)
 
     def abort(self, exception=None):
         """
@@ -678,7 +678,7 @@ class XYTiledAcquisition(Acquisition):
         """
         Parameters
         ----------
-         tile_overlap : int or tuple of int
+        tile_overlap : int or tuple of int
             If given, XY tiles will be laid out in a grid and multi-resolution saving will be
             actived. Argument can be a two element tuple describing the pixel overlaps between adjacent
             tiles. i.e. (pixel_overlap_x, pixel_overlap_y), or an integer to use the same overlap for both.
@@ -756,11 +756,11 @@ class ExploreAcquisition(Acquisition):
         """
         Parameters
         ----------
-         z_step_um : str
-            spacing between successive z planes, in microns
-         tile_overlap : int or tuple of int
+        z_step_um : str
+            Spacing between successive z planes, in microns
+        tile_overlap : int or tuple of int
             If given, XY tiles will be laid out in a grid and multi-resolution saving will be
-            actived. Argument can be a two element tuple describing the pixel overlaps between adjacent
+            activated. Argument can be a two element tuple describing the pixel overlaps between adjacent
             tiles. i.e. (pixel_overlap_x, pixel_overlap_y), or an integer to use the same overlap for both.
             For these features to work, the current hardware configuration must have a valid affine transform
             between camera coordinates and XY stage coordinates
@@ -880,19 +880,28 @@ def _validate_acq_events(events: dict or list):
 
 def _validate_acq_dict(event: dict):
     """
-    Validate event dictionary
+    Validate event dictionary, and raise an exception or supply a wanring and fix it if something is incorrecct
 
     Parameters
     ----------
     event : dict
 
-    Returns
-    -------
-    bool
-        True if event dict is valid, False otherwise
-
     """
-    if 'axes' in event.keys():
-        return True
-    else:
-        return False
+    if 'axes' not in event.keys():
+        raise Exception('event dictionary must contain an \'axes\' key')
+    if 'row' in event.keys():
+        warnings.warn('adding \'row\' as a top level key in the event dictionary is deprecated and will be disallowed in '
+                      'a future version. Instead, add \'row\' as a key in the \'axes\' dictionary')
+        event['axes']['row'] = event['row']
+    if 'col' in event.keys():
+        warnings.warn('adding \'col\' as a top level key in the event dictionary is deprecated and will be disallowed in '
+                      'a future version. Instead, add \'column\' as a key in the \'axes\' dictionary')
+        event['axes']['column'] = event['col']
+
+    # TODO check for the validity of other acquisition event fields, and make sure that there aren't unexpected
+    #   other fields, to help users catch simple errors
+
+
+
+
+
