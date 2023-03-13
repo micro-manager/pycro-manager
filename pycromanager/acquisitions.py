@@ -356,7 +356,7 @@ class Acquisition(object, metaclass=NumpyDocstringInheritanceMeta):
         if show_display:
             if napari_viewer is None:
                 # using NDViewer
-                self._nd_viewer = self._remote_acq.get_viewer()
+                self._nd_viewer = self._remote_acq.get_data_sink().get_viewer()
             else:
                 # using napari viewer
                 try:
