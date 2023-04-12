@@ -342,3 +342,51 @@ def test_time_noseq_z_seq_interval_acq(launch_mm_headless, setup_data_folder):
     t_end = time.time()
 
     assert(t_end-t_start > 5), 'Acquisition timing is not accurate'
+
+
+def test_abort_sequenced_timelapse(launch_mm_headless, setup_data_folder):
+    """
+    Test that a hardware sequenced acquisition can be aborted mid-sequence
+
+    """
+    def hook_fn(_events):
+        assert check_acq_sequenced(_events, 1000), 'Sequenced acquisition is not built correctly'
+        return _events
+
+    core = Core()
+    core.set_exposure(1000)
+
+    with Acquisition(setup_data_folder, 'acq', show_display=False,
+                     pre_hardware_hook_fn=hook_fn) as acq:
+        events = multi_d_acquisition_events(1000)
+        acq.acquire(events)
+        time.sleep(10)
+        acq.abort()
+
+    dataset = acq.get_dataset()
+    assert(0 < len(dataset.index) < 100)
+
+def test_abort_sequenced_zstack(launch_mm_headless, setup_data_folder):
+    """
+    Test that a hardware sequenced acquisition can be aborted mid-sequence
+
+    """
+    mmc = Core()
+    mmc.set_property('Z', 'UseSequences', 'Yes')
+
+    def hook_fn(_events):
+        assert check_acq_sequenced(_events, 1000), 'Sequenced acquisition is not built correctly'
+        return _events
+
+    core = Core()
+    core.set_exposure(1000)
+
+    with Acquisition(setup_data_folder, 'acq', show_display=False,
+                     pre_hardware_hook_fn=hook_fn) as acq:
+        events = multi_d_acquisition_events(z_start=0, z_end=999, z_step=1)
+        acq.acquire(events)
+        time.sleep(4)
+        acq.abort()
+
+    dataset = acq.get_dataset()
+    assert(len(dataset.index) < 1000)
