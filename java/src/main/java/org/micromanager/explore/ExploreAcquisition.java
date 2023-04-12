@@ -363,12 +363,18 @@ public class ExploreAcquisition extends XYTiledAcquisition
 
    private Function<AcquisitionEvent, AcquisitionEvent> monitorSliceIndices() {
       return (AcquisitionEvent event) -> {
-
-         for (String name : getZDeviceNames()) {
-            getZAxes().get(name).lowestExploredZIndex_ = Math.min( getZAxes().get(name).lowestExploredZIndex_, getZLimitLowerSliceIndex(name));
-            getZAxes().get(name).highestExploredZIndex_ = Math.max( getZAxes().get(name).highestExploredZIndex_, getZLimitUpperSliceIndex(name));
+         try {
+            for (String name : getZDeviceNames()) {
+               getZAxes().get(name).lowestExploredZIndex_ =
+                     Math.min(getZAxes().get(name).lowestExploredZIndex_,
+                           getZLimitLowerSliceIndex(name));
+               getZAxes().get(name).highestExploredZIndex_ =
+                     Math.max(getZAxes().get(name).highestExploredZIndex_,
+                           getZLimitUpperSliceIndex(name));
+            }
+         } catch (Exception e) {
+            e.printStackTrace();
          }
-
          return event;
       };
    }
