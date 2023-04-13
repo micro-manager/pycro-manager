@@ -80,7 +80,7 @@ public class ZAxisLimitControlPanel extends javax.swing.JPanel{
       double zPos;
       try {
          //initialize properly
-         zPos = Engine.getCore().getPosition();
+         zPos = Engine.getCore().getPosition(name_);
       } catch (Exception ex) {
          throw new RuntimeException(ex);
       }
