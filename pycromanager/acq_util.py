@@ -19,7 +19,8 @@ def cleanup():
 atexit.register(cleanup)
 
 def start_headless(
-    mm_app_path: str, config_file: str='', java_loc: str=None, core_log_path: str='', buffer_size_mb: int=1024,
+    mm_app_path: str, config_file: str='', java_loc: str=None, core_log_path: str='',
+        buffer_size_mb: int=1024, max_memory_mb: int=2000,
         port: int=_Bridge.DEFAULT_PORT, debug=False):
     """
     Start a Java process that contains the neccessary libraries for pycro-manager to run,
@@ -45,6 +46,8 @@ def start_headless(
         Path to where core log files should be created
     buffer_size_mb : int
         Size of circular buffer in MB in MMCore
+    max_memory_mb : int
+        Maximum amount of memory to be allocated to JVM
     port : int
         Default port to use for ZMQServer
     debug : bool
@@ -66,7 +69,7 @@ def start_headless(
                 "-classpath",
                 classpath,
                 "-Dsun.java2d.dpiaware=false",
-                "-Xmx2000m",
+                f"-Xmx{max_memory_mb}m",
 
                 # This is used by MM desktop app but breaks things on MacOS...Don't think its neccessary
                 # "-XX:MaxDirectMemorySize=1000",
