@@ -12,39 +12,46 @@ The following shows all possible fields in an acquisition event (not all of whic
 .. code-block:: python
 
   event = {
-	#A dictionary with the positions along various axes (e.g. time point indez,
-	#z-slice index, etc) a 'channel' axis is not required as it is inferred 
-	#automatically
-	'axes': {'axis1_name': integer_value,
-			 'axis2_name': integer_value},
+	# A dictionary with the positions along various axes (e.g. time point index,
+	# z-slice index, etc.). 
+	'axes': {
+		# Axis names can be any string
+		'axis1_name': 1,
 
-	#The config of group and setting corresponding to this channel
-	'channel': {
-		'group': 'name_of_micro_manager_config_group',
-		'config': 'setting_of_micro_manager_config_group'
-	},
+		# They can take integer or string values
+		'axis2_name': 'first_position', 
+
+		# "channel" is a special axis name which will lead to different positions being 
+		# overlayed in different colors in the image viewer
+		'channel': 'DAPI',
+
+		# If an XYTiledAcquisition is being used, "row" and "column" are special 
+		# values that the acquisition engine will convert into stage coordinates,
+		# laying out the acquired images in a grid
+		'row': 1,
+		'column': 0,
+
+		},
+
+	# Config groups can be used to control groups of properties
+	'config_group': ['name_of_config_group', 'name_of_preset'],
 
 	'exposure': exposure_time_in_ms,
 
-	#For z stacks
+	# For z stacks
 	'z': z_position_in_µm,
 
-	#For timelapses: how long to wait before starting next time point in s
+	# For timelapses: how long to wait before starting next time point in s
 	'min_start_time': time_in_s
 
-	#For XY stages
+	# For XY stages
 	'x': x_position_in_µm,
 	'y': y_position_in_µm,
-	#If xy stage positions are in a grid
-	'row': row_index_of_xy_position,
-	'col': col_index_of_xy_position,
 
-	#Turn of autoshutter, and keep the shutter open while acquiring
-	'keep_shutter_open': True,
 
-	#Other arbitrary hardware settings can be encoded in a list of strings with
-	#each entry containing the name of the device, the name of the property,
-	#and the value of the property
+	# Other arbitrary hardware settings can be encoded in a list of strings with
+	# each entry containing the name of the device, the name of the property,
+	# and the value of the property
 	'properties': [['DeviceName', 'PropertyName', 'PropertyValue'], 
 		['OtherDeviceName', 'OtherPropertyName', 'OtherPropertyValue']],
 	}
@@ -67,6 +74,11 @@ multi_d_acquisition_events
 XYTiledAcquisition
 =====================
 .. autoclass:: XYTiledAcquisition
+	:members:
+
+ExploreAcquisition
+=====================
+.. autoclass:: ExploreAcquisition
 	:members:
 
 MagellanAcquisition

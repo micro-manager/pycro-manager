@@ -5,10 +5,10 @@
  */
 package org.micromanager.remote;
 
-import org.micromanager.acqj.api.AcquisitionAPI;
 import org.micromanager.acqj.main.Acquisition;
 import org.micromanager.ndtiffstorage.NDTiffAPI;
-import org.micromanager.ndviewer.api.ViewerAcquisitionInterface;
+import org.micromanager.ndviewer.api.NDViewerAcqInterface;
+import org.micromanager.ndviewer.api.NDViewerAPI;
 
 /**
  * Class that serves as the java counterpart to a python acquisition
@@ -16,7 +16,8 @@ import org.micromanager.ndviewer.api.ViewerAcquisitionInterface;
  *
  * @author henrypinkard
  */
-public class RemoteAcquisition extends Acquisition implements AcquisitionAPI, ViewerAcquisitionInterface {
+public class RemoteAcquisition extends Acquisition
+        implements NDViewerAcqInterface, PycroManagerCompatibleAcq {
 
    private RemoteEventSource eventSource_;
 
@@ -27,12 +28,11 @@ public class RemoteAcquisition extends Acquisition implements AcquisitionAPI, Vi
       eventSource.setAcquisition(this);
    }
 
-   /**
-    * Called by python side
-    */
+   @Override
    public int getEventPort() {
       return eventSource_.getPort();
    }
+
 
    @Override
    public void abort() {
@@ -40,10 +40,6 @@ public class RemoteAcquisition extends Acquisition implements AcquisitionAPI, Vi
       eventSource_.abort();
    }
 
-   @Override
-   public void togglePaused() {
-      setPaused(!isPaused());
-   }
 
    @Override
    public void abort(Exception e) {
@@ -55,9 +51,13 @@ public class RemoteAcquisition extends Acquisition implements AcquisitionAPI, Vi
    @Override
    public boolean isFinished() {
       if (getDataSink() != null) {
-         return eventSource_.isFinished() && getDataSink().isFinished();
+         return eventSource_.isFinished() && areEventsFinished() && getDataSink().isFinished();
       }
-      return eventSource_.isFinished();
+      return eventSource_.isFinished() && areEventsFinished();
    }
 
+   @Override
+   public NDTiffAPI getStorage() {
+      return ((RemoteViewerStorageAdapter) dataSink_).getStorage();
+   }
 }

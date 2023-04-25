@@ -26,12 +26,15 @@ setuptools.setup(
         "dask[array]>=2022.2.0",
         "pyzmq",
         "docstring-inheritance",
-        "ndtiff>=1.4.0"
+        "ndtiff>=1.10.0"
     ],
     python_requires=">=3.6",
     extras_require={
-        "test": [
+        "dev": [
             "pytest",
+            "wget",
+            "requests",
+            "napari"
         ]
     },
     classifiers=[

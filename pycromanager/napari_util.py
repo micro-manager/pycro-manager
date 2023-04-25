@@ -19,12 +19,11 @@ def start_napari_signalling(viewer, dataset):
         """
         update the napari layer with the new image
         """
-        if len(viewer.layers) == 0:
-            viewer.add_image(image)
-        elif image is None:
-            viewer.layers[0].refresh()
-        else:
-            viewer.layers[0].data = image
+        if image is not None:
+            try:
+                viewer.layers['pycromanager acquisition'].data = image
+            except KeyError:
+                viewer.add_image(image, name='pycromanager acquisition')
 
 
     @thread_worker(connect={'yielded': update_layer})
@@ -34,6 +33,9 @@ def start_napari_signalling(viewer, dataset):
         update napari appropriately
         """
         while True:
+            time.sleep(1 / 60)  # limit to 60 hz refresh
+            image = None
+
             if dataset is not None and dataset.has_new_image():
                 # A new image has arrived, but we only need to regenerate the dask array
                 # if its shape has changed
@@ -43,12 +45,7 @@ def start_napari_signalling(viewer, dataset):
                         np.any(napari_signaller.old_shape != shape):
                     image = dataset.as_array()
                     napari_signaller.old_shape = shape
-                    yield image
-                else:
-                    # Tell viewer to update but not change data
-                    yield None
-            else:
-                time.sleep(1 / 60) # 60 hz refresh
 
+            yield image
 
     napari_signaller()

@@ -50,29 +50,28 @@ public class RemoteEventSource {
               });
       //constantly poll the socket for more event sequences to submit
       executor_.submit(() -> {
-         while (true) {
-            try {
+         try {
+            while (true) {
                List<AcquisitionEvent> eList = pullSocket_.next();
                boolean finished = eList.get(eList.size() - 1).isAcquisitionFinishedEvent();
                Future result = acq_.submitEventIterator(eList.iterator());
                result.get(); //propogate any exceptions
                if (finished || executor_.isShutdown()) {
                   executor_.shutdown();
-                  pullSocket_.close();
                   return;
                }
 //            } catch (ExecutionException ex) {
 //               JOptionPane.showMessageDialog(null, ex.getMessage());
-            } catch (Exception e) {
-               if (executor_.isShutdown()) {
-                  return; //It was aborted
-               }
-               e.printStackTrace();
-               acq_.abort(e);
-               throw new RuntimeException(e);
             }
-
+         } catch (Exception e) {
+            e.printStackTrace();
+            if (!executor_.isShutdown()) {
+               acq_.abort(e);
+            }
+         } finally {
+            pullSocket_.close();
          }
+
       });
    }
 

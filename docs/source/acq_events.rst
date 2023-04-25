@@ -117,25 +117,27 @@ This mechanism can be used to make acquisitions that vary device properties acro
 	    acq.acquire(events)
 
 
-Channels can be created by providing the group and preset name of a `Micro-manager config group <https://micro-manager.org/wiki/Micro-Manager_Configuration_Guide#Configuration_Presets>`_. The 'axes' field is not needed for channels because it is inferred automatically.
+Channels in Micro-manager are typically used to hold multiple images acquired with different contrast mechanisms (e.g. different wavelengths of light, brightfield vs fluorescence microscopy, etc.). This encompasses two characteristics: 1) How the image data should be stored and displayed (i.e. overlayed in different colors). 2) What hardware settings are used to acquire the different images. With customized acquisition events, these two characteristics can controlled independently. This enables, for example, to have images from two different z-planes to show up in the default image viewer as different channels.
+
+The display and storage of channels are controlled by the ``'channel'`` entry in the ``'axes'`` dictionary. In Micro-Manager, hardware settings for different channels are typically controlled by providing the group and preset name of a `Config group <https://micro-manager.org/wiki/Micro-Manager_Configuration_Guide#Configuration_Presets>`_. This is specified using the ``config_group`` field of acquisition events.
 
 .. code-block:: python
 
 	 event = {
-	'channel': {
-		'group': 'name_of_micro_manager_config_group',
-		'config': 'setting_of_micro_manager_preset'
-	}}
+		'axes': {'channel': 'desired_name_for_saving_and_display'},
+		'config_group': 
+			['name_of_micro_manager_config_group',
+			'setting_of_micro_manager_preset']
+	}
 
-For the values in provided in the micro-manager demo config, this would be:
+For example, with the values in provided in the micro-manager demo config, this would be:
 
 .. code-block:: python
 
 	 event = {
-	'channel': {
-		'group': 'Channel',
-		'config': 'DAPI'
-	}}
+		'axes': {'channel': 'DAPI'},
+		'config_group': ['Channel', 'DAPI']
+	}
 
 
 .. _xy_tiled_acq:
@@ -149,7 +151,7 @@ Pycro-manager has special support for acquisitions in which multiple images are 
 
    In order for this functionality to work, the current configuration must have a correctly calibrated affine transform matrix, which gives the corrspondence between the coordinate systems of the camera and the XY stage. This can be calibrated automatically in Micro-Manager by using the pixel size calibrator (under ``Devices``--``Pixel Size Calibration`` in the Micro-manager GUI).
 
-To use these features, rather than creating an :class:`Acquisition<pycromanager.Acquisition>`, a :class:`XYTiledAcquisition<pycromanager.Acquisition>` will be used. These classes are almost identical, except that :class:`XYTiledAcquisition<pycromanager.Acquisition>` has an additional required argument ``tile_overlap``, which gives the number of pixels by which adjacent tiles will overlap. Different XY fields of view can be acquired using the ``row`` and ``col`` fields in acquisition events.
+To use these features, rather than creating an :class:`Acquisition<pycromanager.Acquisition>`, a :class:`XYTiledAcquisition<pycromanager.Acquisition>` will be used. These classes are almost identical, except that :class:`XYTiledAcquisition<pycromanager.Acquisition>` has an additional required argument ``tile_overlap``, which gives the number of pixels by which adjacent tiles will overlap. Different XY fields of view can be acquired adding ``row`` and ``column`` indices in the ``axes`` of the acquisition event.
 
 
 .. code-block:: python
@@ -160,8 +162,12 @@ To use these features, rather than creating an :class:`Acquisition<pycromanager.
         #10 pixel overlap between adjacent tiles
 
         #acquire a 2 x 1 grid
-        acq.acquire({'row': 0, 'col': 0})
-        acq.acquire({'row': 1, 'col': 0})
+        acq.acquire({'axes': 
+        		{'row': 0, 'col': 0}
+        			})
+        acq.acquire({'axes':
+        		{'row': 1, 'col': 0}
+        			})
 
 
 

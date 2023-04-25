@@ -6,18 +6,21 @@
 package org.micromanager.remote;
 
 import org.micromanager.acqj.api.AcquisitionAPI;
-import org.micromanager.acqj.main.Acquisition;
 import org.micromanager.acqj.main.XYTiledAcquisition;
+import org.micromanager.acqj.util.xytiling.CameraTilingStageTranslator;
 import org.micromanager.ndtiffstorage.NDTiffAPI;
-import org.micromanager.ndviewer.api.ViewerAcquisitionInterface;
+import org.micromanager.ndviewer.api.NDViewerAPI;
+import org.micromanager.ndviewer.api.NDViewerAcqInterface;
 
 /**
+ * XYTiled acquisition that accepts events froma  remote source
  * Class that serves as the java counterpart to a python acquisition
  *
  *
  * @author henrypinkard
  */
-public class XYTiledRemoteAcquisition extends XYTiledAcquisition implements AcquisitionAPI, ViewerAcquisitionInterface {
+public class XYTiledRemoteAcquisition extends XYTiledAcquisition
+        implements AcquisitionAPI, NDViewerAcqInterface, PycroManagerCompatibleAcq {
 
    private RemoteEventSource eventSource_;
 
@@ -32,24 +35,15 @@ public class XYTiledRemoteAcquisition extends XYTiledAcquisition implements Acqu
       return getDataSink() == null ? null : ((RemoteViewerStorageAdapter) getDataSink()).getStorage();
    }
 
-
-   /**
-    * Called by python side
-    */
+   @Override
    public int getEventPort() {
       return eventSource_.getPort();
    }
-
 
    @Override
    public void abort() {
       super.abort();
       eventSource_.abort();
-   }
-
-   @Override
-   public void togglePaused() {
-      setPaused(!isPaused());
    }
 
    @Override
@@ -67,4 +61,8 @@ public class XYTiledRemoteAcquisition extends XYTiledAcquisition implements Acqu
       return eventSource_.isFinished();
    }
 
+   @Override
+   public CameraTilingStageTranslator getPixelStageTranslator() {
+      return pixelStageTranslator_;
+   }
 }

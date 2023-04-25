@@ -1,0 +1,246 @@
+# If changes to java versions
+#  Deploy new version of pycromanager java to maven, 
+#  and then update micro-manager ivy file and make PR
+# If changes to python version
+#  await for PR to merge into new MM version
+#  then publish new version to pypi
+
+name: Build and deploy Java and Python components of Pycro-Manager
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'java/pom.xml'
+      - 'pycromanager/_version.py'
+
+# ensure only one instance of the script runs at a given time
+concurrency: PM_version_update
+
+jobs:
+
+  # Use a filter to determine whether to deploy new java version
+  check-java-version:
+    if: ${{ github.repository == 'micro-manager/pycro-manager' }}
+    runs-on: ubuntu-latest
+    permissions:
+      pull-requests: read
+    outputs:
+      changed: ${{ steps.filter.outputs.changed }}
+    steps:
+    - uses: actions/checkout@v3
+    - uses: dorny/paths-filter@v2
+      id: filter
+      with:
+        filters: |
+          changed:
+            - 'java/pom.xml'
+            
+            
+  maven-deploy:
+    # This workflow will build a Java project with Maven
+    # For more information see: https://help.github.com/actions/language-and-framework-guides/building-and-testing-java-with-maven
+
+    needs: check-java-version
+    #if: ${{ github.repository == 'micro-manager/pycro-manager'  && needs.check-java-version.outputs.changed == 'true' }}
+    if: ${{ needs.check-java-version.outputs.changed == 'true' }}
+
+      
+    name: Deploy PycroManagerJava.jar to Sonatype OSS
+    runs-on: ubuntu-latest 
+
+    steps:
+    
+      - uses: actions/checkout@v3
+
+      - name: Set up JDK 8
+        uses: actions/setup-java@v3
+        with:
+          java-version: 8
+          distribution: 'zulu'
+
+      - name: Set up Apache Maven Central
+        uses: actions/setup-java@v3
+        with: # running setup-java again overwrites the settings.xml
+          java-version: 8
+          distribution: 'zulu'
+
+          server-id: ossrh
+          server-username: OSSRH_USERNAME
+          server-password: OSSRH_PASSWORD
+          gpg-private-key: ${{ secrets.MAVEN_GPG_PRIVATE_KEY }}
+          gpg-passphrase: MAVEN_GPG_PASSPHRASE
+          
+      - name: Publish to Apache Maven Central
+        run: mvn deploy --file java/pom.xml -Dgpg.passphrase=${{ secrets.MAVEN_GPG_PASSPHRASE }}
+        env:
+          OSSRH_USERNAME: ${{ secrets.OSSRH_USERNAME }}
+          OSSRH_PASSWORD: ${{ secrets.OSSRH_PASSWORD }}
+          MAVEN_GPG_PASSPHRASE: ${{ secrets.MAVEN_GPG_PASSPHRASE }}
+
+
+  mm-update:
+    needs: [check-java-version, maven-deploy]
+    if: ${{ github.repository == 'micro-manager/pycro-manager' && needs.check-java-version.outputs.changed == 'true' }}
+
+      
+    name: Open a PR in micro-manager/micro-manager to update java dependencies
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write 
+    steps:
+    
+    # Get token for using gh CLI
+    # https://michaelheap.com/ultimate-guide-github-actions-authentication/
+    - name: Get Token
+      id: get_workflow_token      
+      uses: getsentry/action-github-app-token@v2
+      with:
+        app_id: ${{ secrets.MM_PR_BOT_APP_ID }}
+        private_key: ${{ secrets.MM_PR_BOT_PRIVATE_KEY }}
+      
+      
+    - name: Checkout Micro-Manager branch
+      uses: actions/checkout@v3
+     # env:
+      #  GITHUB_TOKEN: ${{ steps.get_workflow_token.outputs.token }}
+      with:
+        path: micro-manager
+        repository: micro-manager/micro-manager
+        token: ${{ steps.get_workflow_token.outputs.token }}
+        ref: ${{ github.ref_name }}  # Use matching branch
+    
+    
+    - name: Checkout pycro-manager # To get the update_mm_ivy.py script
+      uses: actions/checkout@v3
+      env:
+        GITHUB_TOKEN: ${{ steps.get_workflow_token.outputs.token }}
+     
+      with:
+        path: pycro-manager
+        repository: micro-manager/pycro-manager
+        ref: main
+        
+    - name: Wait for new version to be available and update ivy.xml
+      run: |
+        cd pycro-manager
+        git config --global user.email "41898282+github-actions[bot]@users.noreply.github.com"
+        git config --global user.name "PycroManager-Bot"
+        git config pull.rebase false
+        pip install semantic_version lxml
+        python build_automation/update_mm_ivy.py
+        
+    - name: commit
+      run: |
+        cd micro-manager
+        # delete any errant existing version of the update branch
+        git branch -D dependency_update_from_pycromanager 2>/dev/null || true
+        git push origin --delete dependency_update_from_pycromanager 2>/dev/null || true
+
+        git checkout -b dependency_update_from_pycromanager
+        git commit -am "Update PycromanagerJava version (and possibly its dependencies)"
+        
+    - name: push
+      run: |
+        cd micro-manager
+        git push --set-upstream origin dependency_update_from_pycromanager
+
+        
+    - name: create pull request wait for merge
+      env:
+        GITHUB_TOKEN: ${{ steps.get_workflow_token.outputs.token }}
+      run: |
+        cd micro-manager
+        # Create pull request to merge into micro-manager/micro-manager main branch
+        PR_URL=$(gh pr create -H dependency_update_from_pycromanager -B main --title 'Update Pycro-Manager and dependencies' --body 'Created by Github action')
+        echo "Created pull request $PR_URL"
+        
+        # supposedly you can use --delete-branch here, but as of 2-1-23 it doesn't work
+        gh pr merge $PR_URL --auto --merge
+        
+        # wait for status checks and PR to merge
+        while true; do
+        if gh pr checks $PR_URL --watch | grep -q "fail"; then
+          # raise an error 
+          echo "checks failed"
+          set -e
+        else
+          # The PR passed all checks in micro-manager. 
+          echo "checks passed"
+          break
+        fi
+        sleep 10 # is this needed in addition to --watch?
+        done
+        
+        
+        # Block until PR merged or closed
+        while true; do
+        if gh pr view $PR_URL --json state | grep -q "MERGED"; then
+          echo "success merge"
+          break
+        elif gh pr view $PR_URL --json state | grep -q "CLOSED"; then
+          echo "pull request closed"
+          break
+        else
+          echo "waiting on pull request status"
+          sleep 10
+        fi
+        done
+
+        # Now it is safe to assume its in the nightly builds
+        # delete the branch created for sending in the update
+        git push origin --delete dependency_update_from_pycromanager
+
+
+  # After java deps have updated in MM, time to check if a new python version is needed
+  check-python-version:
+    if: ${{ github.repository == 'micro-manager/pycro-manager' }}
+    runs-on: ubuntu-latest
+    permissions:
+      pull-requests: read
+    outputs:
+      changed: ${{ steps.filter.outputs.changed }}
+    steps:
+    - uses: actions/checkout@v3
+    - uses: dorny/paths-filter@v2
+      id: filter
+      with:
+        filters: |
+          changed:
+            - 'pycromanager/_version.py'
+
+      
+  pypi-deploy:
+    # Once any changes to java have gone into micro-manager, a new version of PM can be deployed to PyPi
+    needs: [check-java-version, mm-update, maven-deploy, check-python-version]
+    name: Deploy new version to PyPi if needed
+    
+    # Run if 
+    #    java update is complete without errors and new version is merged into MM main (or no java update)
+    #   and python version changed
+    # weird syntax needed, see: https://github.com/actions/runner/issues/491#issuecomment-850884422
+    if: ${{ github.repository == 'micro-manager/pycro-manager' && always() && needs.check-python-version.outputs.changed == 'true' && !contains(needs.*.result, 'failure') &&  !contains(needs.*.result, 'cancelled')}}
+
+    runs-on: ubuntu-latest
+    
+    steps:
+   
+    - uses: actions/checkout@v3
+    - name: Install Python
+      uses: actions/setup-python@v2
+      with:
+        python-version: '3.x'
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install packaging setuptools twine wheel
+    - name: Publish the Python package
+      env:
+        TWINE_USERNAME: __token__
+        TWINE_PASSWORD: ${{ secrets.PYPI_API_TOKEN }}
+      run: |
+        python setup.py sdist bdist_wheel
+        twine upload dist/*
+

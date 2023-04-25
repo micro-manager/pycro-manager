@@ -15,9 +15,12 @@ dist/
 
 __pycache__/
 
+pycromanager/test/temp_data
+scripts/debug.py
+
 # intelliJ
 java/src/main/java/.idea/
-java/src/main/java/pycromanager.iml
+*.iml
 #maven
 java/target
 .idea/
@@ -25,3 +28,7 @@ java/target
 .ipynb_checkpoints
 #vim
 *.swp
+#vs code
+.vscode/
+#OS files
+.DS_Store

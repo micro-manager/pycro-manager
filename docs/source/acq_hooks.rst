@@ -71,6 +71,6 @@ Applications
 Acquisition hooks can be used to enable advanced applications, such as: 
 
 -  :doc:`application_notebooks/Single_shot_autofocus_pycromanager`
--  :doc:`application_notebooks/external_master_tutorial`
+-  :doc:`application_notebooks/external_hardware_triggering_tutorial`
 -  :doc:`application_notebooks/Learned_adaptive_multiphoton_illumination`
 

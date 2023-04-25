@@ -1,13 +1,15 @@
 """
 The Pycro-manager Acquisiton system
 """
+import warnings
+
 import numpy as np
 import multiprocessing
 import threading
 from inspect import signature
 import time
 from pycromanager.zmq_bridge._bridge import deserialize_array
-from pycromanager.zmq_bridge.wrappers import PullSocket, PushSocket, JavaObject
+from pycromanager.zmq_bridge.wrappers import PullSocket, PushSocket, JavaObject, JavaClass
 from pycromanager.zmq_bridge.wrappers import DEFAULT_BRIDGE_PORT as DEFAULT_PORT
 from pycromanager.mm_java_classes import Core, Magellan
 from ndtiff import Dataset
@@ -214,7 +216,8 @@ class Acquisition(object, metaclass=NumpyDocstringInheritanceMeta):
         pre_hardware_hook_fn: callable=None,
         post_hardware_hook_fn: callable=None,
         post_camera_hook_fn: callable=None,
-        show_display: bool or str=True,
+        show_display: bool=True,
+        napari_viewer=None,
         image_saved_fn: callable=None,
         process: bool=False,
         saving_queue_size: int=20,
@@ -258,8 +261,12 @@ class Acquisition(object, metaclass=NumpyDocstringInheritanceMeta):
             startSequence. A common use case for this hook is when one want to send TTL triggers to the camera from an
             external timing device that synchronizes with other hardware. Accepts either one argument (the current
             acquisition event) or two arguments (current event, event_queue)
-        show_display : bool or str
-            If True, show the image viewer window. If False, show no viewer. If 'napari', show napari as the viewer
+        show_display : bool
+            If True, show the image viewer window. If False, show no viewer.
+        napari_viewer : napari.Viewer
+            Provide a napari viewer to display acquired data in napari (https://napari.org/) rather than the built-in
+            NDViewer. None by default. Data is added to the 'pycromanager acquisition' layer, which may be pre-configured by
+            the user
         image_saved_fn : Callable
             function that takes two arguments (the Axes of the image that just finished saving, and the Dataset)
             or three arguments (Axes, Dataset and the event_queue) and gets called whenever a new image is written to
@@ -288,6 +295,8 @@ class Acquisition(object, metaclass=NumpyDocstringInheritanceMeta):
         self._exception = None
         self._port = port
         self._timeout = timeout
+        self._nd_viewer = None
+        self._napari_viewer = None
 
         # Get a dict of all named argument values (or default values when nothing provided)
         arg_names = [k for k in signature(Acquisition.__init__).parameters.keys() if k != 'self']
@@ -307,6 +316,10 @@ class Acquisition(object, metaclass=NumpyDocstringInheritanceMeta):
         self._initialize_image_processor(**named_args)
         self._initialize_hooks(**named_args)
 
+        # Acquistiion.start is now deprecated, so this can be removed later
+        # Acquisitions now get started automatically when the first events submitted
+        # but Magellan acquisitons (and probably others that generate their own events)
+        # will need some new method to submit events only after image processors etc have been added
         self._remote_acq.start()
         self._dataset_disk_location = (
             self._remote_acq.get_data_sink().get_storage().get_disk_location()
@@ -317,7 +330,6 @@ class Acquisition(object, metaclass=NumpyDocstringInheritanceMeta):
         self._start_events()
 
         # Load remote storage
-
         data_sink = self._remote_acq.get_data_sink()
         if data_sink is not None:
             ndtiff_storage = data_sink.get_storage()
@@ -341,15 +353,20 @@ class Acquisition(object, metaclass=NumpyDocstringInheritanceMeta):
                 self._storage_monitor_thread = self._dataset._add_storage_monitor_fn(
                     self, _storage_monitor_fn, callback_fn=None, debug=self._debug)
 
-
-        if show_display == 'napari':
-            try:
-                import napari
-            except:
-                raise Exception('Napari must be installed in order to use this feature')
-            from pycromanager.napari_util import start_napari_signalling
-            viewer = napari.Viewer()
-            start_napari_signalling(viewer, self.get_dataset())
+        if show_display:
+            if napari_viewer is None:
+                # using NDViewer
+                self._nd_viewer = self._remote_acq.get_data_sink().get_viewer()
+            else:
+                # using napari viewer
+                try:
+                    import napari
+                except:
+                    raise Exception('Napari must be installed in order to use this feature')
+                from pycromanager.napari_util import start_napari_signalling
+                assert isinstance(napari_viewer, napari.Viewer), 'napari_viewer must be an instance of napari.Viewer'
+                self._napari_viewer = napari_viewer
+                start_napari_signalling(self._napari_viewer, self.get_dataset())
 
 
     ########  Public API ###########
@@ -411,6 +428,8 @@ class Acquisition(object, metaclass=NumpyDocstringInheritanceMeta):
             # manual shutdown
             self._event_queue.put(None)
             return
+
+        _validate_acq_events(event_or_events)
         self._event_queue.put(event_or_events)
 
     def abort(self, exception=None):
@@ -433,6 +452,16 @@ class Acquisition(object, metaclass=NumpyDocstringInheritanceMeta):
             # The Java side cant shut this down because it is upstream of the remote acquisition
             self._event_queue.put(None)
         self._remote_acq.abort()
+
+    def get_viewer(self):
+        """
+        Return a reference to the current viewer, if the show_display argument
+        was set to True. The returned object is either an instance of NDViewer or napari.Viewer()
+        """
+        if self._napari_viewer is None:
+            return self._nd_viewer
+        else:
+            return self._napari_viewer
 
     ########  Context manager (i.e. "with Acquisition...") ###########
     def __enter__(self):
@@ -474,7 +503,10 @@ class Acquisition(object, metaclass=NumpyDocstringInheritanceMeta):
             )
             self._remote_acq.add_image_processor(java_processor)
             self._processor_thread = self._start_processor(
-                java_processor, kwargs['image_process_fn'], self._event_queue, process=kwargs['process'])
+                java_processor, kwargs['image_process_fn'],
+                # Some acquisitions (e.g. Explore acquisitions) create events on Java side
+                self._event_queue if hasattr(self, '_event_queue') else None,
+                process=kwargs['process'])
 
 
     def _initialize_hooks(self, **kwargs):
@@ -515,10 +547,12 @@ class Acquisition(object, metaclass=NumpyDocstringInheritanceMeta):
         self._event_queue = multiprocessing.Queue() if kwargs['process'] else queue.Queue()
 
     def _create_remote_acquisition(self, **kwargs):
-        core = Core(port= self._port, timeout=self._timeout)
+        core = Core(port=self._port, timeout=self._timeout, debug=self._debug)
         acq_factory = JavaObject("org.micromanager.remote.RemoteAcquisitionFactory",
             port=self._port, args=[core], debug=self._debug)
-        show_viewer = kwargs['show_display'] == True and (kwargs['directory'] is not None and kwargs['name'] is not None)
+        show_viewer = kwargs['show_display'] is True and\
+                      kwargs['napari_viewer'] is None and\
+                      (kwargs['directory'] is not None and kwargs['name'] is not None)
 
         self._remote_acq = acq_factory.create_acquisition(
             kwargs['directory'],
@@ -644,7 +678,7 @@ class XYTiledAcquisition(Acquisition):
         """
         Parameters
         ----------
-         tile_overlap : int or tuple of int
+        tile_overlap : int or tuple of int
             If given, XY tiles will be laid out in a grid and multi-resolution saving will be
             actived. Argument can be a two element tuple describing the pixel overlaps between adjacent
             tiles. i.e. (pixel_overlap_x, pixel_overlap_y), or an integer to use the same overlap for both.
@@ -671,7 +705,9 @@ class XYTiledAcquisition(Acquisition):
             "org.micromanager.remote.RemoteAcquisitionFactory", port=self._port, args=[core]
         )
 
-        show_viewer = kwargs['show_display'] and (kwargs['directory'] is not None and kwargs['name'] is not None)
+        show_viewer = kwargs['show_display'] is True and\
+                      kwargs['napari_viewer'] is None and\
+                      (kwargs['directory'] is not None and kwargs['name'] is not None)
         if type(self.tile_overlap) is tuple:
             x_overlap, y_overlap = self.tile_overlap
         else:
@@ -689,6 +725,76 @@ class XYTiledAcquisition(Acquisition):
             kwargs['saving_queue_size'],
             kwargs['core_log_debug'],
         )
+
+class ExploreAcquisition(Acquisition):
+    """
+    Launches a user interface for an "Explore Acquisition"--a type of XYTiledAcquisition
+    in which acquisition events come from the user dynamically driving the stage and selecting
+    areas to image
+    """
+
+    def __init__(
+            self,
+            directory: str,
+            name: str,
+            z_step_um: float,
+            tile_overlap: int or tuple,
+            channel_group: str = None,
+            image_process_fn: callable=None,
+            pre_hardware_hook_fn: callable=None,
+            post_hardware_hook_fn: callable=None,
+            post_camera_hook_fn: callable=None,
+            show_display: bool=True,
+            image_saved_fn: callable=None,
+            process: bool=False,
+            saving_queue_size: int=20,
+            timeout: int=500,
+            port: int=DEFAULT_PORT,
+            debug: bool=False,
+            core_log_debug: bool=False,
+    ):
+        """
+        Parameters
+        ----------
+        z_step_um : str
+            Spacing between successive z planes, in microns
+        tile_overlap : int or tuple of int
+            If given, XY tiles will be laid out in a grid and multi-resolution saving will be
+            activated. Argument can be a two element tuple describing the pixel overlaps between adjacent
+            tiles. i.e. (pixel_overlap_x, pixel_overlap_y), or an integer to use the same overlap for both.
+            For these features to work, the current hardware configuration must have a valid affine transform
+            between camera coordinates and XY stage coordinates
+        channel_group : str
+            Name of a config group that provides selectable channels
+        """
+        self.tile_overlap = tile_overlap
+        self.channel_group = channel_group
+        self.z_step_um = z_step_um
+        # Collct all argument values except the ones specific to ExploreAcquisitions
+        arg_names = list(signature(self.__init__).parameters.keys())
+        arg_names.remove('tile_overlap')
+        arg_names.remove('z_step_um')
+        arg_names.remove('channel_group')
+        l = locals()
+        named_args = {arg_name: l[arg_name] for arg_name in arg_names}
+        super().__init__(**named_args)
+
+    def _create_remote_acquisition(self, port, **kwargs):
+        if type(self.tile_overlap) is tuple:
+            x_overlap, y_overlap = self.tile_overlap
+        else:
+            x_overlap = self.tile_overlap
+            y_overlap = self.tile_overlap
+
+        ui_class = JavaClass('org.micromanager.explore.ExploreAcqUIAndStorage')
+        ui = ui_class.create(kwargs['directory'], kwargs['name'], x_overlap, y_overlap, self.z_step_um, self.channel_group)
+        self._remote_acq = ui.get_acquisition()
+
+    def _start_events(self, **kwargs):
+        pass # These come from the user
+
+    def _create_event_queue(self, **kwargs):
+        pass # Comes from the user
 
 
 class MagellanAcquisition(Acquisition):
@@ -738,13 +844,60 @@ class MagellanAcquisition(Acquisition):
         pass # Magellan handles this on Java side
 
     def _create_remote_acquisition(self, **kwargs):
+        magellan_api = Magellan()
         if self.magellan_acq_index is not None:
-            #TODO: magellan acquisitions may miss images written
-            magellan_api = Magellan()
-            self._remote_acq = magellan_api.create_acquisition(self.magellan_acq_index, False).get_acquisition()
-            self._event_queue = None
+            self._remote_acq = magellan_api.create_acquisition(self.magellan_acq_index, False)
         elif self.magellan_explore:
-            magellan_api = Magellan()
-            self._remote_acq = magellan_api.create_explore_acquisition(False).get_acquisition()
-            self._event_queue = None
+            self._remote_acq = magellan_api.create_explore_acquisition(False)
+        self._event_queue = None
+
+def _validate_acq_events(events: dict or list):
+    """
+    Validate if supplied events are a dictionary or a list of dictionaries
+    that contain valid events. Throw an exception if not
+
+    Parameters
+    ----------
+    events : dict or list
+
+    """
+    if isinstance(events, dict):
+        _validate_acq_dict(events)
+    elif isinstance(events, list):
+        if len(events) == 0:
+            raise Exception('events list cannot be empty')
+        for event in events:
+            if isinstance(event, dict):
+                _validate_acq_dict(event)
+            else:
+                raise Exception('events must be a dictionary or a list of dictionaries')
+    else:
+        raise Exception('events must be a dictionary or a list of dictionaries')
+
+def _validate_acq_dict(event: dict):
+    """
+    Validate event dictionary, and raise an exception or supply a warning and fix it if something is incorrect
+
+    Parameters
+    ----------
+    event : dict
+
+    """
+    if 'axes' not in event.keys():
+        raise Exception('event dictionary must contain an \'axes\' key. This event will be ignored')
+    if 'row' in event.keys():
+        warnings.warn('adding \'row\' as a top level key in the event dictionary is deprecated and will be disallowed in '
+                      'a future version. Instead, add \'row\' as a key in the \'axes\' dictionary')
+        event['axes']['row'] = event['row']
+    if 'col' in event.keys():
+        warnings.warn('adding \'col\' as a top level key in the event dictionary is deprecated and will be disallowed in '
+                      'a future version. Instead, add \'column\' as a key in the \'axes\' dictionary')
+        event['axes']['column'] = event['col']
+
+    # TODO check for the validity of other acquisition event fields, and make sure that there aren't unexpected
+    #   other fields, to help users catch simple errors
+
+
+
+
 

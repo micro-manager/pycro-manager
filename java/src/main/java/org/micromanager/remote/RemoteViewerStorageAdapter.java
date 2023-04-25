@@ -1,8 +1,3 @@
-/*
- * To change this license header, choose License Headers in Project Properties.
- * To change this template file, choose Tools | Templates
- * and open the template in the editor.
- */
 package org.micromanager.remote;
 
 import java.util.HashMap;
@@ -13,35 +8,33 @@ import java.util.function.Consumer;
 import mmcorej.TaggedImage;
 import mmcorej.org.json.JSONObject;
 import org.micromanager.acqj.main.AcqEngMetadata;
-import org.micromanager.acqj.api.DataSink;
+import org.micromanager.acqj.api.AcqEngJDataSink;
 import org.micromanager.acqj.main.Acquisition;
 import org.micromanager.acqj.internal.Engine;
 import org.micromanager.ndtiffstorage.NDTiffStorage;
 import org.micromanager.ndtiffstorage.MultiresNDTiffAPI;
 import org.micromanager.ndtiffstorage.NDTiffAPI;
-import org.micromanager.ndviewer.api.DataSourceInterface;
-import org.micromanager.ndviewer.api.ViewerInterface;
+import org.micromanager.ndviewer.api.NDViewerDataSource;
+import org.micromanager.ndviewer.api.NDViewerAPI;
 import org.micromanager.ndviewer.main.NDViewer;
-import org.micromanager.ndviewer.api.ViewerAcquisitionInterface;
+import org.micromanager.ndviewer.api.NDViewerAcqInterface;
 
 /**
  * The class is the glue needed in order for Acquisition engine, viewer, and data storage
  * to be able to be used together, since they are independent libraries that do not know about one
- * another. It implements the Acquisition engine API for a {@link DataSink} interface, dispatching acquired images
- * to viewer and storage as appropriate. It implements viewers {@link DataSourceInterface} interface, so
+ * another. It implements the Acquisition engine API for a {@link AcqEngJDataSink} interface, dispatching acquired images
+ * to viewer and storage as appropriate. It implements viewers {@link NDViewerDataSource} interface, so
  * that images in storage can be passed to the viewer to display.
  *
  * @author henrypinkard
  */
-public class RemoteViewerStorageAdapter implements DataSourceInterface, DataSink {
+class RemoteViewerStorageAdapter implements NDViewerDataSource, AcqEngJDataSink, PycroManagerCompatibleUI {
 
    private ExecutorService displayCommunicationExecutor_;
 
-   private volatile ViewerInterface viewer_;
+   private volatile NDViewerAPI viewer_;
    private volatile Acquisition acq_;
    private volatile MultiresNDTiffAPI storage_;
-   private CopyOnWriteArrayList<String> channelNames_ = new CopyOnWriteArrayList<String>();
-
    private final boolean showViewer_, storeData_, xyTiled_;
    private final int tileOverlapX_, tileOverlapY_;
    private String dir_;
@@ -52,17 +45,17 @@ public class RemoteViewerStorageAdapter implements DataSourceInterface, DataSink
 
 
    /**
-    *
-    * @param showViewer create and show a viewer
+    * @param showViewer          create and show a viewer
     * @param dataStorageLocation where should data be saved to disk
-    * @param name name for data storage and viewer
-    * @param xyTiled true if using XY tiling/multiresolution features
-    * @param tileOverlapX X pixel overlap between adjacent tiles if using XY tiling/multiresolution
-    * @param tileOverlapY Y pixel overlap between adjacent tiles if using XY tiling/multiresolution
-    * @param maxResLevel The maximum resolution level index if using XY tiling/multiresolution
+    * @param name                name for data storage and viewer
+    * @param xyTiled             true if using XY tiling/multiresolution features
+    * @param tileOverlapX        X pixel overlap between adjacent tiles if using XY tiling/multiresolution
+    * @param tileOverlapY        Y pixel overlap between adjacent tiles if using XY tiling/multiresolution
+    * @param maxResLevel         The maximum resolution level index if using XY tiling/multiresolution
     */
-   public RemoteViewerStorageAdapter(boolean showViewer,  String dataStorageLocation,
-                                     String name, boolean xyTiled, int tileOverlapX, int tileOverlapY,
+   public RemoteViewerStorageAdapter(boolean showViewer, String dataStorageLocation,
+                                     String name, boolean xyTiled, int tileOverlapX,
+                                     int tileOverlapY,
                                      Integer maxResLevel, int savingQueueSize) {
       showViewer_ = showViewer;
       storeData_ = dataStorageLocation != null;
@@ -76,7 +69,7 @@ public class RemoteViewerStorageAdapter implements DataSourceInterface, DataSink
    }
 
    public void initialize(Acquisition acq, JSONObject summaryMetadata) {
-      acq_ =  acq;
+      acq_ = acq;
 
       if (storeData_) {
          if (xyTiled_) {
@@ -86,13 +79,13 @@ public class RemoteViewerStorageAdapter implements DataSourceInterface, DataSink
          }
 
          storage_ = new NDTiffStorage(dir_, name_,
-                 summaryMetadata, tileOverlapX_, tileOverlapY_,
-                 xyTiled_, maxResLevel_, savingQueueSize_,
-                 //Debug logging function without storage having to directly depend on core
-                 acq_.isDebugMode() ? ((Consumer<String>) s -> {
-                    Engine.getCore().logMessage(s);
-                 }) : null, true
-                 );
+               summaryMetadata, tileOverlapX_, tileOverlapY_,
+               xyTiled_, maxResLevel_, savingQueueSize_,
+               //Debug logging function without storage having to directly depend on core
+               acq_.isDebugMode() ? ((Consumer<String>) s -> {
+                  Engine.getCore().logMessage(s);
+               }) : null, true
+         );
          name_ = storage_.getUniqueAcqName();
 
       }
@@ -100,6 +93,11 @@ public class RemoteViewerStorageAdapter implements DataSourceInterface, DataSink
       if (showViewer_) {
          createDisplay(summaryMetadata);
       }
+   }
+
+   @Override
+   public NDViewerAPI getViewer() {
+      return viewer_;
    }
 
    public NDTiffAPI getStorage() {
@@ -111,7 +109,7 @@ public class RemoteViewerStorageAdapter implements DataSourceInterface, DataSink
       displayCommunicationExecutor_ = Executors.newSingleThreadExecutor((Runnable r)
               -> new Thread(r, "Image viewer communication thread"));
 
-      viewer_ = new NDViewer(this, (ViewerAcquisitionInterface) acq_,
+      viewer_ = new NDViewer(this, (NDViewerAcqInterface) acq_,
               summaryMetadata, AcqEngMetadata.getPixelSizeUm(summaryMetadata), AcqEngMetadata.isRGB(summaryMetadata));
 
       viewer_.setWindowTitle(name_ + (acq_ != null
@@ -122,60 +120,48 @@ public class RemoteViewerStorageAdapter implements DataSourceInterface, DataSink
    }
 
    public void putImage(final TaggedImage taggedImg) {
-      HashMap<String, Integer> axes = AcqEngMetadata.getAxes(taggedImg.tags);
+      HashMap<String, Object> axes = AcqEngMetadata.getAxes(taggedImg.tags);
       final Future added;
       if (xyTiled_) {
-         //Convert event row/col to image row/col
-         axes.put(AcqEngMetadata.AXES_GRID_COL , AcqEngMetadata.getGridCol(taggedImg.tags));
-         axes.put(AcqEngMetadata.AXES_GRID_ROW , AcqEngMetadata.getGridRow(taggedImg.tags));
-
          added = storage_.putImageMultiRes(taggedImg.pix, taggedImg.tags, axes,
                  AcqEngMetadata.isRGB(taggedImg.tags),
+                 AcqEngMetadata.getBitDepth(taggedImg.tags),
                  AcqEngMetadata.getHeight(taggedImg.tags),
                  AcqEngMetadata.getWidth(taggedImg.tags));
       } else {
          added = null;
          storage_.putImage(taggedImg.pix, taggedImg.tags, axes,
                  AcqEngMetadata.isRGB(taggedImg.tags),
+                 AcqEngMetadata.getBitDepth(taggedImg.tags),
                  AcqEngMetadata.getHeight(taggedImg.tags),
                  AcqEngMetadata.getWidth(taggedImg.tags));
       }
 
 
       if (showViewer_) {
-         //Check if new viewer to init display settings
-         String channelName = AcqEngMetadata.getChannelName(taggedImg.tags);
-         boolean newChannel = !channelNames_.contains(channelName);
-         if (newChannel) {
-            channelNames_.add(channelName);
-         }
-
          //put on different thread to not slow down acquisition
          displayCommunicationExecutor_.submit(new Runnable() {
             @Override
             public void run() {
                try {
                   if (added != null) {
-                     added.get(); //needed to make sure multi res data at higher resolutions kept up to date
+                     // This is needed to make sure multi res data at higher
+                     // resolutions kept up to date I think because lower resolutions
+                     // aren't stored temporarily. This could potentially be
+                     // changed in the storage class
+                     added.get();
                   }
                } catch (Exception e) {
                   Engine.getCore().logMessage(e.getMessage());
                   throw new RuntimeException(e);
                }
-               if (newChannel) {
-                  //Insert a preferred color. Make a copy just in case concurrency issues
-                  String chName = AcqEngMetadata.getChannelName(taggedImg.tags);
-//                  Color c = Color.white; //TODO could add color memory here (or maybe viewer already handles it...)
-                  int bitDepth = AcqEngMetadata.getBitDepth(taggedImg.tags);
-                  viewer_.setChannelDisplaySettings(chName, null, bitDepth);
-               }
-               HashMap<String, Integer> axes = AcqEngMetadata.getAxes(taggedImg.tags);
+               HashMap<String, Object> axes = AcqEngMetadata.getAxes(taggedImg.tags);
                if (xyTiled_) {
                   //remove this so the viewer doesn't show it
                   axes.remove(AcqEngMetadata.AXES_GRID_ROW);
                   axes.remove(AcqEngMetadata.AXES_GRID_COL);
                }
-               viewer_.newImageArrived(axes, AcqEngMetadata.getChannelName(taggedImg.tags));
+               viewer_.newImageArrived(axes);
             }
          });
       }
@@ -188,7 +174,7 @@ public class RemoteViewerStorageAdapter implements DataSourceInterface, DataSink
    }
 
    @Override
-   public TaggedImage getImageForDisplay(HashMap<String, Integer> axes, int resolutionindex,
+   public TaggedImage getImageForDisplay(HashMap<String, Object> axes, int resolutionindex,
            double xOffset, double yOffset, int imageWidth, int imageHeight) {
 
       return storage_.getDisplayImage(
@@ -197,7 +183,7 @@ public class RemoteViewerStorageAdapter implements DataSourceInterface, DataSink
    }
 
    @Override
-   public Set<HashMap<String, Integer>> getStoredAxes() {
+   public Set<HashMap<String, Object>> getImageKeys() {
       return storage_.getAxesSet();
    }
 
@@ -213,6 +199,11 @@ public class RemoteViewerStorageAdapter implements DataSourceInterface, DataSink
    
    public void close() {
       storage_.close();
+   }
+
+   @Override
+   public int getImageBitDepth(HashMap<String, Object> axesPositions) {
+      return storage_.getEssentialImageMetadata(axesPositions).bitDepth;
    }
 
    ///////////// Data sink interface required by acq eng /////////////
@@ -248,10 +239,6 @@ public class RemoteViewerStorageAdapter implements DataSourceInterface, DataSink
    @Override
    public boolean anythingAcquired() {
       return acq_.anythingAcquired();
-   }
-
-   boolean isXYTiled() {
-      return xyTiled_;
    }
 
    int getOverlapX() {
