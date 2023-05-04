@@ -200,10 +200,15 @@ public class ExploreAcquisition extends XYTiledAcquisition
       return tiles;
    }
 
+
    public void acquireTileAtCurrentLocation() throws Exception {
       double xPos;
       double yPos;
       double zPos;
+
+      if (!anythingAcquired()) {
+         throw new Exception("Must acquire one tile first before this can be used");
+      }
 
       try {
          //get current XY and Z Positions
