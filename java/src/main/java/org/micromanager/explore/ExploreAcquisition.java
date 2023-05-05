@@ -206,10 +206,6 @@ public class ExploreAcquisition extends XYTiledAcquisition
       double yPos;
       double zPos;
 
-      if (!anythingAcquired()) {
-         throw new Exception("Must acquire one tile first before this can be used");
-      }
-
       try {
          //get current XY and Z Positions
          xPos = Engine.getCore().getXPosition();
