@@ -17,6 +17,7 @@
 
 package org.micromanager.explore;
 
+import java.awt.*;
 import java.awt.geom.Point2D;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -200,6 +201,16 @@ public class ExploreAcquisition extends XYTiledAcquisition
       return tiles;
    }
 
+   public void acquireGridFromCorners(double x1, double y1, double x2, double y2) {
+      Point tile1 = pixelStageTranslator_.getTileRowColFromStageCoords(x1, y1);
+      Point tile2 = pixelStageTranslator_.getTileRowColFromStageCoords(x2, y2);
+
+      int r1 = Math.min(tile1.y, tile2.y);
+      int r2 = Math.max(tile1.y, tile2.y);
+      int c1 = Math.min(tile1.x, tile2.x);
+      int c2 = Math.max(tile1.x, tile2.x);
+      acquireTiles(r1, c1, r2, c2);
+   }
 
    public void acquireTileAtCurrentLocation() throws Exception {
       double xPos;
