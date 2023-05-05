@@ -31,6 +31,7 @@ public class ExploreControlsPanel extends javax.swing.JPanel implements Controls
                                ChannelGroupSettings channels, HashMap<String, ZAxis> zAxes) {
       channels_ = channels;
       overlayer_ = overlayer;
+      acquisition_ = acquisition;
       try {
          for (String name : zAxes.keySet()) {
             zSlidersList_.put(name, new ExploreZSliders(acquisition, zAxes.get(name)));
@@ -173,6 +174,7 @@ public class ExploreControlsPanel extends javax.swing.JPanel implements Controls
       try {
          acquisition_.acquireTileAtCurrentLocation();
       } catch (Exception e) {
+         e.printStackTrace();
          JOptionPane.showMessageDialog(this, e.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);
       }
    } //GEN-LAST:event_acquireAtCurrentButton_ActionPerformed
