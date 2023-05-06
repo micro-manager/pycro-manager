@@ -34,7 +34,7 @@ public class ZMQServer extends ZMQSocketWrapper {
    private static Set<String> packages_;
    private static ZMQUtil util_;
 
-   public static final String VERSION = "4.2.0";
+   public static final String VERSION = "4.3.0";
 
    private static Function<Class, Object> classMapper_;
    private static ZMQServer masterServer_;
