@@ -31,6 +31,9 @@ def _run_acq_event_source(acquisition, event_port, event_queue, debug=False):
             if events is None:
                 # Time to shut down
                 event_socket.send({"events": [{"special": "acquisition-end"}]})
+                # wait for signal that acquisition has received the end signal
+                while not acquisition._remote_acq.are_events_finished():
+                    time.sleep(0.001)
                 event_socket.close()
                 return
             event_socket.send({"events": events if type(events) == list else [events]})
@@ -176,16 +179,23 @@ def _run_image_processor(
         else:
             process_and_sendoff(processed, pixels.dtype)
 
-def _storage_monitor_fn(
-    acquisition, dataset, storage_monitor_push_port, connected_event, callback_fn, debug=False
-):
+def _storage_monitor_fn(acquisition, dataset, storage_monitor_push_port, connected_event,
+                        image_saved_fn, event_queue, debug=False):
     monitor_socket = PullSocket(storage_monitor_push_port)
     connected_event.set()
+    callback = None
+    if image_saved_fn is not None:
+        params = signature(image_saved_fn).parameters
+        if len(params) == 2:
+            callback = image_saved_fn
+        elif len(params) == 3:
+            callback = lambda axes, dataset: image_saved_fn(axes, dataset, event_queue)
+        else:
+            raise Exception('Image saved callbacks must have either 2 or three parameters')
 
     while True:
         try:
             message = monitor_socket.receive()
-
             if "finished" in message:
                 # Poison, time to shut down
                 monitor_socket.close()
@@ -194,9 +204,8 @@ def _storage_monitor_fn(
             index_entry = message["index_entry"]
             axes = dataset._add_index_entry(index_entry)
             dataset._new_image_arrived = True
-
-            if callback_fn is not None:
-                callback_fn(axes, dataset)
+            if callback is not None:
+                callback(axes, dataset)
         except Exception as e:
             acquisition.abort(e)
 
@@ -332,26 +341,17 @@ class Acquisition(object, metaclass=NumpyDocstringInheritanceMeta):
         # Load remote storage
         data_sink = self._remote_acq.get_data_sink()
         if data_sink is not None:
+            # load a view of the dataset in progress. This is used so that acq.get_dataset() can be called
+            # while the acquisition is still running, and (optionally )so that a image_saved_fn can be called
+            # when images are written to disk
             ndtiff_storage = data_sink.get_storage()
-            self._remote_storage_monitor = JavaObject('org.micromanager.remote.RemoteStorageMonitor', port=self._port, args=(ndtiff_storage,))
+            summary_metadata = ndtiff_storage.get_summary_metadata()
+            self._remote_storage_monitor = JavaObject('org.micromanager.remote.RemoteStorageMonitor', port=self._port)
             ndtiff_storage.add_image_written_listener(self._remote_storage_monitor)
-            self._dataset = Dataset(remote_storage_monitor=self._remote_storage_monitor)
-            if image_saved_fn is not None:
-                params = signature(image_saved_fn).parameters
-                if len(params) == 2:
-                    pass
-                elif len(params) == 3:
-                    callback_fn = lambda axes, dataset: callback_fn(axes, dataset, self._event_queue)
-                else:
-                    raise Exception('Image saved callbacks must have either 2 or three parameters')
-                self._storage_monitor_thread = self._dataset._add_storage_monitor_fn(self, _storage_monitor_fn,
-                    callback_fn=image_saved_fn, debug=self._debug
-                )
-            else:
-                # Monitor image arrival so they can be loaded on python side, but with no callback function
-                # Need to do this regardless of whether you use it, so that it signals to shut down on Java side
-                self._storage_monitor_thread = self._dataset._add_storage_monitor_fn(
-                    self, _storage_monitor_fn, callback_fn=None, debug=self._debug)
+            self._dataset = Dataset(dataset_path=self._dataset_disk_location, _summary_metadata=summary_metadata)
+            # Monitor image arrival so they can be loaded on python side, but with no callback function
+            # Need to do this regardless of whether you use it, so that it signals to shut down on Java side
+            self._storage_monitor_thread = self._add_storage_monitor_fn(callback_fn=image_saved_fn, debug=self._debug)
 
         if show_display:
             if napari_viewer is None:
@@ -377,7 +377,7 @@ class Acquisition(object, metaclass=NumpyDocstringInheritanceMeta):
         load the dataset from disk on the Python side for better performance
         """
         if self._finished:
-            if self._dataset is None or self._dataset._remote_storage_monitor is not None:
+            if self._dataset is None:
                 self._dataset = Dataset(self._dataset_disk_location)
 
         return self._dataset
@@ -404,6 +404,8 @@ class Acquisition(object, metaclass=NumpyDocstringInheritanceMeta):
         # Wait on all the other threads to shut down properly
         if hasattr(self, '_storage_monitor_thread'):
             self._storage_monitor_thread.join()
+        # now that the shutdown signal has been received from the monitor, tell it it is okay to shutdown its push socket
+        self._remote_storage_monitor.storage_monitoring_complete()
 
         for hook_thread in self._hook_threads:
             hook_thread.join()
@@ -473,6 +475,42 @@ class Acquisition(object, metaclass=NumpyDocstringInheritanceMeta):
         self.await_completion()
 
     ########  Private methods ###########
+
+    def _add_storage_monitor_fn(self, callback_fn=None, debug=False):
+        """
+        Add a callback function that gets called whenever a new image is writtern to disk (for acquisitions in
+        progress only)
+
+        Parameters
+        ----------
+        callback_fn : Callable
+            callable with that takes 1 argument, the axes dict of the image just written
+        """
+        connected_event = threading.Event()
+
+        push_port = self._remote_storage_monitor.get_port()
+        monitor_thread = threading.Thread(
+            target=_storage_monitor_fn,
+            args=(
+                self,
+                self.get_dataset(),
+                push_port,
+                connected_event,
+                callback_fn,
+                self._event_queue,
+                debug,
+            ),
+            name="ImageSavedCallbackThread",
+        )
+
+        monitor_thread.start()
+
+        # Wait for pulling to start before you signal for pushing to start
+        connected_event.wait()  # wait for push/pull sockets to connect
+
+        # start pushing out all the image written events (including ones that have already accumulated)
+        self._remote_storage_monitor.start()
+        return monitor_thread
 
     def _check_for_exceptions(self):
         """

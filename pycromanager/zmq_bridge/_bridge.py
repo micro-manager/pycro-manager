@@ -24,6 +24,10 @@ class _DataSocket:
     def __init__(self, context, port, type, debug=False, ip_address="127.0.0.1"):
         # request reply socket
         self._socket = context.socket(type)
+        # if 1000 messages are queued up, queue indefinitely until they can be sent
+        self._socket.setsockopt(zmq.SNDHWM, 1000)
+        # Set the send timeout to -1, making it block indefinitely
+        self._socket.setsockopt(zmq.SNDTIMEO, -1)
         self._debug = debug
         # store these as wekrefs so that circular refs dont prevent garbage collection
         self._java_objects = weakref.WeakSet()
@@ -212,7 +216,7 @@ class _Bridge:
 
     DEFAULT_PORT = 4827
     DEFAULT_TIMEOUT = 500
-    _EXPECTED_ZMQ_SERVER_VERSION = "4.2.0"
+    _EXPECTED_ZMQ_SERVER_VERSION = "4.3.0"
 
     _bridge_creation_lock = threading.Lock()
     _cached_bridges_by_port_and_thread = {}
