@@ -399,7 +399,6 @@ class Acquisition(object, metaclass=NumpyDocstringInheritanceMeta):
                 self._remote_acq.get_data_sink() is not None and not self._remote_acq.get_data_sink().is_finished()):
             time.sleep(1 if self._debug else 0.05)
             self._check_for_exceptions()
-        self._remote_acq = None
 
         # Wait on all the other threads to shut down properly
         if hasattr(self, '_storage_monitor_thread'):
@@ -414,6 +413,7 @@ class Acquisition(object, metaclass=NumpyDocstringInheritanceMeta):
         if hasattr(self, '_event_thread'):
             self._event_thread.join()
 
+        self._remote_acq = None
         self._finished = True
 
     def acquire(self, event_or_events: dict or list):
