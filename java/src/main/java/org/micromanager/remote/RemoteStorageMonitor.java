@@ -81,7 +81,6 @@ public class RemoteStorageMonitor implements ImageWrittenListener {
     * Called the storage to signal that a new image has finished writing
     */
    public void imageWritten(IndexEntryData ied) {
-      System.out.println("Added to monitor: " + ied);
       indexEntries_.addLast(ied);
    }
 
