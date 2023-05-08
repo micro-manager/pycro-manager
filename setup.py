@@ -34,7 +34,7 @@ setuptools.setup(
             "pytest",
             "wget",
             "requests",
-            "napari"
+            # "napari"
         ]
     },
     classifiers=[
