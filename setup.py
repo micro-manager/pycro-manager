@@ -24,8 +24,7 @@ setuptools.setup(
     install_requires=[
         "numpy",
         "dask[array]>=2022.2.0",
-        "pyzmq",
-        "docstring-inheritance",
+        "pyzmq",        
         "ndtiff>=2.0.0"
     ],
     python_requires=">=3.6",
@@ -34,7 +33,8 @@ setuptools.setup(
             "pytest",
             "wget",
             "requests",
-            # "napari"
+            "docstring-inheritance",
+            "napari"
         ]
     },
     classifiers=[
