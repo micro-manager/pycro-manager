@@ -198,7 +198,11 @@ class RemoteViewerStorageAdapter implements NDViewerDataSource, AcqEngJDataSink,
    }
    
    public void close() {
-      storage_.close();
+      try {
+         storage_.closeAndWait();
+      } catch (InterruptedException e) {
+         throw new RuntimeException(e);
+      }
    }
 
    @Override
