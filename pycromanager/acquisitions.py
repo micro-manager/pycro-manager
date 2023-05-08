@@ -404,8 +404,9 @@ class Acquisition(object, metaclass=NumpyDocstringInheritanceMeta):
         # Wait on all the other threads to shut down properly
         if hasattr(self, '_storage_monitor_thread'):
             self._storage_monitor_thread.join()
-        # now that the shutdown signal has been received from the monitor, tell it it is okay to shutdown its push socket
-        self._remote_storage_monitor.storage_monitoring_complete()
+            # now that the shutdown signal has been received from the monitor,
+            # tell it it is okay to shutdown its push socket
+            self._remote_storage_monitor.storage_monitoring_complete()
 
         for hook_thread in self._hook_threads:
             hook_thread.join()
