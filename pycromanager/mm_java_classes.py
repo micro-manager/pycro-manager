@@ -89,11 +89,11 @@ class Core(JavaObject):
 
     def get_core_callback(self, callback_fn=None, bridge_port=DEFAULT_BRIDGE_PORT):
         """
-        Get a CoreCallback function that will fire callback_fn with (name, \*args) each
+        Get a CoreCallback function that will fire callback_fn with (name, *args) each
         time MMCore emits a callback signal
 
         callback_fn: Callable
-            a function that takes (name, \*args)
+            a function that takes (name, *args)
         bridge_port: int
             port of the Core instance to get callbacks from
         """
