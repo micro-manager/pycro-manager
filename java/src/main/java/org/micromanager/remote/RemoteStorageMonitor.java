@@ -59,7 +59,6 @@ public class RemoteStorageMonitor implements ImageWrittenListener {
                ex.printStackTrace();
                throw new RuntimeException(ex);
             }
-            System.out.println("Pushing: " + e);
 
             if (e.dataSetFinishedEntry_) {
                pushSocket_.push(IndexEntryData.createFinishedEntry());
