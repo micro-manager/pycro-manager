@@ -7,8 +7,7 @@ from scipy.ndimage import affine_transform
 
 class ObliqueStackProcessor:
 
-    def __init__(self, theta, camera_pixel_size_xy_um, z_step_um, z_pixel_shape, y_pixel_shape, x_pixel_shape, bilinear_interpolation=True):
-        self.bilinear_interpolation = bilinear_interpolation
+    def __init__(self, theta, camera_pixel_size_xy_um, z_step_um, z_pixel_shape, y_pixel_shape, x_pixel_shape):
         self.theta = theta
         # The x pixel size is fixed by the camera/optics. anchor other pixels sizes to this for isotropic pixels
         self.reconstruction_voxel_size_um = camera_pixel_size_xy_um
@@ -62,23 +61,24 @@ class ObliqueStackProcessor:
         ]
 
     def precompute_coord_transform_LUTs(self):
-        # precompute a look up table from the pixel coordinates in camera images to those in the reconstructed image
-        self.dest_coord_LUT = np.zeros((self.camera_shape[0] + 1, self.camera_shape[1] + 1, 2), dtype=int)
-        self.dest_bilinear_interp_fractions_LUT = np.zeros((*self.camera_shape[:2], 2, 2), dtype=float)
-
-        for z_index_camera in np.arange(self.camera_shape[0]):
-            # get the image on the camera at this z slice
-            for y_index_camera in np.arange(self.camera_shape[1]):
-                # what is the (lower left) coordinate in the reconstructed image that this pixel maps to?
-                recon_coords = self.recon_coords_from_camera_coords(z_index_camera, y_index_camera)
+        # iterate through desintation coords and find its camera pixel source
+        self.recon_coord_LUT = {}
+        for z_index_recon in np.arange(self.recon_image_shape[0]):
+            for y_index_recon in np.arange(self.recon_image_shape[1]):
+                camera_coords = self.camera_coords_from_recon_coords(z_index_recon, y_index_recon).ravel()
                 # get the pixel index in the recon index
-                recon_coords_integer = recon_coords // 1
-                self.dest_coord_LUT[z_index_camera, y_index_camera, :] = recon_coords_integer.ravel()
-
+                camera_coords_integer = np.round(camera_coords).astype(int)
+                if camera_coords_integer[0] < 0 or camera_coords_integer[1] < 0 or \
+                    camera_coords_integer[0] >= self.camera_shape[0] or camera_coords_integer[1] >= self.camera_shape[1]:
+                    continue # no valid camera coord maps to it, so safe to ignore
+                if tuple(camera_coords_integer) not in self.recon_coord_LUT:
+                    self.recon_coord_LUT[tuple(camera_coords_integer)] = [(z_index_recon, y_index_recon)]
+                else:
+                    self.recon_coord_LUT[tuple(camera_coords_integer)].append((z_index_recon, y_index_recon))
 
     def precompute_recon_weightings(self, do_orthogonal_views=True, do_volume=True):
         """
-        Precompute the weightings for performing bilinear interpolation in the reconstruction image
+        Precompute the weightings for performing interpolation in the reconstruction image
         """
         recon_shape_z, recon_shape_y, recon_shape_x = self.recon_image_shape
         self.denominator_yx_projection = np.zeros((recon_shape_y, recon_shape_x), dtype=float)
@@ -89,45 +89,17 @@ class ObliqueStackProcessor:
         for z_index_camera in np.arange(self.camera_shape[0]):
             for y_index_camera in np.arange(self.camera_shape[1]):
                 # where does each line of x pixels belong in the new image?
-                recon_coord = self.dest_coord_LUT[z_index_camera, y_index_camera]
-                recon_z_index, recon_y_index = recon_coord
+                if (z_index_camera, y_index_camera) not in self.recon_coord_LUT:
+                    print('ignoring: ', z_index_camera, y_index_camera)
+                    continue
+                recon_coords = self.recon_coord_LUT[(z_index_camera, y_index_camera)]
+                for recon_coord in recon_coords:
+                    recon_z_index, recon_y_index = recon_coord
 
-                if do_volume:
-                    if self.bilinear_interpolation:
-                        # compute the coordinates of next pixel
-                        recon_pixel_midpoint = recon_coord + 0.5
-                        # tranform back to camera coordinates
-                        recon_pixel_midpoint_in_camera_coords = self.camera_coords_from_recon_coords(*recon_pixel_midpoint)
-                        # compute the fraction of intensity that goes to current and next pixel
-                        camera_coord = np.array([z_index_camera, y_index_camera])
-                        # if its greater than 1 or less than 1, then camera pix are oversampled relative to recon pix
-                        # for approx same size pix it should range from 0-1
-                        # if camera pix are undersampled relative to recon pix, it will never get much above 0.5 and there
-                        # will be empty pixels
-                        # This is the fraction that should go to the current pixel vs the next one
-                        interp_fraction = recon_pixel_midpoint_in_camera_coords.ravel() - (camera_coord - 0.5)
-                        interp_fraction[0] = max(0, min(1, interp_fraction[0]))
-                        interp_fraction[1] = max(0, min(1, interp_fraction[1]))
-
-                        self.denominator_recon_volume[recon_z_index, recon_y_index] += interp_fraction[0] * interp_fraction[1]
-                        self.denominator_recon_volume[recon_z_index, recon_y_index + 1] += interp_fraction[0] * (1 - interp_fraction[1])
-                        self.denominator_recon_volume[recon_z_index + 1, recon_y_index] += (1 - interp_fraction[0]) * interp_fraction[1]
-                        self.denominator_recon_volume[recon_z_index + 1, recon_y_index + 1] += (1 - interp_fraction[0]) * (1 - interp_fraction[1])
-                    else:
+                    if do_volume:
                         self.denominator_recon_volume[recon_z_index, recon_y_index, :] += 1
 
-
-                if do_orthogonal_views:
-                    if self.bilinear_interpolation:
-                        self.denominator_yx_projection[recon_y_index, :] += interp_fraction[0]
-                        self.denominator_yx_projection[recon_y_index + 1, :] += (1 - interp_fraction[0])
-                        self.denominator_zx_projection[recon_z_index, :] += interp_fraction[1]
-                        self.denominator_zx_projection[recon_z_index + 1, :] += (1 - interp_fraction[1])
-                        self.denominator_zy_projection[recon_z_index, recon_y_index] += interp_fraction[0] * interp_fraction[1] * self.camera_shape[2]
-                        self.denominator_zy_projection[recon_z_index, recon_y_index + 1] += interp_fraction[0] * (1 - interp_fraction[1]) * self.camera_shape[2]
-                        self.denominator_zy_projection[recon_z_index + 1, recon_y_index] += (1 - interp_fraction[0]) * interp_fraction[1] * self.camera_shape[2]
-                        self.denominator_zy_projection[recon_z_index + 1, recon_y_index + 1] += (1 - interp_fraction[0]) * (1 - interp_fraction[1]) * self.camera_shape[2]
-                    else:
+                    if do_orthogonal_views:
                         # nearest neighbor interp for projections
                         self.denominator_yx_projection[recon_y_index] += 1
                         self.denominator_zx_projection[recon_z_index] += 1
@@ -145,45 +117,15 @@ class ObliqueStackProcessor:
             self.denominator_zx_projection[self.denominator_zx_projection == 0] = 1
             self.denominator_zy_projection[self.denominator_zy_projection == 0] = 1
         if do_volume:
-            self.denominator_recon_volume = self.denominator_recon_volume.astype(np.uint16)
             self.denominator_recon_volume[self.denominator_recon_volume == 0] = 1
-
-            if self.bilinear_interpolation:
-                # compute the weightings for integer multiplication for interpolation
-                self.recon_interp_weightings = np.zeros((recon_shape_z, recon_shape_y, 2, 2), dtype=float)
-                for z_index_camera in np.arange(self.camera_shape[0]):
-                    for y_index_camera in np.arange(self.camera_shape[1]):
-                        # get the weight that goes to this pixel from all camera pixels
-                        recon_coords = self.dest_coord_LUT[z_index_camera, y_index_camera]
-                        # the zeros are because all x weights are same, for now
-                        incident_intensities = np.array([[self.denominator_recon_volume[recon_coords[0], recon_coords[1], 0],
-                                                 self.denominator_recon_volume[recon_coords[0], recon_coords[1] + 1, 0]],
-                                                [self.denominator_recon_volume[recon_coords[0] + 1, recon_coords[1], 0],
-                                                 self.denominator_recon_volume[recon_coords[0] + 1, recon_coords[1] + 1, 0]]])
-
-                        # this is the factor to multiply each camera pixel by so that at the end it can be bit shifted
-                        # by 2 bytes to get the final value in unit16
-                        self.recon_interp_weightings[z_index_camera, y_index_camera, 0, 0] = incident_intensities[0, 0]
-                        self.recon_interp_weightings[z_index_camera, y_index_camera, 0, 1] = incident_intensities[0, 1]
-                        self.recon_interp_weightings[z_index_camera, y_index_camera, 1, 0] = incident_intensities[1, 0]
-                        self.recon_interp_weightings[z_index_camera, y_index_camera, 1, 1] = incident_intensities[1, 1]
-                        # self.recon_volume_interp_weightings[z_index_camera, y_index_camera, 0, 0] = int(
-                        #     2 ** 8 / incident_intensities[0, 0])
-                        # self.recon_volume_interp_weightings[z_index_camera, y_index_camera, 0, 1] = int(
-                        #     2 ** 8 / incident_intensities[0, 1])
-                        # self.recon_volume_interp_weightings[z_index_camera, y_index_camera, 1, 0] = int(
-                        #     2 ** 8 / incident_intensities[1, 0])
-                        # self.recon_volume_interp_weightings[z_index_camera, y_index_camera, 1, 1] = int(
-                        #     2 ** 8 / incident_intensities[1, 1])
-
 
 
     def make_projections(self, data, do_orthogonal_views=True, do_volume=True):
         recon_image_z_shape, recon_image_y_shape, recon_image_x_shape = self.recon_image_shape
-        sum_projection_yx = np.zeros((recon_image_y_shape, recon_image_x_shape), dtype=float)
-        sum_projection_zx = np.zeros((recon_image_z_shape, recon_image_x_shape), dtype=float)
-        sum_projection_zy = np.zeros((recon_image_z_shape, recon_image_y_shape), dtype=float)
-        sum_recon_volume = np.zeros((recon_image_z_shape, recon_image_y_shape, recon_image_x_shape), dtype=float)
+        sum_projection_yx = np.zeros((recon_image_y_shape, recon_image_x_shape), dtype=int)
+        sum_projection_zx = np.zeros((recon_image_z_shape, recon_image_x_shape), dtype=int)
+        sum_projection_zy = np.zeros((recon_image_z_shape, recon_image_y_shape), dtype=int)
+        sum_recon_volume = np.zeros((recon_image_z_shape, recon_image_y_shape, recon_image_x_shape), dtype=int)
 
         # do the projection/reconstruction
         # iterate through each z slice of the image
@@ -191,41 +133,19 @@ class ObliqueStackProcessor:
         for z_index_camera in np.arange(0, self.camera_shape[0], 1):
             image_on_camera = data[z_index_camera]
             for y_index_camera in range(self.camera_shape[1]):
-                # where does each line of x pixels belong in the new image?
-                recon_z, recon_y = self.dest_coord_LUT[z_index_camera, y_index_camera]
+                if (z_index_camera, y_index_camera) not in self.recon_coord_LUT:
+                    continue
                 source_line_of_x_pixels = image_on_camera[y_index_camera]
 
-                if do_volume:
-                    if self.bilinear_interpolation:
-                        # add to sum, multiplying by appropriate weighting
-                        sum_recon_volume[recon_z, recon_y, :] += source_line_of_x_pixels * self.recon_interp_weightings[z_index_camera, y_index_camera, 0, 0]
-                        sum_recon_volume[recon_z, recon_y + 1, :] += source_line_of_x_pixels * self.recon_interp_weightings[z_index_camera, y_index_camera, 0, 1]
-                        sum_recon_volume[recon_z + 1, recon_y, :] += source_line_of_x_pixels * self.recon_interp_weightings[z_index_camera, y_index_camera, 1, 0]
-                        sum_recon_volume[recon_z + 1, recon_y + 1, :] += source_line_of_x_pixels * self.recon_interp_weightings[z_index_camera, y_index_camera, 1, 1]
-                    else:
+                # where does each line of x pixels belong in the new image?
+                dest_coords = self.recon_coord_LUT[(z_index_camera, y_index_camera)]
+                for dest_coord in dest_coords:
+                    recon_z, recon_y = dest_coord
+
+                    if do_volume:
                         sum_recon_volume[recon_z, recon_y, :] += source_line_of_x_pixels
-                        sum_recon_volume[recon_z, recon_y + 1, :] += source_line_of_x_pixels
 
-                if do_orthogonal_views:
-                    if self.bilinear_interpolation:
-                        sum_projection_yx[recon_y, :] += source_line_of_x_pixels * (
-                            self.recon_interp_weightings[z_index_camera, y_index_camera, 0, 0] +
-                            self.recon_interp_weightings[z_index_camera, y_index_camera, 1, 0])
-                        sum_projection_yx[recon_y + 1, :] += source_line_of_x_pixels * (
-                            self.recon_interp_weightings[z_index_camera, y_index_camera, 0, 1] +
-                            self.recon_interp_weightings[z_index_camera, y_index_camera, 1, 1])
-
-                        sum_projection_zx[recon_z, :] += source_line_of_x_pixels * (
-                            self.recon_interp_weightings[z_index_camera, y_index_camera, 0, 0] +
-                            self.recon_interp_weightings[z_index_camera, y_index_camera, 0, 1])
-                        sum_projection_zx[recon_z + 1, :] += source_line_of_x_pixels * (
-                            self.recon_interp_weightings[z_index_camera, y_index_camera, 1, 0] +
-                            self.recon_interp_weightings[z_index_camera, y_index_camera, 1, 1])
-
-                        sum_projection_zy[recon_z, recon_y] += np.sum(source_line_of_x_pixels * (
-                            self.recon_interp_weightings[z_index_camera, y_index_camera, 0, 0] +
-                            self.recon_interp_weightings[z_index_camera, y_index_camera, 0, 1]))
-                    else:
+                    if do_orthogonal_views:
                         # add to the projection no weighting because this is nearest neighbor interpolation
                         sum_projection_yx[recon_y, :] += source_line_of_x_pixels
                         sum_projection_zx[recon_z, :] += source_line_of_x_pixels
@@ -233,24 +153,18 @@ class ObliqueStackProcessor:
 
 
         if do_orthogonal_views:
-            if self.bilinear_interpolation:
-                mean_projection_yx = (sum_projection_yx / self.denominator_yx_projection).astype(np.uint16)
-                mean_projection_zx = (sum_projection_zx / self.denominator_zx_projection).astype(np.uint16)
-                mean_projection_zy = (sum_projection_zy / self.denominator_zy_projection).astype(np.uint16)
-            else:
-                mean_projection_yx = (sum_projection_yx / self.denominator_yx_projection).astype(np.uint16)
-                mean_projection_zx = (sum_projection_zx / self.denominator_zx_projection).astype(np.uint16)
-                mean_projection_zy = (sum_projection_zy / self.denominator_zy_projection).astype(np.uint16)
+            mean_projection_yx = (sum_projection_yx / self.denominator_yx_projection).astype(np.uint16)
+            mean_projection_zx = (sum_projection_zx / self.denominator_zx_projection).astype(np.uint16)
+            mean_projection_zy = (sum_projection_zy / self.denominator_zy_projection).astype(np.uint16)
 
         if do_volume:
-            if self.bilinear_interpolation:
-                mean_recon_volume = (sum_recon_volume / 2 ** 8).astype(np.uint16)
-            else:
-                mean_recon_volume = (sum_recon_volume / self.denominator_recon_volume).astype(np.uint16)
+            mean_recon_volume = (sum_recon_volume / self.denominator_recon_volume).astype(np.uint16)
 
 
         import napari
         viewer = napari.Viewer()
+
+        # viewer.add_image(sum_recon_volume, name='sum_recon_volume', colormap='inferno')
 
         viewer.add_image(mean_recon_volume, name='mean_recon_volume', colormap='inferno')
         viewer.add_image(mean_projection_yx, name='mean_projection_yx', colormap='inferno')
@@ -274,6 +188,9 @@ def load_demo_data():
     # Read the TIFF stack into a NumPy array
     with tifffile.TiffFile(tiff_path) as tif:
         data = tif.asarray()
+
+    # data = data[::4]
+    # z_step_um *= 4
 
     # z x y order
     return data, z_step_um, pixel_size_xy_um, theta
@@ -320,7 +237,7 @@ data, z_step_um, camera_pixel_size_xy_um, theta = load_demo_data()
 # test_slow_version()
 
 
-proc = ObliqueStackProcessor(theta, camera_pixel_size_xy_um, z_step_um, *data.shape, bilinear_interpolation=False)
+proc = ObliqueStackProcessor(theta, camera_pixel_size_xy_um, z_step_um, *data.shape)
 
 mean_projection_yx, mean_projection_zy, mean_projection_zx, mean_recon_volume = proc.make_projections(data)
 
