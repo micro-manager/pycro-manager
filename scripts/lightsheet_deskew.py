@@ -9,13 +9,16 @@ class ObliqueStackProcessor:
 
     def __init__(self, theta, camera_pixel_size_xy_um, z_step_um, z_pixel_shape, y_pixel_shape, x_pixel_shape):
         self.theta = theta
+        self.recon_coord_offset = np.array([0, 0])
         # The x pixel size is fixed by the camera/optics. anchor other pixels sizes to this for isotropic pixels
         self.reconstruction_voxel_size_um = camera_pixel_size_xy_um
 
         shear_matrix = np.array([[1, 0],
-                                 [np.tan(theta), 1]])
-        rotation_matrix = np.array([[-np.cos(np.pi / 2 - theta), np.sin(np.pi / 2 - theta)],
-                                    [np.sin(np.pi / 2 - theta), np.cos(np.pi / 2 - theta)]])
+                                 [-np.tan(theta), 1]])
+        rotation_matrix = np.array([[-np.cos(np.pi / 2 + theta), np.sin(np.pi / 2 + theta)],
+                                    [-np.sin(np.pi / 2 + theta), -np.cos(np.pi / 2 + theta)]])
+
+
         camera_pixel_to_um_matrix = np.array([[z_step_um, 0],
                                             [0, camera_pixel_size_xy_um]])
         recon_pixel_to_um_matrix = np.array([[self.reconstruction_voxel_size_um, 0],
@@ -23,10 +26,6 @@ class ObliqueStackProcessor:
 
         # form transformation matrix from image pixels to reconstruction pixels
         self.transformation_matrix = np.linalg.inv(recon_pixel_to_um_matrix) @ rotation_matrix @ shear_matrix @ camera_pixel_to_um_matrix
-        if np.any(self.transformation_matrix < -1e-10):
-            # if its not positive, then assumptions of the interpolation are violated
-            raise ValueError("Transformation matrix contains negative values")
-        self.transformation_matrix[self.transformation_matrix < 0] = 0 # numerical error
 
         self.camera_shape = (z_pixel_shape, y_pixel_shape, x_pixel_shape)
         self.compute_remapped_coordinate_space()
@@ -35,10 +34,11 @@ class ObliqueStackProcessor:
 
 
     def recon_coords_from_camera_coords(self, image_z, image_y):
-        return self.transformation_matrix @ np.array([image_z, image_y]).reshape(2, -1)
+        return self.transformation_matrix @ np.array([image_z, image_y]).reshape(2, -1) - self.recon_coord_offset.reshape(2, -1)
 
     def camera_coords_from_recon_coords(self, recon_z, recon_y):
-        return np.linalg.inv(self.transformation_matrix) @ np.array([recon_z, recon_y]).reshape(2, -1)
+        recon_coords = np.array([recon_z, recon_y]).reshape(2, -1) + self.recon_coord_offset.reshape(2, -1)
+        return np.linalg.inv(self.transformation_matrix) @ recon_coords
 
 
     def compute_remapped_coordinate_space(self):
@@ -50,6 +50,9 @@ class ObliqueStackProcessor:
 
         min_transformed_coordinates_zy = np.min(transformed_corners_zy, axis=1)
         max_transformed_coordinate_zy = np.max(transformed_corners_zy, axis=1)
+
+        self.recon_coord_offset = np.stack([min_transformed_coordinates_zy,
+                                            max_transformed_coordinate_zy], axis=1).min(axis=1)
 
         total_transformed_extent_zy = max_transformed_coordinate_zy - min_transformed_coordinates_zy
 
@@ -125,7 +128,7 @@ class ObliqueStackProcessor:
         sum_projection_yx = np.zeros((recon_image_y_shape, recon_image_x_shape), dtype=int)
         sum_projection_zx = np.zeros((recon_image_z_shape, recon_image_x_shape), dtype=int)
         sum_projection_zy = np.zeros((recon_image_z_shape, recon_image_y_shape), dtype=int)
-        sum_recon_volume = np.zeros((recon_image_z_shape, recon_image_y_shape, recon_image_x_shape), dtype=int)
+        recon_volume = np.zeros((recon_image_z_shape, recon_image_y_shape, recon_image_x_shape), dtype=int)
 
         # do the projection/reconstruction
         # iterate through each z slice of the image
@@ -143,7 +146,7 @@ class ObliqueStackProcessor:
                     recon_z, recon_y = dest_coord
 
                     if do_volume:
-                        sum_recon_volume[recon_z, recon_y, :] += source_line_of_x_pixels
+                        recon_volume[recon_z, recon_y, :] = source_line_of_x_pixels
 
                     if do_orthogonal_views:
                         # add to the projection no weighting because this is nearest neighbor interpolation
@@ -157,25 +160,29 @@ class ObliqueStackProcessor:
             mean_projection_zx = (sum_projection_zx / self.denominator_zx_projection).astype(np.uint16)
             mean_projection_zy = (sum_projection_zy / self.denominator_zy_projection).astype(np.uint16)
 
-        if do_volume:
-            mean_recon_volume = (sum_recon_volume / self.denominator_recon_volume).astype(np.uint16)
-
 
         import napari
         viewer = napari.Viewer()
 
-        # viewer.add_image(sum_recon_volume, name='sum_recon_volume', colormap='inferno')
+        # viewer.add_image(recon_volume, name='recon_volume', colormap='inferno')
 
-        viewer.add_image(mean_recon_volume, name='mean_recon_volume', colormap='inferno')
+        viewer.add_image(recon_volume.astype(np.uint16), name='mean_recon_volume', colormap='inferno')
         viewer.add_image(mean_projection_yx, name='mean_projection_yx', colormap='inferno')
         viewer.add_image(mean_projection_zx, name='mean_projection_zx', colormap='inferno')
         viewer.add_image(mean_projection_zy, name='mean_projection_zy', colormap='inferno')
 
+        # plot denominators
+        viewer.add_image(self.denominator_recon_volume, name='denominator_recon_volume', colormap='inferno')
+        viewer.add_image(self.denominator_yx_projection, name='denominator_yx_projection', colormap='inferno')
+        viewer.add_image(self.denominator_zx_projection, name='denominator_zx_projection', colormap='inferno')
+        viewer.add_image(self.denominator_zy_projection, name='denominator_zy_projection', colormap='inferno')
 
 
 
 
-        return mean_projection_yx, mean_projection_zy, mean_projection_zx, mean_recon_volume
+
+
+        return mean_projection_yx, mean_projection_zy, mean_projection_zx, recon_volume
 
 def load_demo_data():
     # load a tiff stack
@@ -188,6 +195,8 @@ def load_demo_data():
     # Read the TIFF stack into a NumPy array
     with tifffile.TiffFile(tiff_path) as tif:
         data = tif.asarray()
+        # its backwards for some reason
+        data = data[::-1]
 
     # data = data[::4]
     # z_step_um *= 4
@@ -239,7 +248,7 @@ data, z_step_um, camera_pixel_size_xy_um, theta = load_demo_data()
 
 proc = ObliqueStackProcessor(theta, camera_pixel_size_xy_um, z_step_um, *data.shape)
 
-mean_projection_yx, mean_projection_zy, mean_projection_zx, mean_recon_volume = proc.make_projections(data)
+mean_projection_yx, mean_projection_zy, mean_projection_zx, recon_volume = proc.make_projections(data)
 
 import napari
 viewer = napari.Viewer()
@@ -247,7 +256,7 @@ viewer.add_image(data, name='raw data', colormap='inferno')
 viewer.add_image(mean_projection_yx, name='mean_projection_yx', colormap='inferno')
 viewer.add_image(mean_projection_zy, name='mean_projection_zy', colormap='inferno')
 viewer.add_image(mean_projection_zx, name='mean_projection_zx', colormap='inferno')
-viewer.add_image(mean_recon_volume, name='mean_recon_volume', colormap='inferno')
+viewer.add_image(recon_volume, name='mean_recon_volume', colormap='inferno')
 
 # viewer.add_image(proc.denominator_yx_projection, name='pixel_count_sum_projection_yx', colormap='inferno')
 # viewer.add_image(proc.denominator_zx_projection, name='pixel_count_sum_projection_zx', colormap='inferno')
