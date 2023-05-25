@@ -2,7 +2,7 @@
     <modelVersion>4.0.0</modelVersion>
     <groupId>org.micro-manager.pycro-manager</groupId>
     <artifactId>PycroManagerJava</artifactId>
-     <version>0.39.3</version>
+     <version>0.39.4</version>
     <packaging>jar</packaging>
     <name>Pycro-Manager Java</name>
     <description>The Java components of Pycro-Manager</description>
@@ -54,7 +54,7 @@
       <dependency>
          <groupId>org.micro-manager.acqengj</groupId>
          <artifactId>AcqEngJ</artifactId>
-     <version>0.26.4</version>
+     <version>0.26.5</version>
       </dependency>
       <dependency>
          <groupId>org.micro-manager.ndviewer</groupId>
