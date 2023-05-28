@@ -7,7 +7,7 @@ from pycromanager.zmq_bridge._bridge import _Bridge
 import copy
 import types
 import numpy as np
-
+from typing import Union, List
 
 SUBPROCESSES = []
 
@@ -97,7 +97,7 @@ def start_headless(
 
 def multi_d_acquisition_events(
     num_time_points: int=None,
-    time_interval_s: float=0,
+    time_interval_s: Union[float, List[float]]=0,
     z_start: float=None,
     z_end: float=None,
     z_step: float=None,
@@ -117,9 +117,12 @@ def multi_d_acquisition_events(
     ----------
     num_time_points : int
         How many time points if it is a timelapse (Default value = None)
-    time_interval_s : float
-        the minimum interval between consecutive time points in seconds. Keep at 0 to go as
-        fast as possible (Default value = 0)
+    time_interval_s : float or list of floats
+        the minimum interval between consecutive time points in seconds. If set to 0, the 
+        acquisition will go as fast as possible. If a list is provided, its length should 
+        be equal to 'num_time_points'. Elements in the list are assumed to be the intervals
+        between consecutive timepoints in the timelapse. First element in the list indicates
+        delay before capturing the first image (Default value = 0)
     z_start : float
         z-stack starting position, in µm. If xyz_positions is given z_start is relative
         to the points' z position. (Default value = None)
@@ -170,6 +173,11 @@ def multi_d_acquisition_events(
         raise ValueError(
             "This function requres that the xy position come earlier in the order than z"
         )
+    if isinstance(time_interval_s, list):
+        if len(time_interval_s) != num_time_points:
+            raise ValueError(
+                "Length of time interval list should be equal to num_time_points"
+            )
     has_zsteps = z_start is not None and z_step is not None and z_end is not None
     z_positions = None
     if xy_positions is not None:
@@ -200,11 +208,16 @@ def multi_d_acquisition_events(
             return
         elif order[0] == "t" and num_time_points is not None and num_time_points > 0:
             time_indices = np.arange(num_time_points)
+            if isinstance(time_interval_s, list):
+                absolute_start_times = np.cumsum(time_interval_s)
             for time_index in time_indices:
                 new_event = copy.deepcopy(event)
                 new_event["axes"]["time"] = time_index
-                if time_interval_s != 0:
-                    new_event["min_start_time"] = time_index * time_interval_s
+                if isinstance(time_interval_s, list):
+                    new_event["min_start_time"] = absolute_start_times[time_index]
+                else:
+                    if time_interval_s != 0:
+                        new_event["min_start_time"] = time_index * time_interval_s
                 yield generate_events(new_event, order[1:])
         elif order[0] == "z" and z_positions is not None:
             if "axes" in event and "position" in event["axes"]:
