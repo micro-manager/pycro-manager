@@ -84,6 +84,32 @@ def test_time_points():
     ]
     assert expected == multi_d_acquisition_events(num_time_points=5, time_interval_s=10)
 
+    expected = [
+        {"axes": {"time": 0}, "min_start_time": 0},
+        {"axes": {"time": 1}, "min_start_time": 10},
+        {"axes": {"time": 2}, "min_start_time": 20},
+        {"axes": {"time": 3}, "min_start_time": 30},
+        {"axes": {"time": 4}, "min_start_time": 40},
+    ]
+    assert expected == multi_d_acquisition_events(num_time_points=5, time_interval_s=[0, 10, 10, 10, 10])
+
+    expected = [
+        {"axes": {"time": 0}, "min_start_time": 0},
+        {"axes": {"time": 1}, "min_start_time": 10},
+        {"axes": {"time": 2}, "min_start_time": 30},
+        {"axes": {"time": 3}, "min_start_time": 30},
+        {"axes": {"time": 4}, "min_start_time": 40},
+    ]
+    assert expected == multi_d_acquisition_events(num_time_points=5, time_interval_s=[0, 10, 20, 0, 10])
+
+    expected = [
+        {"axes": {"time": 0}, "min_start_time": 0},
+        {"axes": {"time": 1}, "min_start_time": 10},
+        {"axes": {"time": 2}, "min_start_time": 20},
+        {"axes": {"time": 3}, "min_start_time": 30},
+        {"axes": {"time": 4}, "min_start_time": 20},
+    ]
+    assert expected == multi_d_acquisition_events(num_time_points=5, time_interval_s=[0, 10, 10, 10, -10])
 
 def test_order():
     expected = [
