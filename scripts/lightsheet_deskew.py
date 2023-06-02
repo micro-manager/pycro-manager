@@ -15,9 +15,15 @@ class ObliqueStackProcessor:
 
         shear_matrix = np.array([[1, 0],
                                  [-np.tan(theta), 1]])
+
+        shear_matrix = np.array([[1, 0],
+                                 [-np.tan(theta + .3), 1]])
+
         rotation_matrix = np.array([[-np.cos(np.pi / 2 + theta), np.sin(np.pi / 2 + theta)],
                                     [-np.sin(np.pi / 2 + theta), -np.cos(np.pi / 2 + theta)]])
-
+        # identity rotation
+        rotation_matrix = np.array([[1, 0],
+                                    [0, 1]])
 
         camera_pixel_to_um_matrix = np.array([[z_step_um, 0],
                                             [0, camera_pixel_size_xy_um]])
@@ -26,6 +32,8 @@ class ObliqueStackProcessor:
 
         # form transformation matrix from image pixels to reconstruction pixels
         self.transformation_matrix = np.linalg.inv(recon_pixel_to_um_matrix) @ rotation_matrix @ shear_matrix @ camera_pixel_to_um_matrix
+
+
 
         self.camera_shape = (z_pixel_shape, y_pixel_shape, x_pixel_shape)
         self.compute_remapped_coordinate_space()
@@ -161,21 +169,22 @@ class ObliqueStackProcessor:
             mean_projection_zy = (sum_projection_zy / self.denominator_zy_projection).astype(np.uint16)
 
 
-        import napari
-        viewer = napari.Viewer()
-
-        # viewer.add_image(recon_volume, name='recon_volume', colormap='inferno')
-
-        viewer.add_image(recon_volume.astype(np.uint16), name='mean_recon_volume', colormap='inferno')
-        viewer.add_image(mean_projection_yx, name='mean_projection_yx', colormap='inferno')
-        viewer.add_image(mean_projection_zx, name='mean_projection_zx', colormap='inferno')
-        viewer.add_image(mean_projection_zy, name='mean_projection_zy', colormap='inferno')
-
-        # plot denominators
-        viewer.add_image(self.denominator_recon_volume, name='denominator_recon_volume', colormap='inferno')
-        viewer.add_image(self.denominator_yx_projection, name='denominator_yx_projection', colormap='inferno')
-        viewer.add_image(self.denominator_zx_projection, name='denominator_zx_projection', colormap='inferno')
-        viewer.add_image(self.denominator_zy_projection, name='denominator_zy_projection', colormap='inferno')
+        # import napari
+        # viewer = napari.Viewer()
+        #
+        # # viewer.add_image(recon_volume, name='recon_volume', colormap='inferno')
+        #
+        # viewer.add_image(recon_volume.astype(np.uint16), name='mean_recon_volume', colormap='inferno')
+        #
+        # viewer.add_image(mean_projection_yx, name='mean_projection_yx', colormap='inferno')
+        # viewer.add_image(mean_projection_zx, name='mean_projection_zx', colormap='inferno')
+        # viewer.add_image(mean_projection_zy, name='mean_projection_zy', colormap='inferno')
+        #
+        # # plot denominators
+        # viewer.add_image(self.denominator_recon_volume, name='denominator_recon_volume', colormap='inferno')
+        # viewer.add_image(self.denominator_yx_projection, name='denominator_yx_projection', colormap='inferno')
+        # viewer.add_image(self.denominator_zx_projection, name='denominator_zx_projection', colormap='inferno')
+        # viewer.add_image(self.denominator_zy_projection, name='denominator_zy_projection', colormap='inferno')
 
 
 
@@ -188,9 +197,9 @@ def load_demo_data():
     # load a tiff stack
     # tiff_path = r'C:\Users\henry\Desktop\demo_snouty.tif'
     tiff_path = '/Users/henrypinkard/Desktop/rings_test.tif'
-    z_step_um = 0.13
-    pixel_size_xy_um = 0.116
-    theta = 0.46
+    z_step_um = 0.26
+    pixel_size_xy_um = 0.11635
+    theta = 0.466
 
     # Read the TIFF stack into a NumPy array
     with tifffile.TiffFile(tiff_path) as tif:
@@ -213,7 +222,7 @@ def test_slow_version():
     data, z_step_um, camera_pixel_size_xy_um, theta = load_demo_data()
 
     shear_matrix = np.array([[1, 0],
-                             [np.tan(theta), 1]])
+                             [- np.tan(theta), 1]])
     rotation_matrix = np.array([[-np.cos(np.pi / 2 - theta), np.sin(np.pi / 2 - theta)],
                                 [np.sin(np.pi / 2 - theta), np.cos(np.pi / 2 - theta)]])
 
@@ -226,20 +235,22 @@ def test_slow_version():
     rotated_image_2d = affine_transform(sheared_image_2d, rotation_matrix,
                                         offset=[0, 50], order=1, mode='constant', cval=0.0, prefilter=True)
 
-    transformed_volume = []
-    for index in range(data.shape[-1]):
-        sheared = affine_transform(data[:, :, index], np.linalg.inv(shear_matrix),
-                                   offset=[0, 0], order=1, mode='constant', cval=0.0, prefilter=True)
-        rotated = affine_transform(sheared, rotation_matrix,
-                                   offset=[0, 50], order=1, mode='constant', cval=0.0, prefilter=True)
-        transformed_volume.append(rotated)
-    transformed_volume = np.stack(transformed_volume, axis=2)
+    # transformed_volume = []
+    # for index in range(data.shape[-1]):
+    #     sheared = affine_transform(data[:, :, index], np.linalg.inv(shear_matrix),
+    #                                offset=[0, 0], order=1, mode='constant', cval=0.0, prefilter=True)
+    #     rotated = affine_transform(sheared, rotation_matrix,
+    #                                offset=[0, 50], order=1, mode='constant', cval=0.0, prefilter=True)
+    #     transformed_volume.append(rotated)
+    # transformed_volume = np.stack(transformed_volume, axis=2)
 
     viewer = napari.Viewer()
     viewer.add_image(image_2d)
     viewer.add_image(sheared_image_2d)
-    viewer.add_image(rotated_image_2d)
-    viewer.add_image(transformed_volume)
+    # viewer.add_image(rotated_image_2d)
+    # viewer.add_image(transformed_volume)
+
+
 
 data, z_step_um, camera_pixel_size_xy_um, theta = load_demo_data()
 
@@ -252,11 +263,13 @@ mean_projection_yx, mean_projection_zy, mean_projection_zx, recon_volume = proc.
 
 import napari
 viewer = napari.Viewer()
-viewer.add_image(data, name='raw data', colormap='inferno')
+# viewer.add_image(data.astype(np.uint16), name='raw data', colormap='inferno')
+viewer.add_image(recon_volume.astype(np.uint16), name='mean_recon_volume', colormap='inferno')
+
+
 viewer.add_image(mean_projection_yx, name='mean_projection_yx', colormap='inferno')
 viewer.add_image(mean_projection_zy, name='mean_projection_zy', colormap='inferno')
 viewer.add_image(mean_projection_zx, name='mean_projection_zx', colormap='inferno')
-viewer.add_image(recon_volume, name='mean_recon_volume', colormap='inferno')
 
 # viewer.add_image(proc.denominator_yx_projection, name='pixel_count_sum_projection_yx', colormap='inferno')
 # viewer.add_image(proc.denominator_zx_projection, name='pixel_count_sum_projection_zx', colormap='inferno')
