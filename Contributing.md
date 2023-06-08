@@ -2,91 +2,68 @@
 
 We welcome your contributions! Please see the provided steps below and never hesitate to contact us.
 
-If you are a new user, we recommend checking out the detailed [Github Guides](https://guides.github.com).
+If you are a new user, we recommend checking out the detailed [Github Docs](https://docs.github.com/).
 
-## Setting up a development installation
+## Issues
 
-In order to make changes to `pycro-manager`, you will need to [fork](https://guides.github.com/activities/forking/#fork) the
-[repository](https://github.com/pycro-manager/pycro-manager).
-
-If you are not familiar with `git`, we recommend reading up on [this guide](https://guides.github.com/introduction/git-handbook/#basic-git).
-
-Clone the forked repository to your local machine and change directories:
-```sh
-git clone https://github.com/your-username/pycro-manager.git
-cd pycro-manager
-```
-
-Set the `upstream` remote to the base `pycro-manager` repository:
-```sh
-git remote add upstream https://github.com/micro-manager/pycro-manager.git
-```
-
-Install the package in editable mode, along with all of the developer tools
-```sh
-pip install -r requirements.txt
-pip install -e .[test]
-```
-
+We use [issues](https://github.com/micro-manager/pycro-manager/issues) to track bug reports, feature requests, and user questions. Please use the suggested template when creating a new issue to receive the most relevant feedback.
 
 ## Making changes
 
-Create a new feature branch:
+Changes to `pycro-manager` need to be proposed in a [pull request](https://github.com/micro-manager/pycro-manager/pulls) (PR) to the `main` branch. Please follow the GitHub documentation on [Contributing to projects](https://docs.github.com/en/get-started/quickstart/contributing-to-projects?tool=webui) for instructions on how to fork the repository, make changes, and create a pull request to contribute to the repo.
+
+Please reference open issues that can be addressed by your PR. Please include a description of the bug fix or new feature implemented in the PR.
+
+## Setting up a development installation
+
+`pycro-manager` can be installed in editable mode to allow you to test the changes you have made. We recommend using an environment management tool such as [Conda](https://github.com/conda/conda).
+
+Create a new conda environment with
+
 ```sh
-git checkout master -b your-branch-name
+conda create -n pycro-manager
+conda activate pycro-manager
 ```
 
-`git` will automatically detect changes to a repository.
-You can view them with:
+Navigate to the repo directory and install the package in editable mode, along with all of the developer tools
+
 ```sh
-git status
+pip install -e ".[dev]"
 ```
 
-Add and commit your changed files:
-```sh
-git add my-file-or-directory
-git commit -m "my message"
-```
-
-### Help us make sure it's you
+## Help us make sure it's you
 
 Each commit you make must have a [GitHub-registered email](https://github.com/settings/emails)
 as the `author`. You can read more [here](https://help.github.com/en/github/setting-up-and-managing-your-github-user-account/setting-your-commit-email-address).
 
-To set it, use `git config --global user.email your-address@example.com`.
+To set it, use 
 
-## Keeping your branches up-to-date
-
-Switch to the `master` branch:
 ```sh
-git checkout master
+git config --global user.email your-address@example.com
 ```
 
-Fetch changes and update `master`:
+## Keeping your fork up-to-date
+
+Make sure your fork stays up-to-date with the latest changes in the main repo by [syncing your fork](https://docs.github.com/en/pull-requests/collaborating-with-pull-requests/working-with-forks/syncing-a-fork).
+
+## Testing the code
+
+We use the [pytest](https://docs.pytest.org/) framework to test the code. During development, you can run the tests locally using
+
 ```sh
-git pull upstream master --tags
+# in the project root directory
+pytest -v
 ```
 
-This is shorthand for:
-```sh
-git fetch upstream master --tags
-git merge upstream/master
-```
+The suite of [tests](https://github.com/micro-manager/pycro-manager/tree/main/pycromanager/test) also runs automatically using [GitHub Actions](https://github.com/micro-manager/pycro-manager/actions) for every PR. All tests must pass before a PR is merged. Please contribute new tests as you fix bugs and develop new features.
 
-Update your other branches:
-```sh
-git checkout your-branch-name
-git merge master
-```
+Execution of the `pycro-manager` tests depends on [Micro-manager](https://micro-manager.org/) and several Java libraries ([AcqEngJ](https://github.com/micro-manager/AcqEngJ), [NDTiffStorage](https://github.com/micro-manager/NDTiffStorage), [NDViewer](https://github.com/micro-manager/NDViewer)).
 
-## Sharing your changes
+During setup, `pytest` will download the latest [nightly build](https://micro-manager.org/Micro-Manager_Nightly_Builds) of `Micro-manager` and install it in `~/Micro-Manager-nightly`; this step will be skipped if that folder exists. Currently installation of the latest `Micro-manager` nightly build through `pytest` is only supported on Windows platforms. For other platforms, please manually install a working version of `Micro-manager` in `~/Micro-Manager-nightly`.
 
-Update your remote branch:
-```sh
-git push -u origin your-branch-name
-```
+During setup, `pytest` will also look for pre-compiled `.jar` files in the `../../{java_lib_name}/target` directory (e.g. `../../{AcqEngJ}/target`) and replace the ones that are packaged with the `Micro-manager` nightly build if they are older version. This is helpful when co-developing these libraries. The user does need to pre-compile the Java libraries first. When the tests run in GitHub Actions they always use with the `.jar` files that are packaged with `Micro-manager`. 
 
-You can then make a [pull-request](https://guides.github.com/activities/forking/#making-a-pull-request) to `pycro-manager`'s `master` branch.
+Tests of the `pycro-manager` NDViewer and `napari` viewer only execute locally and are skipped by GitHub Actions. When making changes that may affect these viewer, please make sure to always run the tests locally.
 
 ## Building the docs
 
