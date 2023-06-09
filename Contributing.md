@@ -48,14 +48,16 @@ Make sure your fork stays up-to-date with the latest changes in the main repo by
 
 ## Testing the code
 
-We use the [pytest](https://docs.pytest.org/) framework to test the code. During development, you can run the tests locally using
+We use the [pytest](https://docs.pytest.org/) framework to test the code. During development, you can run the [tests](https://github.com/micro-manager/pycro-manager/tree/main/pycromanager/test) locally using
 
 ```sh
 # in the project root directory
 pytest -v
 ```
 
-The suite of [tests](https://github.com/micro-manager/pycro-manager/tree/main/pycromanager/test) also runs automatically using [GitHub Actions](https://github.com/micro-manager/pycro-manager/actions) for every PR. All tests must pass before a PR is merged. Please contribute new tests as you fix bugs and develop new features.
+You may also execute the tests in an IDE such as [PyCharm](https://www.jetbrains.com/help/pycharm/pytest.html#run-pytest-test) or [VSCode](https://code.visualstudio.com/docs/python/testing#_run-tests). You may chose to run individual tests or all tests in a module or package using the IDE tools.
+
+The suite of tests runs automatically using [GitHub Actions](https://github.com/micro-manager/pycro-manager/actions) for every PR. All tests must pass before a PR is merged. Please contribute new tests as you fix bugs and develop new features.
 
 Execution of the `pycro-manager` tests depends on [Micro-manager](https://micro-manager.org/) and several Java libraries ([AcqEngJ](https://github.com/micro-manager/AcqEngJ), [NDTiffStorage](https://github.com/micro-manager/NDTiffStorage), [NDViewer](https://github.com/micro-manager/NDViewer)).
 
