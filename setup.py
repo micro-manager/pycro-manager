@@ -24,9 +24,8 @@ setuptools.setup(
     install_requires=[
         "numpy",
         "dask[array]>=2022.2.0",
-        "pyzmq",
-        "docstring-inheritance",
-        "ndtiff>=1.10.0"
+        "pyzmq",        
+        "ndtiff>=2.0.0"
     ],
     python_requires=">=3.6",
     extras_require={
@@ -34,6 +33,7 @@ setuptools.setup(
             "pytest",
             "wget",
             "requests",
+            "docstring-inheritance",
             "napari"
         ]
     },

@@ -76,6 +76,7 @@ def test_empty_mda_acq(launch_mm_headless, setup_data_folder):
 
     dataset = acq.get_dataset()
     assert dataset.axes == {}
+    dataset.close()
 
 
 def test_single_snap_acq(launch_mm_headless, setup_data_folder):

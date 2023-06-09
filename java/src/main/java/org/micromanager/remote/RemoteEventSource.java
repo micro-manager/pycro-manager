@@ -60,11 +60,10 @@ public class RemoteEventSource {
                   executor_.shutdown();
                   return;
                }
-//            } catch (ExecutionException ex) {
-//               JOptionPane.showMessageDialog(null, ex.getMessage());
             }
+         } catch (InterruptedException e) {
+            // it was aborted
          } catch (Exception e) {
-            e.printStackTrace();
             if (!executor_.isShutdown()) {
                acq_.abort(e);
             }

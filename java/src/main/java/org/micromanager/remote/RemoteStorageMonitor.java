@@ -22,17 +22,12 @@ import org.micromanager.ndtiffstorage.NDTiffStorage;
 public class RemoteStorageMonitor implements ImageWrittenListener {
 
    private ZMQPushSocket<IndexEntryData> pushSocket_;
-   private RemoteAcquisition acq_;
    private ExecutorService executor_ = Executors.newSingleThreadExecutor((Runnable r) -> {
       return new Thread(r, "Remote Event Source thread");
    });
    private LinkedBlockingDeque<IndexEntryData> indexEntries_ = new LinkedBlockingDeque<IndexEntryData>();
-   private final String diskLocation_;
-   private final JSONObject summaryMetadata_;
 
-   public RemoteStorageMonitor(NDTiffStorage storage) {
-      diskLocation_ = storage.getDiskLocation();
-      summaryMetadata_ = storage.getSummaryMetadata();
+   public RemoteStorageMonitor() {
       pushSocket_ = new ZMQPushSocket<IndexEntryData>(
               t -> {
                  try {
@@ -49,14 +44,6 @@ public class RemoteStorageMonitor implements ImageWrittenListener {
               });
    }
 
-   public JSONObject getSummaryMetadata() {
-      return summaryMetadata_;
-   }
-
-   public String getDiskLocation() {
-      return diskLocation_;
-   }
-
    /**
     * Start pushing out the indices to the other side
     */
@@ -64,37 +51,22 @@ public class RemoteStorageMonitor implements ImageWrittenListener {
       //constantly poll the socket for more event sequences to submit
       executor_.submit(() -> {
          while (true) {
+            IndexEntryData e = null;
             try {
-
-               boolean finished = false;
-               if (indexEntries_.size() > 0) {
-                  IndexEntryData e = indexEntries_.takeFirst();
-                  if (e.dataSetFinishedEntry_) {
-                     finished = true;
-                  } else {
-                     pushSocket_.push(e);
-                  }
-               } else if (executor_.isShutdown()) {
-                  finished = true;
-               } else {
-                  Thread.sleep(1);
-               }
-
-
-               if (finished ) {
-                  pushSocket_.push(IndexEntryData.createFinishedEntry());
-                  executor_.shutdown();
-                  pushSocket_.close();
-                  return;
-               }
-            }  catch (Exception e) {
-               if (executor_.isShutdown()) {
-                  return; //It was aborted
-               }
-               e.printStackTrace();
-               throw new RuntimeException(e);
+               e = indexEntries_.takeFirst();
+            } catch (InterruptedException ex) {
+               // this should never happen
+               ex.printStackTrace();
+               throw new RuntimeException(ex);
             }
 
+            if (e.dataSetFinishedEntry_) {
+               pushSocket_.push(IndexEntryData.createFinishedEntry());
+               // Ready for close, but need a signal that all messages have been received by java side
+               return;
+            } else {
+               pushSocket_.push(e);
+            }
          }
       });
    }
@@ -112,14 +84,26 @@ public class RemoteStorageMonitor implements ImageWrittenListener {
       indexEntries_.addLast(ied);
    }
 
+   /**
+    * Called by the python side to signal that the final shutdown signal has been received
+    * and that the push socket can be closed
+    */
+   public void storageMonitoringComplete() {
+      executor_.shutdown();
+      pushSocket_.close();
+   }
+
    @Override
    public void awaitCompletion() {
-      while (!executor_.isTerminated()) {
-         try {
-            Thread.sleep(5);
-         } catch (InterruptedException e) {
-            throw new RuntimeException(e);
-         }
-      }
+      // No need to do this, because the storage sould shutdown irrespective of this montior
+      // which exists on top of it
+
+//      while (!executor_.isTerminated()) {
+//         try {
+//            Thread.sleep(5);
+//         } catch (InterruptedException e) {
+//            throw new RuntimeException(e);
+//         }
+//      }
    }
 }
