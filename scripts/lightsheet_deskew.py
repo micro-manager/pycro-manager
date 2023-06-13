@@ -14,31 +14,34 @@ class ObliqueStackProcessor:
         self.reconstruction_voxel_size_um = camera_pixel_size_xy_um
 
         shear_matrix = np.array([[1, 0],
-                                 [-np.tan(theta), 1]])
+                                 [np.tan( - theta), 1]])
 
-        shear_matrix = np.array([[1, 0],
-                                 [-np.tan(theta + .3), 1]])
-
-        rotation_matrix = np.array([[-np.cos(np.pi / 2 + theta), np.sin(np.pi / 2 + theta)],
-                                    [-np.sin(np.pi / 2 + theta), -np.cos(np.pi / 2 + theta)]])
-        # identity rotation
-        rotation_matrix = np.array([[1, 0],
-                                    [0, 1]])
+        rotation_matrix = np.array([[np.cos(np.pi / 2 - theta), np.sin(np.pi / 2 - theta)],
+                                    [-np.sin(np.pi / 2 - theta), np.cos(np.pi / 2 - theta)]])
 
         camera_pixel_to_um_matrix = np.array([[z_step_um, 0],
                                             [0, camera_pixel_size_xy_um]])
+
         recon_pixel_to_um_matrix = np.array([[self.reconstruction_voxel_size_um, 0],
                                             [0, self.reconstruction_voxel_size_um]])
 
+
         # form transformation matrix from image pixels to reconstruction pixels
+
         self.transformation_matrix = np.linalg.inv(recon_pixel_to_um_matrix) @ rotation_matrix @ shear_matrix @ camera_pixel_to_um_matrix
 
+        # TODO Multiply by a final factor so theyre same size as x pixels?
+        # self.transformation_matrix *= 2
 
 
         self.camera_shape = (z_pixel_shape, y_pixel_shape, x_pixel_shape)
+
+        # self.test_transforms()
+
         self.compute_remapped_coordinate_space()
         self.precompute_coord_transform_LUTs()
         self.precompute_recon_weightings()
+
 
 
     def recon_coords_from_camera_coords(self, image_z, image_y):
@@ -55,6 +58,8 @@ class ObliqueStackProcessor:
             [0, self.camera_shape[1]],
             [self.camera_shape[0], 0],
             [self.camera_shape[0], self.camera_shape[1]]]).T)
+
+        self.recon_coords_from_camera_coords(*[0, self.camera_shape[1]])
 
         min_transformed_coordinates_zy = np.min(transformed_corners_zy, axis=1)
         max_transformed_coordinate_zy = np.max(transformed_corners_zy, axis=1)
@@ -197,7 +202,8 @@ def load_demo_data():
     # load a tiff stack
     # tiff_path = r'C:\Users\henry\Desktop\demo_snouty.tif'
     tiff_path = '/Users/henrypinkard/Desktop/rings_test.tif'
-    z_step_um = 0.26
+    z_step_um = 0.13
+    # z_step_um = 0.26
     pixel_size_xy_um = 0.11635
     theta = 0.466
 
@@ -206,9 +212,6 @@ def load_demo_data():
         data = tif.asarray()
         # its backwards for some reason
         data = data[::-1]
-
-    # data = data[::4]
-    # z_step_um *= 4
 
     # z x y order
     return data, z_step_um, pixel_size_xy_um, theta
@@ -222,33 +225,54 @@ def test_slow_version():
     data, z_step_um, camera_pixel_size_xy_um, theta = load_demo_data()
 
     shear_matrix = np.array([[1, 0],
-                             [- np.tan(theta), 1]])
-    rotation_matrix = np.array([[-np.cos(np.pi / 2 - theta), np.sin(np.pi / 2 - theta)],
-                                [np.sin(np.pi / 2 - theta), np.cos(np.pi / 2 - theta)]])
+                             [-np.tan(np.pi / 2 - theta), 1]])
+
+    rotation_matrix = np.array([[np.cos(np.pi / 2 - theta), np.sin(np.pi / 2 - theta)],
+                                [-np.sin(np.pi / 2 - theta), np.cos(np.pi / 2 - theta)]])
+    rotation_matrix = np.eye(2)
+
+    camera_pixel_to_um_matrix = np.array([[z_step_um, 0],
+                                          [0, camera_pixel_size_xy_um]])
+
+    recon_pixel_to_um_matrix = np.array([[camera_pixel_size_xy_um, 0],
+                                         [0, camera_pixel_size_xy_um]])
+
+    transformation_matrix = np.linalg.inv(recon_pixel_to_um_matrix) @ rotation_matrix @ shear_matrix @ camera_pixel_to_um_matrix
+
+    transformation_matrix = rotation_matrix @ shear_matrix
+
 
     image_2d = data.mean(axis=-1)
     # pad the image on all sides
 
-    # apply shear transform to image_2d
-    sheared_image_2d = affine_transform(image_2d, np.linalg.inv(shear_matrix),
-                                        offset=[0, 0], order=1, mode='constant', cval=0.0, prefilter=True)
-    rotated_image_2d = affine_transform(sheared_image_2d, rotation_matrix,
-                                        offset=[0, 50], order=1, mode='constant', cval=0.0, prefilter=True)
-
-    # transformed_volume = []
-    # for index in range(data.shape[-1]):
-    #     sheared = affine_transform(data[:, :, index], np.linalg.inv(shear_matrix),
-    #                                offset=[0, 0], order=1, mode='constant', cval=0.0, prefilter=True)
-    #     rotated = affine_transform(sheared, rotation_matrix,
-    #                                offset=[0, 50], order=1, mode='constant', cval=0.0, prefilter=True)
-    #     transformed_volume.append(rotated)
-    # transformed_volume = np.stack(transformed_volume, axis=2)
-
+    image_transformed = affine_transform(image_2d, np.linalg.inv(transformation_matrix),
+                                         offset=[300, -300], order=1, mode='constant', cval=0.0, prefilter=True)
+    import napari
     viewer = napari.Viewer()
     viewer.add_image(image_2d)
-    viewer.add_image(sheared_image_2d)
+    viewer.add_image(image_transformed)
+
+
+    # # apply shear transform to image_2d
+    # sheared_image_2d = affine_transform(image_2d, np.linalg.inv(shear_matrix),
+    #                                     offset=[0, 0], order=1, mode='constant', cval=0.0, prefilter=True)
+    # rotated_image_2d = affine_transform(sheared_image_2d, rotation_matrix,
+    #                                     offset=[0, 50], order=1, mode='constant', cval=0.0, prefilter=True)
+    #
+    # # transformed_volume = []
+    # # for index in range(data.shape[-1]):
+    # #     sheared = affine_transform(data[:, :, index], np.linalg.inv(shear_matrix),
+    # #                                offset=[0, 0], order=1, mode='constant', cval=0.0, prefilter=True)
+    # #     rotated = affine_transform(sheared, rotation_matrix,
+    # #                                offset=[0, 50], order=1, mode='constant', cval=0.0, prefilter=True)
+    # #     transformed_volume.append(rotated)
+    # # transformed_volume = np.stack(transformed_volume, axis=2)
+    #
+    # viewer = napari.Viewer()
+    # viewer.add_image(image_2d)
+    # viewer.add_image(sheared_image_2d)
     # viewer.add_image(rotated_image_2d)
-    # viewer.add_image(transformed_volume)
+    # # viewer.add_image(transformed_volume)
 
 
 
@@ -263,8 +287,12 @@ mean_projection_yx, mean_projection_zy, mean_projection_zx, recon_volume = proc.
 
 import napari
 viewer = napari.Viewer()
-# viewer.add_image(data.astype(np.uint16), name='raw data', colormap='inferno')
+viewer.add_image(data.astype(np.uint16), name='raw data', colormap='inferno')
 viewer.add_image(recon_volume.astype(np.uint16), name='mean_recon_volume', colormap='inferno')
+
+
+# import matplotlib.pyplot as plt
+# plt.imshow(data.mean(axis=-1))
 
 
 viewer.add_image(mean_projection_yx, name='mean_projection_yx', colormap='inferno')
