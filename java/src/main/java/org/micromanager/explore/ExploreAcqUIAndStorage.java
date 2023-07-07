@@ -556,6 +556,11 @@ public class ExploreAcqUIAndStorage implements AcqEngJDataSink, NDViewerDataSour
       return storage_.getNumResLevels() - 1;
    }
 
+   @Override
+   public void increaseMaxResolutionLevel(int newMaxResolutionLevel) {
+      storage_.increaseMaxResolutionLevel(newMaxResolutionLevel);
+   }
+
    public Set<Point> getTileIndicesWithDataAt(String zName, int zIndex) {
       return storage_.getTileIndicesWithDataAt(zName ,zIndex);
    }
