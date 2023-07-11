@@ -11,11 +11,12 @@ import time
 import pycromanager
 from pycromanager import start_headless
 from pycromanager.acq_util import cleanup
-import psutil
+import socket
 
 def is_port_in_use(port):
-    portsinuse = [x.laddr.port for x in psutil.net_connections(kind='tcp')]
-    return port in portsinuse
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+        return s.connect_ex(('localhost', port)) == 0
+
 
 def find_jar(pathname, jar_name):
     p = re.compile(jar_name + r"-(\d+).(\d+).(\d+).jar")
