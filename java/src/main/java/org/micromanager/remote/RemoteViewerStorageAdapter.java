@@ -193,6 +193,11 @@ class RemoteViewerStorageAdapter implements NDViewerDataSource, AcqEngJDataSink,
    }
 
    @Override
+   public void increaseMaxResolutionLevel(int newMaxResolutionLevel) {
+      storage_.increaseMaxResolutionLevel(newMaxResolutionLevel);
+   }
+
+   @Override
    public String getDiskLocation() {
       return dir_;
    }
