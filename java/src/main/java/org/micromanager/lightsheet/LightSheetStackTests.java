@@ -5,7 +5,10 @@ import mmcorej.TaggedImage;
 import mmcorej.org.json.JSONException;
 import mmcorej.org.json.JSONObject;
 import org.micromanager.acqj.main.AcqEngMetadata;
-
+import ij.ImageJ;
+import ij.ImagePlus;
+import ij.ImageStack;
+import ij.process.ImageProcessor;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.concurrent.LinkedBlockingDeque;
