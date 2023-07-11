@@ -7,10 +7,15 @@ import wget
 import requests
 import re
 import time
-from pycromanager import start_headless
-from pycromanager import Core
-from pycromanager.acq_util import cleanup
 
+import pycromanager
+from pycromanager import start_headless
+from pycromanager.acq_util import cleanup
+import psutil
+
+def is_port_in_use(port):
+    portsinuse = [x.laddr.port for x in psutil.net_connections(kind='tcp')]
+    return port in portsinuse
 
 def find_jar(pathname, jar_name):
     p = re.compile(jar_name + r"-(\d+).(\d+).(\d+).jar")
@@ -47,10 +52,9 @@ def replace_jars(new_file_path, old_file_path, jar_names: list):
 
 @pytest.fixture(scope="session")
 def download_mm_nightly():
-    try:
-        Core()
+    if is_port_in_use(4827):
         yield
-    except:
+    else:
         # get latest mm nightly build
         mm_windows_downloads = "https://download.micro-manager.org/nightly/2.0/Windows/"
         webpage = requests.get(mm_windows_downloads)
@@ -74,18 +78,16 @@ def download_mm_nightly():
 @pytest.fixture(scope="session")
 def install_mm(download_mm_nightly):
     # make sure MM is not already running (used for local testing)
-    try:
-        Core()
+    if is_port_in_use(4827):
         yield
-    except:
+    else:
         mm_app_found = False
         mm_install_dir = os.path.join(os.path.expanduser('~'), "Micro-Manager-nightly")
 
         # check if there is currently a Micro-manager instance running (used for local testing)
-        try:
-            Core()
+        if is_port_in_use(4827):
             yield
-        except:
+        else:
             if os.path.isdir(mm_install_dir):
                 # Check if Micro-manager installation is present in mm_install_dir.
                 # If so, the latest Micro-manager nightly build will not be installed.
