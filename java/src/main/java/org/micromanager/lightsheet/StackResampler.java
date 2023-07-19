@@ -2,9 +2,9 @@ package org.micromanager.lightsheet;
 
 import java.awt.Point;
 import java.util.ArrayList;
-import java.util.List;
 import java.util.HashMap;
 import java.util.Iterator;
+import java.util.List;
 import java.util.Spliterator;
 import java.util.Spliterators;
 import java.util.concurrent.BlockingQueue;
@@ -43,8 +43,12 @@ public class StackResampler {
    private short[] meanProjectionZX_;
    private short[] meanProjectionZY_;
    private final Object[][] lineLocks_;
-   int[][] sumProjectionYX_ = null, sumProjectionZY_ = null, sumProjectionZX_ = null;
-   short[] maxProjectionYX_ = null, maxProjectionZY_ = null, maxProjectionZX_ = null;
+   int[][] sumProjectionYX_ = null;
+   int[][] sumProjectionZY_ = null;
+   int[][] sumProjectionZX_ = null;
+   short[] maxProjectionYX_ = null;
+   short[] maxProjectionZY_ = null;
+   short[] maxProjectionZX_ = null;
    short[][] reconVolumeZYX_ = null;
    private final BlockingQueue<TaggedImage> imageQueue_ = new LinkedBlockingDeque<>();
    private HashMap<Point, ArrayList<Point>> reconCoordLUT_;
@@ -76,76 +80,90 @@ public class StackResampler {
               double zStepUm,
               int zPixelShape,
               int yPixelShape,
-              int xPixelShape
-      ) {
+              int xPixelShape) {
 
-         this.mode_ = mode;
-         this.maxProjection_ = maxProjection;
-         // concat all args to form a settings key
-         this.settingsKey_ = createSettingsKey(
-                 mode, theta, cameraPixelSizeXyUm, zStepUm, zPixelShape, yPixelShape, xPixelShape
-         );
-         this.reconstructionVoxelSizeUm_ = cameraPixelSizeXyUm;
+      this.mode_ = mode;
+      this.maxProjection_ = maxProjection;
+      // concat all args to form a settings key
+      this.settingsKey_ = createSettingsKey(
+              mode, theta, cameraPixelSizeXyUm, zStepUm, zPixelShape, yPixelShape, xPixelShape
+      );
+      this.reconstructionVoxelSizeUm_ = cameraPixelSizeXyUm;
 
-         reconCoordOffset_ = new double[2];
+      reconCoordOffset_ = new double[2];
 
-         double[][] shearMatrix = {
-                 {1, 0},
-                 {Math.tan(Math.PI / 2 - theta), 1}
-         };
+      double[][] shearMatrix = {
+         {1, 0},
+         {Math.tan(Math.PI / 2 - theta), 1}
+      };
 
-         double[][] rotationMatrix = {
-            // working but inverted
-            //   {-Math.cos(Math.PI / 2 + theta), Math.sin(Math.PI / 2 + theta)},
-            //   {-Math.sin(Math.PI / 2 + theta), -Math.cos(Math.PI / 2 + theta)}
-                {-Math.cos(theta), Math.sin(theta)},
-                {-Math.sin(theta), -Math.cos(theta)}
-         };
+      double[][] rotationMatrix = {
+         // working but inverted
+         //   {-Math.cos(Math.PI / 2 + theta), Math.sin(Math.PI / 2 + theta)},
+         //   {-Math.sin(Math.PI / 2 + theta), -Math.cos(Math.PI / 2 + theta)}
+         {-Math.cos(theta), Math.sin(theta)},
+         {-Math.sin(theta), -Math.cos(theta)}
+      };
 
-         double[][] cameraPixelToUmMatrix = {
-                {zStepUm * Math.sin(theta), 0},
-                {0, cameraPixelSizeXyUm}
-         };
+      double[][] cameraPixelToUmMatrix = {
+         {zStepUm * Math.sin(theta), 0},
+         {0, cameraPixelSizeXyUm}
+      };
 
-         double[][] reconPixelToUmMatrix = {
-                 {this.reconstructionVoxelSizeUm_, 0},
-                 {0, this.reconstructionVoxelSizeUm_}
-         };
+      double[][] reconPixelToUmMatrix = {
+         {this.reconstructionVoxelSizeUm_, 0},
+         {0, this.reconstructionVoxelSizeUm_}
+      };
 
-         // Invert the reconPixelToUmMatrix
-         double[][] inverseReconPixelToUmMatrix = LinearTransformation.invert(reconPixelToUmMatrix);
+      // Invert the reconPixelToUmMatrix
+      double[][] inverseReconPixelToUmMatrix = LinearTransformation.invert(reconPixelToUmMatrix);
 
-         // form transformation matrix from image pixels to reconstruction pixels
-         double[][] transformationMatrix = LinearTransformation.multiply(inverseReconPixelToUmMatrix, rotationMatrix);
-         transformationMatrix = LinearTransformation.multiply(transformationMatrix, shearMatrix);
-         this.transformationMatrix_ = LinearTransformation.multiply(transformationMatrix, cameraPixelToUmMatrix);
+      // form transformation matrix from image pixels to reconstruction pixels
+      double[][] transformationMatrix = LinearTransformation.multiply(inverseReconPixelToUmMatrix,
+               rotationMatrix);
+      transformationMatrix = LinearTransformation.multiply(transformationMatrix, shearMatrix);
+      this.transformationMatrix_ = LinearTransformation.multiply(transformationMatrix,
+               cameraPixelToUmMatrix);
 
-         this.cameraImageShape_ = new int[]{zPixelShape, yPixelShape, xPixelShape};
+      this.cameraImageShape_ = new int[]{zPixelShape, yPixelShape, xPixelShape};
 
-          this.computeRemappedCoordinateSpace();
-          this.precomputeCoordTransformLUTs();
-          if (!maxProjection_) {
-             this.precomputeReconWeightings();
-          }
-
-         lineLocks_ = new Object[this.reconImageShape_[0]][this.reconImageShape_[1]];
-         for (int i = 0; i < this.reconImageShape_[0]; i++) {
-            for (int j = 0; j < this.reconImageShape_[1]; j++) {
-               lineLocks_[i][j] = new Object();
-            }
-         }
+      this.computeRemappedCoordinateSpace();
+      this.precomputeCoordTransformLUTs();
+      if (!maxProjection_) {
+         this.precomputeReconWeightings();
       }
 
-      public static String createSettingsKey(
+      lineLocks_ = new Object[this.reconImageShape_[0]][this.reconImageShape_[1]];
+      for (int i = 0; i < this.reconImageShape_[0]; i++) {
+         for (int j = 0; j < this.reconImageShape_[1]; j++) {
+            lineLocks_[i][j] = new Object();
+         }
+      }
+   }
+
+   /**
+    * Creates a String with values used to create a StackResampler.
+    *
+    * @param mode YX Projection (0), Orthogonal views (1), or full volume (2)
+    * @param theta Angle with optical axis in radians.
+    * @param cameraPixelSizeXyUm Size of one (square) camera pixel in the object plane
+    *                            in microns.
+    * @param zStepUm Distance (in microns) between two slices of the input stack in the object
+    *                plane.  Distance is measured in the plane parallel with the coverslip.
+    * @param zPixelShape Number of slices (z planes) in the input stack.
+    * @param yPixelShape Image height in pixel number
+    * @param xPixelShape Image width in pixel number
+    * @return String unique for given input.
+    */
+   public static String createSettingsKey(
               int mode,
               double theta,
               double cameraPixelSizeXyUm,
               double zStepUm,
               int zPixelShape,
               int yPixelShape,
-              int xPixelShape
-      ) {
-         return String.format(
+              int xPixelShape) {
+      return String.format(
                  "%d_%f_%f_%f_%d_%d_%d",
                  mode,
                  theta,
@@ -153,94 +171,104 @@ public class StackResampler {
                  zStepUm,
                  zPixelShape,
                  yPixelShape,
-                 xPixelShape
-         );
+                 xPixelShape);
+   }
+
+   /**
+    * Returns a String unique for this StackResampler.
+    * (that also containes information about parameters used to create
+    * this StackResampler.
+    *
+    * @return String unique for this StackResampler
+    */
+   public String getSettingsKey() {
+      return this.settingsKey_;
+   }
+
+   private double[] reconCoordsFromCameraCoords(double imageZ, double imageY) {
+      double[] reconCoords =  LinearTransformation.multiply(this.transformationMatrix_,
+              new double[]{imageZ, imageY});
+      // subtract offset
+      reconCoords[0] -= this.reconCoordOffset_[0];
+      reconCoords[1] -= this.reconCoordOffset_[1];
+      return reconCoords;
+   }
+
+   private double[] cameraCoordsFromReconCoords(double reconZ, double reconY) {
+      double[][] inverseTransform = LinearTransformation.invert(this.transformationMatrix_);
+
+      double[] result = LinearTransformation.multiply(inverseTransform,
+              new double[]{reconZ + reconCoordOffset_[0], reconY + reconCoordOffset_[1]});
+      return result;
+   }
+
+   private void computeRemappedCoordinateSpace() {
+      double[][] corners = new double[][] {
+         {0, 0},
+         {0, this.cameraImageShape_[1]},
+         {this.cameraImageShape_[0], 0},
+         {this.cameraImageShape_[0], this.cameraImageShape_[1]}
+      };
+
+      double[][] transformedCorners = new double[corners.length][];
+      for (int i = 0; i < corners.length; i++) {
+         transformedCorners[i] = this.reconCoordsFromCameraCoords(corners[i][0], corners[i][1]);
       }
 
-      public String getSettingsKey() {
-         return this.settingsKey_;
+      double[] minTransformedCoordinates = new double[] {Double.MAX_VALUE, Double.MAX_VALUE};
+      double[] maxTransformedCoordinates = new double[] {-Double.MAX_VALUE, -Double.MAX_VALUE};
+
+      for (double[] transformedCorner : transformedCorners) {
+         minTransformedCoordinates[0] = Math.min(minTransformedCoordinates[0],
+                  transformedCorner[0]);
+         minTransformedCoordinates[1] = Math.min(minTransformedCoordinates[1],
+                  transformedCorner[1]);
+         maxTransformedCoordinates[0] = Math.max(maxTransformedCoordinates[0],
+                  transformedCorner[0]);
+         maxTransformedCoordinates[1] = Math.max(maxTransformedCoordinates[1],
+                  transformedCorner[1]);
       }
 
-      public double[] reconCoordsFromCameraCoords(double imageZ, double imageY) {
-         double[] reconCoords =  LinearTransformation.multiply(this.transformationMatrix_,
-                 new double[]{imageZ, imageY});
-         // subtract offset
-         reconCoords[0] -= this.reconCoordOffset_[0];
-         reconCoords[1] -= this.reconCoordOffset_[1];
-         return reconCoords;
-      }
+      reconCoordOffset_[0] = minTransformedCoordinates[0];
+      reconCoordOffset_[1] = minTransformedCoordinates[1];
 
-      public double[] cameraCoordsFromReconCoords(double reconZ, double reconY) {
-         double[][] inverseTransform = LinearTransformation.invert(this.transformationMatrix_);
+      double[] totalTransformedExtent = new double[] {
+         maxTransformedCoordinates[0] - minTransformedCoordinates[0],
+         maxTransformedCoordinates[1] - minTransformedCoordinates[1]
+      };
 
-         double[] result = LinearTransformation.multiply(inverseTransform,
-                 new double[]{reconZ + reconCoordOffset_[0], reconY + reconCoordOffset_[1]});
-         return result;
-      }
-
-      public void computeRemappedCoordinateSpace() {
-         double[][] corners = new double[][] {
-                 {0, 0},
-                 {0, this.cameraImageShape_[1]},
-                 {this.cameraImageShape_[0], 0},
-                 {this.cameraImageShape_[0], this.cameraImageShape_[1]}
-         };
-
-         double[][] transformedCorners = new double[corners.length][];
-         for (int i = 0; i < corners.length; i++) {
-            transformedCorners[i] = this.reconCoordsFromCameraCoords(corners[i][0], corners[i][1]);
-         }
-
-         double[] minTransformedCoordinates = new double[] {Double.MAX_VALUE, Double.MAX_VALUE};
-         double[] maxTransformedCoordinates = new double[] {-Double.MAX_VALUE, -Double.MAX_VALUE};
+      this.reconImageShape_ = new int[] {
+         (int) Math.ceil(totalTransformedExtent[0]) + 1,
+         (int) Math.ceil(totalTransformedExtent[1]) + 1,
+         this.cameraImageShape_[2] // x pixels are copied 1 to 1
+      };
+   }
 
 
-         for (double[] transformedCorner : transformedCorners) {
-            minTransformedCoordinates[0] = Math.min(minTransformedCoordinates[0], transformedCorner[0]);
-            minTransformedCoordinates[1] = Math.min(minTransformedCoordinates[1], transformedCorner[1]);
-            maxTransformedCoordinates[0] = Math.max(maxTransformedCoordinates[0], transformedCorner[0]);
-            maxTransformedCoordinates[1] = Math.max(maxTransformedCoordinates[1], transformedCorner[1]);
-         }
+   private void precomputeCoordTransformLUTs() {
+      this.reconCoordLUT_ = new HashMap<>();
+      for (int zIndexRecon = 0; zIndexRecon < this.reconImageShape_[0]; zIndexRecon++) {
+         for (int yIndexRecon = 0; yIndexRecon < this.reconImageShape_[1]; yIndexRecon++) {
+            double[] cameraCoords = this.cameraCoordsFromReconCoords(zIndexRecon, yIndexRecon);
+            Point cameraCoordsInteger = new Point((int) Math.round(cameraCoords[0]),
+                     (int) Math.round(cameraCoords[1]));
 
-         reconCoordOffset_[0] = minTransformedCoordinates[0];
-         reconCoordOffset_[1] = minTransformedCoordinates[1];
-
-         double[] totalTransformedExtent = new double[] {
-                 maxTransformedCoordinates[0] - minTransformedCoordinates[0],
-                 maxTransformedCoordinates[1] - minTransformedCoordinates[1]
-         };
-
-         this.reconImageShape_ = new int[] {
-                 (int) Math.ceil(totalTransformedExtent[0]) + 1,
-                 (int) Math.ceil(totalTransformedExtent[1]) + 1,
-                 this.cameraImageShape_[2] // x pixels are copied 1 to 1
-         };
-      }
-
-
-      public void precomputeCoordTransformLUTs() {
-         this.reconCoordLUT_ = new HashMap<>();
-         for (int zIndexRecon = 0; zIndexRecon < this.reconImageShape_[0]; zIndexRecon++) {
-            for (int yIndexRecon = 0; yIndexRecon < this.reconImageShape_[1]; yIndexRecon++) {
-               double[] cameraCoords = this.cameraCoordsFromReconCoords(zIndexRecon, yIndexRecon);
-               Point cameraCoordsInteger = new Point((int) Math.round(cameraCoords[0]), (int) Math.round(cameraCoords[1]));
-
-               if (cameraCoordsInteger.x < 0 || cameraCoordsInteger.y < 0 ||
-                       cameraCoordsInteger.x >= this.cameraImageShape_[0] || cameraCoordsInteger.y >= this.cameraImageShape_[1]) {
-                  continue; // no valid camera coord maps to it, so safe to ignore
-               }
-
-               if (!this.reconCoordLUT_.containsKey(cameraCoordsInteger)) {
-                  this.reconCoordLUT_.put(cameraCoordsInteger, new ArrayList<Point>());
-               }
-               this.reconCoordLUT_.get(cameraCoordsInteger).add(new Point(zIndexRecon, yIndexRecon));
+            if (cameraCoordsInteger.x < 0 || cameraCoordsInteger.y < 0
+                     || cameraCoordsInteger.x >= this.cameraImageShape_[0]
+                     || cameraCoordsInteger.y >= this.cameraImageShape_[1]) {
+               continue; // no valid camera coord maps to it, so safe to ignore
             }
+
+            if (!this.reconCoordLUT_.containsKey(cameraCoordsInteger)) {
+               this.reconCoordLUT_.put(cameraCoordsInteger, new ArrayList<Point>());
+            }
+            this.reconCoordLUT_.get(cameraCoordsInteger).add(new Point(zIndexRecon, yIndexRecon));
          }
       }
+   }
 
 
-   public void precomputeReconWeightings() {
-
+   private void precomputeReconWeightings() {
       int reconShapeZ = this.reconImageShape_[0];
       int reconShapeY = this.reconImageShape_[1];
       int reconShapeX = this.reconImageShape_[2];
@@ -259,14 +287,15 @@ public class StackResampler {
             ArrayList<Point> reconCoords = this.reconCoordLUT_.get(cameraCoords);
             if (this.mode_ == OTHOGONAL_VIEWS || this.mode_ == YX_PROJECTION) {
                for (Point reconCoord : reconCoords) {
-               int reconZIndex = reconCoord.x;
-               int reconYIndex = reconCoord.y;
+                  int reconZIndex = reconCoord.x;
+                  int reconYIndex = reconCoord.y;
                   for (int x = 0; x < reconShapeX; x++) {
                      this.denominatorYXProjection_[reconYIndex][x] += 1;
                      this.denominatorZXProjection_[reconZIndex][x] += 1;
                   }
                   for (int x = 0; x < this.cameraImageShape_[2]; x++) {
-                     this.denominatorZYProjection_[reconZIndex][reconYIndex] += this.cameraImageShape_[2];
+                     this.denominatorZYProjection_[reconZIndex][reconYIndex] +=
+                              this.cameraImageShape_[2];
                   }
                }
             }
@@ -363,18 +392,23 @@ public class StackResampler {
                                 maxProjectionYX_[reconY * reconImageShape_[2] + reconX] & 0xffff,
                                 image[yIndexCamera * cameraImageWidth + reconX] & 0xffff);
                         if (this.mode_ == OTHOGONAL_VIEWS) {
-                           maxProjectionZX_[reconZ * reconImageShape_[2] + reconX] = (short) Math.max(
-                                   maxProjectionZX_[reconZ * reconImageShape_[2] + reconX] & 0xffff,
+                           maxProjectionZX_[reconZ * reconImageShape_[2] + reconX] =
+                                    (short) Math.max(maxProjectionZX_[
+                                             reconZ * reconImageShape_[2] + reconX] & 0xffff,
                                    image[yIndexCamera * cameraImageWidth + reconX] & 0xffff);
-                           maxProjectionZY_[reconZ * reconImageShape_[1] + reconY] = (short) Math.max(
-                                   maxProjectionZY_[reconZ * reconImageShape_[1] + reconY] & 0xffff,
+                           maxProjectionZY_[reconZ * reconImageShape_[1] + reconY] =
+                                    (short) Math.max(maxProjectionZY_[
+                                             reconZ * reconImageShape_[1] + reconY] & 0xffff,
                                    image[yIndexCamera * cameraImageWidth + reconX] & 0xffff);
                         }
                      } else {
-                        sumProjectionYX_[reconY][reconX] += image[yIndexCamera * cameraImageWidth + reconX] & 0xffff;
+                        sumProjectionYX_[reconY][reconX] += image[
+                                 yIndexCamera * cameraImageWidth + reconX] & 0xffff;
                         if (this.mode_ == OTHOGONAL_VIEWS) {
-                           sumProjectionZX_[reconZ][reconX] += image[yIndexCamera * cameraImageWidth + reconX] & 0xffff;
-                           sumProjectionZY_[reconZ][reconY] += image[yIndexCamera * cameraImageWidth + reconX] & 0xffff;
+                           sumProjectionZX_[reconZ][reconX] += image[
+                                    yIndexCamera * cameraImageWidth + reconX] & 0xffff;
+                           sumProjectionZY_[reconZ][reconY] += image[
+                                    yIndexCamera * cameraImageWidth + reconX] & 0xffff;
                         }
                      }
                   }
@@ -433,40 +467,65 @@ public class StackResampler {
     *
     * @return ZY Projection, either maximum intensity or an average projection.
     */
-    public short[] getZYProjection() {
-        return maxProjection_ ? maxProjectionZY_ : meanProjectionZY_;
-    }
+   public short[] getZYProjection() {
+      return maxProjection_ ? maxProjectionZY_ : meanProjectionZY_;
+   }
 
    /**
     * Returns ZX projection.  Only call after first calling {@link #finalizeProjections()}.
     *
     * @return Zx Projection, either maximum intensity or an average projection.
     */
-    public short[] getZXProjection() {
-        return maxProjection_ ? maxProjectionZX_ : meanProjectionZX_;
-    }
+   public short[] getZXProjection() {
+      return maxProjection_ ? maxProjectionZX_ : meanProjectionZX_;
+   }
 
    /**
     * Returns reconstructed volume.  Only call after first calling {@link #finalizeProjections()}.
     *
     * @return Reconstructed volume.
     */
-    public short[][] getReconstructedVolumeZYX() {
-        return reconVolumeZYX_;
-    }
+   public short[][] getReconstructedVolumeZYX() {
+      return reconVolumeZYX_;
+   }
 
-    public int getResampledShapeX() {
-        return reconImageShape_[2];
-    }
+   /**
+    * Returns the width of the resampled volume in pixels.
+    *
+    * @return Width of the resampled volume in pixels.
+    */
+   public int getResampledShapeX() {
+      return reconImageShape_[2];
+   }
 
+   /**
+    * Returns the height  of the resampled volume.
+    *
+    * @return Height of the resampled volume in pixels.
+    */
    public int getResampledShapeY() {
       return reconImageShape_[1];
    }
 
+   /**
+    * Returns the number of frames of the resampled volume.
+    *
+    * @return Number of frames of the resampled volume.
+    */
    public int getResampledShapeZ() {
       return reconImageShape_[0];
    }
 
+   /**
+    * Use this function to add images to the processing queue.
+    * Processing is started with a call to {@link #startStackProcessing()}.
+    * Processing can (and should be) started before images are added
+    * to the queue.  The only tag in the TaggedImage that matters is the tag
+    * "Z", containing the frame index as an integer starting at zero.
+    *
+    * @param image TaggedImage containg pixel data of type short[], and the tag
+    *              "Z" with the frame index.
+    */
    public void addToProcessImageQueue(TaggedImage image) {
       try {
          imageQueue_.put(image);
@@ -517,19 +576,30 @@ public class StackResampler {
             Spliterator.ORDERED | Spliterator.IMMUTABLE | Spliterator.NONNULL), true)
             .forEach(taggedImage ->
                     StackResampler.this.addImageToRecons((short[]) taggedImage.pix,
-                            (Integer) AcqEngMetadata.getAxes(taggedImage.tags).get(AcqEngMetadata.Z_AXIS)));
+                            (Integer) AcqEngMetadata.getAxes(taggedImage.tags)
+                                     .get(AcqEngMetadata.Z_AXIS)));
    }
 
 
+   /**
+    * Helper class to do matrix calculations.
+    */
    public static class LinearTransformation {
 
+      /**
+       * Multiplies two matrices.
+       *
+       * @param firstMatrix input matrix one.
+       * @param secondMatrix input matrix two.
+       * @return Product of the two input matrices.
+       */
       public static double[][] multiply(double[][] firstMatrix, double[][] secondMatrix) {
          int row1 = firstMatrix.length;
          int col1 = firstMatrix[0].length;
          int row2 = secondMatrix.length;
          int col2 = secondMatrix[0].length;
 
-         if(col1 != row2) {
+         if (col1 != row2) {
             throw new IllegalArgumentException("Matrix dimensions do not allow multiplication");
          }
 
@@ -545,11 +615,18 @@ public class StackResampler {
          return result;
       }
 
+      /**
+       * Multiples a matrix with a vector.
+       *
+       * @param matrix Input matrix.
+       * @param vector Input vector.
+       * @return Product of inputs.
+       */
       public static double[] multiply(double[][] matrix, double[] vector) {
          int row = matrix.length;
          int col = matrix[0].length;
 
-         if(col != vector.length) {
+         if (col != vector.length) {
             throw new IllegalArgumentException("Matrix dimensions do not allow multiplication");
          }
 
@@ -563,6 +640,12 @@ public class StackResampler {
          return result;
       }
 
+      /**
+       * Inverts a matrix.
+       *
+       * @param matrix Input matrix.
+       * @return Invers of input.
+       */
       public static double[][] invert(double[][] matrix) {
          if (matrix.length != 2 || matrix[0].length != 2) {
             throw new IllegalArgumentException("Only 2x2 matrices are supported");
@@ -579,8 +662,8 @@ public class StackResampler {
          }
 
          double[][] inverse = {
-                 {d / det, -b / det},
-                 {-c / det, a / det}
+            {d / det, -b / det},
+            {-c / det, a / det}
          };
 
          return inverse;
@@ -589,4 +672,3 @@ public class StackResampler {
 
 
 }
-
