@@ -1,7 +1,6 @@
 package org.micromanager.lightsheet;
 
 import java.awt.Point;
-import java.awt.geom.AffineTransform;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.HashMap;
@@ -53,6 +52,22 @@ public class StackResampler {
    private final boolean maxProjection_;
 
 
+   /**
+    * StackResampler constructor.  Sets up matrices used for the transform, and
+    * pre-calculates the re-mapped coordinate space.
+    *
+    * @param mode YX Projection (0), Orthogonal views (1), or full volume (2)
+    * @param maxProjection Do a maximum intensity projection if true, otherwise returns
+    *                      mean projections.
+    * @param theta Angle with optical axis in radians.
+    * @param cameraPixelSizeXyUm Size of one (square) camera pixel in the object plane
+    *                            in microns.
+    * @param zStepUm Distance (in microns) between two slices of the input stack in the object
+    *                plane.  Distance is measured in the plane parallel with the coverslip.
+    * @param zPixelShape Number of slices (z planes) in the input stack.
+    * @param yPixelShape Image height in pixel number
+    * @param xPixelShape Image width in pixel number
+    */
    public StackResampler(
               int mode,
               boolean maxProjection,
@@ -76,17 +91,20 @@ public class StackResampler {
 
          double[][] shearMatrix = {
                  {1, 0},
-                 {-Math.tan(theta), 1}
+                 {Math.tan(Math.PI / 2 - theta), 1}
          };
 
          double[][] rotationMatrix = {
-                 {-Math.cos(Math.PI / 2 + theta), Math.sin(Math.PI / 2 + theta)},
-                 {-Math.sin(Math.PI / 2 + theta), -Math.cos(Math.PI / 2 + theta)}
+            // working but inverted
+            //   {-Math.cos(Math.PI / 2 + theta), Math.sin(Math.PI / 2 + theta)},
+            //   {-Math.sin(Math.PI / 2 + theta), -Math.cos(Math.PI / 2 + theta)}
+                {-Math.cos(theta), Math.sin(theta)},
+                {-Math.sin(theta), -Math.cos(theta)}
          };
 
          double[][] cameraPixelToUmMatrix = {
-                 {zStepUm, 0},
-                 {0, cameraPixelSizeXyUm}
+                {zStepUm * Math.sin(theta), 0},
+                {0, cameraPixelSizeXyUm}
          };
 
          double[][] reconPixelToUmMatrix = {
@@ -286,7 +304,8 @@ public class StackResampler {
    }
 
    /**
-    * Call before any images arrive to initialize the projection and recon arrays
+    * Call this function before any images arrive to initialize the
+    * projection and recon arrays.
     */
    public void initializeProjections() {
       int reconImageZShape = this.reconImageShape_[0];
@@ -305,6 +324,18 @@ public class StackResampler {
       reconVolumeZYX_ = new short[reconImageZShape][reconImageYShape * reconImageXShape];
    }
 
+   /**
+    * Add images only after first calling {@link #initializeProjections() initializeProjections}.
+    * It appears that this function is meant for internal use, and that it is
+    * preferred to add images using {@link #addToProcessImageQueue(TaggedImage)}
+    * and start processing using {@link #startStackProcessing()}.  If
+    * synchronous execution is OK, it should be fine to use this method and signal
+    * that no more images will be added using ({@link #finalizeProjections()}
+    *
+    * @param image array containing pixel data with width and height as set in
+    *              the constructor.
+    * @param imageZIndex z plane number, starting with 0.
+    */
    public void addImageToRecons(short[] image, int imageZIndex) {
       // Add to projection/recon
       for (int yIndexCamera = 0; yIndexCamera < this.cameraImageShape_[1]; yIndexCamera++) {
@@ -354,11 +385,11 @@ public class StackResampler {
    }
 
    /**
-    * Call after all images have arrived to finalize the projections
+    * Call after all images have arrived to finalize the projections.
     */
    public void finalizeProjections() {
       if (!maxProjection_) {
-         // for mean projections, divid by denominator
+         // for mean projections, divide by denominator
          if (this.mode_ == YX_PROJECTION) {
             this.meanProjectionYX_ = divideArrays(sumProjectionYX_, this.denominatorYXProjection_);
          }
@@ -388,18 +419,38 @@ public class StackResampler {
       return this.reconstructionVoxelSizeUm_;
    }
 
+   /**
+    * Returns YX projection.  Only call after first calling {@link #finalizeProjections()}.
+    *
+    * @return YX Projection, either maximum intensity or an average projection.
+    */
    public short[] getYXProjection() {
       return maxProjection_ ? maxProjectionYX_ : meanProjectionYX_;
    }
 
+   /**
+    * Returns ZY projection.  Only call after first calling {@link #finalizeProjections()}.
+    *
+    * @return ZY Projection, either maximum intensity or an average projection.
+    */
     public short[] getZYProjection() {
         return maxProjection_ ? maxProjectionZY_ : meanProjectionZY_;
     }
 
+   /**
+    * Returns ZX projection.  Only call after first calling {@link #finalizeProjections()}.
+    *
+    * @return Zx Projection, either maximum intensity or an average projection.
+    */
     public short[] getZXProjection() {
         return maxProjection_ ? maxProjectionZX_ : meanProjectionZX_;
     }
 
+   /**
+    * Returns reconstructed volume.  Only call after first calling {@link #finalizeProjections()}.
+    *
+    * @return Reconstructed volume.
+    */
     public short[][] getReconstructedVolumeZYX() {
         return reconVolumeZYX_;
     }
@@ -461,7 +512,8 @@ public class StackResampler {
          }
       };
 
-      return () -> StreamSupport.stream(Spliterators.spliterator(iterator, StackResampler.this.cameraImageShape_[0],
+      return () -> StreamSupport.stream(Spliterators.spliterator(iterator,
+                        StackResampler.this.cameraImageShape_[0],
             Spliterator.ORDERED | Spliterator.IMMUTABLE | Spliterator.NONNULL), true)
             .forEach(taggedImage ->
                     StackResampler.this.addImageToRecons((short[]) taggedImage.pix,
