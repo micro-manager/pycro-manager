@@ -63,7 +63,8 @@ public class StackResampler {
     * @param mode YX Projection (0), Orthogonal views (1), or full volume (2)
     * @param maxProjection Do a maximum intensity projection if true, otherwise returns
     *                      mean projections.
-    * @param theta Angle with optical axis in radians.
+    * @param theta Angle between coverslip and lightsheet in radians, theta-tilt
+    *              in https://amsikking.github.io/SOLS_optimum_tilt/.
     * @param cameraPixelSizeXyUm Size of one (square) camera pixel in the object plane
     *                            in microns.
     * @param sliceDistanceUm Distance (in microns) between two slices of the input stack in the
