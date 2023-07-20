@@ -108,7 +108,8 @@ class StackResamplersImageProcessor extends ImageProcessorBase {
             // This is the last image because acquisition is ending,
             // tell all processors to stop processing
             for (StackResampler p : activeProcessors_.values()) {
-               p.addToProcessImageQueue(img);
+               p.addToProcessImageQueue((short[]) img.pix,
+                        (Integer) AcqEngMetadata.getAxes(img.tags).get(AcqEngMetadata.Z_AXIS));
             }
             processingExecutor_.shutdown();
             return null;
@@ -128,11 +129,13 @@ class StackResamplersImageProcessor extends ImageProcessorBase {
             processor.initializeProjections();
             Future<?> f = processingExecutor_.submit(processor.startStackProcessing());
             processingFutures_.put(nonZAxes, f);
-            processor.addToProcessImageQueue(img);
+            processor.addToProcessImageQueue((short[]) img.pix,
+                     (Integer) AcqEngMetadata.getAxes(img.tags).get(AcqEngMetadata.Z_AXIS));
          } else if (zIndex == numZStackSlices_ - 1) {
             // Last Z slice
             StackResampler processor = activeProcessors_.get(nonZAxes);
-            processor.addToProcessImageQueue(img);
+            processor.addToProcessImageQueue((short[]) img.pix,
+                     (Integer) AcqEngMetadata.getAxes(img.tags).get(AcqEngMetadata.Z_AXIS));
             // It's the final one, wait for processing to complete and propagate the result
             processingFutures_.get(nonZAxes).get();
             // at this point, the processing of all slices is complete
@@ -163,7 +166,8 @@ class StackResamplersImageProcessor extends ImageProcessorBase {
             freeProcessors_.put(settingsKey, processor);
          } else {
             // Neither first nor last Z slice
-            activeProcessors_.get(nonZAxes).addToProcessImageQueue(img);
+            activeProcessors_.get(nonZAxes).addToProcessImageQueue((short[]) img.pix,
+                     (Integer) AcqEngMetadata.getAxes(img.tags).get(AcqEngMetadata.Z_AXIS));
          }
 
          return returnRawDataAlso_ ? img : null;

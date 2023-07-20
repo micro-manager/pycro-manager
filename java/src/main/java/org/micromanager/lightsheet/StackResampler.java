@@ -50,7 +50,7 @@ public class StackResampler {
    short[] maxProjectionZY_ = null;
    short[] maxProjectionZX_ = null;
    short[][] reconVolumeZYX_ = null;
-   private final BlockingQueue<TaggedImage> imageQueue_ = new LinkedBlockingDeque<>();
+   private final BlockingQueue<ImagePlusFrame> imageQueue_ = new LinkedBlockingDeque<>();
    private HashMap<Point, ArrayList<Point>> reconCoordLUT_;
    private String settingsKey_;
    private final boolean maxProjection_;
@@ -356,7 +356,7 @@ public class StackResampler {
    /**
     * Add images only after first calling {@link #initializeProjections() initializeProjections}.
     * It appears that this function is meant for internal use, and that it is
-    * preferred to add images using {@link #addToProcessImageQueue(TaggedImage)}
+    * preferred to add images using {@link #addToProcessImageQueue(short[], int)}
     * and start processing using {@link #startStackProcessing()}.  If
     * synchronous execution is OK, it should be fine to use this method and signal
     * that no more images will be added using ({@link #finalizeProjections()}
@@ -517,7 +517,28 @@ public class StackResampler {
    }
 
    /**
-    * Use this function to add images to the processing queue.
+    * Use this function to add Tagged images to the processing queue.
+    * Processing is started with a call to {@link #startStackProcessing()}.
+    * Processing can (and should be) started before images are added
+    * to the queue.  The only tag in the TaggedImage that matters is the tag
+    * "Z", containing the frame index as an integer starting at zero.
+    *
+    * @param image TaggedImage containing pixel data of type short[], and the tag
+    *              "Z" with the frame index.
+    */
+   @Deprecated
+   public void addToProcessImageQueue(TaggedImage image) {
+      try {
+         imageQueue_.put(new ImagePlusFrame((short[]) image.pix,
+                  (Integer) AcqEngMetadata.getAxes(image.tags).get(AcqEngMetadata.Z_AXIS)));
+      } catch (InterruptedException e) {
+         e.printStackTrace();
+         throw new RuntimeException(e);
+      }
+   }
+
+   /**
+    * Use this function to add Tagged images to the processing queue.
     * Processing is started with a call to {@link #startStackProcessing()}.
     * Processing can (and should be) started before images are added
     * to the queue.  The only tag in the TaggedImage that matters is the tag
@@ -526,15 +547,14 @@ public class StackResampler {
     * @param image TaggedImage containg pixel data of type short[], and the tag
     *              "Z" with the frame index.
     */
-   public void addToProcessImageQueue(TaggedImage image) {
+   public void addToProcessImageQueue(short[] image, int indexz) {
       try {
-         imageQueue_.put(image);
+         imageQueue_.put(new ImagePlusFrame(image, indexz));
       } catch (InterruptedException e) {
          e.printStackTrace();
          throw new RuntimeException(e);
       }
    }
-
 
    /**
     * Pull images from the queue and process them in parallel until
@@ -542,7 +562,7 @@ public class StackResampler {
     * The future can be gotten when the stack is finished processing
     */
    Runnable startStackProcessing() {
-      Iterator<TaggedImage> iterator = new Iterator<TaggedImage>() {
+      Iterator<ImagePlusFrame> iterator = new Iterator<ImagePlusFrame>() {
          private final AtomicInteger processedImages_ = new AtomicInteger(0);
          private volatile boolean stop_ = false;
 
@@ -552,13 +572,13 @@ public class StackResampler {
          }
 
          @Override
-         public TaggedImage next() {
+         public ImagePlusFrame next() {
             try {
-               TaggedImage element;
+               ImagePlusFrame element;
                while ((element = imageQueue_.poll(1, TimeUnit.MILLISECONDS)) == null) {
                   // Wait for non-null elements
                }
-               if (element.tags == null && element.pix == null) {
+               if (element.getPixels() == null) {
                   // This is the last image, stop processing
                   stop_ = true;
                   return null;
@@ -574,12 +594,32 @@ public class StackResampler {
       return () -> StreamSupport.stream(Spliterators.spliterator(iterator,
                         StackResampler.this.cameraImageShape_[0],
             Spliterator.ORDERED | Spliterator.IMMUTABLE | Spliterator.NONNULL), true)
-            .forEach(taggedImage ->
-                    StackResampler.this.addImageToRecons((short[]) taggedImage.pix,
-                            (Integer) AcqEngMetadata.getAxes(taggedImage.tags)
-                                     .get(AcqEngMetadata.Z_AXIS)));
+            .forEach(imagePlusFrame ->
+                    StackResampler.this.addImageToRecons(imagePlusFrame.getPixels(),
+                             imagePlusFrame.getFrameNr()));
    }
 
+
+   /**
+    * Helper class to store pixels and frameNr in one instance.
+    */
+   public class ImagePlusFrame {
+      private final short[] pixels_;
+      private final int frameNr_;
+
+      public ImagePlusFrame(short[] pixels, int frameNr) {
+         pixels_ = pixels;
+         frameNr_ = frameNr;
+      }
+
+      public short[] getPixels() {
+         return pixels_;
+      }
+
+      public int getFrameNr() {
+         return frameNr_;
+      }
+   }
 
    /**
     * Helper class to do matrix calculations.
