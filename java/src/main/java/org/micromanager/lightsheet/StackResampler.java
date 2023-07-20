@@ -50,7 +50,7 @@ public class StackResampler {
    short[] maxProjectionZY_ = null;
    short[] maxProjectionZX_ = null;
    short[][] reconVolumeZYX_ = null;
-   private final BlockingQueue<ImagePlusFrame> imageQueue_ = new LinkedBlockingDeque<>();
+   private final BlockingQueue<ImagePlusSlice> imageQueue_ = new LinkedBlockingDeque<>();
    private HashMap<Point, ArrayList<Point>> reconCoordLUT_;
    private String settingsKey_;
    private final boolean maxProjection_;
@@ -66,8 +66,9 @@ public class StackResampler {
     * @param theta Angle with optical axis in radians.
     * @param cameraPixelSizeXyUm Size of one (square) camera pixel in the object plane
     *                            in microns.
-    * @param zStepUm Distance (in microns) between two slices of the input stack in the object
-    *                plane.  Distance is measured in the plane parallel with the coverslip.
+    * @param sliceDistanceUm Distance (in microns) between two slices of the input stack in the
+    *                        object plane.  Distance is measured in the plane parallel with the
+    *                        coverslip.
     * @param zPixelShape Number of slices (z planes) in the input stack.
     * @param yPixelShape Image height in pixel number
     * @param xPixelShape Image width in pixel number
@@ -77,7 +78,7 @@ public class StackResampler {
               boolean maxProjection,
               double theta,
               double cameraPixelSizeXyUm,
-              double zStepUm,
+              double sliceDistanceUm,
               int zPixelShape,
               int yPixelShape,
               int xPixelShape) {
@@ -86,7 +87,8 @@ public class StackResampler {
       this.maxProjection_ = maxProjection;
       // concat all args to form a settings key
       this.settingsKey_ = createSettingsKey(
-              mode, theta, cameraPixelSizeXyUm, zStepUm, zPixelShape, yPixelShape, xPixelShape
+              mode, theta, cameraPixelSizeXyUm, sliceDistanceUm,
+               zPixelShape, yPixelShape, xPixelShape
       );
       this.reconstructionVoxelSizeUm_ = cameraPixelSizeXyUm;
 
@@ -106,7 +108,7 @@ public class StackResampler {
       };
 
       double[][] cameraPixelToUmMatrix = {
-         {zStepUm * Math.sin(theta), 0},
+         {sliceDistanceUm * Math.sin(theta), 0},
          {0, cameraPixelSizeXyUm}
       };
 
@@ -148,8 +150,9 @@ public class StackResampler {
     * @param theta Angle with optical axis in radians.
     * @param cameraPixelSizeXyUm Size of one (square) camera pixel in the object plane
     *                            in microns.
-    * @param zStepUm Distance (in microns) between two slices of the input stack in the object
-    *                plane.  Distance is measured in the plane parallel with the coverslip.
+    * @param sliceDistanceUm Distance (in microns) between two slices of the input stack in the
+    *                        object plane.  Distance is measured in the plane parallel with the
+    *                        coverslip.
     * @param zPixelShape Number of slices (z planes) in the input stack.
     * @param yPixelShape Image height in pixel number
     * @param xPixelShape Image width in pixel number
@@ -159,7 +162,7 @@ public class StackResampler {
               int mode,
               double theta,
               double cameraPixelSizeXyUm,
-              double zStepUm,
+              double sliceDistanceUm,
               int zPixelShape,
               int yPixelShape,
               int xPixelShape) {
@@ -168,7 +171,7 @@ public class StackResampler {
                  mode,
                  theta,
                  cameraPixelSizeXyUm,
-                 zStepUm,
+                 sliceDistanceUm,
                  zPixelShape,
                  yPixelShape,
                  xPixelShape);
@@ -363,17 +366,17 @@ public class StackResampler {
     *
     * @param image array containing pixel data with width and height as set in
     *              the constructor.
-    * @param imageZIndex z plane number, starting with 0.
+    * @param imageSliceIndex z plane number, starting with 0.
     */
-   public void addImageToRecons(short[] image, int imageZIndex) {
+   public void addImageToRecons(short[] image, int imageSliceIndex) {
       // Add to projection/recon
       for (int yIndexCamera = 0; yIndexCamera < this.cameraImageShape_[1]; yIndexCamera++) {
-         if (!this.reconCoordLUT_.containsKey(new Point(imageZIndex, yIndexCamera))) {
+         if (!this.reconCoordLUT_.containsKey(new Point(imageSliceIndex, yIndexCamera))) {
             continue;
          }
 
          // Where does each line of x pixels belong in the new image?
-         List<Point> destCoords = this.reconCoordLUT_.get(new Point(imageZIndex, yIndexCamera));
+         List<Point> destCoords = this.reconCoordLUT_.get(new Point(imageSliceIndex, yIndexCamera));
          int cameraImageWidth = this.cameraImageShape_[2];
          for (Point destCoord : destCoords) {
             int reconZ = destCoord.x;
@@ -529,7 +532,7 @@ public class StackResampler {
    @Deprecated
    public void addToProcessImageQueue(TaggedImage image) {
       try {
-         imageQueue_.put(new ImagePlusFrame((short[]) image.pix,
+         imageQueue_.put(new ImagePlusSlice((short[]) image.pix,
                   (Integer) AcqEngMetadata.getAxes(image.tags).get(AcqEngMetadata.Z_AXIS)));
       } catch (InterruptedException e) {
          e.printStackTrace();
@@ -547,9 +550,9 @@ public class StackResampler {
     * @param image TaggedImage containg pixel data of type short[], and the tag
     *              "Z" with the frame index.
     */
-   public void addToProcessImageQueue(short[] image, int indexz) {
+   public void addToProcessImageQueue(short[] image, int sliceIndex) {
       try {
-         imageQueue_.put(new ImagePlusFrame(image, indexz));
+         imageQueue_.put(new ImagePlusSlice(image, sliceIndex));
       } catch (InterruptedException e) {
          e.printStackTrace();
          throw new RuntimeException(e);
@@ -562,7 +565,7 @@ public class StackResampler {
     * The future can be gotten when the stack is finished processing
     */
    Runnable startStackProcessing() {
-      Iterator<ImagePlusFrame> iterator = new Iterator<ImagePlusFrame>() {
+      Iterator<ImagePlusSlice> iterator = new Iterator<ImagePlusSlice>() {
          private final AtomicInteger processedImages_ = new AtomicInteger(0);
          private volatile boolean stop_ = false;
 
@@ -572,9 +575,9 @@ public class StackResampler {
          }
 
          @Override
-         public ImagePlusFrame next() {
+         public ImagePlusSlice next() {
             try {
-               ImagePlusFrame element;
+               ImagePlusSlice element;
                while ((element = imageQueue_.poll(1, TimeUnit.MILLISECONDS)) == null) {
                   // Wait for non-null elements
                }
@@ -603,13 +606,13 @@ public class StackResampler {
    /**
     * Helper class to store pixels and frameNr in one instance.
     */
-   public class ImagePlusFrame {
+   public class ImagePlusSlice {
       private final short[] pixels_;
-      private final int frameNr_;
+      private final int sliceNr_;
 
-      public ImagePlusFrame(short[] pixels, int frameNr) {
+      public ImagePlusSlice(short[] pixels, int sliceNr) {
          pixels_ = pixels;
-         frameNr_ = frameNr;
+         sliceNr_ = sliceNr;
       }
 
       public short[] getPixels() {
@@ -617,7 +620,7 @@ public class StackResampler {
       }
 
       public int getFrameNr() {
-         return frameNr_;
+         return sliceNr_;
       }
    }
 
