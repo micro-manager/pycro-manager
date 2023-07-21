@@ -147,7 +147,7 @@ class StackResamplersImageProcessor extends ImageProcessorBase {
             // Add the projection/reconstruction images to output
             if (mode_ == StackResampler.YX_PROJECTION) {
                addToOutputQueue(generateYXProjectionTaggedImage(processor, img));
-            } else if (mode_ == StackResampler.OTHOGONAL_VIEWS) {
+            } else if (mode_ == StackResampler.ORTHOGONAL_VIEWS) {
                if (fuseOrthogonalViews_) {
                   addToOutputQueue(generateFusedOrthogonalViews(processor, img));
                } else {

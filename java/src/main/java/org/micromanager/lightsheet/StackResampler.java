@@ -25,7 +25,7 @@ import org.micromanager.acqj.main.AcqEngMetadata;
 public class StackResampler {
 
    public static final int YX_PROJECTION = 0;
-   public static final int OTHOGONAL_VIEWS = 1;
+   public static final int ORTHOGONAL_VIEWS = 1;
    public static final int FULL_VOLUME = 2;
    private final int mode_;
 
@@ -289,7 +289,7 @@ public class StackResampler {
             }
             // add these camera pixels to all recon pixels they map to
             ArrayList<Point> reconCoords = this.reconCoordLUT_.get(cameraCoords);
-            if (this.mode_ == OTHOGONAL_VIEWS || this.mode_ == YX_PROJECTION) {
+            if (this.mode_ == ORTHOGONAL_VIEWS || this.mode_ == YX_PROJECTION) {
                for (Point reconCoord : reconCoords) {
                   int reconZIndex = reconCoord.x;
                   int reconYIndex = reconCoord.y;
@@ -307,7 +307,7 @@ public class StackResampler {
       }
 
       // avoid division by 0--doesn't matter because these pixels will be 0 anyway
-      if (this.mode_ == OTHOGONAL_VIEWS || this.mode_ == YX_PROJECTION) {
+      if (this.mode_ == ORTHOGONAL_VIEWS || this.mode_ == YX_PROJECTION) {
          for (int i = 0; i < reconShapeY; i++) {
             for (int j = 0; j < reconShapeX; j++) {
                if (this.denominatorYXProjection_[i][j] == 0) {
@@ -317,7 +317,7 @@ public class StackResampler {
          }
       }
 
-      if (this.mode_ == OTHOGONAL_VIEWS) {
+      if (this.mode_ == ORTHOGONAL_VIEWS) {
          for (int i = 0; i < reconShapeZ; i++) {
             for (int j = 0; j < reconShapeX; j++) {
                if (this.denominatorZXProjection_[i][j] == 0) {
@@ -344,17 +344,23 @@ public class StackResampler {
       int reconImageZShape = this.reconImageShape_[0];
       int reconImageYShape = this.reconImageShape_[1];
       int reconImageXShape = this.reconImageShape_[2];
-
-      if (this.maxProjection_) {
-         maxProjectionYX_ = new short[reconImageYShape * reconImageXShape];
-         maxProjectionZX_ = new short[reconImageZShape * reconImageXShape];
-         maxProjectionZY_ = new short[reconImageZShape * reconImageYShape];
-      } else {
-         sumProjectionYX_ = new int[reconImageYShape][reconImageXShape];
-         sumProjectionZX_ = new int[reconImageZShape][reconImageXShape];
-         sumProjectionZY_ = new int[reconImageZShape][reconImageYShape];
+      if (this.mode_ == YX_PROJECTION || this.mode_ == ORTHOGONAL_VIEWS) {
+         if (this.maxProjection_) {
+            maxProjectionYX_ = new short[reconImageYShape * reconImageXShape];
+            if (this.mode_ == ORTHOGONAL_VIEWS) {
+               maxProjectionZX_ = new short[reconImageZShape * reconImageXShape];
+               maxProjectionZY_ = new short[reconImageZShape * reconImageYShape];
+            }
+         } else {
+            sumProjectionYX_ = new int[reconImageYShape][reconImageXShape];
+            if (this.mode_ == ORTHOGONAL_VIEWS) {
+               sumProjectionZX_ = new int[reconImageZShape][reconImageXShape];
+               sumProjectionZY_ = new int[reconImageZShape][reconImageYShape];
+            }
+         }
+      } else if (this.mode_ == FULL_VOLUME) {
+         reconVolumeZYX_ = new short[reconImageZShape][reconImageYShape * reconImageXShape];
       }
-      reconVolumeZYX_ = new short[reconImageZShape][reconImageYShape * reconImageXShape];
    }
 
    /**
@@ -388,14 +394,14 @@ public class StackResampler {
                        reconVolumeZYX_[reconZ], reconY * reconImageShape_[2], cameraImageWidth);
             }
 
-            if (this.mode_ == OTHOGONAL_VIEWS || this.mode_ == YX_PROJECTION) {
+            if (this.mode_ == ORTHOGONAL_VIEWS || this.mode_ == YX_PROJECTION) {
                synchronized (lineLocks_[reconZ][reconY]) {
                   for (int reconX = 0; reconX < cameraImageWidth; reconX++) {
                      if (maxProjection_) {
                         maxProjectionYX_[reconY * reconImageShape_[2] + reconX] = (short) Math.max(
                                 maxProjectionYX_[reconY * reconImageShape_[2] + reconX] & 0xffff,
                                 image[yIndexCamera * cameraImageWidth + reconX] & 0xffff);
-                        if (this.mode_ == OTHOGONAL_VIEWS) {
+                        if (this.mode_ == ORTHOGONAL_VIEWS) {
                            maxProjectionZX_[reconZ * reconImageShape_[2] + reconX] =
                                     (short) Math.max(maxProjectionZX_[
                                              reconZ * reconImageShape_[2] + reconX] & 0xffff,
@@ -408,7 +414,7 @@ public class StackResampler {
                      } else {
                         sumProjectionYX_[reconY][reconX] += image[
                                  yIndexCamera * cameraImageWidth + reconX] & 0xffff;
-                        if (this.mode_ == OTHOGONAL_VIEWS) {
+                        if (this.mode_ == ORTHOGONAL_VIEWS) {
                            sumProjectionZX_[reconZ][reconX] += image[
                                     yIndexCamera * cameraImageWidth + reconX] & 0xffff;
                            sumProjectionZY_[reconZ][reconY] += image[
@@ -432,7 +438,7 @@ public class StackResampler {
             this.meanProjectionYX_ = divideArrays(sumProjectionYX_, this.denominatorYXProjection_);
          }
 
-         if (this.mode_ == OTHOGONAL_VIEWS) {
+         if (this.mode_ == ORTHOGONAL_VIEWS) {
             this.meanProjectionZX_ = divideArrays(sumProjectionZX_, this.denominatorZXProjection_);
             this.meanProjectionZY_ = divideArrays(sumProjectionZY_, this.denominatorZYProjection_);
             this.meanProjectionYX_ = divideArrays(sumProjectionYX_, this.denominatorYXProjection_);
