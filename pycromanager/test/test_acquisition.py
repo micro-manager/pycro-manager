@@ -396,8 +396,8 @@ def test_abort_sequenced_timelapse(launch_mm_headless, setup_data_folder):
         assert check_acq_sequenced(_events, 1000), 'Sequenced acquisition is not built correctly'
         return _events
 
-    core = Core()
-    core.set_exposure(1000)
+    mmc = Core()
+    mmc.set_exposure(1000)
 
     with Acquisition(setup_data_folder, 'acq', show_display=False,
                      pre_hardware_hook_fn=hook_fn) as acq:
@@ -405,6 +405,9 @@ def test_abort_sequenced_timelapse(launch_mm_headless, setup_data_folder):
         acq.acquire(events)
         time.sleep(10)
         acq.abort()
+
+    # reset exposure time
+    mmc.set_exposure(10)
 
     dataset = acq.get_dataset()
     assert(0 < len(dataset.index) < 100)
@@ -416,13 +419,11 @@ def test_abort_sequenced_zstack(launch_mm_headless, setup_data_folder):
     """
     mmc = Core()
     mmc.set_property('Z', 'UseSequences', 'Yes')
+    mmc.set_exposure(1000)
 
     def hook_fn(_events):
         assert check_acq_sequenced(_events, 1000), 'Sequenced acquisition is not built correctly'
         return _events
-
-    core = Core()
-    core.set_exposure(1000)
 
     with Acquisition(setup_data_folder, 'acq', show_display=False,
                      pre_hardware_hook_fn=hook_fn) as acq:
@@ -430,6 +431,9 @@ def test_abort_sequenced_zstack(launch_mm_headless, setup_data_folder):
         acq.acquire(events)
         time.sleep(4)
         acq.abort()
+
+    # reset exposure time
+    mmc.set_exposure(10)
 
     dataset = acq.get_dataset()
     assert(len(dataset.index) < 1000)
