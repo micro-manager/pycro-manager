@@ -437,3 +437,62 @@ def test_abort_sequenced_zstack(launch_mm_headless, setup_data_folder):
 
     dataset = acq.get_dataset()
     assert(len(dataset.index) < 1000)
+
+def test_change_image_size(launch_mm_headless, setup_data_folder):
+    """
+    Test that the acquisition can successfully complete after changing the
+    camera image size
+    """
+    mmc = Core()
+    mmc.set_property('Camera', 'OnCameraCCDXSize', '1024')
+    mmc.set_property('Camera', 'OnCameraCCDYSize', '1024')
+
+    with Acquisition(setup_data_folder, 'acq', show_display=False) as acq:
+        events = multi_d_acquisition_events(num_time_points=5)
+        acq.acquire(events)
+
+    # reset image size
+    mmc.set_property('Camera', 'OnCameraCCDXSize', '512')
+    mmc.set_property('Camera', 'OnCameraCCDYSize', '512')
+
+    dataset = acq.get_dataset()
+    data_shape = dataset.as_array().shape
+    assert(data_shape[-2:] == (1024, 1024))
+
+def test_change_roi(launch_mm_headless, setup_data_folder):
+    """
+    Test that the acquisition can successfully complete after changing the ROI
+    """
+    mmc = Core()
+    mmc.set_roi(*(0, 0, 100, 100))
+
+    with Acquisition(setup_data_folder, 'acq', show_display=False) as acq:
+        events = multi_d_acquisition_events(num_time_points=5)
+        acq.acquire(events)
+
+    # reset ROI
+    mmc.clear_roi()
+
+    dataset = acq.get_dataset()
+    data_shape = dataset.as_array().shape
+    assert(data_shape[-2:] == (100, 100))
+
+def test_change_binning(launch_mm_headless, setup_data_folder):
+    """
+    Test that the acquisition can successfully complete after changing the binning
+    """
+    mmc = Core()
+    mmc.set_property('Camera', 'OnCameraCCDXSize', '512')
+    mmc.set_property('Camera', 'OnCameraCCDYSize', '512')
+    mmc.set_property('Camera', 'Binning', '2')
+
+    with Acquisition(setup_data_folder, 'acq', show_display=False) as acq:
+        events = multi_d_acquisition_events(num_time_points=5)
+        acq.acquire(events)
+
+    # reset binning
+    mmc.set_property('Camera', 'Binning', '1')
+
+    dataset = acq.get_dataset()
+    data_shape = dataset.as_array().shape
+    assert(data_shape[-2:] == (256, 256))
