@@ -485,3 +485,4 @@ def test_multiple_labeled_positions_acq(launch_mm_headless, setup_data_folder):
         assert metadata['PositionName'] == pos_label
         assert metadata['XPosition_um_Intended'] == xy[0]
         assert metadata['YPosition_um_Intended'] == xy[1]
+    
