@@ -469,7 +469,7 @@ def test_multiple_labeled_positions_acq(launch_mm_headless, setup_data_folder):
     xy_positions = ((0, 0), (0, 1), (1, 0))
     position_labels = ('Pos0', 'Pos1', 'Pos2')
 
-    events = multi_d_acquisition_events(xy_positions=xy_positions)
+    events = multi_d_acquisition_events(xy_positions=xy_positions, position_labels=position_labels)
 
     def hook_fn(_events):
         assert check_acq_not_sequenced(_events), 'Sequenced acquisition is not built correctly'
