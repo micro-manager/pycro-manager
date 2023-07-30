@@ -27,7 +27,7 @@ The data will be displayed in the default :ref:`image viewer <viewers>` as it is
 Standard Multi-Dimensional Acquisitions
 =========================================
 
-In Micro-Manager/Pycro-Manager, "multi-dimensional acquisitions" refer to experiments where images are systematically collected across various combinations of time, z-stack, channel, and xy position axes. Pycro-Manager provides the :meth:`multi_d_acquisition_events<pycromanager.multi_d_acquisition_events>` function for generating the instructions (acquisition events) to acquire this type of data.
+In Micro-Manager/Pycro-Manager, "multi-dimensional acquisitions" refer to experiments where images are systematically collected across various combinations of time, z-stack, channel, and xy position axes (non-standard axes outside of these four require additional customization, as described further below). Pycro-Manager provides the :meth:`multi_d_acquisition_events<pycromanager.multi_d_acquisition_events>` function for generating the instructions (acquisition events) to acquire this type of data.
 
 The following shows an example of acquiring a single z-stack:
 
