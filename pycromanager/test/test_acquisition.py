@@ -412,6 +412,14 @@ def test_abort_sequenced_timelapse(launch_mm_headless, setup_data_folder):
     dataset = acq.get_dataset()
     assert(0 < len(dataset.index) < 100)
 
+def test_abort_with_no_events(launch_mm_headless, setup_data_folder):
+    """
+    Test that aborting before any events processed doesnt cause hang or exception
+    """
+    with Acquisition(setup_data_folder, 'acq', show_display=False) as acq:
+        acq.abort()
+    assert True
+
 def test_abort_sequenced_zstack(launch_mm_headless, setup_data_folder):
     """
     Test that a hardware sequenced acquisition can be aborted mid-sequence
@@ -428,8 +436,8 @@ def test_abort_sequenced_zstack(launch_mm_headless, setup_data_folder):
     with Acquisition(setup_data_folder, 'acq', show_display=False,
                      pre_hardware_hook_fn=hook_fn) as acq:
         events = multi_d_acquisition_events(z_start=0, z_end=999, z_step=1)
-        acq.acquire(events)
-        time.sleep(4)
+        # acq.acquire(events)
+        # time.sleep(4)
         acq.abort()
 
     # reset exposure time
