@@ -24,4 +24,6 @@ Advanced use cases may require a deeper understanding of how pycromanager works.
 	:caption: Contents:
 
 	performance_guide
+	hardware_triggering
+
 

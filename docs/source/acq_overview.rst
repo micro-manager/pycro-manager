@@ -73,9 +73,26 @@ Hardware sequencing
 =====================
 An important function of the acquisition engine underlying Pycro-Manager is to enable hardware sequencing. In hardware sequencing, multiple images are captured without the computer and hardware having to communicate between each one. In certain cases, this can dramatically increase the speed with which data is acquired. For high-performance applications, hardware sequencing is essential to speed and sufficiently precise synchronization between different hardware components.
 
-The acquisition engine will automatically try to use hardware sequencing when the hardware supports it. The conditions for this are: 1) there are no delays requested between successive image 2) any hardware that changes positions between successive images also supports being sent a sequence of instructions that it can execute at once. The acquisition engine will try to combine events into sequences of events whenever possible. 
+Pycro-manager acquisitions will automatically try to use hardware sequencing when the following conditions are met:
+ 
+ 1. there are no delays requested between successive image
+ 2. Any hardware that changes positions between successive images also supports being sent a sequence of instructions that it can execute at once
+ 3. The events to be sequenced over were all submitted to ``acq.acquire()`` in a single call.
 
 If an acquisition hook is being used and hardware sequencing is engaged, the ``event`` that gets passed to the hook will not being a single python ``dict``, but instead a ``list`` of ``dict`` objects representing a sequence of events. It will also only be called once, for the whole sequence, instead of once for each event.
+
+If desired, hardware sequencing can be turned off by submitting events for acquisition one at a time. For a list of acquisition events called ``events``:
+
+
+.. code-block:: python
+
+	with Acquisition(directory='/path/to/saving/dir', name='acquisition_name') as acq:
+		# Create a list of events
+		events = multi_d_acquisition_events(num_time_points=10)
+		# but submit them one at a time so sequencing doesn't occur
+		for event in events:
+			acq.acquire(event)
+
 
 The :doc:`application_notebooks/external_hardware_triggering_tutorial` tutorial shows an example of this in action.
 
