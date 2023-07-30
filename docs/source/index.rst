@@ -7,7 +7,7 @@
 The best place to get started is the :doc:`user_guide`. The :doc:`tutorials` section shows jupyter notebook tutorials of using pycro-manager vs various applications, as well as some more in depth descriptions of certain features.
 
 
- Information on the original motivations for Pycro-Manager can be found in the `publication <https://rdcu.be/cghwk>`_, though its capabilities have since expanded. 
+Information on the original motivations for Pycro-Manager can be found in the `publication <https://rdcu.be/cghwk>`_, though its capabilities have since expanded. 
 
 
 
