@@ -73,6 +73,8 @@ Hardware sequencing
 =====================
 An important function of the acquisition engine underlying Pycro-Manager is to enable hardware sequencing. In hardware sequencing, multiple images are captured without the computer and hardware having to communicate between each one. In certain cases, this can dramatically increase the speed with which data is acquired. For high-performance applications, hardware sequencing is essential to speed and sufficiently precise synchronization between different hardware components.
 
+The :doc:`application_notebooks/external_hardware_triggering_tutorial` tutorial shows an example of this in action.
+
 Pycro-manager acquisitions will automatically try to use hardware sequencing when the following conditions are met:
  
  1. there are no delays requested between successive image
@@ -94,7 +96,6 @@ If desired, hardware sequencing can be turned off by submitting events for acqui
 			acq.acquire(event)
 
 
-The :doc:`application_notebooks/external_hardware_triggering_tutorial` tutorial shows an example of this in action.
 
 
 
