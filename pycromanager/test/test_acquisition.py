@@ -436,8 +436,8 @@ def test_abort_sequenced_zstack(launch_mm_headless, setup_data_folder):
     with Acquisition(setup_data_folder, 'acq', show_display=False,
                      pre_hardware_hook_fn=hook_fn) as acq:
         events = multi_d_acquisition_events(z_start=0, z_end=999, z_step=1)
-        # acq.acquire(events)
-        # time.sleep(4)
+        acq.acquire(events)
+        time.sleep(4)
         acq.abort()
 
     # reset exposure time
