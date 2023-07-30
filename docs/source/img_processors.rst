@@ -144,12 +144,3 @@ In the current implementation, image processors pass data back and forth through
 However, there is a potential workaround for this through the use of :ref:`image_saved_callbacks`. Here, rather than intercepting images after they are acquired, but before they are written to disk, the images are written to disk in Java code (which is very fast) without passing over the Java-Python Bridge, and as soon as they are written, a signal is sent across the Bridge that enables the data to be read off the disk. With fast enough hard drives, this can give access to acquired data significantly faster than image processors.
 
 
-Applications
-====================================
-
-Image processors can be used to enable advanced applications, such as: 
-
--  :doc:`application_notebooks/Denoising acquired images using deep learning`
--  :doc:`application_notebooks/pycro_manager_tie_demo`
--  :doc:`application_notebooks/PSF_viewer`
-

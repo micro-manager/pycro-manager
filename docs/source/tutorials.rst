@@ -1,9 +1,8 @@
 ****************************
-Applications
+Application Tutorials
 ****************************
 
-
-Have an application you'd like to contribute to this page? Please `reach out <https://github.com/micro-manager/pycro-manager/issues/new>`_!
+`New contributions welcome <https://github.com/micro-manager/pycro-manager/issues/new>`_!
 
 
 .. toctree::
@@ -16,10 +15,7 @@ Have an application you'd like to contribute to this page? Please `reach out <ht
 	application_notebooks/pycro_manager_imjoy_tutorial.ipynb
 	application_notebooks/Denoising acquired images using deep learning.ipynb
 	application_notebooks/Single_shot_autofocus_pycromanager.ipynb
-	application_notebooks/pycro_manager_tie_demo.ipynb
 	application_notebooks/guiding_acq_with_neural_network_attention.ipynb
-	application_notebooks/Auto_CycIF.ipynb
-	application_notebooks/closedloop_headless_demo.ipynb
 	application_notebooks/external_hardware_triggering_tutorial.ipynb
 	application_notebooks/Learned_adaptive_multiphoton_illumination.ipynb
 	application_notebooks/PSF_viewer.ipynb
@@ -44,17 +40,8 @@ Have an application you'd like to contribute to this page? Please `reach out <ht
 :doc:`application_notebooks/Single_shot_autofocus_pycromanager`
 	This notebook shows how to use Pycro-Manager/Micro-Magellan to implement machine learning-powered, image-based autofocus, as detailed in `this paper <https://doi.org/10.1364/OPTICA.6.000794>`_. It shows how to set up and use Micro-Magellan to collect training data, and how to use an acquisition hook to apply focus corrections during an experiment.
 
-:doc:`application_notebooks/pycro_manager_tie_demo`
-	This example shows how to compute 2D quantitative phase images from collected focal stacks, without the need for specialized optics, using computational imaging. Specifically, we will solve and inverse problem based on the `Transport of Intensity Equation (TIE) <https://en.wikipedia.org/wiki/Transport-of-intensity_equation>`_. The inverse problem is implemented in an image processor, to enable on-the-fly quantitative phase imaging during acquisition.
-
 :doc:`application_notebooks/guiding_acq_with_neural_network_attention`
 	This tutorial shows how to use pycro-manager to perform analysis driven targeted multimodal/multiscale acquisition for automated collagen fiber-based biomarker identification. We will acquire brightfield images of a H&E stained cancer histology slide at 4x magnification, identify pathology relevant ROIs using a deep learning model based on the 4x image, and zoom into these ROIs to perform the collagen fiber-specific method of second-harmonic generation (SHG) laser scanning at 20x magnification. This allows for disease-relevant, collagen-specific features to be collected automatically and correlated with the gold standard H&E pathology method. We use Pycro-manager to read/write hardware properties (e.g. camera exposure, lamp intensity, turret position, stage position, etc.), change Micro-Manager hardware property configuration groups, acquire images and access the image data as NumPy array, and perform Z-stack acquisition via multi-dimension acquisition events.
-
-:doc:`application_notebooks/Auto_CycIF`
-	This notebook shows an implementation of the `CycIF <https://www.cycif.org/>`_ Multiplex immunostaining method on several slides in parallel. It utilizes Micro-Magellan as a user interface to define the bounds of each tissue section, calculates the center of the section, and uses this coordinate to drive the stage underneath the robotic pipettor for staining cycles. It also executes autofocus routines at sub-sampled tiles to provide speed increases. It goes through typical 4 color images and sets an executes a simple auto-expose routine and calculates new exposure times. Finally, it takes the saved data and repackages it into a format that the alignment and stitching software, Ashlar, can accept. 
-
-:doc:`application_notebooks/closedloop_headless_demo`
-	This tutorial shows how to use pycro-manager for a simple closed-loop (CL) experiment in python. CL perturbations are triggered by signals derived from data acquired from the sample itself during a live recording session. Well-designed CL experiments are crucial for systems neuroscience (our research domain), but this example can be adapted for any field. Specifically we perform some canonical image processing (template filtering with 2d gaussian kernel, thresholding, median filtering), then find local peaks, then take a window of pixel values around each peak. We use these pixel values to trigger our arbitrary "stimulus" function which can e.g. change optical settings on the microscope, call a separate program, send a serial port command etc.
 
 :doc:`application_notebooks/external_hardware_triggering_tutorial`
 	This tutorial shows how to setup Pycro-Manager to run a microscope that utilizes an external controller as the master clock. Specifically, this tutorial controls a light-sheet microscope where a sample with fluorescent labels is scanned at a constant speed through an oblique light sheet. The stage controller provides the TTL signals that ensure the camera is synchronized to the scanning stage. This approach makes use of `post hardware` and `post camera` hook functions built into Pycro-Manager. Using these hook functions, it is possible to rapidly build and acquire a multiple terabyte acquisition consisting of millions of images.

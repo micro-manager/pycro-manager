@@ -2,16 +2,10 @@
   :width: 600
   :alt: Alternative text
 
-``pycromanager`` is a multi-purpose python package for the control of microscope hardware and the acquisition of data. It is designed for performance and flexibility to be used in a variety of applications. It can be used in parallel with the Micro-Manager desktop application to expand its capabilities, independently of the main Micro-Manager GUI directly from python, with other user interfaces like `napari <https://napari.org/>`_, or as a backend to custom applications that work on a single machine or across a network.
+``pycromanager`` is a python package for microscope hardware automation and image data acquisition. It provides a variety of components that can be used independently or in combination, with the aim of being flexible enough to enable a variety of applications.
 
-Information on the original motivations for Pycro-Manager can be found in the `publication <https://rdcu.be/cghwk>`_, though its capabilities have since expanded. 
+The best place to get started is the :doc:`user_guide`, moving on to the :doc:`advanced_usage` section as needed. Information on the original motivations for Pycro-Manager can be found in the `publication <https://rdcu.be/cghwk>`_, though its capabilities have since expanded. 
 
-
-.. figure:: overview_figure.png
-   :width: 800
-   :alt: Overview of pycro-manager
-
-   **Pycro-manager architecture overview.** (Grey) The existing parts of µManager provide generic microscope control abstracted from specific hardware, a graphical user interface (GUI), a Java plugin interface, and an acquisition engine, which automates various aspects of data collection. (Orange) Pycro-Manager enables access to these components through Python over a network-compatible transport layer, as well as a concise, high-level programming interface for acquiring data. These provide integration of data acquisition with  (purple) Python libraries for hardware control, data visualization, scientific computing, etc. 
 
 
 
@@ -22,11 +16,15 @@ Information on the original motivations for Pycro-Manager can be found in the `p
 .. ***********************
 
 .. ***********************
-.. :doc:`features`
+.. :doc:`user_guide`
 .. ***********************
 
 .. ***********************
-.. :doc:`applications`
+.. :doc:`advanced_usage`
+.. ***********************
+
+.. ***********************
+.. :doc:`tutorials`
 .. ***********************
 
 .. ***********************
@@ -38,8 +36,8 @@ Information on the original motivations for Pycro-Manager can be found in the `p
 	:caption: Contents:
 
 	setup
-	features
-	applications
+	user_guide
+	tutorials
 	apis
 	citation
 	
