@@ -2,7 +2,7 @@
 User Guide
 ****************
 
-After completing the :ref:`setup`, there are two options for running Pycro-Manager: It can be run alongside the Micro-Manager application by launching Micro-Manager the desktop in the typical way, or it can ve run in :ref:`headless_mode`. In this mode, an invisible backend is launched as a separate process, and the Micro-Manager GUI does not appear.
+After completing the :ref:`setup`, there are two options for running Pycro-Manager: It can be run alongside the Micro-Manager application by launching Micro-Manager the desktop in the typical way, or it can be run in :ref:`headless_mode`. In this mode, an invisible backend is launched as a separate process, and the Micro-Manager GUI does not appear.
 
 Pycro-Manager provides both high-level and low-level interfaces for controlling microscopes, which can be used independently or in combination. 
 
