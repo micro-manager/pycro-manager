@@ -570,7 +570,7 @@ public class StackResampler {
     * a full z stack is processed or a null pix null tags stop signal is received.
     * The future can be gotten when the stack is finished processing
     */
-   Runnable startStackProcessing() {
+   public Runnable startStackProcessing() {
       Iterator<ImagePlusSlice> iterator = new Iterator<ImagePlusSlice>() {
          private final AtomicInteger processedImages_ = new AtomicInteger(0);
          private volatile boolean stop_ = false;
