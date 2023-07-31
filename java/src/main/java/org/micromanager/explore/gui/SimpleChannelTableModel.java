@@ -145,6 +145,17 @@ public class SimpleChannelTableModel extends AbstractTableModel implements Table
             }
             fireTableDataChanged();
          }
+      } else if (columnIndex == 3) {
+         double val = value instanceof String ? Double.parseDouble((String) value) : (Double) value;
+         channels_.getChannelListSetting(row).offset_ = val;
+         //same for all other channels of the same camera_
+         if (numCamChannels > 1) {
+            for (int i = (row - row % numCamChannels); i < (row / numCamChannels + 1)
+                    * numCamChannels; i++) {
+               channels_.getChannelListSetting(i).offset_ = val;
+            }
+            fireTableDataChanged();
+         }
       }
       //Store the newly selected value in preferences
       channels_.storeValuesInPrefs();
