@@ -2,7 +2,7 @@
 Acquisitions 
 ******************************************************
 
-The :class:`Acquisition<pycromanager.Acquisition>` class is a flexible abstraction built to support a multitude of microscopy experiments. It's essential functions are to parse a set of instructions from the user known as "acquisition events", control the microscope hardware according to these, and efficiently retrieve, save, and provide access to image data from the camera(s). Each of these functionalities can be further modified and/or customized in a variety of ways.
+The :class:`Acquisition<pycromanager.Acquisition>` class is a flexible abstraction built to support a multitude of microscopy experiments. Its essential functions are to parse a set of instructions from the user known as "acquisition events", control the microscope hardware according to these, and efficiently retrieve, save, and provide access to image data from the camera(s). Each of these functionalities can be further modified and/or customized in a variety of ways.
 
 The following shows a minimal example of using :class:`Acquisition<pycromanager.Acquisition>` class to acquire a sequence of 5 images from the camera and save them to disk:
 
