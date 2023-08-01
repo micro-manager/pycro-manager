@@ -572,19 +572,4 @@ public class ExploreAcqUIAndStorage implements AcqEngJDataSink, NDViewerDataSour
 
    }
 
-   public void initializeViewerToLoaded(
-           HashMap<String, Object> axisMins, HashMap<String, Object> axisMaxs) {
-
-      LinkedList<String> channelNames = new LinkedList<String>();
-      for (HashMap<String, Object> axes : storage_.getAxesSet()) {
-         if (axes.containsKey(AcqEngMetadata.CHANNEL_AXIS)) {
-            if (!channelNames.contains(axes.get(AcqEngMetadata.CHANNEL_AXIS))) {
-               channelNames.add((String) axes.get(AcqEngMetadata.CHANNEL_AXIS));
-            }
-         }
-      }
-      display_.initializeViewerToLoaded(channelNames, storage_.getDisplaySettings(),
-            axisMins, axisMaxs);
-   }
-
 }

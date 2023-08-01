@@ -9,6 +9,7 @@ import java.lang.reflect.Method;
 import java.net.URISyntaxException;
 import java.net.URLClassLoader;
 import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.function.Consumer;
@@ -18,7 +19,6 @@ import java.util.stream.Stream;
 
 import mmcorej.org.json.JSONException;
 import mmcorej.org.json.JSONObject;
-import static org.micromanager.internal.zmq.ZMQUtil.EXTERNAL_OBJECTS;
 
 import org.zeromq.SocketType;
 
@@ -34,10 +34,13 @@ public class ZMQServer extends ZMQSocketWrapper {
    private static Set<String> packages_;
    private static ZMQUtil util_;
 
-   public static final String VERSION = "4.3.0";
+   //map of objects that exist in some client of the server
+   protected final ConcurrentHashMap<String, Object> externalObjects_ = new ConcurrentHashMap<String, Object>();
+
+   public static final String VERSION = "5.0.0";
 
    private static Function<Class, Object> classMapper_;
-   private static ZMQServer masterServer_;
+   private static ZMQServer mainServer_;
    static boolean debug_ = false;
    private Consumer<String> debugLogger_;
 
@@ -90,7 +93,7 @@ public class ZMQServer extends ZMQSocketWrapper {
    }
 
    public static ZMQServer getMasterServer() {
-      return masterServer_;
+      return mainServer_;
    }
 
    @Override
@@ -141,6 +144,12 @@ public class ZMQServer extends ZMQSocketWrapper {
                System.out.println("Message sent");
                debugLogger_.accept("Message sent");
             }
+            // Check if any more objects in clients know about this server. If its not the main one,
+            // shut it down
+            if (this != mainServer_ && externalObjects_.keySet().size() == 0) {
+               close();
+               break;
+            }
          }
       });
    }
@@ -157,7 +166,7 @@ public class ZMQServer extends ZMQSocketWrapper {
       String fieldName = json.getString("name");
       Object field = obj.getClass().getField(fieldName).get(obj);
       JSONObject serialized = new JSONObject();
-      util_.serialize(field, serialized, port_);
+      util_.serialize(externalObjects_, field, serialized, port_);
       return serialized;
    }
    
@@ -165,7 +174,7 @@ public class ZMQServer extends ZMQSocketWrapper {
       String fieldName = json.getString("name");
       Object val = json.get("value");
       if (val instanceof JSONObject) {
-         val = EXTERNAL_OBJECTS.get(((JSONObject) val).getString("hash-code"));
+         val = externalObjects_.get(((JSONObject) val).getString("hash-code"));
       }
       obj.getClass().getField(fieldName).set(obj, val);
    }
@@ -194,6 +203,22 @@ public class ZMQServer extends ZMQSocketWrapper {
    }
 
    /**
+    * Get reference to object that may be stored on any of the ZMQServers on different ports
+    * @param hashCode
+    * @return
+    */
+   private Object getObjectKnownToServer (String hashCode) {
+      for (ZMQSocketWrapper z : portSocketMap_.values()) {
+         if (z instanceof ZMQServer) {
+            if (((ZMQServer) z).externalObjects_.containsKey(hashCode)) {
+               return ((ZMQServer) z).externalObjects_.get(hashCode);
+            }
+         }
+      }
+      throw new RuntimeException("Object with Hash code " + hashCode + " unknown to all ZMQ servers");
+   }
+
+   /**
     * Generate every possible combination of parameters given multiple interfaces for classes so that
     * the correct method can be located. Also fill in argVals with the correct objects or primitives
     *
@@ -212,8 +237,7 @@ public class ZMQServer extends ZMQSocketWrapper {
          if (message.getJSONArray("arguments").get(i) instanceof JSONObject
                  && message.getJSONArray("arguments").getJSONObject(i).has("hash-code")) {
             //Passed in a javashadow object as an argument
-            argVals[i] = EXTERNAL_OBJECTS.get(
-                    message.getJSONArray("arguments").getJSONObject(i).get("hash-code"));
+            argVals[i] = getObjectKnownToServer(message.getJSONArray("arguments").getJSONObject(i).getString("hash-code"));
          } else if (ZMQUtil.PRIMITIVE_NAME_CLASS_MAP.containsKey(message.getJSONArray("argument-deserialization-types").get(i) )) {
             Object primitive = message.getJSONArray("arguments").get(i); //Double, Integer, Long, Boolean
             Class c = ZMQUtil.PRIMITIVE_NAME_CLASS_MAP.get(message.getJSONArray("argument-deserialization-types").get(i));
@@ -409,7 +433,7 @@ public class ZMQServer extends ZMQSocketWrapper {
       }
 
       JSONObject serialized = new JSONObject();
-      util_.serialize(result, serialized, port_);
+      util_.serialize(externalObjects_, result, serialized, port_);
       return serialized;
    }
 
@@ -417,7 +441,7 @@ public class ZMQServer extends ZMQSocketWrapper {
       JSONObject reply;
       switch (request.getString("command")) {
          case "connect": {//Connect to master server
-            masterServer_ = this;
+            mainServer_ = this;
             debug_ = request.getBoolean("debug");
             //Called by master process
             reply = new JSONObject();
@@ -468,28 +492,30 @@ public class ZMQServer extends ZMQSocketWrapper {
                   instance = baseClass;
                }
 
+               ConcurrentHashMap<String, Object> extObjectTracker = externalObjects_;
                ZMQServer newServer = null;
                if (request.has("new-port") && request.getBoolean("new-port")) {
                   //start the server for this class and store it
                   newServer = new ZMQServer();
+                  extObjectTracker = newServer.externalObjects_;
                }
                reply = new JSONObject();
-               util_.serialize(instance, reply, newServer == null ? port_ : newServer.port_);
+               util_.serialize(extObjectTracker, instance, reply, newServer == null ? port_ : newServer.port_);
                return reply;
          }
          case "run-method": {
             String hashCode = request.getString("hash-code");
-            Object target = EXTERNAL_OBJECTS.get(hashCode);
+            Object target = externalObjects_.get(hashCode);
             return runMethod(target, request, request.getBoolean("static"));
          }
          case "get-field": {
             String hashCode = request.getString("hash-code");
-            Object target = EXTERNAL_OBJECTS.get(hashCode);
+            Object target = externalObjects_.get(hashCode);
             return getField(target, request);
          }
          case "set-field": {
             String hashCode = request.getString("hash-code");
-            Object target = EXTERNAL_OBJECTS.get(hashCode);
+            Object target = externalObjects_.get(hashCode);
             setField(target, request);
             reply = new JSONObject();
             reply.put("type", "none");
@@ -499,7 +525,7 @@ public class ZMQServer extends ZMQSocketWrapper {
             String hashCode = request.getString("hash-code");
             //TODO this is defined in superclass, maybe it would be good to merge these?
 //            System.out.println("remove object: " + hashCode);
-            Object removed = EXTERNAL_OBJECTS.remove(hashCode);
+            Object removed = externalObjects_.remove(hashCode);
             if (debug_) {
                System.out.println("Object ready for garbage collection: " + removed);
             }
