@@ -421,6 +421,7 @@ def test_abort_with_no_events(launch_mm_headless, setup_data_folder):
         acq.abort()
     assert True
 
+
 def test_abort_from_external(launch_mm_headless, setup_data_folder):
     """
     Simulates the acquisition being shutdown from a remote source (e.g. Xing out the viewer)
@@ -435,7 +436,6 @@ def test_abort_from_external(launch_mm_headless, setup_data_folder):
             for event in events[1:]:
                 acq.acquire(event)
                 time.sleep(5)
-
 
 def test_abort_sequenced_zstack(launch_mm_headless, setup_data_folder):
     """
@@ -462,3 +462,19 @@ def test_abort_sequenced_zstack(launch_mm_headless, setup_data_folder):
 
     dataset = acq.get_dataset()
     assert(len(dataset.index) < 1000)
+
+def test_multi_channel_parsing(launch_mm_headless, setup_data_folder):
+    """
+    Test that datasets NDTiff datasets that are built up in real time parse channel names correctly
+    """
+    events = multi_d_acquisition_events(
+        channel_group="Channel",
+        channels=["DAPI", "FITC"],
+    )
+
+    with Acquisition(setup_data_folder, 'acq', show_display=False) as acq:
+        acq.acquire(events)
+        dataset = acq.get_dataset()
+
+    assert False not in [channel in dataset.get_channel_names() for channel in ["DAPI", "FITC"]]
+    dataset.close()
