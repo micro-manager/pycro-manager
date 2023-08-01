@@ -4,7 +4,20 @@
 Headless Mode
 **************************
 
-Headless mode allows you to use pycromanager without having to launch Micro-Manager. The :meth:`start_headless<pycromanager.start_headless>` method should be run prior to any other calls. This will launch in the background with only the essential Java components for running the pycro-manager acquisition system, without showing a user interface. It provides a lightweight environment for making use of pycromanager's acquisition engine, which can also be run without a GUI in order to use pycromanager as a hidden backend for custom applications. This could be useful, for example, if you want to implement your own user interface, or run pycromanager from a server environment.
+Headless mode allows you to use Pycro-manager without having to launch Micro-manager. The :meth:`start_headless<pycromanager.start_headless>` method should be run prior to any other calls. This will launch in the background with only the essential Java components for running the Pycro-manager acquisition system, without showing a user interface. It provides a lightweight environment that can also be run without a GUI in order to use Pycro-manager as a hidden backend for custom applications. This could be useful, for example, if you want to implement your own user interface, or run Pycro-manager from a server environment.
+
+
+.. code-block:: python
+
+    from pycromanager import Core, start_headless
+    mm_app_path = '/path/to/micromanager'
+    config_file = mm_app_path + "/MMConfig_demo.cfg"
+
+    # Start the headless process
+    start_headless(mm_app_path, config_file, timeout=5000)
+
+    # now use pycro-manager APIs as normal
+    core = Core()
 
 
 The example below shows headless mode in combination with an saved image callback, which calls a user-defined function whenever new data is written to disk. This setup could be used to replace the pycro-manager viewer with a custom user interface (note the ``show_display=False`` in the acquisition).
@@ -37,6 +50,7 @@ The example below shows headless mode in combination with an saved image callbac
 
     # Another way to access to the saved data
     d = acq.get_dataset()
+
 
 
 How to install Java for Mac OS

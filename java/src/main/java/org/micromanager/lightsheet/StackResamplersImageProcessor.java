@@ -108,7 +108,8 @@ class StackResamplersImageProcessor extends ImageProcessorBase {
             // This is the last image because acquisition is ending,
             // tell all processors to stop processing
             for (StackResampler p : activeProcessors_.values()) {
-               p.addToProcessImageQueue(img);
+               p.addToProcessImageQueue((short[]) img.pix,
+                        (Integer) AcqEngMetadata.getAxes(img.tags).get(AcqEngMetadata.Z_AXIS));
             }
             processingExecutor_.shutdown();
             return null;
@@ -128,11 +129,13 @@ class StackResamplersImageProcessor extends ImageProcessorBase {
             processor.initializeProjections();
             Future<?> f = processingExecutor_.submit(processor.startStackProcessing());
             processingFutures_.put(nonZAxes, f);
-            processor.addToProcessImageQueue(img);
+            processor.addToProcessImageQueue((short[]) img.pix,
+                     (Integer) AcqEngMetadata.getAxes(img.tags).get(AcqEngMetadata.Z_AXIS));
          } else if (zIndex == numZStackSlices_ - 1) {
             // Last Z slice
             StackResampler processor = activeProcessors_.get(nonZAxes);
-            processor.addToProcessImageQueue(img);
+            processor.addToProcessImageQueue((short[]) img.pix,
+                     (Integer) AcqEngMetadata.getAxes(img.tags).get(AcqEngMetadata.Z_AXIS));
             // It's the final one, wait for processing to complete and propagate the result
             processingFutures_.get(nonZAxes).get();
             // at this point, the processing of all slices is complete
@@ -144,12 +147,12 @@ class StackResamplersImageProcessor extends ImageProcessorBase {
             // Add the projection/reconstruction images to output
             if (mode_ == StackResampler.YX_PROJECTION) {
                addToOutputQueue(generateYXProjectionTaggedImage(processor, img));
-            } else if (mode_ == StackResampler.OTHOGONAL_VIEWS) {
+            } else if (mode_ == StackResampler.ORTHOGONAL_VIEWS) {
                if (fuseOrthogonalViews_) {
                   addToOutputQueue(generateFusedOrthogonalViews(processor, img));
                } else {
                   addToOutputQueue(generateYXProjectionTaggedImage(processor, img));
-                  addToOutputQueue(generateZYProjectionTaggedImage(processor, img));
+                  addToOutputQueue(generateYZProjectionTaggedImage(processor, img));
                   addToOutputQueue(generateZXProjectionTaggedImage(processor, img));
                }
             } else if (mode_ == StackResampler.FULL_VOLUME) {
@@ -163,7 +166,8 @@ class StackResamplersImageProcessor extends ImageProcessorBase {
             freeProcessors_.put(settingsKey, processor);
          } else {
             // Neither first nor last Z slice
-            activeProcessors_.get(nonZAxes).addToProcessImageQueue(img);
+            activeProcessors_.get(nonZAxes).addToProcessImageQueue((short[]) img.pix,
+                     (Integer) AcqEngMetadata.getAxes(img.tags).get(AcqEngMetadata.Z_AXIS));
          }
 
          return returnRawDataAlso_ ? img : null;
@@ -185,7 +189,7 @@ class StackResamplersImageProcessor extends ImageProcessorBase {
 
       // fuse the orthogonal views into a single image
       short[] yx = processor.getYXProjection();
-      short[] zy = processor.getZYProjection();
+      short[] yz = processor.getYZProjection();
       short[] zx = processor.getZXProjection();
       int xSize = processor.getResampledShapeX();
       int ySize = processor.getResampledShapeY();
@@ -205,7 +209,7 @@ class StackResamplersImageProcessor extends ImageProcessorBase {
       // copy ZY projection
       for (int i = 0; i < ySize; i++) {
          for (int j = 0; j < zSize; j++) {
-            fused[i * fusedWidth + (j + xSize)] = (short) (zy[i + ySize * j] & 0xffff);
+            fused[i * fusedWidth + (j + xSize)] = (short) (yz[i + ySize * j] & 0xffff);
          }
       }
 
@@ -262,7 +266,7 @@ class StackResamplersImageProcessor extends ImageProcessorBase {
       return new TaggedImage(processor.getZXProjection(), newTags);
    }
 
-   private TaggedImage generateZYProjectionTaggedImage(StackResampler processor, TaggedImage img)
+   private TaggedImage generateYZProjectionTaggedImage(StackResampler processor, TaggedImage img)
             throws JSONException {
       JSONObject newTags = new JSONObject(img.tags.toString());
       // remove tags related to Z
@@ -276,7 +280,7 @@ class StackResamplersImageProcessor extends ImageProcessorBase {
       // Add a special tag to indicate that this is a projection
       AcqEngMetadata.setAxisPosition(newTags, RESAMPLE_AXIS_NAME, ZY_PROJECTION);
 
-      return new TaggedImage(processor.getZYProjection(), newTags);
+      return new TaggedImage(processor.getYZProjection(), newTags);
    }
 
    private TaggedImage generateYXProjectionTaggedImage(StackResampler processor, TaggedImage img)
