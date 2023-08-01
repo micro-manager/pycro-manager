@@ -2,9 +2,7 @@ Icon
 
 venv
 
-test/sandbox.py
-test/sandbox2.py
-test/sandbox_headless.py
+scripts/sandbox.py
 
 build/
 dist/
