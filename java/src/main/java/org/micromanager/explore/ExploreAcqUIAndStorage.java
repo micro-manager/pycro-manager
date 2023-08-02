@@ -412,8 +412,15 @@ public class ExploreAcqUIAndStorage implements AcqEngJDataSink, NDViewerDataSour
          storage_.setDisplaySettings(displaySettings);
          storage_.finishedWriting();
       }
-      display_.setWindowTitle(getUniqueAcqName() + " (Finished)");
-      displayCommunicationExecutor_.shutdown();
+
+      try {
+         storage_.checkForWritingException();
+         display_.setWindowTitle(name_ + " (Finished)");
+      } catch (Exception e) {
+         display_.setWindowTitle(name_ + " (Finished with saving error)");
+      } finally {
+         displayCommunicationExecutor_.shutdown();
+      }
       displayCommunicationExecutor_ = null;
    }
 
