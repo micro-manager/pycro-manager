@@ -64,7 +64,7 @@
       <dependency>
          <groupId>org.micro-manager.ndtiffstorage</groupId>
          <artifactId>NDTiffStorage</artifactId>
-     <version>2.13.2</version>
+     <version>2.14.0</version>
       </dependency>
   </dependencies>
 
