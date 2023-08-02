@@ -26,7 +26,6 @@ class AcqAlreadyCompleteException(Exception):
 # prevent problems with pickling when running them in differnet process
 
 def _run_acq_event_source(acquisition, event_port, event_queue, debug=False):
-    print('running event source')
     event_socket = PushSocket(event_port, debug=debug)
     try:
         while True:
