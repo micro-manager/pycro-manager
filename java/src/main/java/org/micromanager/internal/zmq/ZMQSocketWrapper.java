@@ -21,7 +21,7 @@ public abstract class ZMQSocketWrapper {
    protected static ZContext context_;
 
    //map of port numbers to servers, each of which has its own thread and base class
-   private static ConcurrentHashMap<Integer, ZMQSocketWrapper> portSocketMap_
+   protected static ConcurrentHashMap<Integer, ZMQSocketWrapper> portSocketMap_
            = new ConcurrentHashMap<Integer, ZMQSocketWrapper>();
    public static int STARTING_PORT_NUMBER = 4827;
 //   public static int nextPort_ = DEFAULT_MASTER_PORT_NUMBER;
@@ -30,6 +30,8 @@ public abstract class ZMQSocketWrapper {
    protected volatile ZMQ.Socket socket_;
    protected int port_;
 
+   private boolean closed_ = false;
+
    public ZMQSocketWrapper(SocketType type, int port) {
       STARTING_PORT_NUMBER = port;
       type_ = type;
@@ -37,7 +39,6 @@ public abstract class ZMQSocketWrapper {
          context_ = new ZContext();
       }
       port_ = nextPortNumber(this);
-//      System.out.println("port: " + port_ + "\t\t" + this);
       initialize(port_);
    }
 
@@ -61,8 +62,14 @@ public abstract class ZMQSocketWrapper {
    public abstract void initialize(int port);
    
    public void close() {
-      socket_.close();
-      portSocketMap_.remove(this.getPort());
+      synchronized (socket_) {
+         if (closed_) {
+            return;
+         }
+         socket_.close();
+         portSocketMap_.remove(this.getPort());
+         closed_ = true;
+      }
    }
 
    /**

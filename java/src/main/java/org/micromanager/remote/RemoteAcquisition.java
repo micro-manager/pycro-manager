@@ -36,15 +36,24 @@ public class RemoteAcquisition extends Acquisition
 
    @Override
    public void abort() {
-      super.abort();
-      eventSource_.abort();
+      new Thread() {
+         @Override
+         public void run() {
+            RemoteAcquisition.super.abort();
+            eventSource_.abort();
+         }
+      }.start();
    }
-
 
    @Override
    public void abort(Exception e) {
-      super.abort(e);
-      eventSource_.abort();
+      new Thread() {
+         @Override
+         public void run() {
+            RemoteAcquisition.super.abort(e);
+            eventSource_.abort();
+         }
+      }.start();
    }
 
 

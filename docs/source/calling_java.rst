@@ -10,7 +10,9 @@ Calling Java code
 Calling custom Java code
 ================================================
 
-You can also use the :class:`Bridge<pycromanager.Bridge>` to call your own Java code (such as a micro-manager Java plugin). The construction of an arbitrary Java object is show below using Micro-Magellan as an example:
+Pycro-Manager uses a translation layer that allows the calling of Java code as if it were written in python. If you want to use specific Java code through Python, this translation layer can be utilized.
+
+The example below shows construction of an arbitrary Java object using Micro-Magellan as an example:
 
 .. code-block:: python
 
@@ -29,7 +31,7 @@ If the constructor takes arguments, they can be passed in using:
 
 In either case, calling ``java_obj.`` and using IPython autocomplete to discover method names can be useful for development. Note that function names will be automatically translated from the camelCase Java convention to the Python convention of underscores between words (e.g. ``setExposure`` becomes ``set_exposure``)
 
-If you want to call a static methods on static Java classes, this can be accomlished with ``JavaClass``:
+If you want to call a static methods on static Java classes, this can be accomplished with ``JavaClass``:
 
 .. code-block:: python
 
