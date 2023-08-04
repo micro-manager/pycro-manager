@@ -2,6 +2,7 @@ import numpy as np
 import pytest
 import time
 from pycromanager import Acquisition, Core, multi_d_acquisition_events
+from pycromanager.acquisitions import AcqAlreadyCompleteException
 
 
 def check_acq_sequenced(events, expected_num_events):
@@ -412,6 +413,30 @@ def test_abort_sequenced_timelapse(launch_mm_headless, setup_data_folder):
     dataset = acq.get_dataset()
     assert(0 < len(dataset.index) < 100)
 
+def test_abort_with_no_events(launch_mm_headless, setup_data_folder):
+    """
+    Test that aborting before any events processed doesnt cause hang or exception
+    """
+    with Acquisition(setup_data_folder, 'acq', show_display=False) as acq:
+        acq.abort()
+    assert True
+
+
+def test_abort_from_external(launch_mm_headless, setup_data_folder):
+    """
+    Simulates the acquisition being shutdown from a remote source (e.g. Xing out the viewer)
+    """
+    with pytest.raises(AcqAlreadyCompleteException):
+        with Acquisition(setup_data_folder, 'acq', show_display=False) as acq:
+            events = multi_d_acquisition_events(num_time_points=6)
+            acq.acquire(events[0])
+            # this simulates an abort from the java side unbeknownst to python side
+            # it comes from a new thread so it is non-blocking to the port
+            acq._remote_acq.abort()
+            for event in events[1:]:
+                acq.acquire(event)
+                time.sleep(5)
+
 def test_abort_sequenced_zstack(launch_mm_headless, setup_data_folder):
     """
     Test that a hardware sequenced acquisition can be aborted mid-sequence
@@ -496,3 +521,19 @@ def test_change_binning(launch_mm_headless, setup_data_folder):
     dataset = acq.get_dataset()
     data_shape = dataset.as_array().shape
     assert(data_shape[-2:] == (256, 256))
+
+def test_multi_channel_parsing(launch_mm_headless, setup_data_folder):
+    """
+    Test that datasets NDTiff datasets that are built up in real time parse channel names correctly
+    """
+    events = multi_d_acquisition_events(
+        channel_group="Channel",
+        channels=["DAPI", "FITC"],
+    )
+
+    with Acquisition(setup_data_folder, 'acq', show_display=False) as acq:
+        acq.acquire(events)
+        dataset = acq.get_dataset()
+
+    assert False not in [channel in dataset.get_channel_names() for channel in ["DAPI", "FITC"]]
+    dataset.close()

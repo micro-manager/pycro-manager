@@ -47,10 +47,6 @@ public class ZMQUtil {
     private String[] excludedPaths_;
     private HashMap<String, Set<Class>> packageAPIClasses_ = new HashMap<String, Set<Class>>();
 
-   //TODO: associtate entries in here with a prticular client
-   //map of objects that exist in some client of the server
-   protected final static ConcurrentHashMap<String, Object> EXTERNAL_OBJECTS
-           = new ConcurrentHashMap<String, Object>();
 
    public final static Set<Class> PRIMITIVES = new HashSet<Class>();
    public final static Map<String, Class<?>> PRIMITIVE_NAME_CLASS_MAP = new HashMap<String, Class<?>>();
@@ -203,11 +199,12 @@ public class ZMQUtil {
     * This version serializes primitves, converts lists to JSONArrays, and sends
     * out pointers to Objects
     *
+    * @param externalObjects the servers map of its external objects, needed for memory manamgement
     * @param o Object to be serialized
     * @param json JSONObject that will contain the serialized Object can not be
-    * null
+    * @param port Port that the object is being sent out on
     */
-   public void serialize(Object o, JSONObject json, int port) {
+   public void serialize(ConcurrentHashMap<String, Object> externalObjects, Object o, JSONObject json, int port) {
       try {
          JSONObject converted = toJSON(o);
          if (converted != null) {
@@ -231,10 +228,11 @@ public class ZMQUtil {
             //Add a random UUID to account for the fact that there may be multiple
             //pythons shadows of the same object
             hash += UUID.randomUUID();
-            EXTERNAL_OBJECTS.put(hash, o);
+            externalObjects.put(hash, o);
             json.put("type", "unserialized-object");
             json.put("class", o.getClass().getName());
             json.put("hash-code", hash);
+            json.put("port", port);
 
             ArrayList<Class> apiInterfaces = new ArrayList<>();
             if (o.getClass().equals(Class.class)) {

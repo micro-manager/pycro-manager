@@ -412,8 +412,15 @@ public class ExploreAcqUIAndStorage implements AcqEngJDataSink, NDViewerDataSour
          storage_.setDisplaySettings(displaySettings);
          storage_.finishedWriting();
       }
-      display_.setWindowTitle(getUniqueAcqName() + " (Finished)");
-      displayCommunicationExecutor_.shutdown();
+
+      try {
+         storage_.checkForWritingException();
+         display_.setWindowTitle(name_ + " (Finished)");
+      } catch (Exception e) {
+         display_.setWindowTitle(name_ + " (Finished with saving error)");
+      } finally {
+         displayCommunicationExecutor_.shutdown();
+      }
       displayCommunicationExecutor_ = null;
    }
 
@@ -570,21 +577,6 @@ public class ExploreAcqUIAndStorage implements AcqEngJDataSink, NDViewerDataSour
               (long) (display_.getViewOffset().x + display_.getFullResSourceDataSize().x / 2),
               (long) (display_.getViewOffset().y + display_.getFullResSourceDataSize().y / 2));
 
-   }
-
-   public void initializeViewerToLoaded(
-           HashMap<String, Object> axisMins, HashMap<String, Object> axisMaxs) {
-
-      LinkedList<String> channelNames = new LinkedList<String>();
-      for (HashMap<String, Object> axes : storage_.getAxesSet()) {
-         if (axes.containsKey(AcqEngMetadata.CHANNEL_AXIS)) {
-            if (!channelNames.contains(axes.get(AcqEngMetadata.CHANNEL_AXIS))) {
-               channelNames.add((String) axes.get(AcqEngMetadata.CHANNEL_AXIS));
-            }
-         }
-      }
-      display_.initializeViewerToLoaded(channelNames, storage_.getDisplaySettings(),
-            axisMins, axisMaxs);
    }
 
 }
