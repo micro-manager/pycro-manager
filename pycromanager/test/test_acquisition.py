@@ -535,5 +535,5 @@ def test_multi_channel_parsing(launch_mm_headless, setup_data_folder):
         acq.acquire(events)
         dataset = acq.get_dataset()
 
-    assert False not in [channel in dataset.get_channel_names() for channel in ["DAPI", "FITC"]]
+    assert all([channel in dataset.get_channel_names() for channel in ["DAPI", "FITC"]])
     dataset.close()
