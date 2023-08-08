@@ -61,7 +61,6 @@ def test_event_serialize_and_deserialize(launch_mm_headless):
 
     def hook_fn(event):
         test_event = events.pop(0)
-        print('comparing\n', event, '\n', test_event)
         assert (event == test_event)
         return None  # cancel the event
 
