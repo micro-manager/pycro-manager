@@ -19,11 +19,13 @@ def test_img_process_fn(launch_mm_headless, setup_data_folder):
         acq.acquire(events)
 
     dataset = acq.get_dataset()
-    data = dataset.as_array(axes=['time'])
-    assert np.sum(data[0]) > 0
-    assert np.sum(data[1]) == 0
-    assert np.sum(data[2]) > 0
-    dataset.close()
+    try:
+        data = dataset.as_array(axes=['time'])
+        assert np.sum(data[0]) > 0
+        assert np.sum(data[1]) == 0
+        assert np.sum(data[2]) > 0
+    finally:
+        dataset.close()
 
 
 def test_img_process_fn_no_save(launch_mm_headless):
