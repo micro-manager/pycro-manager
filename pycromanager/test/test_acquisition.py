@@ -522,6 +522,54 @@ def test_change_binning(launch_mm_headless, setup_data_folder):
     data_shape = dataset.as_array().shape
     assert(data_shape[-2:] == (256, 256))
 
+def test_multiple_positions_acq(launch_mm_headless, setup_data_folder):
+    """
+    Test acquiring images over multiple XY positions
+    
+    """
+    xy_positions = ((0, 0), (0, 1), (1, 0))
+
+    events = multi_d_acquisition_events(xy_positions=xy_positions)
+
+    def hook_fn(_events):
+        assert check_acq_not_sequenced(_events), 'Sequenced acquisition is not built correctly'
+        return _events
+
+    with Acquisition(setup_data_folder, 'acq', show_display=False,
+                     pre_hardware_hook_fn=hook_fn) as acq:
+        acq.acquire(events)
+
+    ds = acq.get_dataset()
+    for pos_idx, xy in enumerate(xy_positions):
+        metadata = ds.read_metadata(position=pos_idx)
+        assert metadata['XPosition_um_Intended'] == xy[0]
+        assert metadata['YPosition_um_Intended'] == xy[1]
+
+def test_multiple_labeled_positions_acq(launch_mm_headless, setup_data_folder):
+    """
+    Test acquiring images over multiple XY positions
+    
+    """
+    xy_positions = ((0, 0), (0, 1), (1, 0))
+    position_labels = ('Pos0', 'Pos1', 'Pos2')
+
+    events = multi_d_acquisition_events(xy_positions=xy_positions, position_labels=position_labels)
+
+    def hook_fn(_events):
+        assert check_acq_not_sequenced(_events), 'Sequenced acquisition is not built correctly'
+        return _events
+
+    with Acquisition(setup_data_folder, 'acq', show_display=False,
+                     pre_hardware_hook_fn=hook_fn) as acq:
+        acq.acquire(events)
+
+    ds = acq.get_dataset()
+    for pos_label, xy in zip(position_labels, xy_positions):
+        metadata = ds.read_metadata(position=pos_label)
+        assert metadata['PositionName'] == pos_label
+        assert metadata['XPosition_um_Intended'] == xy[0]
+        assert metadata['YPosition_um_Intended'] == xy[1]
+    
 def test_multi_channel_parsing(launch_mm_headless, setup_data_folder):
     """
     Test that datasets NDTiff datasets that are built up in real time parse channel names correctly
