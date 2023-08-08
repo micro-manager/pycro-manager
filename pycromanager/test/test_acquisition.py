@@ -25,8 +25,10 @@ def test_timelapse_acq(launch_mm_headless, setup_data_folder):
         acq.acquire(events)
 
     dataset = acq.get_dataset()
-    assert np.all([dataset.has_image(time=t) for t in range(10)])
-    dataset.close()
+    try:
+        assert np.all([dataset.has_image(time=t) for t in range(10)])
+    finally:
+        dataset.close()
 
 
 def test_timelapse_seq_acq(launch_mm_headless, setup_data_folder):
@@ -41,8 +43,10 @@ def test_timelapse_seq_acq(launch_mm_headless, setup_data_folder):
         acq.acquire(events)
 
     dataset = acq.get_dataset()
-    assert np.all([dataset.has_image(time=t) for t in range(10)])
-    dataset.close()
+    try:
+        assert np.all([dataset.has_image(time=t) for t in range(10)])
+    finally:
+        dataset.close()
 
 
 def test_empty_list_acq(launch_mm_headless, setup_data_folder):
@@ -76,8 +80,10 @@ def test_empty_mda_acq(launch_mm_headless, setup_data_folder):
         acq.acquire(events)
 
     dataset = acq.get_dataset()
-    assert dataset.axes == {}
-    dataset.close()
+    try:
+        assert dataset.axes == {}
+    finally:
+        dataset.close()
 
 
 def test_single_snap_acq(launch_mm_headless, setup_data_folder):
@@ -87,8 +93,10 @@ def test_single_snap_acq(launch_mm_headless, setup_data_folder):
         acq.acquire(events)
 
     dataset = acq.get_dataset()
-    assert np.all([dataset.has_image(time=t) for t in range(1)])
-    dataset.close()
+    try:
+        assert np.all([dataset.has_image(time=t) for t in range(1)])
+    finally:
+        dataset.close()
 
 
 def test_multi_d_acq(launch_mm_headless, setup_data_folder):
@@ -108,14 +116,16 @@ def test_multi_d_acq(launch_mm_headless, setup_data_folder):
 
     dataset = acq.get_dataset()
 
-    for t in range(10):
-        for z in range(6):
-            for ch in ["DAPI", "FITC"]:
-                assert dataset.has_image(time=t, channel=ch, z=z)
+    try:
+        for t in range(10):
+            for z in range(6):
+                for ch in ["DAPI", "FITC"]:
+                    assert dataset.has_image(time=t, channel=ch, z=z)
 
-    data = dataset.as_array(axes=['time', 'channel', 'z'])
-    assert data.shape[:-2] == (10, 2, 6)
-    dataset.close()
+        data = dataset.as_array(axes=['time', 'channel', 'z'])
+        assert data.shape[:-2] == (10, 2, 6)
+    finally:
+        dataset.close()
 
 
 def test_zstack_seq_acq(launch_mm_headless, setup_data_folder):
@@ -182,10 +192,13 @@ def test_channel_noseq_acq(launch_mm_headless, setup_data_folder):
         acq.acquire(events)
 
     # check that the exposure time was correctly set
-    with acq.get_dataset() as ds:
+    dataset = acq.get_dataset()
+    try:
         for channel, exposure_time in zip(channels, channel_exposures_ms):
-            metadata = ds.read_metadata(channel=channel)
+            metadata = dataset.read_metadata(channel=channel)
             assert metadata["Exposure"] == exposure_time
+    finally:
+        dataset.close()
 
 
 def test_channel_z_seq_acq(launch_mm_headless, setup_data_folder):
@@ -287,10 +300,13 @@ def test_channel_noseq_z_seq_acq(launch_mm_headless, setup_data_folder):
         acq.acquire(events)
 
     # check that the exposure time was correctly set
-    with acq.get_dataset() as ds:
+    dataset = acq.get_dataset()
+    try:
         for channel, exposure_time in zip(channels, channel_exposures_ms):
-            metadata = ds.read_metadata(channel=channel, z=0)
+            metadata = dataset.read_metadata(channel=channel, z=0)
             assert metadata["Exposure"] == exposure_time
+    finally:
+        dataset.close()
 
 
 def test_time_channel_z_seq_acq(launch_mm_headless, setup_data_folder):
@@ -411,7 +427,10 @@ def test_abort_sequenced_timelapse(launch_mm_headless, setup_data_folder):
     mmc.set_exposure(10)
 
     dataset = acq.get_dataset()
-    assert(0 < len(dataset.index) < 100)
+    try:
+        assert(0 < len(dataset.index) < 100)
+    finally:
+        dataset.close()
 
 def test_abort_with_no_events(launch_mm_headless, setup_data_folder):
     """
@@ -461,7 +480,78 @@ def test_abort_sequenced_zstack(launch_mm_headless, setup_data_folder):
     mmc.set_exposure(10)
 
     dataset = acq.get_dataset()
-    assert(len(dataset.index) < 1000)
+    try:
+        assert(len(dataset.index) < 1000)
+    finally:
+        dataset.close()
+
+def test_change_image_size(launch_mm_headless, setup_data_folder):
+    """
+    Test that the acquisition can successfully complete after changing the
+    camera image size
+    """
+    mmc = Core()
+    mmc.set_property('Camera', 'OnCameraCCDXSize', '1024')
+    mmc.set_property('Camera', 'OnCameraCCDYSize', '1024')
+
+    with Acquisition(setup_data_folder, 'acq', show_display=False) as acq:
+        events = multi_d_acquisition_events(num_time_points=5)
+        acq.acquire(events)
+
+    # reset image size
+    mmc.set_property('Camera', 'OnCameraCCDXSize', '512')
+    mmc.set_property('Camera', 'OnCameraCCDYSize', '512')
+
+    dataset = acq.get_dataset()
+    try:
+        data_shape = dataset.as_array().shape
+        assert(data_shape[-2:] == (1024, 1024))
+    finally:
+        dataset.close()
+
+def test_change_roi(launch_mm_headless, setup_data_folder):
+    """
+    Test that the acquisition can successfully complete after changing the ROI
+    """
+    mmc = Core()
+    mmc.set_roi(*(0, 0, 100, 100))
+
+    with Acquisition(setup_data_folder, 'acq', show_display=False) as acq:
+        events = multi_d_acquisition_events(num_time_points=5)
+        acq.acquire(events)
+
+    # reset ROI
+    mmc.clear_roi()
+
+    dataset = acq.get_dataset()
+    try:
+        data_shape = dataset.as_array().shape
+        assert(data_shape[-2:] == (100, 100))
+    finally:
+        dataset.close()
+
+def test_change_binning(launch_mm_headless, setup_data_folder):
+    """
+    Test that the acquisition can successfully complete after changing the binning
+    """
+    mmc = Core()
+    mmc.set_property('Camera', 'OnCameraCCDXSize', '512')
+    mmc.set_property('Camera', 'OnCameraCCDYSize', '512')
+    mmc.set_property('Camera', 'Binning', '2')
+
+    with Acquisition(setup_data_folder, 'acq', show_display=False) as acq:
+        events = multi_d_acquisition_events(num_time_points=5)
+        acq.acquire(events)
+
+    # reset binning
+    mmc.set_property('Camera', 'Binning', '1')
+
+    dataset = acq.get_dataset()
+    try:
+        data_shape = dataset.as_array().shape
+        assert(data_shape[-2:] == (256, 256))
+    finally:
+        dataset.close()
 
 def test_multiple_positions_acq(launch_mm_headless, setup_data_folder):
     """
@@ -480,11 +570,14 @@ def test_multiple_positions_acq(launch_mm_headless, setup_data_folder):
                      pre_hardware_hook_fn=hook_fn) as acq:
         acq.acquire(events)
 
-    ds = acq.get_dataset()
-    for pos_idx, xy in enumerate(xy_positions):
-        metadata = ds.read_metadata(position=pos_idx)
-        assert metadata['XPosition_um_Intended'] == xy[0]
-        assert metadata['YPosition_um_Intended'] == xy[1]
+    dataset = acq.get_dataset()
+    try:
+        for pos_idx, xy in enumerate(xy_positions):
+            metadata = dataset.read_metadata(position=pos_idx)
+            assert metadata['XPosition_um_Intended'] == xy[0]
+            assert metadata['YPosition_um_Intended'] == xy[1]
+    finally:
+        dataset.close()
 
 def test_multiple_labeled_positions_acq(launch_mm_headless, setup_data_folder):
     """
@@ -504,12 +597,15 @@ def test_multiple_labeled_positions_acq(launch_mm_headless, setup_data_folder):
                      pre_hardware_hook_fn=hook_fn) as acq:
         acq.acquire(events)
 
-    ds = acq.get_dataset()
-    for pos_label, xy in zip(position_labels, xy_positions):
-        metadata = ds.read_metadata(position=pos_label)
-        assert metadata['PositionName'] == pos_label
-        assert metadata['XPosition_um_Intended'] == xy[0]
-        assert metadata['YPosition_um_Intended'] == xy[1]
+    dataset = acq.get_dataset()
+    try:
+        for pos_label, xy in zip(position_labels, xy_positions):
+            metadata = dataset.read_metadata(position=pos_label)
+            assert metadata['PositionName'] == pos_label
+            assert metadata['XPosition_um_Intended'] == xy[0]
+            assert metadata['YPosition_um_Intended'] == xy[1]
+    finally:
+        dataset.close()
     
 def test_multi_channel_parsing(launch_mm_headless, setup_data_folder):
     """
@@ -522,7 +618,9 @@ def test_multi_channel_parsing(launch_mm_headless, setup_data_folder):
 
     with Acquisition(setup_data_folder, 'acq', show_display=False) as acq:
         acq.acquire(events)
-        dataset = acq.get_dataset()
-
-    assert all([channel in dataset.get_channel_names() for channel in ["DAPI", "FITC"]])
-    dataset.close()
+        
+    dataset = acq.get_dataset()
+    try:
+        assert all([channel in dataset.get_channel_names() for channel in ["DAPI", "FITC"]])
+    finally:
+        dataset.close()
