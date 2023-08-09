@@ -31,7 +31,6 @@ setuptools.setup(
             "pytest",
             "wget",
             "requests",
-            "docstring-inheritance",
             "napari"
         ]
     },
