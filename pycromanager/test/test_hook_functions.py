@@ -41,7 +41,7 @@ def test_img_process_fn_no_save(launch_mm_headless):
 
 def test_event_serialize_and_deserialize(launch_mm_headless):
     """
-    Test that no information is lost when event is serialized and deserialized and passed through AcqEndJ
+    Test for cycle consistency of event serialization and deserialization.
     """
 
     events = [
@@ -57,6 +57,8 @@ def test_event_serialize_and_deserialize(launch_mm_headless):
          'properties': [['DeviceName', 'PropertyName', 'PropertyValue']]},
         {'axes': {'z': 1},
          'stage_positions': [['ZDeviceName', 123.45]]},
+        {'axes': {'time': 2},
+         'timeout': 1000},
     ]
 
     def hook_fn(event):
