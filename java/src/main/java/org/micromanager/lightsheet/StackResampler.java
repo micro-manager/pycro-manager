@@ -105,12 +105,12 @@ public class StackResampler {
          //   {-Math.cos(Math.PI / 2 + theta), Math.sin(Math.PI / 2 + theta)},
          //   {-Math.sin(Math.PI / 2 + theta), -Math.cos(Math.PI / 2 + theta)}
          // rotates by 180 degrees around X axis
-         //   {-Math.cos(theta), Math.sin(theta)},
-         //   {-Math.sin(theta), -Math.cos(theta)
+         // {Math.cos(theta), -Math.sin(theta)},
+         // {Math.sin(theta), Math.cos(theta)}
 
          // this seems to be doing the right thing...
-         {Math.cos(theta), -Math.sin(theta)},
-         {Math.sin(theta), Math.cos(theta)}
+         {-Math.cos(theta), Math.sin(theta)},
+         {-Math.sin(theta), -Math.cos(theta)}
       };
 
       double[][] cameraPixelToUmMatrix = {
