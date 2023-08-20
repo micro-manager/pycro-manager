@@ -84,6 +84,11 @@ public class RemoteStorageMonitor implements ImageWrittenListener {
       indexEntries_.addLast(ied);
    }
 
+   @Override
+   public void awaitCompletion() {
+      //deprecated
+   }
+
    /**
     * Called by the python side to signal that the final shutdown signal has been received
     * and that the push socket can be closed
@@ -93,17 +98,4 @@ public class RemoteStorageMonitor implements ImageWrittenListener {
       pushSocket_.close();
    }
 
-   @Override
-   public void awaitCompletion() {
-      // No need to do this, because the storage sould shutdown irrespective of this montior
-      // which exists on top of it
-
-//      while (!executor_.isTerminated()) {
-//         try {
-//            Thread.sleep(5);
-//         } catch (InterruptedException e) {
-//            throw new RuntimeException(e);
-//         }
-//      }
-   }
 }
