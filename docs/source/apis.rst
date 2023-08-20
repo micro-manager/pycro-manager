@@ -36,17 +36,30 @@ The following shows all possible fields in an acquisition event (not all of whic
 	# Config groups can be used to control groups of properties
 	'config_group': ['name_of_config_group', 'name_of_preset'],
 
-	'exposure': exposure_time_in_ms,
+	'exposure': 10.6, # exposure time in ms
 
-	# For z stacks
-	'z': z_position_in_µm,
+	# Z stages
+	# The 'z' field controls the default z stage device (i.e. the Core-Focus device)
+	'z': 123.45, # the z position in um
+
+	# Alternatively the device can be specified by name, or multiple devices can 
+	# be controlled by providing their names and positions in um
+	'stage_positions': 
+			[['z_stage1_name': 12.34], 
+			['z_stage2_name': 1234.566]],
+
 
 	# For timelapses: how long to wait before starting next time point in s
-	'min_start_time': time_in_s
+	'min_start_time': 100
 
 	# For XY stages
-	'x': x_position_in_µm,
-	'y': y_position_in_µm,
+	'x': 123.4, # positions in um
+	'y': 567.8,
+
+
+
+	# If using a camera other than the 'Core-camera', it can be specified by name here
+	'camera': 'a_camera_device_name',
 
 
 	# Other arbitrary hardware settings can be encoded in a list of strings with
@@ -54,6 +67,15 @@ The following shows all possible fields in an acquisition event (not all of whic
 	# and the value of the property
 	'properties': [['DeviceName', 'PropertyName', 'PropertyValue'], 
 		['OtherDeviceName', 'OtherPropertyName', 'OtherPropertyValue']],
+
+
+	# Custom metadata can be added to the event, which will be added to the metadata 
+	# of the resultant image under the 'tags' key
+	'tags': {
+		'whatever_you_want_here': 54,
+		'something_else': 'here'}
+
+
 	}
     
 

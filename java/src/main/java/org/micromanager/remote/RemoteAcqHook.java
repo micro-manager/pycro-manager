@@ -28,9 +28,6 @@ public class RemoteAcqHook implements AcquisitionHook {
    ZMQPullSocket<List<AcquisitionEvent>> pullSocket_;
 
    public RemoteAcqHook(AcquisitionAPI acq) {
-//      if (((RemoteAcquisition) acq).debugMode_) {
-//         ((RemoteAcquisition) acq).core_.logMessage("Making push socket");
-//      }
       pushSocket_ = new ZMQPushSocket<AcquisitionEvent>(
               new Function<AcquisitionEvent, JSONObject>() {
          @Override
@@ -38,10 +35,6 @@ public class RemoteAcqHook implements AcquisitionHook {
             return t.toJSON();
          }
       });
-
-//      if (((RemoteAcquisition) acq).debugMode_) {
-//         ((RemoteAcquisition) acq).core_.logMessage("Making pull socket");
-//      }
       pullSocket_ = new ZMQPullSocket<List<AcquisitionEvent>>(
               new Function<JSONObject, List<AcquisitionEvent>>() {
                  @Override
@@ -64,9 +57,6 @@ public class RemoteAcqHook implements AcquisitionHook {
                     }
                  }
               });
-//      if (((RemoteAcquisition) acq).debugMode_) {
-//         ((RemoteAcquisition) acq).core_.logMessage("made pull socket");
-//      }
    }
 
    @Override

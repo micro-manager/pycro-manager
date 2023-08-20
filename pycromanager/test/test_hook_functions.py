@@ -19,11 +19,13 @@ def test_img_process_fn(launch_mm_headless, setup_data_folder):
         acq.acquire(events)
 
     dataset = acq.get_dataset()
-    data = dataset.as_array(axes=['time'])
-    assert np.sum(data[0]) > 0
-    assert np.sum(data[1]) == 0
-    assert np.sum(data[2]) > 0
-    dataset.close()
+    try:
+        data = dataset.as_array(axes=['time'])
+        assert np.sum(data[0]) > 0
+        assert np.sum(data[1]) == 0
+        assert np.sum(data[2]) > 0
+    finally:
+        dataset.close()
 
 
 def test_img_process_fn_no_save(launch_mm_headless):
@@ -41,7 +43,7 @@ def test_img_process_fn_no_save(launch_mm_headless):
 
 def test_event_serialize_and_deserialize(launch_mm_headless):
     """
-    Test that no information is lost when event is serialized and deserialized and passed through AcqEndJ
+    Test for cycle consistency of event serialization and deserialization.
     """
 
     events = [
@@ -57,11 +59,12 @@ def test_event_serialize_and_deserialize(launch_mm_headless):
          'properties': [['DeviceName', 'PropertyName', 'PropertyValue']]},
         {'axes': {'z': 1},
          'stage_positions': [['ZDeviceName', 123.45]]},
+        {'axes': {'time': 2},
+         'timeout': 1000},
     ]
 
     def hook_fn(event):
         test_event = events.pop(0)
-        print('comparing\n', event, '\n', test_event)
         assert (event == test_event)
         return None  # cancel the event
 

@@ -1,10 +1,5 @@
 numpy
 dask[array]>=2022.2.0
 pyzmq
-ndtiff>=2.0.0
-Sphinx==2.1.0
-nbsphinx
-pygments<3,>=2.4.1
-ipykernel
-sphinx_rtd_theme
+ndtiff>=2.2.0
 docstring-inheritance

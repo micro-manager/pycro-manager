@@ -7,7 +7,7 @@ from pycromanager.zmq_bridge._bridge import _Bridge
 import copy
 import types
 import numpy as np
-
+from typing import Union, List, Iterable
 
 SUBPROCESSES = []
 
@@ -20,7 +20,8 @@ def cleanup():
 atexit.register(cleanup)
 
 def start_headless(
-    mm_app_path: str, config_file: str='', java_loc: str=None, core_log_path: str='', buffer_size_mb: int=1024,
+    mm_app_path: str, config_file: str='', java_loc: str=None, core_log_path: str='',
+        buffer_size_mb: int=1024, max_memory_mb: int=2000,
         port: int=_Bridge.DEFAULT_PORT, debug=False):
     """
     Start a Java process that contains the neccessary libraries for pycro-manager to run,
@@ -46,6 +47,8 @@ def start_headless(
         Path to where core log files should be created
     buffer_size_mb : int
         Size of circular buffer in MB in MMCore
+    max_memory_mb : int
+        Maximum amount of memory to be allocated to JVM
     port : int
         Default port to use for ZMQServer
     debug : bool
@@ -67,7 +70,7 @@ def start_headless(
                 "-classpath",
                 classpath,
                 "-Dsun.java2d.dpiaware=false",
-                "-Xmx2000m",
+                f"-Xmx{max_memory_mb}m",
 
                 # This is used by MM desktop app but breaks things on MacOS...Don't think its neccessary
                 # "-XX:MaxDirectMemorySize=1000",
@@ -97,15 +100,16 @@ def start_headless(
 
 def multi_d_acquisition_events(
     num_time_points: int=None,
-    time_interval_s: float=0,
+    time_interval_s: Union[float, List[float]]=0,
     z_start: float=None,
     z_end: float=None,
     z_step: float=None,
     channel_group: str=None,
     channels: list=None,
     channel_exposures_ms: list=None,
-    xy_positions=None,
-    xyz_positions=None,
+    xy_positions: Iterable=None,
+    xyz_positions: Iterable=None,
+    position_labels: List[str]=None,
     order: str="tpcz",
     keep_shutter_open_between_channels: bool=False,
     keep_shutter_open_between_z_steps: bool=False,
@@ -117,9 +121,12 @@ def multi_d_acquisition_events(
     ----------
     num_time_points : int
         How many time points if it is a timelapse (Default value = None)
-    time_interval_s : float
-        the minimum interval between consecutive time points in seconds. Keep at 0 to go as
-        fast as possible (Default value = 0)
+    time_interval_s : float or list of floats
+        the minimum interval between consecutive time points in seconds. If set to 0, the 
+        acquisition will go as fast as possible. If a list is provided, its length should 
+        be equal to 'num_time_points'. Elements in the list are assumed to be the intervals
+        between consecutive timepoints in the timelapse. First element in the list indicates
+        delay before capturing the first image (Default value = 0)
     z_start : float
         z-stack starting position, in µm. If xyz_positions is given z_start is relative
         to the points' z position. (Default value = None)
@@ -136,17 +143,13 @@ def multi_d_acquisition_events(
     channel_exposures_ms : list of floats or ints
         list of camera exposure times corresponding to each channel. The length of this list
         should be the same as the the length of the list of channels (Default value = None)
-    xy_positions : arraylike
-        N by 2 array where N is the number of XY stage positions, and the 2 are the X and Y
-        coordinates (Default value = None)
-    xyz_positions : arraylike
-        N by 3 array where N is the number of XY stage positions, and the 3 are the X, Y and Z coordinates.
+    xy_positions : iterable
+        An array of shape (N, 2) containing N (X, Y) stage coordinates. (Default value = None)
+    xyz_positions : iterable
+        An array of shape (N, 3) containing N (X, Y, Z) stage coordinates. (Default value = None).
         If passed then z_start, z_end, and z_step will be relative to the z_position in xyz_positions. (Default value = None)
-    z_positions : arraylike
-        The z_positions for each xy point. Either 1D (shape: (N,) ) to specify the center z position for each xy point,
-        or 2D (shape: (N, n_z) ) to fully specify the xyz points.
-        If z_positions is 1D and z_start, z_end and z_step are not None then relative
-        z_positions will be created using np.arange(z_position + z_start, z_position + z_end, z_step)
+    position_labels : iterable
+        An array of length N containing position labels for each of the XY stage positions. (Default value = None)
     order : str
         string that specifies the order of different dimensions. Must have some ordering of the letters
         c, t, p, and z. For example, 'tcz' would run a timelapse where z stacks would be acquired at each channel in
@@ -168,9 +171,29 @@ def multi_d_acquisition_events(
     order = order.lower()
     if "p" in order and "z" in order and order.index("p") > order.index("z"):
         raise ValueError(
-            "This function requres that the xy position come earlier in the order than z"
+            "This function requires that the xy position come earlier in the order than z"
         )
-    has_zsteps = z_start is not None and z_step is not None and z_end is not None
+    if isinstance(time_interval_s, list):
+        if len(time_interval_s) != num_time_points:
+            raise ValueError(
+                "Length of time interval list should be equal to num_time_points"
+            )
+    if position_labels is not None:
+        if xy_positions is not None and len(xy_positions) != len(position_labels):
+            raise ValueError("xy_positions and position_labels must be of equal length")
+        if xyz_positions is not None and len(xyz_positions) != len(position_labels):
+            raise ValueError("xyz_positions and position_labels must be of equal length")
+    
+    # If any of z_start, z_step, z_end are provided, then they should all be provided
+    # Here we can't use `all` as some of the values of z_start, z_step, z_end
+    # may be zero and all((0,)) = False
+    has_zsteps = False
+    if any([z_start, z_step, z_end]):
+        if not None in [z_start, z_step, z_end]:
+            has_zsteps = True
+        else:
+            raise ValueError('All of z_start, z_step, and z_end must be provided')
+
     z_positions = None
     if xy_positions is not None:
         xy_positions = np.asarray(xy_positions)
@@ -194,21 +217,30 @@ def multi_d_acquisition_events(
                 pos.append(z + z_rel)
             z_positions = np.asarray(pos)
 
+    if position_labels is None and xy_positions is not None:
+        position_labels = list(range(len(xy_positions)))
+
     def generate_events(event, order):
         if len(order) == 0:
             yield event
             return
         elif order[0] == "t" and num_time_points is not None and num_time_points > 0:
             time_indices = np.arange(num_time_points)
+            if isinstance(time_interval_s, list):
+                absolute_start_times = np.cumsum(time_interval_s)
             for time_index in time_indices:
                 new_event = copy.deepcopy(event)
                 new_event["axes"]["time"] = time_index
-                if time_interval_s != 0:
-                    new_event["min_start_time"] = time_index * time_interval_s
+                if isinstance(time_interval_s, list):
+                    new_event["min_start_time"] = absolute_start_times[time_index]
+                else:
+                    if time_interval_s != 0:
+                        new_event["min_start_time"] = time_index * time_interval_s
                 yield generate_events(new_event, order[1:])
         elif order[0] == "z" and z_positions is not None:
             if "axes" in event and "position" in event["axes"]:
-                zs = z_positions[event["axes"]["position"]]
+                pos_idx = position_labels.index(event["axes"]["position"])
+                zs = z_positions[pos_idx]
             else:
                 zs = z_positions
 
@@ -220,9 +252,9 @@ def multi_d_acquisition_events(
                     new_event["keep_shutter_open"] = True
                 yield generate_events(new_event, order[1:])
         elif order[0] == "p" and xy_positions is not None:
-            for p_index, xy in enumerate(xy_positions):
+            for p_label, xy in zip(position_labels, xy_positions):
                 new_event = copy.deepcopy(event)
-                new_event["axes"]["position"] = p_index
+                new_event["axes"]["position"] = p_label
                 new_event["x"] = xy[0]
                 new_event["y"] = xy[1]
                 yield generate_events(new_event, order[1:])

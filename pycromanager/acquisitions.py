@@ -17,31 +17,43 @@ import os.path
 import queue
 from docstring_inheritance import NumpyDocstringInheritanceMeta
 
+class AcqAlreadyCompleteException(Exception):
+    def __init__(self, message):
+        self.message = message
+        super().__init__(self.message)
 
 ### These functions are defined outside the Acquisition class to
 # prevent problems with pickling when running them in differnet process
 
 def _run_acq_event_source(acquisition, event_port, event_queue, debug=False):
     event_socket = PushSocket(event_port, debug=debug)
-    while True:
-        try:
+    try:
+        while True:
             events = event_queue.get(block=True)
             if debug:
                 print("got event(s):", events)
             if events is None:
-                # Time to shut down
-                event_socket.send({"events": [{"special": "acquisition-end"}]})
-                # wait for signal that acquisition has received the end signal
-                while not acquisition._remote_acq.are_events_finished():
-                    time.sleep(0.001)
-                event_socket.close()
-                return
+                # Initiate the normal shutdown process
+                if not acquisition._remote_acq.is_finished():
+                    # if it has been finished through something happening on the other side
+                    event_socket.send({"events": [{"special": "acquisition-end"}]})
+                    # wait for signal that acquisition has received the end signal
+                    while not acquisition._remote_acq.are_events_finished():
+                        time.sleep(0.001)
+                break
+            # it may have been shut down remotely (e.g. by user Xing out viewer)
+            # if we try to send an event at this time, it will hang indefinitely
+            if acquisition._remote_acq.is_finished():
+                break
+            # TODO in theory it could be aborted in between the check above and sending below,
+            #  maybe consider putting a timeout on the send?
             event_socket.send({"events": events if type(events) == list else [events]})
             if debug:
                 print("sent events")
-        except Exception as e:
-            acquisition.abort(e)
-            # continue here, as abort will shut things down in an orderly fashion
+    except Exception as e:
+        acquisition.abort(e)
+    finally:
+        event_socket.close()
 
 
 def _run_acq_hook(acquisition, pull_port,
@@ -203,13 +215,29 @@ def _storage_monitor_fn(acquisition, dataset, storage_monitor_push_port, connect
 
             index_entry = message["index_entry"]
             axes = dataset._add_index_entry(index_entry)
+            acquisition._notification_queue.put({'type': 'image_saved', 'axes': axes})
             dataset._new_image_arrived = True
             if callback is not None:
                 callback(axes, dataset)
         except Exception as e:
             acquisition.abort(e)
 
+def _notification_handler_fn(acquisition, notification_push_port, connected_event, debug=False):
+    monitor_socket = PullSocket(notification_push_port)
+    connected_event.set()
 
+    while True:
+        try:
+            message = monitor_socket.receive()
+            acquisition._notification_queue.put(message)
+
+            if "acq_finished" in message["type"]:
+                # Poison, time to shut down
+                monitor_socket.close()
+                return
+
+        except Exception as e:
+            acquisition.abort(e)
 
 class Acquisition(object, metaclass=NumpyDocstringInheritanceMeta):
     """
@@ -230,7 +258,7 @@ class Acquisition(object, metaclass=NumpyDocstringInheritanceMeta):
         image_saved_fn: callable=None,
         process: bool=False,
         saving_queue_size: int=20,
-        timeout: int=500,
+        timeout: int=1000,
         port: int=DEFAULT_PORT,
         debug: int=False,
         core_log_debug: int=False,
@@ -306,6 +334,7 @@ class Acquisition(object, metaclass=NumpyDocstringInheritanceMeta):
         self._timeout = timeout
         self._nd_viewer = None
         self._napari_viewer = None
+        self._notification_queue = queue.Queue(30)
 
         # Get a dict of all named argument values (or default values when nothing provided)
         arg_names = [k for k in signature(Acquisition.__init__).parameters.keys() if k != 'self']
@@ -324,6 +353,16 @@ class Acquisition(object, metaclass=NumpyDocstringInheritanceMeta):
         self._create_remote_acquisition(**named_args)
         self._initialize_image_processor(**named_args)
         self._initialize_hooks(**named_args)
+
+        # Start remote acquisition
+        try:
+            self._remote_notification_handler = JavaObject('org.micromanager.remote.RemoteNotificationHandler',
+                                                           args=(self._remote_acq,),
+                                                      port=self._port, new_socket=True)
+            self._acq_notification_thread = self._add_notification_handler_fn()
+        except:
+            warnings.warn('Could not create acquisition notification handler. This should not affect performance,'
+                          ' but indicates that Micro-Manager is out of date')
 
         # Acquistiion.start is now deprecated, so this can be removed later
         # Acquisitions now get started automatically when the first events submitted
@@ -346,7 +385,8 @@ class Acquisition(object, metaclass=NumpyDocstringInheritanceMeta):
             # when images are written to disk
             ndtiff_storage = data_sink.get_storage()
             summary_metadata = ndtiff_storage.get_summary_metadata()
-            self._remote_storage_monitor = JavaObject('org.micromanager.remote.RemoteStorageMonitor', port=self._port)
+            self._remote_storage_monitor = JavaObject('org.micromanager.remote.RemoteStorageMonitor', port=self._port,
+                                                      new_socket=True)
             ndtiff_storage.add_image_written_listener(self._remote_storage_monitor)
             self._dataset = Dataset(dataset_path=self._dataset_disk_location, _summary_metadata=summary_metadata)
             # Monitor image arrival so they can be loaded on python side, but with no callback function
@@ -399,13 +439,18 @@ class Acquisition(object, metaclass=NumpyDocstringInheritanceMeta):
                 self._remote_acq.get_data_sink() is not None and not self._remote_acq.get_data_sink().is_finished()):
             time.sleep(1 if self._debug else 0.05)
             self._check_for_exceptions()
-        self._remote_acq = None
+
+        if hasattr(self, '_acq_notification_thread'):
+            # for backwards compatiblitiy with older versions of Pycromanager java before this added
+            self._acq_notification_thread.join()
+            self._remote_notification_handler.notification_handling_complete()
 
         # Wait on all the other threads to shut down properly
         if hasattr(self, '_storage_monitor_thread'):
             self._storage_monitor_thread.join()
-        # now that the shutdown signal has been received from the monitor, tell it it is okay to shutdown its push socket
-        self._remote_storage_monitor.storage_monitoring_complete()
+            # now that the shutdown signal has been received from the monitor,
+            # tell it it is okay to shutdown its push socket
+            self._remote_storage_monitor.storage_monitoring_complete()
 
         for hook_thread in self._hook_threads:
             hook_thread.join()
@@ -413,6 +458,7 @@ class Acquisition(object, metaclass=NumpyDocstringInheritanceMeta):
         if hasattr(self, '_event_thread'):
             self._event_thread.join()
 
+        self._remote_acq = None
         self._finished = True
 
     def acquire(self, event_or_events: dict or list):
@@ -426,6 +472,10 @@ class Acquisition(object, metaclass=NumpyDocstringInheritanceMeta):
             A single acquistion event (a dict) or a list of acquisition events
 
         """
+        if self._remote_acq.is_finished():
+            raise AcqAlreadyCompleteException(
+                'Cannot submit more events because this acquisition is already finished')
+
         if event_or_events is None:
             # manual shutdown
             self._event_queue.put(None)
@@ -450,9 +500,8 @@ class Acquisition(object, metaclass=NumpyDocstringInheritanceMeta):
         # Clear any pending events on the python side, if applicable
         if self._event_queue is not None:
             self._event_queue.queue.clear()
-            # Ensure that event queue gets shut down properly by adding this shutdown signal
-            # The Java side cant shut this down because it is upstream of the remote acquisition
-            self._event_queue.put(None)
+            # Don't send any more events. The event sending thread should know shut itself down by
+            # checking the status of the acquisition
         self._remote_acq.abort()
 
     def get_viewer(self):
@@ -475,6 +524,32 @@ class Acquisition(object, metaclass=NumpyDocstringInheritanceMeta):
         self.await_completion()
 
     ########  Private methods ###########
+
+    def _add_notification_handler_fn(self):
+        """
+        Add a callback function that gets called whenever a new notification is received
+        """
+        connected_event = threading.Event()
+
+        pull_port = self._remote_notification_handler.get_port()
+        notification_thread = threading.Thread(
+            target=_notification_handler_fn,
+            args=(
+                self,
+                pull_port,
+                connected_event,
+                self._debug,
+            ),
+            name="NotificationHandlerThread",
+        )
+
+        # Wait for pulling to start before you signal for pushing to start
+        notification_thread.start()
+        connected_event.wait()
+
+        # start pushing out all the notifications
+        self._remote_notification_handler.start()
+        return notification_thread
 
     def _add_storage_monitor_fn(self, callback_fn=None, debug=False):
         """
@@ -587,6 +662,8 @@ class Acquisition(object, metaclass=NumpyDocstringInheritanceMeta):
     def _create_remote_acquisition(self, **kwargs):
         core = Core(port=self._port, timeout=self._timeout, debug=self._debug)
         acq_factory = JavaObject("org.micromanager.remote.RemoteAcquisitionFactory",
+            # # create the acquisition on a dedicated socket to ensure it doesnt interfere with user code
+            #  new_socket=True,
             port=self._port, args=[core], debug=self._debug)
         show_viewer = kwargs['show_display'] is True and\
                       kwargs['napari_viewer'] is None and\
@@ -708,7 +785,7 @@ class XYTiledAcquisition(Acquisition):
             image_saved_fn: callable=None,
             process: bool=False,
             saving_queue_size: int=20,
-            timeout: int=500,
+            timeout: int=1000,
             port: int=DEFAULT_PORT,
             debug: bool=False,
             core_log_debug: bool=False,
@@ -786,7 +863,7 @@ class ExploreAcquisition(Acquisition):
             image_saved_fn: callable=None,
             process: bool=False,
             saving_queue_size: int=20,
-            timeout: int=500,
+            timeout: int=1000,
             port: int=DEFAULT_PORT,
             debug: bool=False,
             core_log_debug: bool=False,

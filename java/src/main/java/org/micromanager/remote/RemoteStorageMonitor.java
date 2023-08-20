@@ -59,7 +59,6 @@ public class RemoteStorageMonitor implements ImageWrittenListener {
                ex.printStackTrace();
                throw new RuntimeException(ex);
             }
-            System.out.println("Pushing: " + e);
 
             if (e.dataSetFinishedEntry_) {
                pushSocket_.push(IndexEntryData.createFinishedEntry());
@@ -82,8 +81,12 @@ public class RemoteStorageMonitor implements ImageWrittenListener {
     * Called the storage to signal that a new image has finished writing
     */
    public void imageWritten(IndexEntryData ied) {
-      System.out.println("Added to monitor: " + ied);
       indexEntries_.addLast(ied);
+   }
+
+   @Override
+   public void awaitCompletion() {
+      //deprecated
    }
 
    /**
@@ -95,17 +98,4 @@ public class RemoteStorageMonitor implements ImageWrittenListener {
       pushSocket_.close();
    }
 
-   @Override
-   public void awaitCompletion() {
-      // No need to do this, because the storage sould shutdown irrespective of this montior
-      // which exists on top of it
-
-//      while (!executor_.isTerminated()) {
-//         try {
-//            Thread.sleep(5);
-//         } catch (InterruptedException e) {
-//            throw new RuntimeException(e);
-//         }
-//      }
-   }
 }

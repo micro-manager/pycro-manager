@@ -51,6 +51,7 @@ public class RemoteEventSource {
       //constantly poll the socket for more event sequences to submit
       executor_.submit(() -> {
          try {
+            System.out.println("pull socket started");
             while (true) {
                List<AcquisitionEvent> eList = pullSocket_.next();
                boolean finished = eList.get(eList.size() - 1).isAcquisitionFinishedEvent();
@@ -60,9 +61,9 @@ public class RemoteEventSource {
                   executor_.shutdown();
                   return;
                }
-//            } catch (ExecutionException ex) {
-//               JOptionPane.showMessageDialog(null, ex.getMessage());
             }
+         } catch (InterruptedException e) {
+            // it was aborted
          } catch (Exception e) {
             e.printStackTrace();
             if (!executor_.isShutdown()) {
@@ -94,9 +95,21 @@ public class RemoteEventSource {
    /**
     * This method needed so the source can be shutdown from x out on the viewer, 
     * rather than sending a finished event like normal
+    *
+    * It causes the pull socket to shutdown without getting a signal from the push
+    * socket sending in events. Thus it is up to the code on that side to ensure it is properly
+    * shut down
     */
    void abort() {
-      executor_.shutdownNow();
+      executor_.shutdown();
+      while(!executor_.isTerminated()) {
+         try {
+            Thread.sleep(1);
+         } catch (InterruptedException e) {
+            e.printStackTrace();
+         }
+      };
+
       pullSocket_.close();
    }
 

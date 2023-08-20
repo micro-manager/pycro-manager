@@ -193,12 +193,21 @@ class RemoteViewerStorageAdapter implements NDViewerDataSource, AcqEngJDataSink,
    }
 
    @Override
+   public void increaseMaxResolutionLevel(int newMaxResolutionLevel) {
+      storage_.increaseMaxResolutionLevel(newMaxResolutionLevel);
+   }
+
+   @Override
    public String getDiskLocation() {
       return dir_;
    }
    
    public void close() {
-      storage_.close();
+      try {
+         storage_.closeAndWait();
+      } catch (InterruptedException e) {
+         throw new RuntimeException(e);
+      }
    }
 
    @Override
@@ -225,8 +234,14 @@ class RemoteViewerStorageAdapter implements NDViewerDataSource, AcqEngJDataSink,
       }
       
       if (showViewer_) {
-         viewer_.setWindowTitle(name_ + " (Finished)");
-         displayCommunicationExecutor_.shutdown();
+         try {
+            storage_.checkForWritingException();
+            viewer_.setWindowTitle(name_ + " (Finished)");
+         } catch (Exception e) {
+            viewer_.setWindowTitle(name_ + " (Finished with saving error)");
+         } finally {
+            displayCommunicationExecutor_.shutdown();
+         }
       }
       finished_ = true;
    }
