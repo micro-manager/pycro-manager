@@ -101,9 +101,14 @@ public class StackResampler {
       };
 
       double[][] rotationMatrix = {
-         // working but inverted
+         // working but yields XZ rather than XY view
          //   {-Math.cos(Math.PI / 2 + theta), Math.sin(Math.PI / 2 + theta)},
          //   {-Math.sin(Math.PI / 2 + theta), -Math.cos(Math.PI / 2 + theta)}
+         // rotates by 180 degrees around X axis
+         // {Math.cos(theta), -Math.sin(theta)},
+         // {Math.sin(theta), Math.cos(theta)}
+
+         // this seems to be doing the right thing...
          {-Math.cos(theta), Math.sin(theta)},
          {-Math.sin(theta), -Math.cos(theta)}
       };
@@ -242,9 +247,9 @@ public class StackResampler {
       };
 
       this.reconImageShape_ = new int[] {
-         (int) Math.ceil(totalTransformedExtent[0]) + 1,
-         (int) Math.ceil(totalTransformedExtent[1]) + 1,
-         this.cameraImageShape_[2] // x pixels are copied 1 to 1
+         (int) Math.ceil(totalTransformedExtent[0]) + 1, // Z
+         (int) Math.ceil(totalTransformedExtent[1]) + 1, // Y
+         this.cameraImageShape_[2] // X, x pixels are copied 1 to 1
       };
    }
 
@@ -375,6 +380,9 @@ public class StackResampler {
     * @param imageSliceIndex z plane number, starting with 0.
     */
    public void addImageToRecons(short[] image, int imageSliceIndex) {
+      if (image == null) {
+         return;
+      }
       // Add to projection/recon
       for (int yIndexCamera = 0; yIndexCamera < this.cameraImageShape_[1]; yIndexCamera++) {
          if (!this.reconCoordLUT_.containsKey(new Point(imageSliceIndex, yIndexCamera))) {
@@ -577,7 +585,7 @@ public class StackResampler {
 
          @Override
          public boolean hasNext() {
-            return !stop_ && processedImages_.get() < StackResampler.this.cameraImageShape_[0];
+            return !stop_ && processedImages_.get() < (StackResampler.this.cameraImageShape_[0] - 1);
          }
 
          @Override
@@ -590,7 +598,8 @@ public class StackResampler {
                if (element.getPixels() == null) {
                   // This is the last image, stop processing
                   stop_ = true;
-                  return null;
+                  // returning null causes a null pointer exception soon.
+                  //return null;
                }
                processedImages_.incrementAndGet();
                return element;
@@ -603,9 +612,9 @@ public class StackResampler {
       return () -> StreamSupport.stream(Spliterators.spliterator(iterator,
                         StackResampler.this.cameraImageShape_[0],
             Spliterator.ORDERED | Spliterator.IMMUTABLE | Spliterator.NONNULL), true)
-            .forEach(imagePlusFrame ->
-                    StackResampler.this.addImageToRecons(imagePlusFrame.getPixels(),
-                             imagePlusFrame.getFrameNr()));
+            .forEach(imagePlusSlice ->
+                    StackResampler.this.addImageToRecons(imagePlusSlice.getPixels(),
+                             imagePlusSlice.getFrameNr()));
    }
 
 

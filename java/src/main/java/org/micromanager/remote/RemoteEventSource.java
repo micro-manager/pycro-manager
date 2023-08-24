@@ -54,7 +54,6 @@ public class RemoteEventSource {
             System.out.println("pull socket started");
             while (true) {
                List<AcquisitionEvent> eList = pullSocket_.next();
-               System.out.println("got something from pull socket");
                boolean finished = eList.get(eList.size() - 1).isAcquisitionFinishedEvent();
                Future result = acq_.submitEventIterator(eList.iterator());
                result.get(); //propogate any exceptions
@@ -65,14 +64,12 @@ public class RemoteEventSource {
             }
          } catch (InterruptedException e) {
             // it was aborted
-            System.out.println("pull socket interrupted");
          } catch (Exception e) {
             e.printStackTrace();
             if (!executor_.isShutdown()) {
                acq_.abort(e);
             }
          } finally {
-            System.out.println("pull socket closed");
             pullSocket_.close();
          }
 
