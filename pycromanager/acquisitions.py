@@ -193,6 +193,7 @@ def _run_image_processor(
 
 def _storage_monitor_fn(acquisition, dataset, storage_monitor_push_port, connected_event,
                         image_saved_fn, event_queue, debug=False):
+    print('starting storage monitor on port {}'.format(storage_monitor_push_port))
     monitor_socket = PullSocket(storage_monitor_push_port)
     connected_event.set()
     callback = None
@@ -207,7 +208,9 @@ def _storage_monitor_fn(acquisition, dataset, storage_monitor_push_port, connect
 
     while True:
         try:
+            print('awaiting storage callback')
             message = monitor_socket.receive()
+            print(message)
             if "finished" in message:
                 # Poison, time to shut down
                 monitor_socket.close()
@@ -223,18 +226,22 @@ def _storage_monitor_fn(acquisition, dataset, storage_monitor_push_port, connect
             acquisition.abort(e)
 
 def _notification_handler_fn(acquisition, notification_push_port, connected_event, debug=False):
+    print('starting notification handler on port {}'.format(notification_push_port))
     monitor_socket = PullSocket(notification_push_port)
     connected_event.set()
 
     while True:
         try:
+            print('awaiting notification')
             message = monitor_socket.receive()
+            print(message)
             acquisition._notification_queue.put(message)
+            print('put message in queue')
 
             if "acq_finished" in message["type"]:
                 # Poison, time to shut down
                 monitor_socket.close()
-                return
+                break
 
         except Exception as e:
             acquisition.abort(e)
@@ -355,16 +362,15 @@ class Acquisition(object, metaclass=NumpyDocstringInheritanceMeta):
         self._initialize_hooks(**named_args)
 
         # Start remote acquisition
-        try:
-            self._remote_notification_handler = JavaObject('org.micromanager.remote.RemoteNotificationHandler',
-                                                           args=(self._remote_acq,),
-                                                      port=self._port, new_socket=True)
-            self._acq_notification_thread = self._add_notification_handler_fn()
-        except:
-            warnings.warn('Could not create acquisition notification handler. This should not affect performance,'
-                          ' but indicates that Micro-Manager is out of date')
+        # try:
+        #     self._remote_notification_handler = JavaObject('org.micromanager.remote.RemoteNotificationHandler',
+        #                                                    args=[self._remote_acq], port=self._port, new_socket=True)
+        #     self._acq_notification_thread = self._add_notification_handler_fn()
+        # except:
+        #     warnings.warn('Could not create acquisition notification handler. This should not affect performance,'
+        #                   ' but indicates that Micro-Manager is out of date')
 
-        # Acquistiion.start is now deprecated, so this can be removed later
+        # Acquistition.start is now deprecated, so this can be removed later
         # Acquisitions now get started automatically when the first events submitted
         # but Magellan acquisitons (and probably others that generate their own events)
         # will need some new method to submit events only after image processors etc have been added
@@ -440,10 +446,13 @@ class Acquisition(object, metaclass=NumpyDocstringInheritanceMeta):
             time.sleep(1 if self._debug else 0.05)
             self._check_for_exceptions()
 
-        if hasattr(self, '_acq_notification_thread'):
-            # for backwards compatiblitiy with older versions of Pycromanager java before this added
-            self._acq_notification_thread.join()
-            self._remote_notification_handler.notification_handling_complete()
+        for hook_thread in self._hook_threads:
+            hook_thread.join()
+
+        if hasattr(self, '_event_thread'):
+            self._event_thread.join()
+
+        self._remote_acq = None
 
         # Wait on all the other threads to shut down properly
         if hasattr(self, '_storage_monitor_thread'):
@@ -452,13 +461,13 @@ class Acquisition(object, metaclass=NumpyDocstringInheritanceMeta):
             # tell it it is okay to shutdown its push socket
             self._remote_storage_monitor.storage_monitoring_complete()
 
-        for hook_thread in self._hook_threads:
-            hook_thread.join()
+        if hasattr(self, '_acq_notification_thread'):
+            # for backwards compatiblitiy with older versions of Pycromanager java before this added
+            self._acq_notification_thread.join()
+            self._remote_notification_handler.notification_handling_complete()
 
-        if hasattr(self, '_event_thread'):
-            self._event_thread.join()
 
-        self._remote_acq = None
+
         self._finished = True
 
     def acquire(self, event_or_events: dict or list):

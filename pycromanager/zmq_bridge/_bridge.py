@@ -640,7 +640,12 @@ class _JavaObjectShadow:
             print('DEBUG: destructor for {} on thread {}'.format(
                 str(self), threading.current_thread().name))
             print('DEBUG:       thread name: {}'.format(threading.current_thread().name))
-        self._close()
+        try:
+            self._close()
+        except Exception as e:
+            traceback.print_exc()
+            print('Exception in destructor for {} on thread {}'.format(
+                str(self), threading.current_thread().name))
 
     def _access_field(self, name):
         """
