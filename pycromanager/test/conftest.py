@@ -10,7 +10,7 @@ import time
 
 import pycromanager
 from pycromanager import start_headless
-from pycromanager.acq_util import cleanup
+from pycromanager.acq_util import stop_headless
 import socket
 
 def is_port_in_use(port):
