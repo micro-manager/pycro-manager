@@ -53,7 +53,6 @@ public class RemoteStorageMonitor implements ImageWrittenListener {
     * Start pushing out the indices to the other side
     */
    public void start() {
-      System.out.println("Starting remote storage monitor on port " + pushSocket_.getPort());
       //constantly poll the socket for more event sequences to submit
       executor_.submit(() -> {
          while (true) {

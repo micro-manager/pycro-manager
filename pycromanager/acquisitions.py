@@ -458,11 +458,12 @@ class Acquisition(object, metaclass=NumpyDocstringInheritanceMeta):
             # tell it it is okay to shutdown its push socket
             self._remote_storage_monitor.storage_monitoring_complete()
 
-        if hasattr(self, '_acq_notification_thread'):
+        if hasattr(self, '_acq_notification_recieving_thread'):
             # for backwards compatiblitiy with older versions of Pycromanager java before this added
             self._acq_notification_recieving_thread.join()
-            self._acq_notification_dispatcher_thread.join()
             self._remote_notification_handler.notification_handling_complete()
+            self._acq_notification_dispatcher_thread.join()
+
 
         self._finished = True
 

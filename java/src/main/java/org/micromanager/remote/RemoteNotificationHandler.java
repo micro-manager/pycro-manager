@@ -53,7 +53,6 @@ public class RemoteNotificationHandler implements AcqNotificationListener {
     * Start pushing out the indices to the other side
     */
    public void start() {
-      System.out.println("Starting remote notifivation handler on port " + pushSocket_.getPort());
       //constantly poll the socket for more event sequences to submit
       executor_.submit(() -> {
          while (true) {

@@ -51,7 +51,6 @@ public class RemoteEventSource {
                  }
               });
          try {
-            System.out.println("pull socket started");
             while (true) {
                List<AcquisitionEvent> eList = pullSocket_.next();
                boolean finished = eList.get(eList.size() - 1).isAcquisitionFinishedEvent();
