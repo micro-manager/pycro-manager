@@ -23,25 +23,30 @@ public class RemoteStorageMonitor implements ImageWrittenListener {
 
    private ZMQPushSocket<IndexEntryData> pushSocket_;
    private ExecutorService executor_ = Executors.newSingleThreadExecutor((Runnable r) -> {
-      return new Thread(r, "Remote Event Source thread");
+      return new Thread(r, "Remote storage monitor thread");
    });
    private LinkedBlockingDeque<IndexEntryData> indexEntries_ = new LinkedBlockingDeque<IndexEntryData>();
 
    public RemoteStorageMonitor() {
-      pushSocket_ = new ZMQPushSocket<IndexEntryData>(
-              t -> {
-                 try {
-                    JSONObject message = new JSONObject();
-                    if (t.isDataSetFinishedEntry()) {
-                       message.put("finished", true);
-                    } else {
-                       message.put("index_entry", ((ByteBuffer) t.asByteBuffer()).array());
-                    }
-                    return message;
-                 } catch (JSONException e) {
-                    throw new RuntimeException("Problem with data saved socket");
-                 }
-              });
+      executor_.submit(new Runnable() {
+         @Override
+         public void run() {
+            pushSocket_ = new ZMQPushSocket<IndexEntryData>(
+                    t -> {
+                       try {
+                          JSONObject message = new JSONObject();
+                          if (t.isDataSetFinishedEntry()) {
+                             message.put("finished", true);
+                          } else {
+                             message.put("index_entry", ((ByteBuffer) t.asByteBuffer()).array());
+                          }
+                          return message;
+                       } catch (JSONException e) {
+                          throw new RuntimeException("Problem with data saved socket");
+                       }
+                    });
+         }
+      });
    }
 
    /**
@@ -73,6 +78,13 @@ public class RemoteStorageMonitor implements ImageWrittenListener {
 
 
    public int getPort() {
+      while (pushSocket_ == null) {
+         try {
+            Thread.sleep(1);
+         } catch (InterruptedException e) {
+            e.printStackTrace();
+         }
+      }
       return pushSocket_.getPort();
    }
 
@@ -84,26 +96,20 @@ public class RemoteStorageMonitor implements ImageWrittenListener {
       indexEntries_.addLast(ied);
    }
 
+   @Override
+   public void awaitCompletion() {
+      //deprecated
+   }
+
    /**
     * Called by the python side to signal that the final shutdown signal has been received
     * and that the push socket can be closed
     */
    public void storageMonitoringComplete() {
-      executor_.shutdown();
-      pushSocket_.close();
+      executor_.submit(() -> {
+         pushSocket_.close();
+         executor_.shutdown();
+      });
    }
 
-   @Override
-   public void awaitCompletion() {
-      // No need to do this, because the storage sould shutdown irrespective of this montior
-      // which exists on top of it
-
-//      while (!executor_.isTerminated()) {
-//         try {
-//            Thread.sleep(5);
-//         } catch (InterruptedException e) {
-//            throw new RuntimeException(e);
-//         }
-//      }
-   }
 }
