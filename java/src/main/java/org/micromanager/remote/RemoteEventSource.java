@@ -34,6 +34,8 @@ public class RemoteEventSource {
    });
 
    public RemoteEventSource() {
+      //constantly poll the socket for more event sequences to submit
+      executor_.submit(() -> {
       pullSocket_ = new ZMQPullSocket<>(
               t -> {
                  try {
@@ -48,8 +50,6 @@ public class RemoteEventSource {
                     throw new RuntimeException("Incorrect format for acquisitio event");
                  }
               });
-      //constantly poll the socket for more event sequences to submit
-      executor_.submit(() -> {
          try {
             System.out.println("pull socket started");
             while (true) {
@@ -59,7 +59,7 @@ public class RemoteEventSource {
                result.get(); //propogate any exceptions
                if (finished || executor_.isShutdown()) {
                   executor_.shutdown();
-                  return;
+                  break;
                }
             }
          } catch (InterruptedException e) {
@@ -81,6 +81,14 @@ public class RemoteEventSource {
    }
 
    public int getPort() {
+      while (pullSocket_ == null) {
+         // wait for it to be created ona different thread
+         try {
+            Thread.sleep(1);
+         } catch (InterruptedException e) {
+            e.printStackTrace();
+         }
+      }
       return pullSocket_.getPort();
    }
 
@@ -110,7 +118,6 @@ public class RemoteEventSource {
          }
       };
 
-      pullSocket_.close();
    }
 
 }

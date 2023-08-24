@@ -16,6 +16,7 @@ from ndtiff import Dataset
 import os.path
 import queue
 from docstring_inheritance import NumpyDocstringInheritanceMeta
+import traceback
 
 class AcqAlreadyCompleteException(Exception):
     def __init__(self, message):
@@ -193,7 +194,6 @@ def _run_image_processor(
 
 def _storage_monitor_fn(acquisition, dataset, storage_monitor_push_port, connected_event,
                         image_saved_fn, event_queue, debug=False):
-    print('starting storage monitor on port {}'.format(storage_monitor_push_port))
     monitor_socket = PullSocket(storage_monitor_push_port)
     connected_event.set()
     callback = None
@@ -206,15 +206,13 @@ def _storage_monitor_fn(acquisition, dataset, storage_monitor_push_port, connect
         else:
             raise Exception('Image saved callbacks must have either 2 or three parameters')
 
-    while True:
-        try:
-            print('awaiting storage callback')
+
+    try:
+        while True:
             message = monitor_socket.receive()
-            print(message)
             if "finished" in message:
-                # Poison, time to shut down
-                monitor_socket.close()
-                return
+                # Time to shut down
+                break
 
             index_entry = message["index_entry"]
             axes = dataset._add_index_entry(index_entry)
@@ -222,29 +220,27 @@ def _storage_monitor_fn(acquisition, dataset, storage_monitor_push_port, connect
             dataset._new_image_arrived = True
             if callback is not None:
                 callback(axes, dataset)
-        except Exception as e:
+    except Exception as e:
             acquisition.abort(e)
+    finally:
+        monitor_socket.close()
 
 def _notification_handler_fn(acquisition, notification_push_port, connected_event, debug=False):
-    print('starting notification handler on port {}'.format(notification_push_port))
     monitor_socket = PullSocket(notification_push_port)
     connected_event.set()
 
-    while True:
-        try:
-            print('awaiting notification')
+    try:
+        while True:
             message = monitor_socket.receive()
-            print(message)
             acquisition._notification_queue.put(message)
-            print('put message in queue')
-
             if "acq_finished" in message["type"]:
-                # Poison, time to shut down
-                monitor_socket.close()
                 break
 
-        except Exception as e:
-            acquisition.abort(e)
+    except Exception as e:
+        traceback.print_exc()
+        acquisition.abort(e)
+    finally:
+        monitor_socket.close()
 
 class Acquisition(object, metaclass=NumpyDocstringInheritanceMeta):
     """
@@ -341,7 +337,7 @@ class Acquisition(object, metaclass=NumpyDocstringInheritanceMeta):
         self._timeout = timeout
         self._nd_viewer = None
         self._napari_viewer = None
-        self._notification_queue = queue.Queue(30)
+        self._notification_queue = queue.Queue(100)
 
         # Get a dict of all named argument values (or default values when nothing provided)
         arg_names = [k for k in signature(Acquisition.__init__).parameters.keys() if k != 'self']
@@ -361,15 +357,16 @@ class Acquisition(object, metaclass=NumpyDocstringInheritanceMeta):
         self._initialize_image_processor(**named_args)
         self._initialize_hooks(**named_args)
 
-        # Start remote acquisition
-        # try:
-        #     self._remote_notification_handler = JavaObject('org.micromanager.remote.RemoteNotificationHandler',
-        #                                                    args=[self._remote_acq], port=self._port, new_socket=True)
-        #     self._acq_notification_thread = self._add_notification_handler_fn()
-        # except:
-        #     warnings.warn('Could not create acquisition notification handler. This should not affect performance,'
-        #                   ' but indicates that Micro-Manager is out of date')
+        try:
+            self._remote_notification_handler = JavaObject('org.micromanager.remote.RemoteNotificationHandler',
+                                                           args=[self._remote_acq], port=self._port, new_socket=True)
+            self._acq_notification_recieving_thread = self._start_receiving_notifications()
+            self._acq_notification_dispatcher_thread = self._start_notification_dispatcher()
+        except:
+            warnings.warn('Could not create acquisition notification handler. This should not affect performance,'
+                          ' but indicates that Micro-Manager is out of date')
 
+        # Start remote acquisition
         # Acquistition.start is now deprecated, so this can be removed later
         # Acquisitions now get started automatically when the first events submitted
         # but Magellan acquisitons (and probably others that generate their own events)
@@ -463,10 +460,9 @@ class Acquisition(object, metaclass=NumpyDocstringInheritanceMeta):
 
         if hasattr(self, '_acq_notification_thread'):
             # for backwards compatiblitiy with older versions of Pycromanager java before this added
-            self._acq_notification_thread.join()
+            self._acq_notification_recieving_thread.join()
+            self._acq_notification_dispatcher_thread.join()
             self._remote_notification_handler.notification_handling_complete()
-
-
 
         self._finished = True
 
@@ -534,9 +530,11 @@ class Acquisition(object, metaclass=NumpyDocstringInheritanceMeta):
 
     ########  Private methods ###########
 
-    def _add_notification_handler_fn(self):
+    def _start_receiving_notifications(self):
         """
-        Add a callback function that gets called whenever a new notification is received
+        Thread that runs a function that pulls notifications from the acquisition engine and puts them on a queue
+        This is not all notifications, just ones that are relevant to the acquisition. Specifically, it does not
+        include notifications the progress of data saving
         """
         connected_event = threading.Event()
 
@@ -551,7 +549,7 @@ class Acquisition(object, metaclass=NumpyDocstringInheritanceMeta):
             ),
             name="NotificationHandlerThread",
         )
-
+        #
         # Wait for pulling to start before you signal for pushing to start
         notification_thread.start()
         connected_event.wait()
@@ -559,6 +557,38 @@ class Acquisition(object, metaclass=NumpyDocstringInheritanceMeta):
         # start pushing out all the notifications
         self._remote_notification_handler.start()
         return notification_thread
+
+    def _start_notification_dispatcher(self):
+        """
+        Thread that runs a function that pulls notifications from the queue on the python side and dispatches
+        them to the appropriate listener
+        """
+        def dispatch_notifications():
+            while True:
+                # dispatch notifications to all listeners
+                try:
+                    notification = self._notification_queue.get(timeout=0.05)  # 50 ms timeout
+                except queue.Empty:
+                    storage_monitoring_ongoing = hasattr(self, '_storage_monitor_thread')\
+                                                 and self._storage_monitor_thread.is_alive()
+                    acq_notifications_ongoing = hasattr(self, '_acq_notification_recieving_thread')\
+                                                    and self._acq_notification_recieving_thread.is_alive()
+                    if not storage_monitoring_ongoing and not acq_notifications_ongoing and self._notification_queue.empty():
+                        # if all the threads have shut down and the queue is empty, then shut down
+                        break
+                else:
+                    # TODO dispatch them to all listeners
+                    # print(notification)
+                    pass
+
+
+        dispatcher_thread = threading.Thread(
+            target=dispatch_notifications,
+            name="NotificationDispatcherThread",
+        )
+        dispatcher_thread.start()
+        return dispatcher_thread
+
 
     def _add_storage_monitor_fn(self, callback_fn=None, debug=False):
         """
