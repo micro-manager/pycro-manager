@@ -263,7 +263,7 @@ class Acquisition(object, metaclass=NumpyDocstringInheritanceMeta):
         image_saved_fn: callable=None,
         process: bool=False,
         saving_queue_size: int=20,
-        timeout: int=1000,
+        timeout: int=2000,
         port: int=DEFAULT_PORT,
         debug: int=False,
         core_log_debug: int=False,
@@ -362,7 +362,7 @@ class Acquisition(object, metaclass=NumpyDocstringInheritanceMeta):
 
         try:
             self._remote_notification_handler = JavaObject('org.micromanager.remote.RemoteNotificationHandler',
-                                                           args=[self._remote_acq], port=self._port, new_socket=True)
+                                                           args=[self._remote_acq], port=self._port, new_socket=False)
             self._acq_notification_recieving_thread = self._start_receiving_notifications()
             self._acq_notification_dispatcher_thread = self._start_notification_dispatcher()
         except:
@@ -392,7 +392,7 @@ class Acquisition(object, metaclass=NumpyDocstringInheritanceMeta):
             ndtiff_storage = data_sink.get_storage()
             summary_metadata = ndtiff_storage.get_summary_metadata()
             self._remote_storage_monitor = JavaObject('org.micromanager.remote.RemoteStorageMonitor', port=self._port,
-                                                      new_socket=True)
+                                                      new_socket=False)
             ndtiff_storage.add_image_written_listener(self._remote_storage_monitor)
             self._dataset = Dataset(dataset_path=self._dataset_disk_location, _summary_metadata=summary_metadata)
             # Monitor image arrival so they can be loaded on python side, but with no callback function
