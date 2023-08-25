@@ -37,13 +37,12 @@ def start_napari_signalling(viewer, dataset):
             image = None
 
             if dataset is not None and dataset.has_new_image():
-                # A new image has arrived, but we only need to regenerate the dask array
-                # if its shape has changed
+                # A new image has arrived, this could be overwriting something existing or have a new combination of axes
+                image = dataset.as_array()
                 shape = np.array([len(dataset.axes[name]) for name in dataset.axes.keys()])
                 if not hasattr(napari_signaller, 'old_shape') or \
                         napari_signaller.old_shape.size != shape.size or \
                         np.any(napari_signaller.old_shape != shape):
-                    image = dataset.as_array()
                     napari_signaller.old_shape = shape
 
             yield image

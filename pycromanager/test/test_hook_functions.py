@@ -1,5 +1,5 @@
 import numpy as np
-from pycromanager import Acquisition, multi_d_acquisition_events
+from pycromanager import JavaBackendAcquisition, multi_d_acquisition_events
 
 
 def test_img_process_fn(launch_mm_headless, setup_data_folder):
@@ -14,8 +14,8 @@ def test_img_process_fn(launch_mm_headless, setup_data_folder):
 
         return image, metadata
 
-    with Acquisition(setup_data_folder, 'acq', show_display=False,
-                     image_process_fn=hook_fn) as acq:
+    with JavaBackendAcquisition(setup_data_folder, 'acq', show_display=False,
+                                image_process_fn=hook_fn) as acq:
         acq.acquire(events)
 
     dataset = acq.get_dataset()
@@ -34,8 +34,8 @@ def test_img_process_fn_no_save(launch_mm_headless):
     def hook_fn(image, metadata):
         return None
 
-    with Acquisition(directory=None, name='acq', show_display=False,
-                     image_process_fn=hook_fn) as acq:
+    with JavaBackendAcquisition(directory=None, name='acq', show_display=False,
+                                image_process_fn=hook_fn) as acq:
         acq.acquire(events)
         dataset = acq.get_dataset()  # Can this be moved out of the Acquisition context?
 
@@ -68,7 +68,7 @@ def test_event_serialize_and_deserialize(launch_mm_headless):
         assert (event == test_event)
         return None  # cancel the event
 
-    with Acquisition(show_display=False, pre_hardware_hook_fn=hook_fn) as acq:
+    with JavaBackendAcquisition(show_display=False, pre_hardware_hook_fn=hook_fn) as acq:
         # copy list of events to avoid popping from original
         events_copy = [e for e in events]
         for test_event in events:

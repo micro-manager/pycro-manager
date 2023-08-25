@@ -1,4 +1,4 @@
-from pycromanager import Acquisition, multi_d_acquisition_events
+from pycromanager import JavaBackendAcquisition, multi_d_acquisition_events
 import numpy as np
 
 def image_saved_fn(axes, dataset):
@@ -7,8 +7,8 @@ def image_saved_fn(axes, dataset):
     # Do something with image pixels/metadata
 
 dir = r'C:\Users\henry\Desktop\data'
-with Acquisition(directory=dir, name="tcz_acq", debug=D, show_display=False,
-                 image_saved_fn=image_saved_fn) as acq:
+with JavaBackendAcquisition(directory=dir, name="tcz_acq", debug=D, show_display=False,
+                            image_saved_fn=image_saved_fn) as acq:
     events = multi_d_acquisition_events(
         num_time_points=5,
         time_interval_s=0,

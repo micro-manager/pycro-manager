@@ -1,6 +1,6 @@
 import os
 import pytest
-from pycromanager import Acquisition, Core, multi_d_acquisition_events
+from pycromanager import JavaBackendAcquisition, ZMQRemoteMMCoreJ, multi_d_acquisition_events
 import napari
 
 # Skip tests in this module if it is running in GitHub Actions, which does not support NDViewer
@@ -14,7 +14,7 @@ def test_timelapse_NDViewer(launch_mm_headless, setup_data_folder):
         time_interval_s=0,
     )
 
-    with Acquisition(setup_data_folder, 'acq', show_display=True) as acq:
+    with JavaBackendAcquisition(setup_data_folder, 'acq', show_display=True) as acq:
         acq.acquire(events)
 
     # close viewer
@@ -33,7 +33,7 @@ def test_multi_d_acq_NDViewer(launch_mm_headless, setup_data_folder):
         order="tcz",
     )
 
-    with Acquisition(setup_data_folder, 'acq', show_display=True) as acq:
+    with JavaBackendAcquisition(setup_data_folder, 'acq', show_display=True) as acq:
         acq.acquire(events)
 
     # close viewer
@@ -48,7 +48,7 @@ def test_timelapse_napari_viewer(launch_mm_headless, setup_data_folder):
 
     viewer = napari.Viewer()
 
-    acq = Acquisition(setup_data_folder, 'acq', napari_viewer=viewer)
+    acq = JavaBackendAcquisition(setup_data_folder, 'acq', napari_viewer=viewer)
     acq.acquire(events)
     acq.mark_finished()
 
@@ -71,7 +71,7 @@ def test_multi_d_acq_napari_viewer(launch_mm_headless, setup_data_folder):
 
     viewer = napari.Viewer()
 
-    acq = Acquisition(setup_data_folder, 'acq', napari_viewer=viewer)
+    acq = JavaBackendAcquisition(setup_data_folder, 'acq', napari_viewer=viewer)
     acq.acquire(events)
     acq.mark_finished()
 

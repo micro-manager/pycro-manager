@@ -1,4 +1,4 @@
-from pycromanager import Core
+from pycromanager import ZMQRemoteMMCoreJ
 import numpy as np
 import time
 
@@ -7,7 +7,7 @@ from arduino_triggering import TriggerTester
 ### Setup
 trigger_arduino = TriggerTester('COM3')
 
-core = Core()
+core = ZMQRemoteMMCoreJ()
 core.set_exposure(500)
 camera_name = core.get_camera_device()
 

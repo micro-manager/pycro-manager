@@ -776,7 +776,7 @@ class AcqEngMetadata:
             if AcqEngMetadata.has_axis(tags, axis):
                 del tags[AcqEngMetadata.AXES][axis]
                 return
-        if not isinstance(position, (str, int, np.int64)):
+        if not isinstance(position, (str, int, np.int64, np.int32)):
             raise ValueError("position must be String or Integer")
         tags[AcqEngMetadata.AXES][axis] = position
 

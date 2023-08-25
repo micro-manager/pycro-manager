@@ -1,4 +1,4 @@
-from pycromanager import Core, Acquisition, multi_d_acquisition_events, start_headless
+from pycromanager import ZMQRemoteMMCoreJ, JavaBackendAcquisition, multi_d_acquisition_events, start_headless
 import time
 
 mm_app_path = 'C:/Program Files/Micro-Manager-2.0'
@@ -25,10 +25,10 @@ def img_proc_fn(image, metadata):
         raise Exception("asdfasdf")
     return image, metadata
 
-with Acquisition(directory=r"C:\Users\henry\Desktop\datadump", name='PM_test2',
-                 pre_hardware_hook_fn=hook_fn,
-                 #    image_process_fn=img_proc_fn,
-                 debug=True, timeout=4000) as acq:
+with JavaBackendAcquisition(directory=r"C:\Users\henry\Desktop\datadump", name='PM_test2',
+                            pre_hardware_hook_fn=hook_fn,
+                            #    image_process_fn=img_proc_fn,
+                            debug=True, timeout=4000) as acq:
     acq.acquire(multi_d_acquisition_events(num_time_points=4, time_interval_s=5, z_start = 0, z_end = 3, z_step = 1))
 
 acq = None

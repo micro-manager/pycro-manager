@@ -1,5 +1,5 @@
 import numpy as np
-from pycromanager import multi_d_acquisition_events, Acquisition
+from pycromanager import multi_d_acquisition_events, JavaBackendAcquisition
 import copy
 
 
@@ -23,7 +23,7 @@ def img_process_fn(image, metadata):
 
     return [(image, metadata), (image2, md_2)]
 
-with Acquisition(
+with JavaBackendAcquisition(
     directory="/Users/henrypinkard/megllandump", name="tcz_acq", image_process_fn=img_process_fn
 ) as acq:
     # Generate the events for a single z-stack

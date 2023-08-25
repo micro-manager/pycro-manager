@@ -1,4 +1,4 @@
-from pycromanager import JavaClass, Core
+from pycromanager import JavaClass, ZMQRemoteMMCoreJ
 
 
 tester = JavaClass('org.micromanager.acquisition.internal.acqengjcompat.speedtest.SpeedTest')
@@ -6,7 +6,7 @@ pass
 
 dir = r'C:\Users\henry\Desktop\data'
 name = r'speed\test'
-core = Core()
+core = ZMQRemoteMMCoreJ()
 num_time_points = 1000
 show_viewer = True
 

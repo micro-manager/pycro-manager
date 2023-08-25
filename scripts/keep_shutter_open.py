@@ -1,8 +1,8 @@
 import numpy as np
-from pycromanager import Acquisition, multi_d_acquisition_events
+from pycromanager import JavaBackendAcquisition, multi_d_acquisition_events
 
 
-with Acquisition("/Users/henrypinkard/megllandump", "l_axis") as acq:
+with JavaBackendAcquisition("/Users/henrypinkard/megllandump", "l_axis") as acq:
     # create one event for the image at each z-slice
     for time in range(5):
         z_stack = []

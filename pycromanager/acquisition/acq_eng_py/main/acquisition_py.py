@@ -5,8 +5,8 @@ from collections import deque
 from concurrent.futures import ThreadPoolExecutor
 import time
 
-from pycromanager.acq_eng_py.main.acq_eng_metadata import AcqEngMetadata
-from pycromanager.acq_eng_py.internal.engine import Engine
+from pycromanager.acquisition.acq_eng_py.main.acq_eng_metadata import AcqEngMetadata
+from pycromanager.acquisition.acq_eng_py.internal.engine import Engine
 
 
 
@@ -121,7 +121,7 @@ class Acquisition():
                     img = self.first_dequeue_.get()
                     if self.debug_mode_:
                         self.core_.log_message("got image to save")
-                    if img is None:
+                    if img.tags is None and img.pix is None:
                         break
                     self.save_image(img)
                 else:
@@ -139,14 +139,14 @@ class Acquisition():
             traceback.print_exc()
             self.abort(ex)
         finally:
-            self.save_image(None)
+            self.save_image(self.core_.TaggedImage(None, None))
             self.saving_executor_.shutdown()
 
     def add_image_processor(self, p):
         if self.started_:
             raise RuntimeError("Cannot add processor after acquisition started")
         self.image_processors_.append(p)
-        self.processor_output_queues_[p] = deque(maxlen=IMAGE_QUEUE_SIZE)
+        self.processor_output_queues_[p] = deque(maxlen=self.IMAGE_QUEUE_SIZE)
         if len(self.image_processors_) == 1:
             p.set_acq_and_dequeues(self, self.first_dequeue_, self.processor_output_queues_[p])
         else:
@@ -195,7 +195,7 @@ class Acquisition():
         self.started_ = True
 
     def save_image(self, image):
-        if image is None:
+        if image.tags is None and image.pix is None:
             self.data_sink_.finish()
             self.events_finished_ = True
         else:
@@ -245,17 +245,16 @@ class Acquisition():
 
     def add_to_output(self, ti):
         try:
+            if ti.tags is None and ti.pix is None:
+                self.events_finished_ = True
+                # TODO: resotore notification? dont see this on acqengJ currently but maybe thats a different branch?
+                # self.post_notification(AcqNotification.create_acq_finished_event())
             self.first_dequeue_.put(ti)
         except Exception as ex:
             raise RuntimeError(ex)
 
     def finish(self):
         Engine.get_instance().finish_acquisition(self)
-
-    def mark_events_finished(self):
-        self.events_finished_ = True
-        # TODO: resotore notification
-        # self.post_notification(AcqNotification.create_acq_finished_event())
 
     def are_events_finished(self):
         return self.events_finished_

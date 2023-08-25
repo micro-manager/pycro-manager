@@ -1,6 +1,6 @@
 from collections import namedtuple
 import json
-from pycromanager.acq_eng_py.main.acq_eng_metadata import AcqEngMetadata
+from pycromanager.acquisition.acq_eng_py.main.acq_eng_metadata import AcqEngMetadata
 
 class AcquisitionEvent:
     class SpecialFlag:
@@ -43,15 +43,15 @@ class AcquisitionEvent:
             configSet = set()
             for event in self.sequence_:
                 if event.zPosition_:
-                    zPosSet.add(event.zPosition_)
+                    zPosSet.add(event.get_z_position())
                 if event.xPosition_:
-                    xPosSet.add(event.getXPosition())
+                    xPosSet.add(event.get_x_position())
                 if event.yPosition_:
-                    yPosSet.add(event.getYPosition())
+                    yPosSet.add(event.get_y_position())
                 if event.exposure_:
-                    exposureSet.add(event.getExposure())
+                    exposureSet.add(event.get_exposure())
                 if event.configPreset_:
-                    configSet.add(event.getConfigPreset())
+                    configSet.add(event.get_config_preset())
             self.exposureSequenced_ = len(exposureSet) > 1
             self.configGroupSequenced_ = len(configSet) > 1
             self.xySequenced_ = len(xPosSet) > 1 and len(yPosSet) > 1
@@ -321,7 +321,7 @@ class AcquisitionEvent:
     @staticmethod
     def create_acquisition_finished_event(acq):
         evt = AcquisitionEvent(acq)
-        evt.specialFlag_ = AcquisitionEvent.SpecialFlag.AcquisitionFinished
+        evt.specialFlag_ = AcquisitionEvent.SpecialFlag.ACQUISITION_FINISHED
         return evt
 
     def is_acquisition_finished_event(self):

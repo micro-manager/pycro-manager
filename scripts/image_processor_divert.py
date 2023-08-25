@@ -1,12 +1,12 @@
 import numpy as np
-from pycromanager import multi_d_acquisition_events, Acquisition
+from pycromanager import multi_d_acquisition_events, JavaBackendAcquisition
 
 
 def img_process_fn(image, metadata):
     print(image)
     pass  # send them somewhere else, not default saving and display
 
-with Acquisition(image_process_fn=img_process_fn) as acq:
+with JavaBackendAcquisition(image_process_fn=img_process_fn) as acq:
     # Generate the events for a single z-stack
     events = multi_d_acquisition_events(
         num_time_points=10,

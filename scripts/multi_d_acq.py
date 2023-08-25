@@ -1,7 +1,7 @@
-from pycromanager import Acquisition, multi_d_acquisition_events
+from pycromanager import JavaBackendAcquisition, multi_d_acquisition_events
 
 
-with Acquisition(directory=r"/Users/henrypinkard/tmp", name="tcz_acq", debug=False) as acq:
+with JavaBackendAcquisition(directory=r"/Users/henrypinkard/tmp", name="tcz_acq", debug=False) as acq:
     # Generate the events for a single z-stack
     events = multi_d_acquisition_events(
         num_time_points=8,

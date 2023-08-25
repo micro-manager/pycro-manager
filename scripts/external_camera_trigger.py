@@ -1,5 +1,5 @@
 import numpy as np
-from pycromanager import multi_d_acquisition_events, Acquisition
+from pycromanager import multi_d_acquisition_events, JavaBackendAcquisition
 
 
 def external_trigger_fn(event):
@@ -8,7 +8,7 @@ def external_trigger_fn(event):
 
     return event
 
-with Acquisition(
+with JavaBackendAcquisition(
     directory="/Users/henrypinkard/megllandump",
     name="tcz_acq",
     post_camera_hook_fn=external_trigger_fn,

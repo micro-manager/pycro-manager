@@ -4,10 +4,10 @@ from concurrent.futures import ThreadPoolExecutor
 import time
 import datetime
 
-from pycromanager import JavaObject
-from pycromanager.acq_eng_py.main.acquisition_event import AcquisitionEvent
-from pycromanager.acq_eng_py.main.acq_eng_metadata import AcqEngMetadata
-from pycromanager.acq_eng_py.internal.hardware_sequences import HardwareSequences
+from pycromanager.acquisition.acq_eng_py.main.acquisition_event import AcquisitionEvent
+from pycromanager.acquisition.acq_eng_py.main.acq_eng_metadata import AcqEngMetadata
+from pycromanager.acquisition.acq_eng_py.internal.hardware_sequences import HardwareSequences
+import pymmcore
 
 HARDWARE_ERROR_RETRIES = 6
 DELAY_BETWEEN_RETRIES_MS = 5
@@ -50,17 +50,16 @@ class Engine:
         return self.event_generator_executor.submit(finish_acquisition_inner)
 
     def submit_event_iterator(self, event_iterator):
-        if type(event_iterator) is list:
-            event_iterator = iter(event_iterator)
         def submit_event_iterator_inner():
             acq = None
             while True:
                 try:
-                    event = next(event_iterator)
+                    event = next(event_iterator, None)
                 except StopIteration:
+                    traceback.print_exc()
                     break
                 if event is None:
-                    continue
+                    break # iterator exhausted
                 acq = event.acquisition_
                 if acq.is_debug_mode():
                     Engine.get_core().logMessage("got event: " + event.to_string())
@@ -119,8 +118,8 @@ class Engine:
                 traceback.print_exc()
                 if self.core.is_sequence_running():
                     self.core.stop_sequence_acquisition()
+                raise e
 
-            return None
 
         return self.acq_executor.submit(process_acquisition_event_inner)
 
@@ -157,7 +156,7 @@ class Engine:
             for h in event.acquisition_.get_after_exposure_hooks():
                 h.run(event)
                 h.close()
-            event.acquisition_.add_to_output(None)
+            event.acquisition_.add_to_output(self.core.TaggedImage(None, None))
             event.acquisition_.mark_events_finished()
 
         else:
@@ -169,10 +168,11 @@ class Engine:
                 if event is None:
                     return  # The hook cancelled this event
                 self.abort_if_requested(event, None)
-            hardware_sequences_in_progress = None
+            hardware_sequences_in_progress = HardwareSequences()
             try:
-                hardware_sequences_in_progress = self.prepare_hardware(event)
+                hardware_sequences_in_progress = self.prepare_hardware(event, hardware_sequences_in_progress)
             except HardwareControlException as e:
+                self.stop_hardware_sequences(hardware_sequences_in_progress)
                 raise e
             # TODO restore this
             # event.acquisition_.post_notification(AcqNotification(
@@ -253,31 +253,37 @@ class Engine:
             # snap one image with no sequencing
             # TODO restore this
             # event.acquisition_.postNotification(AcqNotification(AcqNotification.TYPE.CAMERA_NOTIFICATIONS, event, AcqNotification.PHASE.SNAPPING))
-            if event.camera_device_name is not None:
-                current_camera = self.core.getCameraDevice()
-                self.core.setCameraDevice(event.camera_device_name)
-                self.core.snapImage()
+            if event.get_camera_device_name() is not None:
+                current_camera = self.core.get_camera_device()
+                width = self.core.get_image_width()
+                height = self.core.get_image_height()
+                self.core.set_camera_device(event.get_camera_device_name())
+                self.core.snap_image()
                 # TODO restore this
                 # event.acquisition_.postNotification(AcqNotification(AcqNotification.TYPE.CAMERA_NOTIFICATIONS, event, AcqNotification.PHASE.POST_EXPOSURE_STAGE))
-                self.core.setCameraDevice(current_camera)
-                for h in event.acquisition_.getAfterExposureHooks():
+                self.core.set_camera_device(current_camera)
+                for h in event.acquisition_.get_after_exposure_hooks():
                     h.run(event)
             else:
-                self.core.snapImage()
+                # Unlike MMCoreJ, pymmcore does not automatically add this metadata when snapping, so need to do it manually
+                current_camera = self.core.get_camera_device()
+                width = self.core.get_image_width()
+                height = self.core.get_image_height()
+                self.core.snap_image()
                 # TODO: restore this
                 # event.acquisition_.postNotification(AcqNotification(AcqNotification.TYPE.CAMERA_NOTIFICATIONS, event, AcqNotification.PHASE.POST_EXPOSURE_STAGE))
                 # note: SnapImage will block until exposure finishes.
                 # If it is desired that AfterCameraHooks trigger cameras
                 # in Snap mode, those hooks (or SnapImage) should run in a separate thread, started
                 # after snapImage is started.
-                for h in event.acquisition_.getAfterExposureHooks():
+                for h in event.acquisition_.get_after_exposure_hooks():
                     h.run(event)
         
         # get elapsed time
-        current_time = time.time()
+        current_time_ms = time.time() * 1000
         if event.acquisition_.get_start_time_ms() == -1:
             # first image, initialize
-            event.acquisition_.set_start_time_ms(current_time)
+            event.acquisition_.set_start_time_ms(current_time_ms)
 
         # need to assign events to images as they come out, assuming they might be in arbitrary order,
         # but that each camera itself is ordered
@@ -305,7 +311,6 @@ class Engine:
                 # Cancel the rest of the sequence
                 self.stop_hardware_sequences(hardware_sequences_in_progress)
                 break
-            exposure = None
             try:
                 exposure = self.core.get_exposure() if event.get_exposure() is None else event.get_exposure()
             except Exception as ex:
@@ -324,7 +329,7 @@ class Engine:
                                 raise Exception("Sequence buffer overflow")
                             try:
                                 ti = self.core.pop_next_tagged_image()
-                                camera_name = ti.tags.get_string("Camera")
+                                camera_name = ti.tags["Camera"]
                             except Exception as e:
                                 # continue waiting
                                 if not self.core.is_sequence_running() and self.core.get_remaining_image_count() == 0:
@@ -338,8 +343,10 @@ class Engine:
                             try:
                                 # TODO: probably there should be a timeout here too, but I'm
                                 #  not sure the snap_image system supports it (as opposed to sequences)
-                                ti = self.core.get_tagged_image(cam_index)
+                                # This is a little different from the java version due to differences in metadata
+                                # handling in the SWIG wrapper
                                 camera_name = self.core.get_camera_device()
+                                ti = self.core.get_tagged_image(self, cam_index, camera_name, height, width)
                             except Exception as e:
                                 # continue waiting
                                 pass
@@ -376,7 +383,7 @@ class Engine:
                         corresponding_event = multi_cam_adapter_camera_event_lists.get(actual_cam_index).pop(0)
                 # add standard metadata
                 AcqEngMetadata.add_image_metadata(self.core, ti.tags, corresponding_event,
-                                                  current_time - corresponding_event.acquisition_.get_start_time_ms(),
+                                                  current_time_ms - corresponding_event.acquisition_.get_start_time_ms(),
                                                   exposure)
                 # add user metadata specified in the event
                 corresponding_event.acquisition_.add_tags_to_tagged_image(ti.tags, corresponding_event.get_tags())
@@ -418,9 +425,161 @@ class Engine:
         self.core.clear_circular_buffer()
 
 
-    def prepare_hardware(self, event: AcquisitionEvent) -> HardwareSequences:
+    def prepare_hardware(self, event: AcquisitionEvent, hardware_sequences_in_progress: HardwareSequences) -> None:
+        def move_xy_stage(event):
+            try:
+                if event.is_xy_sequenced():
+                    self.core.start_xy_stage_sequence(xy_stage)
+                else:
+                    # Could be sequenced over other devices, in that case get xy position from first in sequence
+                    prev_x_position = None if self.last_event is None else None if self.last_event.get_sequence() is None else \
+                        self.last_event.get_sequence()[0].get_x_position()
+                    x_position = event.get_sequence()[
+                        0].get_x_position() if event.get_sequence() is not None else event.get_x_position()
+                    prev_y_position = None if self.last_event is None else None if self.last_event.get_sequence() is None else \
+                        self.last_event.get_sequence()[0].get_y_position()
+                    y_position = event.get_sequence()[
+                        0].get_y_position() if event.get_sequence() is not None else event.get_y_position()
+                    previous_xy_defined = event is not None and prev_x_position is not None and prev_y_position is not None
+                    current_xy_defined = event is not None and x_position is not None and y_position is not None
+                    if not current_xy_defined:
+                        return
+                    xy_changed = not previous_xy_defined or not prev_x_position == x_position or not prev_y_position == y_position
+                    if not xy_changed:
+                        return
+                    # Wait for it to not be busy (is this even needed?)
+                    while self.core.device_busy(xy_stage):
+                        time.sleep(0.001)
+                    # Move XY
+                    self.core.set_xy_position(xy_stage, x_position, y_position)
+                    # Wait for move to finish
+                    while self.core.device_busy(xy_stage):
+                        time.sleep(0.001)
+            except Exception as ex:
+                self.core.log_message(traceback.format_exc())
+                raise HardwareControlException()
+
+        def change_channels(event):
+            try:
+                # Get the values of current channel, pulling from the first event in a sequence if one is present
+                current_config = event.get_sequence()[
+                    0].get_config_preset() if event.get_sequence() is not None else event.get_config_preset()
+                current_group = event.get_sequence()[
+                    0].get_config_group() if event.get_sequence() is not None else event.get_config_group()
+                previous_config = None if self.last_event is None else None if self.last_event.get_sequence() is None else \
+                    self.last_event.get_sequence()[0].get_config_preset()
+                new_channel = current_config is not None and (
+                        previous_config is None or not previous_config == current_config)
+                if new_channel:
+                    # Set exposure
+                    if event.get_exposure() is not None:
+                        self.core.set_exposure(event.get_exposure())
+                    # Set other channel props
+                    self.core.set_config(current_group, current_config)
+                    # TODO: haven't tested if this is actually needed
+                    self.core.wait_for_config(current_group, current_config)
+                if event.is_config_group_sequenced():
+                    # Channels
+                    group = event.get_sequence()[0].get_config_group()
+                    config = self.core.get_config_data(group, event.get_sequence()[0].get_config_preset())
+                    for i in range(config.size()):
+                        ps = config.get_setting(i)
+                        device_name = ps.get_device_label()
+                        prop_name = ps.get_property_name()
+                        if self.core.is_property_sequenceable(device_name, prop_name):
+                            self.core.start_property_sequence(device_name, prop_name)
+            except Exception as ex:
+                ex.print_stack_trace()
+                raise HardwareControlException(ex.get_message())
+
+        def move_z_device(event):
+            try:
+                if event.is_z_sequenced():
+                    self.core.start_stage_sequence(z_stage)
+                else:
+                    previous_z = None if self.last_event is None else None if self.last_event.get_sequence() is None else \
+                        self.last_event.get_sequence()[0].get_z_position()
+                    current_z = event.get_z_position() if event.get_sequence() is None else \
+                        event.get_sequence()[0].get_z_position()
+                    if current_z is None:
+                        return
+                    change = previous_z is None or previous_z != current_z
+                    if not change:
+                        return
+
+                    # Wait for it to not be busy
+                    while self.core.device_busy(z_stage):
+                        time.sleep(0.001)
+                    # Move Z
+                    self.core.set_position(z_stage, float(current_z))
+                    # Wait for move to finish
+                    while self.core.device_busy(z_stage):
+                        time.sleep(0.001)
+            except Exception as ex:
+                raise HardwareControlException(ex)
+
+        def move_other_stage_devices(event):
+            try:
+                for stage_device_name in event.get_stage_device_names():
+                    # Wait for it to not be busy
+                    while self.core.device_busy(stage_device_name):
+                        time.sleep(0.001)
+                    # Move stage device
+                    self.core.set_position(stage_device_name,
+                                           event.get_stage_single_axis_stage_position(stage_device_name))
+                    # Wait for move to finish
+                    while self.core.device_busy(stage_device_name):
+                        time.sleep(0.001)
+            except Exception as ex:
+                raise HardwareControlException(ex)
+
+        def change_exposure(event):
+            try:
+                if event.is_exposure_sequenced():
+                    self.core.start_exposure_sequence(self.core.get_camera_device())
+                else:
+                    current_exposure = event.get_exposure()
+                    prev_exposure = None if self.last_event is None else self.last_event.get_exposure()
+                    change_exposure = current_exposure is not None and (prev_exposure is None or
+                                                                        not prev_exposure == current_exposure)
+                    if change_exposure:
+                        self.core.setExposure(current_exposure)
+            except Exception as ex:
+                raise HardwareControlException(ex)
+
+        def set_slm_pattern(event):
+            try:
+                slm_image = event.get_slm_image()
+                if slm_image is not None:
+                    if isinstance(slm_image, bytes):
+                        self.core.get_slm_image(slm, slm_image)
+                    elif isinstance(slm_image, list) and all(isinstance(i, int) for i in slm_image):
+                        self.core.get_slm_image(slm, slm_image)
+                    else:
+                        raise ValueError("SLM api only supports 8 bit and 32 bit patterns")
+            except Exception as ex:
+                raise HardwareControlException(ex)
+
+        def loop_hardware_command_retries(r, command_name):
+            for i in range(HARDWARE_ERROR_RETRIES):
+                try:
+                    r()
+                    return
+                except Exception as e:
+                    self.core.log_message(traceback.format_exc())
+                    print(self.get_current_date_and_time() + ": Problem " + command_name + "\n Retry #" + str(
+                        i) + " in " + str(DELAY_BETWEEN_RETRIES_MS) + " ms")
+                    time.sleep(DELAY_BETWEEN_RETRIES_MS / 1000)
+            raise HardwareControlException(command_name + " unsuccessful")
+
+        def change_additional_properties(event):
+            try:
+                for s in event.get_additional_properties():
+                    self.core.setProperty(s[0], s[1], s[2])
+            except Exception as ex:
+                raise HardwareControlException(ex.getMessage())
+
         try:
-            hardware_sequences_in_progress = HardwareSequences()
             # Get the hardware specific to this acquisition
             xy_stage = self.core.get_xy_stage_device()
             z_stage = self.core.get_focus_device()
@@ -428,10 +587,10 @@ class Engine:
 
             # Prepare sequences if applicable
             if event.get_sequence() is not None:
-                z_sequence = JavaObject('mmcorej.DoubleVector') if event.is_z_sequenced() else None
-                x_sequence = JavaObject('mmcorej.DoubleVector') if event.is_xy_sequenced() else None
-                y_sequence = JavaObject('mmcorej.DoubleVector') if event.is_xy_sequenced() else None
-                exposure_sequence_ms = JavaObject('mmcorej.DoubleVector') if event.is_exposure_sequenced() else None
+                z_sequence = pymmcore.DoubleVector() if event.is_z_sequenced() else None
+                x_sequence = pymmcore.DoubleVector() if event.is_xy_sequenced() else None
+                y_sequence = pymmcore.DoubleVector() if event.is_xy_sequenced() else None
+                exposure_sequence_ms = pymmcore.DoubleVector() if event.is_exposure_sequenced() else None
                 group = event.get_sequence()[0].get_config_group()
                 config = self.core.get_config_data(group, event.get_sequence()[0].get_config_preset()) if event.get_sequence()[0].get_config_preset() is not None else None
                 prop_sequences = [] if event.is_config_group_sequenced() else None
@@ -454,6 +613,7 @@ class Engine:
                             prop_name = ps.get_property_name()
 
                             if e == event.get_sequence()[0]:  # First property
+                                # TODO: what is this in pymmcore
                                 prop_sequences.add(StrVector())
 
                             channel_preset_config = self.core.get_config_data(group, e.get_config_preset())
@@ -462,7 +622,7 @@ class Engine:
                             if self.core.is_property_sequenceable(device_name, prop_name):
                                 prop_sequences.get(i).add(prop_value)
 
-                    sequence.device_names.append(self.core.get_camera_device())
+                    hardware_sequences_in_progress.device_names.append(self.core.get_camera_device())
 
                     # Now have built up all the sequences, apply them
                     if event.is_exposure_sequenced():
@@ -471,11 +631,11 @@ class Engine:
 
                     if event.is_xy_sequenced():
                         self.core.load_xy_stage_sequence(xy_stage, x_sequence, y_sequence)
-                        sequence.device_names.add(xy_stage)
+                        hardware_sequences_in_progress.device_names.add(xy_stage)
 
                     if event.is_z_sequenced():
                         self.core.load_stage_sequence(z_stage, z_sequence)
-                        sequence.device_names.add(z_stage)
+                        hardware_sequences_in_progress.device_names.add(z_stage)
 
                     if event.is_config_group_sequenced():
                         for i in range(config.size()):
@@ -485,8 +645,8 @@ class Engine:
 
                             if prop_sequences.get(i).size() > 0:
                                 self.core.load_property_sequence(device_name, prop_name, prop_sequences.get(i))
-                                sequence.property_names.add(prop_name)
-                                sequence.property_device_names.add(device_name)
+                                hardware_sequences_in_progress.property_names.add(prop_name)
+                                hardware_sequences_in_progress.property_device_names.add(device_name)
 
                     self.core.prepare_sequence_acquisition(self.core.get_camera_device())
 
@@ -494,185 +654,25 @@ class Engine:
                     if self.last_event is not None and self.last_event.acquisition_ != event.acquisition_:
                         self.last_event = None  # Update all hardware if switching to a new acquisition
 
-                    def move_xy_stage(event):
-                        try:
-                            if event.is_xy_sequenced():
-                                self.core.start_xy_stage_sequence(xy_stage)
-                            else:
-                                # Could be sequenced over other devices, in that case get xy position from first in sequence
-                                prev_x_position = None if self.last_event is None else None if self.last_event.get_sequence() is None else \
-                                self.last_event.get_sequence()[0].get_x_position()
-                                x_position = event.get_sequence()[
-                                    0].get_x_position() if event.get_sequence() is not None else event.get_x_position()
-                                prev_y_position = None if self.last_event is None else None if self.last_event.get_sequence() is None else \
-                                self.last_event.get_sequence()[0].get_y_position()
-                                y_position = event.get_sequence()[
-                                    0].get_y_position() if event.get_sequence() is not None else event.get_y_position()
-                                previous_xy_defined = event is not None and prev_x_position is not None and prev_y_position is not None
-                                current_xy_defined = event is not None and x_position is not None and y_position is not None
-                                if not current_xy_defined:
-                                    return
-                                xy_changed = not previous_xy_defined or not prev_x_position == x_position or not prev_y_position == y_position
-                                if not xy_changed:
-                                    return
-                                # Wait for it to not be busy (is this even needed?)
-                                while self.core.device_busy(xy_stage):
-                                    time.sleep(0.001)
-                                # Move XY
-                                self.core.set_xy_position(xy_stage, x_position, y_position)
-                                # Wait for move to finish
-                                while self.core.device_busy(xy_stage):
-                                    time.sleep(0.001)
-                        except Exception as ex:
-                            self.core.log_message(traceback.format_exc())
-                            raise HardwareControlException()
-
-                    def change_channels(event):
-                        try:
-                            # Get the values of current channel, pulling from the first event in a sequence if one is present
-                            current_config = event.get_sequence()[
-                                0].get_config_preset() if event.get_sequence() is not None else event.get_config_preset()
-                            current_group = event.get_sequence()[
-                                0].get_config_group() if event.get_sequence() is not None else event.get_config_group()
-                            previous_config = None if self.last_event is None else None if self.last_event.get_sequence() is None else \
-                            self.last_event.get_sequence()[0].get_config_preset()
-                            new_channel = current_config is not None and (
-                                        previous_config is None or not previous_config == current_config)
-                            if new_channel:
-                                # Set exposure
-                                if event.get_exposure() is not None:
-                                    self.core.set_exposure(event.get_exposure())
-                                # Set other channel props
-                                self.core.set_config(current_group, current_config)
-                                # TODO: haven't tested if this is actually needed
-                                self.core.wait_for_config(current_group, current_config)
-                            if event.is_config_group_sequenced():
-                                # Channels
-                                group = event.get_sequence()[0].get_config_group()
-                                config = self.core.get_config_data(group, event.get_sequence()[0].get_config_preset())
-                                for i in range(config.size()):
-                                    ps = config.get_setting(i)
-                                    device_name = ps.get_device_label()
-                                    prop_name = ps.get_property_name()
-                                    if self.core.is_property_sequenceable(device_name, prop_name):
-                                        self.core.start_property_sequence(device_name, prop_name)
-                        except Exception as ex:
-                            ex.print_stack_trace()
-                            raise HardwareControlException(ex.get_message())
-
-                    def move_z_device(event):
-                        try:
-                            if event.is_z_sequenced():
-                                self.core.start_stage_sequence(z_stage)
-                            else:
-                                previous_z = None if self.last_event is None else None if self.last_event.get_sequence() is None else \
-                                self.last_event.get_sequence()[0].get_z_position()
-                                current_z = event.get_z_position() if event.get_sequence() is None else \
-                                event.get_sequence()[0].get_z_position()
-                                if current_z is None:
-                                    return
-                                change = previous_z is None or previous_z != current_z
-                                if not change:
-                                    return
-
-                                # Wait for it to not be busy
-                                while self.core.device_busy(z_stage):
-                                    time.sleep(0.001)
-                                # Move Z
-                                self.core.set_position(z_stage, current_z)
-                                # Wait for move to finish
-                                while self.core.device_busy(z_stage):
-                                    time.sleep(0.001)
-                        except Exception as ex:
-                            raise HardwareControlException(ex)
-
-                    def move_other_stage_devices(event):
-                        try:
-                            for stage_device_name in event.get_stage_device_names():
-                                # Wait for it to not be busy
-                                while self.core.device_busy(stage_device_name):
-                                    time.sleep(0.001)
-                                # Move stage device
-                                self.core.set_position(stage_device_name,
-                                                       event.get_stage_single_axis_stage_position(stage_device_name))
-                                # Wait for move to finish
-                                while self.core.device_busy(stage_device_name):
-                                    time.sleep(0.001)
-                        except Exception as ex:
-                            raise HardwareControlException(ex)
-
-                    def change_exposure(event):
-                        try:
-                            if event.is_exposure_sequenced():
-                                self.core.start_exposure_sequence(self.core.get_camera_device())
-                            else:
-                                current_exposure = event.get_exposure()
-                                prev_exposure = None if self.last_event is None else self.last_event_.get_exposure()
-                                change_exposure = current_exposure is not None and (prev_exposure is None or
-                                                                                    not prev_exposure == current_exposure)
-                                if change_exposure:
-                                    self.core.setExposure(current_exposure)
-                        except Exception as ex:
-                            raise HardwareControlException(ex)
-
-            def set_slm_pattern(event):
-                try:
-                    slm_image = event.get_slm_image()
-                    if slm_image is not None:
-                        if isinstance(slm_image, bytes):
-                            self.core.get_slm_image(slm, slm_image)
-                        elif isinstance(slm_image, list) and all(isinstance(i, int) for i in slm_image):
-                            self.core.get_slm_image(slm, slm_image)
-                        else:
-                            raise ValueError("SLM api only supports 8 bit and 32 bit patterns")
-                except Exception as ex:
-                    raise HardwareControlException(ex)
-
-            def loop_hardware_command_retries(r, command_name):
-                for i in range(HARDWARE_ERROR_RETRIES):
-                    try:
-                        r()
-                        return
-                    except Exception as e:
-                        self.core.log_message(traceback.format_exc())
-                        print(get_current_date_and_time() + ": Problem " + command_name + "\n Retry #" + str(i) + " in " + str(DELAY_BETWEEN_RETRIES_MS) + " ms")
-                        time.sleep(DELAY_BETWEEN_RETRIES_MS / 1000)
-                raise HardwareControlException(command_name + " unsuccessful")
-
-            def change_additional_properties(event):
-                try:
-                    for s in event.get_additional_properties():
-                        self.core.setProperty(s[0], s[1], s[2])
-                except Exception as ex:
-                    raise HardwareControlException(ex.getMessage())
-
             # Z stage
             loop_hardware_command_retries(lambda: move_z_device(event), "Moving Z device")
-
             # Other stage devices
             loop_hardware_command_retries(lambda: move_other_stage_devices(event), "Moving other stage devices")
-
             # XY Stage
             loop_hardware_command_retries(lambda: move_xy_stage(event), "Moving XY stage")
-
             # Channels
             loop_hardware_command_retries(lambda: change_channels(event), "Changing channels")
-
             # Camera exposure
             loop_hardware_command_retries(lambda: change_exposure(event), "Changing exposure")
-
             # SLM
             loop_hardware_command_retries(lambda: set_slm_pattern(event), "Setting SLM pattern")
-
             # Arbitrary Properties
             loop_hardware_command_retries(lambda: change_additional_properties(event), "Changing additional properties")
-
             # Keep track of last event
             self.last_event = event if event.get_sequence() is None else event.get_sequence()[-1]
         except:
+            traceback.print_exc()
             raise HardwareControlException("Error executing event")
-        finally:
-            return hardware_sequences_in_progress
 
     def get_current_date_and_time():
         return datetime.datetime.now().strftime("%Y/%m/%d %H:%M:%S")
