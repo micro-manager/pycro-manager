@@ -37,6 +37,8 @@ class PythonBackendAcquisition(PycromanagerAcquisition, metaclass=NumpyDocstring
         self._napari_viewer = None
         self._notification_queue = queue.Queue(30)
         self._create_event_queue()
+        self._acq_futures = []
+
 
         # create a thread that submits events
         # events can be added to the queue through image processors, hooks, or the acquire method

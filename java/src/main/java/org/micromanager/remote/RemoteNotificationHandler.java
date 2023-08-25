@@ -25,7 +25,7 @@ public class RemoteNotificationHandler implements AcqNotificationListener {
 
    private ZMQPushSocket<AcqNotification> pushSocket_;
    private ExecutorService executor_ = Executors.newSingleThreadExecutor((Runnable r) -> {
-      return new Thread(r, "Remote Event Source thread");
+      return new Thread(r, "Remote notification thread");
    });
    private LinkedBlockingDeque<AcqNotification> notifications_ = new LinkedBlockingDeque<AcqNotification>();
 
@@ -34,14 +34,19 @@ public class RemoteNotificationHandler implements AcqNotificationListener {
     */
    public RemoteNotificationHandler(AcquisitionAPI acq) {
       acq.addAcqNotificationListener(this);
-      pushSocket_ = new ZMQPushSocket<AcqNotification>(
-           t -> {
-              try {
-                 return t.toJSON();
-              } catch (JSONException e) {
-                 throw new RuntimeException("Problem with notification socket");
-              }
-           });
+      executor_.submit(new Runnable() {
+         @Override
+         public void run() {
+            pushSocket_ = new ZMQPushSocket<AcqNotification>(
+                    t -> {
+                       try {
+                          return t.toJSON();
+                       } catch (JSONException e) {
+                          throw new RuntimeException("Problem with notification socket");
+                       }
+                    });
+         }
+      });
    }
 
    /**
@@ -62,7 +67,7 @@ public class RemoteNotificationHandler implements AcqNotificationListener {
 
             pushSocket_.push(e);
             if (e.isAcquisitionFinishedNotification()) {
-               return ;
+               return;
             }
          }
       });
@@ -78,11 +83,20 @@ public class RemoteNotificationHandler implements AcqNotificationListener {
     * and that the push socket can be closed
     */
    public void notificationHandlingComplete() {
-      executor_.shutdown();
-      pushSocket_.close();
+      executor_.submit(() -> {
+         pushSocket_.close();
+         executor_.shutdown();
+      });
    }
 
    public int getPort() {
+      while (pushSocket_ == null) {
+         try {
+            Thread.sleep(1);
+         } catch (InterruptedException e) {
+            e.printStackTrace();
+         }
+      }
       return pushSocket_.getPort();
    }
 

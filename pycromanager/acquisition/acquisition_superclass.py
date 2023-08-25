@@ -10,6 +10,9 @@ import warnings
 from abc import ABCMeta, abstractmethod
 from docstring_inheritance import NumpyDocstringInheritanceMeta
 import queue
+import weakref
+from pycromanager.notifications import AcqNotification, AcquisitionFuture
+
 
 
 class AcqAlreadyCompleteException(Exception):
@@ -133,7 +136,18 @@ class PycromanagerAcquisition(metaclass=Meta):
             return
 
         _validate_acq_events(event_or_events)
+
+        axes_or_axes_list = event_or_events['axes'] if type(event_or_events) == dict\
+            else [e['axes'] for e in event_or_events]
+        acq_future = AcquisitionFuture(self, axes_or_axes_list)
+        self._acq_futures.append(weakref.ref(acq_future))
+        # clear out old weakrefs
+        self._acq_futures = [f for f in self._acq_futures if f() is not None]
+
         self._event_queue.put(event_or_events)
+        return acq_future
+
+
 
     def abort(self, exception=None):
         """

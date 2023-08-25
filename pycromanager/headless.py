@@ -84,16 +84,20 @@ def _create_pymmcore_instance():
     return instance
 
 
-SUBPROCESSES = []
+_JAVA_HEADLESS_SUBPROCESSES = []
 _PYMMCORES = []
 
-def cleanup():
-    for p in SUBPROCESSES:
+def stop_headless():
+    for p in _JAVA_HEADLESS_SUBPROCESSES:
         p.terminate()
         p.wait()  # wait for process to terminate
+    _JAVA_HEADLESS_SUBPROCESSES.clear()
+    for c in _PYMMCORES:
+        c.unloadAllDevices()
+    _PYMMCORES.clear()
 
 # make sure any Java processes are cleaned up when Python exits
-atexit.register(cleanup)
+atexit.register(stop_headless)
 
 def start_headless(
     mm_app_path: str, config_file: str='', java_loc: str=None,
@@ -167,7 +171,7 @@ def start_headless(
                     core_log_path,
                 ], cwd=mm_app_path, stdout=subprocess.PIPE
             )
-        SUBPROCESSES.append(process)
+        _JAVA_HEADLESS_SUBPROCESSES.append(process)
 
         started = False
         output = True
