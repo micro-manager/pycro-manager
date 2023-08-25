@@ -2,6 +2,7 @@
 The Pycro-manager Acquisiton system
 """
 import warnings
+import weakref
 
 import numpy as np
 import multiprocessing
@@ -17,6 +18,7 @@ import os.path
 import queue
 from docstring_inheritance import NumpyDocstringInheritanceMeta
 import traceback
+from pycromanager.notifications import AcqNotification, AcquisitionFuture
 
 class AcqAlreadyCompleteException(Exception):
     def __init__(self, message):
@@ -216,7 +218,7 @@ def _storage_monitor_fn(acquisition, dataset, storage_monitor_push_port, connect
 
             index_entry = message["index_entry"]
             axes = dataset._add_index_entry(index_entry)
-            acquisition._notification_queue.put({'type': 'image_saved', 'axes': axes})
+            acquisition._notification_queue.put(AcqNotification.make_image_saved_notification(axes))
             dataset._new_image_arrived = True
             if callback is not None:
                 callback(axes, dataset)
@@ -232,7 +234,7 @@ def _notification_handler_fn(acquisition, notification_push_port, connected_even
     try:
         while True:
             message = monitor_socket.receive()
-            acquisition._notification_queue.put(message)
+            acquisition._notification_queue.put(AcqNotification.from_json(message))
             if "acq_finished" in message["type"]:
                 break
 
@@ -338,6 +340,7 @@ class Acquisition(object, metaclass=NumpyDocstringInheritanceMeta):
         self._nd_viewer = None
         self._napari_viewer = None
         self._notification_queue = queue.Queue(100)
+        self._acq_futures = []
 
         # Get a dict of all named argument values (or default values when nothing provided)
         arg_names = [k for k in signature(Acquisition.__init__).parameters.keys() if k != 'self']
@@ -488,7 +491,16 @@ class Acquisition(object, metaclass=NumpyDocstringInheritanceMeta):
             return
 
         _validate_acq_events(event_or_events)
+
+        axes_or_axes_list = event_or_events['axes'] if type(event_or_events) == dict\
+            else [e['axes'] for e in event_or_events]
+        acq_future = AcquisitionFuture(self, axes_or_axes_list)
+        self._acq_futures.append(weakref.ref(acq_future))
+        # clear out old weakrefs
+        self._acq_futures = [f for f in self._acq_futures if f() is not None]
+
         self._event_queue.put(event_or_events)
+        return acq_future
 
     def abort(self, exception=None):
         """
@@ -578,10 +590,12 @@ class Acquisition(object, metaclass=NumpyDocstringInheritanceMeta):
                         # if all the threads have shut down and the queue is empty, then shut down
                         break
                 else:
-                    # TODO dispatch them to all listeners
-                    # print(notification)
-                    pass
-
+                    # print(notification.to_json())
+                    for future in self._acq_futures:
+                        strong_ref = future()
+                        if strong_ref is not None:
+                            strong_ref._notify(notification)
+                    # TODO: can also add a user-specified notification callback
 
         dispatcher_thread = threading.Thread(
             target=dispatch_notifications,
