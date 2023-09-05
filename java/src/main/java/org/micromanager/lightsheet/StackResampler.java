@@ -345,6 +345,8 @@ public class StackResampler {
     * projection and recon arrays.
     */
    public void initializeProjections() {
+      // Not quite sure why, but this is needed to be able to re-utilize this Resampler.
+      imageQueue_.clear();
       int reconImageZShape = this.reconImageShape_[0];
       int reconImageYShape = this.reconImageShape_[1];
       int reconImageXShape = this.reconImageShape_[2];
