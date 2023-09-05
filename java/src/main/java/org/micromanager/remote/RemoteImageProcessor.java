@@ -20,8 +20,6 @@ import org.micromanager.internal.zmq.ZMQPullSocket;
 import org.micromanager.internal.zmq.ZMQPushSocket;
 import org.micromanager.internal.zmq.ZMQUtil;
 
-// TODO: this class now duplicates functionality of AsyncImageProcessor in AcqEngJ
-
 /**
  * Implements an ImageProcessor that sends/recieves images from a remote source
  * using ZMQ push/pull sockets. This enables image processing in Python/NumPy

@@ -11,13 +11,14 @@ from typing import Union, List, Iterable
 
 SUBPROCESSES = []
 
-def cleanup():
+def stop_headless():
     for p in SUBPROCESSES:
         p.terminate()
         p.wait()  # wait for process to terminate
+    SUBPROCESSES.clear()
 
 # make sure any Java processes are cleaned up when Python exits
-atexit.register(cleanup)
+atexit.register(stop_headless)
 
 def start_headless(
     mm_app_path: str, config_file: str='', java_loc: str=None, core_log_path: str='',
