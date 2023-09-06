@@ -153,6 +153,29 @@ def test_channel_seq_acq(launch_mm_headless, setup_data_folder):
 
     """
     channels = ['DAPI', 'FITC', 'Rhodamine', 'Cy5']
+
+    mmc = Core()
+    mmc.set_property('LED', 'Sequence', 'On')
+
+    events = multi_d_acquisition_events(channel_group='Channel-Multiband',
+                                        channels=channels)
+
+    def hook_fn(_events):
+        assert check_acq_sequenced(_events, len(events)), 'Sequenced acquisition is not built correctly'
+        return None  # no need to actually acquire the data
+
+    with Acquisition(setup_data_folder, 'acq', show_display=False,
+                     pre_hardware_hook_fn=hook_fn) as acq:
+        acq.acquire(events)
+
+
+def test_channel_exp_seq_acq(launch_mm_headless, setup_data_folder):
+    """
+    Test that channels can be sequenced when equal exposure times for each
+    channel are provided
+
+    """
+    channels = ['DAPI', 'FITC', 'Rhodamine', 'Cy5']
     channel_exposures_ms = [10] * len(channels)  # exposure times may be provided, but must be all equal
 
     mmc = Core()
