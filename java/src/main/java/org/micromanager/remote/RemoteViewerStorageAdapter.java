@@ -11,6 +11,8 @@ import org.micromanager.acqj.main.AcqEngMetadata;
 import org.micromanager.acqj.api.AcqEngJDataSink;
 import org.micromanager.acqj.main.Acquisition;
 import org.micromanager.acqj.internal.Engine;
+import org.micromanager.ndtiffstorage.IndexEntryData;
+import org.micromanager.ndtiffstorage.NDRAMStorage;
 import org.micromanager.ndtiffstorage.NDTiffStorage;
 import org.micromanager.ndtiffstorage.MultiresNDTiffAPI;
 import org.micromanager.ndtiffstorage.NDTiffAPI;
@@ -34,8 +36,8 @@ class RemoteViewerStorageAdapter implements NDViewerDataSource, AcqEngJDataSink,
 
    private volatile NDViewerAPI viewer_;
    private volatile Acquisition acq_;
-   private volatile MultiresNDTiffAPI storage_;
-   private final boolean showViewer_, storeData_, xyTiled_;
+   private volatile NDTiffAPI storage_;
+   private final boolean showViewer_, xyTiled_;
    private final int tileOverlapX_, tileOverlapY_;
    private String dir_;
    private String name_;
@@ -58,7 +60,6 @@ class RemoteViewerStorageAdapter implements NDViewerDataSource, AcqEngJDataSink,
                                      int tileOverlapY,
                                      Integer maxResLevel, int savingQueueSize) {
       showViewer_ = showViewer;
-      storeData_ = dataStorageLocation != null;
       xyTiled_ = xyTiled;
       dir_ = dataStorageLocation;
       name_ = name;
@@ -71,13 +72,19 @@ class RemoteViewerStorageAdapter implements NDViewerDataSource, AcqEngJDataSink,
    public void initialize(Acquisition acq, JSONObject summaryMetadata) {
       acq_ = acq;
 
-      if (storeData_) {
-         if (xyTiled_) {
-            //tiled datasets have a fixed, acquisition-wide image size
-            AcqEngMetadata.setWidth(summaryMetadata, (int) Engine.getCore().getImageWidth());
-            AcqEngMetadata.setHeight(summaryMetadata, (int) Engine.getCore().getImageHeight());
-         }
 
+      if (xyTiled_) {
+         //tiled datasets have a fixed, acquisition-wide image size
+         AcqEngMetadata.setWidth(summaryMetadata, (int) Engine.getCore().getImageWidth());
+         AcqEngMetadata.setHeight(summaryMetadata, (int) Engine.getCore().getImageHeight());
+      }
+
+      if (dir_ == null) {
+         storage_ = new NDRAMStorage(summaryMetadata);
+         if (name_ == null) {
+            name_ = "In RAM acquisition";
+         }
+      } else {
          storage_ = new NDTiffStorage(dir_, name_,
                summaryMetadata, tileOverlapX_, tileOverlapY_,
                xyTiled_, maxResLevel_, savingQueueSize_,
@@ -87,7 +94,6 @@ class RemoteViewerStorageAdapter implements NDViewerDataSource, AcqEngJDataSink,
                }) : null, true
          );
          name_ = storage_.getUniqueAcqName();
-
       }
 
       if (showViewer_) {
@@ -119,24 +125,22 @@ class RemoteViewerStorageAdapter implements NDViewerDataSource, AcqEngJDataSink,
       viewer_.setReadZMetadataFunction((JSONObject tags) -> AcqEngMetadata.getStageZIntended(tags));
    }
 
-   public void putImage(final TaggedImage taggedImg) {
+   public Object putImage(final TaggedImage taggedImg) {
       HashMap<String, Object> axes = AcqEngMetadata.getAxes(taggedImg.tags);
-      final Future added;
+      final Future<IndexEntryData> added;
       if (xyTiled_) {
-         added = storage_.putImageMultiRes(taggedImg.pix, taggedImg.tags, axes,
+         added = ((MultiresNDTiffAPI)storage_).putImageMultiRes(taggedImg.pix, taggedImg.tags, axes,
                  AcqEngMetadata.isRGB(taggedImg.tags),
                  AcqEngMetadata.getBitDepth(taggedImg.tags),
                  AcqEngMetadata.getHeight(taggedImg.tags),
                  AcqEngMetadata.getWidth(taggedImg.tags));
       } else {
-         added = null;
-         storage_.putImage(taggedImg.pix, taggedImg.tags, axes,
+         added = storage_.putImage(taggedImg.pix, taggedImg.tags, axes,
                  AcqEngMetadata.isRGB(taggedImg.tags),
                  AcqEngMetadata.getBitDepth(taggedImg.tags),
                  AcqEngMetadata.getHeight(taggedImg.tags),
                  AcqEngMetadata.getWidth(taggedImg.tags));
       }
-
 
       if (showViewer_) {
          //put on different thread to not slow down acquisition
@@ -144,7 +148,7 @@ class RemoteViewerStorageAdapter implements NDViewerDataSource, AcqEngJDataSink,
             @Override
             public void run() {
                try {
-                  if (added != null) {
+                  if (xyTiled_) {
                      // This is needed to make sure multi res data at higher
                      // resolutions kept up to date I think because lower resolutions
                      // aren't stored temporarily. This could potentially be
@@ -165,6 +169,11 @@ class RemoteViewerStorageAdapter implements NDViewerDataSource, AcqEngJDataSink,
             }
          });
       }
+      try {
+         return added.get();
+      } catch (Exception e) {
+         throw new RuntimeException(e);
+      }
    }
   
    ///////// Data source interface for Viewer //////////
@@ -177,9 +186,13 @@ class RemoteViewerStorageAdapter implements NDViewerDataSource, AcqEngJDataSink,
    public TaggedImage getImageForDisplay(HashMap<String, Object> axes, int resolutionindex,
            double xOffset, double yOffset, int imageWidth, int imageHeight) {
 
-      return storage_.getDisplayImage(
-              axes, resolutionindex, (int) xOffset, (int) yOffset,
-              imageWidth, imageHeight);
+      if (storage_ instanceof MultiresNDTiffAPI) {
+         return ((MultiresNDTiffAPI) storage_).getDisplayImage(
+                 axes, resolutionindex, (int) xOffset, (int) yOffset,
+                 imageWidth, imageHeight);
+      } else {
+         return storage_.getSubImage(axes, (int) xOffset, (int) yOffset, imageWidth, imageHeight);
+      }
    }
 
    @Override
@@ -189,12 +202,17 @@ class RemoteViewerStorageAdapter implements NDViewerDataSource, AcqEngJDataSink,
 
    @Override
    public int getMaxResolutionIndex() {
-      return storage_.getNumResLevels() - 1;
+      if (storage_ instanceof MultiresNDTiffAPI) {
+         return ((MultiresNDTiffAPI) storage_).getNumResLevels() - 1;
+      }
+      return 0;
    }
 
    @Override
    public void increaseMaxResolutionLevel(int newMaxResolutionLevel) {
-      storage_.increaseMaxResolutionLevel(newMaxResolutionLevel);
+      if (storage_ instanceof MultiresNDTiffAPI) {
+         ((MultiresNDTiffAPI) storage_).increaseMaxResolutionLevel(newMaxResolutionLevel);
+      }
    }
 
    @Override

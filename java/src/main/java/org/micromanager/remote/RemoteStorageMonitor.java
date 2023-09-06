@@ -19,6 +19,7 @@ import org.micromanager.ndtiffstorage.NDTiffStorage;
  * A class that broadcasts information about images that have finsihed saving to disk
  * @author henrypinkard
  */
+@Deprecated
 public class RemoteStorageMonitor implements ImageWrittenListener {
 
    private ZMQPushSocket<IndexEntryData> pushSocket_;

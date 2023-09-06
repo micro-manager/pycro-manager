@@ -362,6 +362,41 @@ class AcquisitionEvent:
     def get_x_position(self):
         return self.xPosition_
 
+    def get_camera_image_counts(self, default_camera_device_name):
+        """
+        Get the number of images to be acquired on each camera in a sequence event.
+        For a non-sequence event, the number of images is 1, and the camera is the core camera.
+        This is passed in as an argument in order to avoid this class talking to the core directly.
+
+        Args:
+            default_camera_device_name (str): Default camera device name.
+
+        Returns:
+            defaultdict: Dictionary containing the camera device names as keys and image counts as values.
+        """
+        # Figure out how many images on each camera and start sequence with appropriate number on each
+        camera_image_counts = {}
+        camera_device_names = set()
+        if self.get_sequence() is None:
+            camera_image_counts[default_camera_device_name] = 1
+            return camera_image_counts
+
+        for event in self.get_sequence():
+            camera_device_names.add(event.get_camera_device_name() if event.get_camera_device_name() is not None else
+                                    default_camera_device_name)
+        if None in camera_device_names:
+            camera_device_names.remove(None)
+            camera_device_names.add(default_camera_device_name)
+
+        for camera_device_name in camera_device_names:
+            camera_image_counts[camera_device_name] = sum(1 for event in self.get_sequence()
+                                                          if event.get_camera_device_name() == camera_device_name)
+
+            if len(camera_device_names) == 1 and camera_device_name == default_camera_device_name:
+                camera_image_counts[camera_device_name] = len(self.get_sequence())
+
+        return camera_image_counts
+
     def get_y_position(self):
         return self.yPosition_
 

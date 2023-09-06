@@ -17,9 +17,9 @@ from ndtiff import Dataset
 import os.path
 import queue
 from docstring_inheritance import NumpyDocstringInheritanceMeta
-from pycromanager.acquisition.acquisition_superclass import PycromanagerAcquisition
+from pycromanager.acquisition.acquisition_superclass import Acquisition
 import traceback
-from pycromanager.notifications import AcqNotification, AcquisitionFuture
+from pycromanager.acq_future import AcqNotification, AcquisitionFuture
 
 
 
@@ -40,8 +40,8 @@ def _run_acq_event_source(acquisition, event_port, event_queue, debug=False):
                     # if it has been finished through something happening on the other side
                     event_socket.send({"events": [{"special": "acquisition-end"}]})
                     # wait for signal that acquisition has received the end signal
-                    while not acquisition._acq.are_events_finished():
-                        time.sleep(0.001)
+                    while not acquisition._acq.is_finished():
+                        acquisition._acq.block_until_events_finished(0.01)
                 break
             # it may have been shut down remotely (e.g. by user Xing out viewer)
             # if we try to send an event at this time, it will hang indefinitely
@@ -102,6 +102,7 @@ def _run_acq_hook(acquisition, pull_port,
 def _run_image_processor(
         acquisition, pull_port, push_port, sockets_connected_evt, process_fn, event_queue, debug
 ):
+    acquisition._process_fn = process_fn
     push_socket = PushSocket(pull_port, debug=debug)
     pull_socket = PullSocket(push_port, debug=debug)
     if debug:
@@ -168,21 +169,7 @@ def _run_image_processor(
         else:
             image = np.reshape(pixels, [metadata["Height"], metadata["Width"]])
 
-        params = signature(process_fn).parameters
-        processed = None
-        if len(params) == 2 or len(params) == 3:
-            try:
-                if len(params) == 2:
-                    processed = process_fn(image, metadata)
-                elif len(params) == 3:
-                    processed = process_fn(image, metadata, event_queue)
-            except Exception as e:
-                acquisition.abort(Exception("exception in image processor: {}".format(e)))
-                continue
-        else:
-            acquisition.abort(Exception(
-                "Incorrect number of arguments for image processing function, must be 2 or 3"
-            ))
+        processed = acquisition._call_image_process_fn(image, metadata)
 
         if processed is None:
             continue
@@ -193,48 +180,27 @@ def _run_image_processor(
         else:
             process_and_sendoff(processed, pixels.dtype)
 
-def _storage_monitor_fn(acquisition, dataset, storage_monitor_push_port, connected_event,
-                        image_saved_fn, event_queue, debug=False):
-    monitor_socket = PullSocket(storage_monitor_push_port)
-    connected_event.set()
-    callback = None
-    if image_saved_fn is not None:
-        params = signature(image_saved_fn).parameters
-        if len(params) == 2:
-            callback = image_saved_fn
-        elif len(params) == 3:
-            callback = lambda axes, dataset: image_saved_fn(axes, dataset, event_queue)
-        else:
-            raise Exception('Image saved callbacks must have either 2 or three parameters')
-
-
-    try:
-        while True:
-            message = monitor_socket.receive()
-            if "finished" in message:
-                # Time to shut down
-                break
-
-            index_entry = message["index_entry"]
-            axes = dataset._add_index_entry(index_entry)
-            acquisition._notification_queue.put(AcqNotification.make_image_saved_notification(axes))
-            dataset._new_image_arrived = True
-            if callback is not None:
-                callback(axes, dataset)
-    except Exception as e:
-            acquisition.abort(e)
-    finally:
-        monitor_socket.close()
-
 def _notification_handler_fn(acquisition, notification_push_port, connected_event, debug=False):
     monitor_socket = PullSocket(notification_push_port)
     connected_event.set()
 
     try:
+        events_finished = False
+        data_sink_finished = False
         while True:
             message = monitor_socket.receive()
-            acquisition._notification_queue.put(AcqNotification.from_json(message))
-            if "acq_finished" in message["type"]:
+            notification = AcqNotification.from_json(message)
+            acquisition._notification_queue.put(notification)
+            # these are processed seperately to handle image saved callback
+            if AcqNotification.is_image_saved_notification(notification):
+                acquisition._image_notification_queue.put(notification)
+
+            if AcqNotification.is_acquisition_finished_notification(notification):
+                events_finished = True
+            elif AcqNotification.is_data_sink_finished_notification(notification):
+                data_sink_finished = True
+                acquisition._image_notification_queue.put(notification)
+            if events_finished and data_sink_finished:
                 break
 
     except Exception as e:
@@ -243,7 +209,7 @@ def _notification_handler_fn(acquisition, notification_push_port, connected_even
     finally:
         monitor_socket.close()
 
-class JavaBackendAcquisition(PycromanagerAcquisition, metaclass=NumpyDocstringInheritanceMeta):
+class JavaBackendAcquisition(Acquisition, metaclass=NumpyDocstringInheritanceMeta):
     """
     Pycro-Manager acquisition that uses a Java runtime backend via a ZeroMQ communication layer.
     """
@@ -257,27 +223,20 @@ class JavaBackendAcquisition(PycromanagerAcquisition, metaclass=NumpyDocstringIn
         pre_hardware_hook_fn: callable=None,
         post_hardware_hook_fn: callable=None,
         post_camera_hook_fn: callable=None,
+        notification_callback_fn: callable=None,
+        image_saved_fn: callable=None,
         show_display: bool=True,
         napari_viewer=None,
-        image_saved_fn: callable=None,
         saving_queue_size: int=20,
         timeout: int=2000,
         port: int=DEFAULT_PORT,
-        debug: int=False,
-        **kwargs
+        debug: int=False
     ):
         """
         Parameters
         ----------
-        event_generation_hook_fn : Callable
-            hook function that will as soon as acquisition events are generated (before hardware sequencing optimization
-            in the acquisition engine. This is useful if one wants to modify acquisition events that they didn't generate
-            (e.g. those generated by a GUI application). Accepts either one argument (the current acquisition event)
-            or two arguments (current event, event_queue)
-         image_saved_fn : Callable
-            function that takes two arguments (the Axes of the image that just finished saving, and the Dataset)
-            or three arguments (Axes, Dataset and the event_queue) and gets called whenever a new image is written to
-            disk
+        show_display : bool
+            If True, show the image viewer window. If False, show no viewer.
         saving_queue_size : int
             The number of images to queue (in memory) while waiting to write to disk. Higher values should
             in theory allow sequence acquisitions to go faster, but requires the RAM to hold images while
@@ -288,21 +247,6 @@ class JavaBackendAcquisition(PycromanagerAcquisition, metaclass=NumpyDocstringIn
             Allows overriding the default port for using Java backends on a different port. Use this
             after calling start_headless with the same non-default port
         """
-        if 'core_log_debug' in kwargs.keys():
-            warnings.warn('core_log_debug is deprecated. Use debug instead', DeprecationWarning)
-        if 'process' in kwargs.keys():
-            warnings.warn('the process keyword is deprecated', DeprecationWarning)
-        self._debug = debug
-        self._dataset = None
-        self._finished = False
-        self._exception = None
-        self._port = port
-        self._timeout = timeout
-        self._nd_viewer = None
-        self._napari_viewer = None
-        self._notification_queue = queue.Queue(100)
-        self._acq_futures = []
-
         # Get a dict of all named argument values (or default values when nothing provided)
         arg_names = [k for k in signature(JavaBackendAcquisition.__init__).parameters.keys() if k != 'self']
         l = locals()
@@ -310,11 +254,24 @@ class JavaBackendAcquisition(PycromanagerAcquisition, metaclass=NumpyDocstringIn
                                      dict(signature(JavaBackendAcquisition.__init__).parameters.items())[arg_name].default)
                                      for arg_name in arg_names }
 
+
+        superclass_arg_names = [k for k in signature(Acquisition.__init__).parameters.keys() if k != 'self']
+        superclass_args = {key: named_args[key] for key in superclass_arg_names}
+        super().__init__(**superclass_args)
+
         if directory is not None:
             # Expend ~ in path
             directory = os.path.expanduser(directory)
             # If path is relative, retain knowledge of the current working directory
-            named_args['directory'] = os.path.abspath(directory)
+            self._directory = os.path.abspath(directory)
+        else:
+            self._directory = None
+        named_args['directory'] = self._directory
+
+        # Java specific parameters
+        self._port = port
+        self._timeout = timeout
+        self._nd_viewer = None
 
         self._create_event_queue()
         self._create_remote_acquisition(**named_args)
@@ -323,12 +280,14 @@ class JavaBackendAcquisition(PycromanagerAcquisition, metaclass=NumpyDocstringIn
 
         try:
             self._remote_notification_handler = JavaObject('org.micromanager.remote.RemoteNotificationHandler',
-                                                           args=[self._remote_acq], port=self._port, new_socket=False)
+                                                           args=[self._acq], port=self._port, new_socket=False)
             self._acq_notification_recieving_thread = self._start_receiving_notifications()
-            self._acq_notification_dispatcher_thread = self._start_notification_dispatcher()
+            self._acq_notification_dispatcher_thread = self._start_notification_dispatcher(notification_callback_fn)
+        # TODO: can remove this after this feature has been present for a while
         except:
-            warnings.warn('Could not create acquisition notification handler. This should not affect performance,'
-                          ' but indicates that Micro-Manager is out of date')
+            traceback.print_exc()
+            warnings.warn('Could not create acquisition notification handler. '
+                          'Update Micro-Manager and Pyrcro-Manager to the latest versions to fix this')
 
         # Start remote acquisition
         # Acquistition.start is now deprecated, so this can be removed later
@@ -352,13 +311,11 @@ class JavaBackendAcquisition(PycromanagerAcquisition, metaclass=NumpyDocstringIn
             # when images are written to disk
             ndtiff_storage = data_sink.get_storage()
             summary_metadata = ndtiff_storage.get_summary_metadata()
-            self._remote_storage_monitor = JavaObject('org.micromanager.remote.RemoteStorageMonitor', port=self._port,
-                                                      new_socket=False)
-            ndtiff_storage.add_image_written_listener(self._remote_storage_monitor)
-            self._dataset = Dataset(dataset_path=self._dataset_disk_location, _summary_metadata=summary_metadata)
-            # Monitor image arrival so they can be loaded on python side, but with no callback function
-            # Need to do this regardless of whether you use it, so that it signals to shut down on Java side
-            self._storage_monitor_thread = self._add_storage_monitor_fn(callback_fn=image_saved_fn, debug=self._debug)
+            if directory is not None:
+                self._dataset = Dataset(dataset_path=self._dataset_disk_location, _summary_metadata=summary_metadata)
+                # Monitor image arrival so they can be loaded on python side, but with no callback function
+                # Need to do this regardless of whether you use it, so that it signals to shut down on Java side
+                self._storage_monitor_thread = self._add_storage_monitor_fn(image_saved_fn=image_saved_fn)
 
         if show_display:
             if napari_viewer is None:
@@ -387,8 +344,11 @@ class JavaBackendAcquisition(PycromanagerAcquisition, metaclass=NumpyDocstringIn
     def await_completion(self):
         while not self._acq.are_events_finished() or (
                 self._acq.get_data_sink() is not None and not self._acq.get_data_sink().is_finished()):
-            time.sleep(1 if self._debug else 0.05)
             self._check_for_exceptions()
+            self._acq.block_until_events_finished(0.01)
+        # This will block until saving is finished, if there is a data sink
+        self._acq.wait_for_completion()
+        self._check_for_exceptions()
 
         for hook_thread in self._hook_threads:
             hook_thread.join()
@@ -401,9 +361,6 @@ class JavaBackendAcquisition(PycromanagerAcquisition, metaclass=NumpyDocstringIn
         # Wait on all the other threads to shut down properly
         if hasattr(self, '_storage_monitor_thread'):
             self._storage_monitor_thread.join()
-            # now that the shutdown signal has been received from the monitor,
-            # tell it it is okay to shutdown its push socket
-            self._remote_storage_monitor.storage_monitoring_complete()
 
         if hasattr(self, '_acq_notification_recieving_thread'):
             # for backwards compatiblitiy with older versions of Pycromanager java before this added
@@ -422,12 +379,9 @@ class JavaBackendAcquisition(PycromanagerAcquisition, metaclass=NumpyDocstringIn
             return self._napari_viewer
 
     ########  Private methods ###########
-
     def _start_receiving_notifications(self):
         """
         Thread that runs a function that pulls notifications from the acquisition engine and puts them on a queue
-        This is not all notifications, just ones that are relevant to the acquisition. Specifically, it does not
-        include notifications the progress of data saving
         """
         connected_event = threading.Event()
 
@@ -451,75 +405,42 @@ class JavaBackendAcquisition(PycromanagerAcquisition, metaclass=NumpyDocstringIn
         self._remote_notification_handler.start()
         return notification_thread
 
-    def _start_notification_dispatcher(self):
-        """
-        Thread that runs a function that pulls notifications from the queue on the python side and dispatches
-        them to the appropriate listener
-        """
-        def dispatch_notifications():
-            while True:
-                # dispatch notifications to all listeners
-                try:
-                    notification = self._notification_queue.get(timeout=0.05)  # 50 ms timeout
-                except queue.Empty:
-                    storage_monitoring_ongoing = hasattr(self, '_storage_monitor_thread')\
-                                                 and self._storage_monitor_thread.is_alive()
-                    acq_notifications_ongoing = hasattr(self, '_acq_notification_recieving_thread')\
-                                                    and self._acq_notification_recieving_thread.is_alive()
-                    if not storage_monitoring_ongoing and not acq_notifications_ongoing and self._notification_queue.empty():
-                        # if all the threads have shut down and the queue is empty, then shut down
-                        break
-                else:
-                    # print(notification.to_json())
-                    for future in self._acq_futures:
-                        strong_ref = future()
-                        if strong_ref is not None:
-                            strong_ref._notify(notification)
-                    # TODO: can also add a user-specified notification callback
-
-        dispatcher_thread = threading.Thread(
-            target=dispatch_notifications,
-            name="NotificationDispatcherThread",
-        )
-        dispatcher_thread.start()
-        return dispatcher_thread
-
-
-    def _add_storage_monitor_fn(self, callback_fn=None, debug=False):
+    def _add_storage_monitor_fn(self, image_saved_fn=None):
         """
         Add a callback function that gets called whenever a new image is writtern to disk (for acquisitions in
         progress only)
 
         Parameters
         ----------
-        callback_fn : Callable
-            callable with that takes 1 argument, the axes dict of the image just written
+        image_saved_fn : Callable
+            user function to be run whenever an image is ready on disk
         """
-        connected_event = threading.Event()
+        # TODO: this should read from a queue of image-specific notifications and dispatch accordingly
 
-        push_port = self._remote_storage_monitor.get_port()
-        monitor_thread = threading.Thread(
-            target=_storage_monitor_fn,
-            args=(
-                self,
-                self.get_dataset(),
-                push_port,
-                connected_event,
-                callback_fn,
-                self._event_queue,
-                debug,
-            ),
-            name="ImageSavedCallbackThread",
-        )
+        callback = None
+        if image_saved_fn is not None:
+            params = signature(image_saved_fn).parameters
+            if len(params) == 2:
+                callback = image_saved_fn
+            elif len(params) == 3:
+                callback = lambda axes, dataset: image_saved_fn(axes, dataset, self._event_queue)
+            else:
+                raise Exception('Image saved callbacks must have either 2 or three parameters')
 
-        monitor_thread.start()
-
-        # Wait for pulling to start before you signal for pushing to start
-        connected_event.wait()  # wait for push/pull sockets to connect
-
-        # start pushing out all the image written events (including ones that have already accumulated)
-        self._remote_storage_monitor.start()
-        return monitor_thread
+        def _storage_monitor_fn():
+            dataset = self.get_dataset()
+            while True:
+                image_notification = self._image_notification_queue.get()
+                if AcqNotification.is_data_sink_finished_notification(image_notification):
+                    break
+                index_entry = image_notification.id.encode('ISO-8859-1')
+                axes = dataset._add_index_entry(index_entry)
+                dataset._new_image_arrived = True
+                if callback is not None:
+                    callback(axes, dataset)
+        t = threading.Thread(target=_storage_monitor_fn, name='StorageMonitorThread')
+        t.start()
+        return t
 
     def _check_for_exceptions(self):
         """
@@ -590,20 +511,13 @@ class JavaBackendAcquisition(PycromanagerAcquisition, metaclass=NumpyDocstringIn
     def _create_remote_acquisition(self, **kwargs):
         core = ZMQRemoteMMCoreJ(port=self._port, timeout=self._timeout, debug=self._debug)
         acq_factory = JavaObject("org.micromanager.remote.RemoteAcquisitionFactory",
-            # # create the acquisition on a dedicated socket to ensure it doesnt interfere with user code
-            #  new_socket=True,
+            # create a new socket for it to run on so that it can have blocking calls without interfering with
+            # the main socket or other internal sockets
+            new_socket=True,
             port=self._port, args=[core], debug=self._debug)
-        show_viewer = kwargs['show_display'] is True and\
-                      kwargs['napari_viewer'] is None and\
-                      (kwargs['directory'] is not None and kwargs['name'] is not None)
-
-        self._acq = acq_factory.create_acquisition(
-            kwargs['directory'],
-            kwargs['name'],
-            show_viewer,
-            kwargs['saving_queue_size'],
-            self._debug,
-        )
+        show_viewer = kwargs['show_display'] is True and kwargs['napari_viewer'] is None
+        self._acq = acq_factory.create_acquisition(kwargs['directory'], kwargs['name'], show_viewer,
+                                                   kwargs['saving_queue_size'], self._debug,)
 
     def _start_hook(self, remote_hook, remote_hook_fn : callable, event_queue, process):
         """

@@ -358,7 +358,7 @@ public class ExploreAcqUIAndStorage implements AcqEngJDataSink, NDViewerDataSour
       return new ExploreMouseListener(acq_, display_, logger_);
    }
 
-   public void putImage(final TaggedImage taggedImg) {
+   public Object putImage(final TaggedImage taggedImg) {
 
       String channelName = (String) AcqEngMetadata.getAxes(taggedImg.tags).get("channel");
       boolean newChannel = !channelNames_.contains(channelName);
@@ -399,6 +399,7 @@ public class ExploreAcqUIAndStorage implements AcqEngJDataSink, NDViewerDataSour
             }
          });
       }
+      return null;
    }
 
 

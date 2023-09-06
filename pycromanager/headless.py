@@ -94,6 +94,7 @@ def stop_headless():
     _JAVA_HEADLESS_SUBPROCESSES.clear()
     for c in _PYMMCORES:
         c.unloadAllDevices()
+        Engine.get_instance().shutdown()
     _PYMMCORES.clear()
 
 # make sure any Java processes are cleaned up when Python exits
@@ -101,7 +102,7 @@ atexit.register(stop_headless)
 
 def start_headless(
     mm_app_path: str, config_file: str='', java_loc: str=None,
-        core_log_path: str='', backend='java',
+        core_log_path: str='', python_backend=False,
         buffer_size_mb: int=1024, max_memory_mb: int=2000,
         port: int=_Bridge.DEFAULT_PORT, debug=False):
     """
@@ -126,8 +127,8 @@ def start_headless(
         Path to the java version that it should be run with (Java backend only)
     core_log_path : str
         Path to where core log files should be created
-    backend : str
-        If 'java' launch the Java backend, if 'python', launch 'pymmcore'
+    python_backend : bool
+        Whether to use the python backend or the Java backend
     buffer_size_mb : int
         Size of circular buffer in MB in MMCore
     max_memory_mb : int
@@ -138,7 +139,7 @@ def start_headless(
         Print debug messages
     """
 
-    if backend == 'python':
+    if python_backend:
         mmc = _create_pymmcore_instance()
         mmc.set_device_adapter_search_paths([mm_app_path])
         mmc.load_system_configuration(config_file)

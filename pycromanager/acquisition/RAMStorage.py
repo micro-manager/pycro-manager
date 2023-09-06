@@ -3,6 +3,7 @@
 from pycromanager.acquisition.acq_eng_py.main.acq_eng_metadata import AcqEngMetadata
 import numpy as np
 from sortedcontainers import SortedSet
+import threading
 
 
 class RAMDataStorage:
@@ -16,9 +17,13 @@ class RAMDataStorage:
         self.images = {}
         self.image_metadata = {}
         self.axes = {}
+        self.finished_event = threading.Event()
 
     def initialize(self, acq, summary_metadata: dict):
         self.summary_metadata = summary_metadata
+
+    def block_until_finished(self, timeout=None):
+        self.finished_event.wait(timeout=timeout)
 
     def finish(self):
         self.finished = True

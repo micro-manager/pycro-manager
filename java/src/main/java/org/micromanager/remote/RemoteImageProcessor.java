@@ -5,6 +5,7 @@
  */
 package org.micromanager.remote;
 
+import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.LinkedBlockingDeque;
@@ -30,7 +31,7 @@ public class RemoteImageProcessor implements TaggedImageProcessor {
 
    private ExecutorService pushExecutor_, pullExecutor_;
 
-   volatile LinkedBlockingDeque<TaggedImage> source_, sink_;
+   volatile BlockingQueue<TaggedImage> source_, sink_;
 
    ZMQPushSocket<TaggedImage> pushSocket_;
    ZMQPullSocket<TaggedImage> pullSocket_;
@@ -97,7 +98,7 @@ public class RemoteImageProcessor implements TaggedImageProcessor {
          while (true) {
             if (source_ != null) {
                try {
-                  TaggedImage img = source_.takeFirst();
+                  TaggedImage img = source_.take();
                   pushSocket_.push(img);
                   if (img.tags == null && img.pix == null) {
                      // all images have been pushed
@@ -124,7 +125,7 @@ public class RemoteImageProcessor implements TaggedImageProcessor {
             if (sink_ != null) {
                try {
                   TaggedImage ti = pullSocket_.next();
-                  sink_.putLast(ti);
+                  sink_.put(ti);
                   if (ti.pix == null && ti.tags == null) {
                      pullExecutor_.shutdown();
                      break;
@@ -146,6 +147,12 @@ public class RemoteImageProcessor implements TaggedImageProcessor {
    @Override
    public void setAcqAndDequeues(AcquisitionAPI acq,
                            LinkedBlockingDeque<TaggedImage> source, LinkedBlockingDeque<TaggedImage> sink) {
+      // This is deprecated, remove in a future version once its taken out of API
+   }
+
+   @Override
+   public void setAcqAndQueues(AcquisitionAPI acq, BlockingQueue<TaggedImage> source,
+                               BlockingQueue<TaggedImage> sink) {
       source_ = source;
       sink_ = sink;
    }

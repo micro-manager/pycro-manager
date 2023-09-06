@@ -1,13 +1,14 @@
 from docstring_inheritance import NumpyDocstringInheritanceMeta
-import queue
-from pycromanager.acquisition.acq_eng_py.main.acquisition_py import Acquisition as pymmcore_Acquisition
-from pycromanager.acquisition.acq_eng_py.RAMStorage import RAMDataStorage
-import time
-from pycromanager.acquisition.acquisition_superclass import _validate_acq_events, PycromanagerAcquisition
+from pycromanager.acquisition.acq_eng_py.main.AcqEngPy_Acquisition import Acquisition as pymmcore_Acquisition
+from pycromanager.acquisition.RAMStorage import RAMDataStorage
+from pycromanager.acquisition.acquisition_superclass import _validate_acq_events, Acquisition
 from pycromanager.acquisition.acq_eng_py.main.acquisition_event import AcquisitionEvent
+from pycromanager.acq_future import AcqNotification
 import threading
+from inspect import signature
 
-class PythonBackendAcquisition(PycromanagerAcquisition, metaclass=NumpyDocstringInheritanceMeta):
+
+class PythonBackendAcquisition(Acquisition, metaclass=NumpyDocstringInheritanceMeta):
     """
     Pycro-Manager acquisition that uses a Python runtime backend. Unlike the Java backend,
     Python-backed acquisitions currently do not automatically write data to disk. Instead, by default,
@@ -18,26 +19,34 @@ class PythonBackendAcquisition(PycromanagerAcquisition, metaclass=NumpyDocstring
 
     def __init__(
         self,
-        store_data_in_memory: bool=True,
+        directory: str=None,
+        name: str=None,
         image_process_fn: callable=None,
+        event_generation_hook_fn: callable = None,
         pre_hardware_hook_fn: callable=None,
         post_hardware_hook_fn: callable=None,
         post_camera_hook_fn: callable=None,
-        show_display: bool=True,
+        notification_callback_fn: callable=None,
         napari_viewer=None,
         image_saved_fn: callable=None,
         debug: int=False,
     ):
-        self._debug = debug
-        if not store_data_in_memory and image_process_fn is None:
-            raise ValueError('Must either store data in memory or provide an image_process_fn')
-        self._dataset = RAMDataStorage() if store_data_in_memory else None
+        # Get a dict of all named argument values (or default values when nothing provided)
+        arg_names = [k for k in signature(PythonBackendAcquisition.__init__).parameters.keys() if k != 'self']
+        l = locals()
+        named_args = {arg_name: (l[arg_name] if arg_name in l else
+                                     dict(signature(PythonBackendAcquisition.__init__).parameters.items())[arg_name].default)
+                                     for arg_name in arg_names }
+        super().__init__(**named_args)
+        if directory is not None:
+            raise NotImplementedError('Saving to disk is not yet implemented for the python backend. ')
+        self._dataset = RAMDataStorage()
         self._finished = False
-        self._exception = None
-        self._napari_viewer = None
-        self._notification_queue = queue.Queue(30)
+        self._notifications_finished = False
         self._create_event_queue()
-        self._acq_futures = []
+
+        self._process_fn = image_process_fn
+        self._image_processor = ImageProcessor(self) if image_process_fn is not None else None
 
 
         # create a thread that submits events
@@ -47,8 +56,7 @@ class PythonBackendAcquisition(PycromanagerAcquisition, metaclass=NumpyDocstring
                 event_or_events = self._event_queue.get()
                 if event_or_events is None:
                     self._acq.finish()
-                    while not self._acq.are_events_finished():
-                        time.sleep(0.001)
+                    self._acq.block_until_events_finished()
                     break
                 _validate_acq_events(event_or_events)
                 if isinstance(event_or_events, dict):
@@ -59,27 +67,35 @@ class PythonBackendAcquisition(PycromanagerAcquisition, metaclass=NumpyDocstring
         self._event_thread = threading.Thread(target=submit_events)
         self._event_thread.start()
 
-        # TODO: notification handling
-
         self._acq = pymmcore_Acquisition(self._dataset)
 
+        # receive notifications from the acquisition engine. Unlike the java_backend analog
+        # of this, the python backend does not have a separate thread for notifications because
+        # it can just use the one in AcqEngPy
+        def post_notification(notification):
+            self._notification_queue.put(notification)
+            # these are processed seperately to handle image saved callback
+            if AcqNotification.is_image_saved_notification(notification):
+                self._image_notification_queue.put(notification)
+
+        self._acq.add_acq_notification_listener(NotificationListener(post_notification))
+
+        self._notification_dispatch_thread = self._start_notification_dispatcher(notification_callback_fn)
+
         # add hooks and image processor
-        # TODO hooks and processor need to be wrapped appropriately
-        # if pre_hardware_hook_fn is not None:
-        #     self._acq.add_hook(pre_hardware_hook_fn, self._acq.BEFORE_HARDWARE_HOOK)
-        # if post_hardware_hook_fn is not None:
-        #     self._acq.add_hook(post_hardware_hook_fn, self._acq.AFTER_HARDWARE_HOOK)
-        # if post_camera_hook_fn is not None:
-        #     self._acq.add_hook(post_camera_hook_fn, self._acq.AFTER_CAMERA_HOOK)
-        # if event_generation_hook_fn is not None:
-        #     self._acq.add_hook(event_generation_hook_fn, self._acq.EVENT_GENERATION_HOOK)
-        # if image_process_fn is not None:
-        #     raise NotImplementedError('image_process_fn not yet implemented')
-            # need to make a dedicated thread for it
-            # self._acq.add_image_processor(image_process_fn)
+        if pre_hardware_hook_fn is not None:
+            self._acq.add_hook(AcquisitionHook(pre_hardware_hook_fn),self._acq.BEFORE_HARDWARE_HOOK)
+        if post_hardware_hook_fn is not None:
+            self._acq.add_hook(AcquisitionHook(post_hardware_hook_fn),self._acq.AFTER_HARDWARE_HOOK)
+        if post_camera_hook_fn is not None:
+            self._acq.add_hook(AcquisitionHook(post_camera_hook_fn),self._acq.AFTER_CAMERA_HOOK)
+        if event_generation_hook_fn is not None:
+            self._acq.add_hook(AcquisitionHook(event_generation_hook_fn),self._acq.EVENT_GENERATION_HOOK)
+        if self._image_processor is not None:
+            self._acq.add_image_processor(self._image_processor)
 
 
-        if show_display:
+        if napari_viewer is not None:
             # using napari viewer
             try:
                 import napari
@@ -99,13 +115,13 @@ class PythonBackendAcquisition(PycromanagerAcquisition, metaclass=NumpyDocstring
         """Wait for acquisition to finish and resources to be cleaned up"""
         while not self._acq.are_events_finished() or (
                 self._acq.get_data_sink() is not None and not self._acq.get_data_sink().is_finished()):
-            time.sleep(1 if self._debug else 0.05)
+            self._check_for_exceptions()
+            self._acq.block_until_events_finished(0.05)
+            if self._acq.get_data_sink() is not None:
+                self._acq.get_data_sink().block_until_finished(0.05)
             self._check_for_exceptions()
         self._event_thread.join()
-
-        # TODO: shut down notifications?
-        # self._acq_notification_thread.join()
-        # self._remote_notification_handler.notification_handling_complete()
+        self._notification_dispatch_thread.join()
 
         self._acq = None
         self._finished = True
@@ -136,3 +152,64 @@ class PythonBackendAcquisition(PycromanagerAcquisition, metaclass=NumpyDocstring
         if self._exception is not None:
             raise self._exception
 
+    def _are_acquisition_notifications_finished(self):
+        """
+        Called by the storage to check if all notifications have been processed
+        """
+        return self._notifications_finished
+
+class ImageProcessor:
+    """
+    This is the equivalent of RemoteImageProcessor in the Java version.
+    It runs its own thread, polls the input queue for images, calls
+    the process function, and puts the result in the output queue.
+    """
+
+
+    def __init__(self, pycromanager_acq):
+        self._pycromanager_acq = pycromanager_acq
+
+    def set_acq_and_queues(self, acq, input, output):
+        self.input_queue = input
+        self.output_queue = output
+        self._acq = acq
+        self._process_thread = threading.Thread(target=self._process)
+        self._process_thread.start()
+
+    def _process(self):
+        while True:
+            # wait for an image to arrive
+            tagged_image = self.input_queue.get()
+            if tagged_image.tags is None and tagged_image.pix is None:
+                # this is a signal to stop
+                self.output_queue.put(tagged_image)
+                break
+            process_fn_result = self._pycromanager_acq._call_image_process_fn(tagged_image.tags, tagged_image.pix)
+            if process_fn_result is not None:
+                self.output_queue.put(process_fn_result)
+            # otherwise the image processor intercepted the image and nothing to do here
+
+class AcquisitionHook:
+    """
+    Lightweight wrapper to convert function pointers to AcqEng hooks
+    """
+
+    def __init__(self, hook_fn):
+        self._hook_fn = hook_fn
+
+    def run(self, event):
+        self._hook_fn(event)
+
+    def close(self):
+        pass # nothing to do here
+
+class NotificationListener:
+    """
+    Lightweight wrapper to convert function pointers to AcqEng notification listeners
+    """
+
+    def __init__(self, notification_fn):
+        self._notification_fn = notification_fn
+
+    def post_notification(self, notification):
+        self._notification_fn(notification)
