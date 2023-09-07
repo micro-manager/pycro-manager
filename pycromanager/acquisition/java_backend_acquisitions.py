@@ -357,6 +357,8 @@ class JavaBackendAcquisition(Acquisition, metaclass=NumpyDocstringInheritanceMet
         if hasattr(self, '_event_thread'):
             self._event_thread.join()
 
+        # need to do this so its _Bridge can be garbage collected and a reference to the JavaBackendAcquisition
+        # does not prevent Bridge cleanup and process exiting
         self._remote_acq = None
 
         # Wait on all the other threads to shut down properly
@@ -367,7 +369,9 @@ class JavaBackendAcquisition(Acquisition, metaclass=NumpyDocstringInheritanceMet
             # for backwards compatiblitiy with older versions of Pycromanager java before this added
             self._acq_notification_recieving_thread.join()
             self._remote_notification_handler.notification_handling_complete()
-            self._remote_notification_handler = None # this prevents a circular reference
+            # need to do this so its _Bridge can be garbage collected and a reference to the JavaBackendAcquisition
+            # does not prevent Bridge cleanup and process exiting
+            self._remote_notification_handler = None
             self._acq_notification_dispatcher_thread.join()
 
         self._acq = None
