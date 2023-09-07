@@ -111,7 +111,7 @@ def test_multi_d_acq(launch_mm_headless, setup_data_folder):
         order="tcz",
     )
 
-    with Acquisition(setup_data_folder, 'acq', show_display=False, debug=True,
+    with Acquisition(setup_data_folder, 'acq', show_display=False,
                      notification_callback_fn=lambda n : print(n.to_json())) as acq:
         acq.acquire(events)
 
@@ -545,7 +545,8 @@ def test_change_roi(launch_mm_headless, setup_data_folder):
     mmc = Core()
     mmc.set_roi(*(0, 0, 100, 100))
 
-    with Acquisition(setup_data_folder, 'acq', show_display=False) as acq:
+    with Acquisition(setup_data_folder, 'acq', show_display=False,
+                     notification_callback_fn=lambda n : print(n.to_json())) as acq:
         events = multi_d_acquisition_events(num_time_points=5)
         acq.acquire(events)
 
