@@ -209,6 +209,7 @@ def _notification_handler_fn(acquisition, notification_push_port, connected_even
     finally:
         monitor_socket.close()
 
+
 class JavaBackendAcquisition(Acquisition, metaclass=NumpyDocstringInheritanceMeta):
     """
     Pycro-Manager acquisition that uses a Java runtime backend via a ZeroMQ communication layer.
@@ -366,6 +367,7 @@ class JavaBackendAcquisition(Acquisition, metaclass=NumpyDocstringInheritanceMet
             # for backwards compatiblitiy with older versions of Pycromanager java before this added
             self._acq_notification_recieving_thread.join()
             self._remote_notification_handler.notification_handling_complete()
+            self._remote_notification_handler = None # this prevents a circular reference
             self._acq_notification_dispatcher_thread.join()
 
         self._acq = None
