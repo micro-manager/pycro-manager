@@ -124,6 +124,13 @@ def install_mm(download_mm_nightly):
                 raise RuntimeError('Could not find pycro-manager/java path')
 
 
+            # Delete the pycromanagerjava.jar file that is packaged with the nightly build
+            # use a wildcard to match the version number
+            pycromanager_jar_path = os.path.join(mm_install_dir, 'plugins', 'Micro-Manager', 'PycromanagerJava-[0-9]*.[0-9]*.[0-9]*.jar')
+            for file_path in glob.glob(pycromanager_jar_path):
+                os.remove(file_path)
+                print(f'Removed {file_path}')
+
             # Copy the pycromanagerjava.jar file that was compiled by the github action
             # into the nightly build so that it will test with the latest code
             compiled_jar_path = os.path.join(java_path, 'target', 'PycromanagerJava-[0-9]*.[0-9]*.[0-9]*.jar')            # Destination path where the jar file should be copied to
