@@ -16,7 +16,7 @@ Advanced use cases may require a deeper understanding of how pycromanager works.
    :width: 800
    :alt: Architecture of pycro-manager
 
-   **Headless mode** In headless mode, pycro-manager can be run without the micro-manager user interface, enabling the implementation of custom user interfaces or no user interfaces at all. 
+   **Headless mode (using Java backend)** In headless mode, pycro-manager can be run without the micro-manager user interface, enabling the implementation of custom user interfaces or no user interfaces at all. 
 
 
 .. toctree::

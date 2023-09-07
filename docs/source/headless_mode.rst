@@ -4,7 +4,11 @@
 Headless Mode
 **************************
 
-Headless mode allows you to use Pycro-manager without having to launch Micro-manager. The :meth:`start_headless<pycromanager.start_headless>` method should be run prior to any other calls. This will launch in the background with only the essential Java components for running the Pycro-manager acquisition system, without showing a user interface. It provides a lightweight environment that can also be run without a GUI in order to use Pycro-manager as a hidden backend for custom applications. This could be useful, for example, if you want to implement your own user interface, or run Pycro-manager from a server environment.
+Headless mode allows you to use Pycro-manager without having to launch Micro-manager. The :meth:`start_headless<pycromanager.start_headless>` method should be run prior to any other calls. This function launches Micro-Manager core and the acqusition engine, which is used by the ``Acquisition`` class.
+
+Headless mode can be run with either a Java backend (i.e. the same components that run when you use pycromanager along with the Micro-Manager application) or a Python backend, which provides pure python versions of the same components.
+
+Headless mode provides a lightweight environment that can also be run without a GUI in order to use Pycro-manager as a hidden backend for custom applications. This could be useful, for example, if you want to implement your own user interface, or run Pycro-manager from a server environment.
 
 
 .. code-block:: python
@@ -20,7 +24,7 @@ Headless mode allows you to use Pycro-manager without having to launch Micro-man
     core = Core()
 
 
-The example below shows headless mode in combination with an saved image callback, which calls a user-defined function whenever new data is written to disk. This setup could be used to replace the pycro-manager viewer with a custom user interface (note the ``show_display=False`` in the acquisition).
+The example below shows headless mode in combination with an saved image callback, which calls a user-defined function whenever new data is stored (on disk or in RAM depending on the arguments to ``Acquisition``). This setup could be used to replace the pycro-manager viewer with a custom user interface (note the ``show_display=False`` in the acquisition).
 
 
 .. code-block:: python
@@ -55,7 +59,7 @@ The example below shows headless mode in combination with an saved image callbac
 
 How to install Java for Mac OS
 =============================================
-Running headless mode is easy on Windows, because the correct version of Java comes bundled with the Micro-Manager installer. However, on Mac OS, this is not the case. As a result, it can be helpful to manually install a compatible version of Java.
+Running headless mode with the Java backend is easy on Windows, because the correct version of Java comes bundled with the Micro-Manager installer. However, on Mac OS, this is not the case. As a result, it can be helpful to manually install a compatible version of Java.
 
 This can be done through Python as follows: First install the Python package ``install-jdk``.
 

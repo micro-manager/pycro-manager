@@ -1,3 +1,5 @@
+import json
+
 class AcqNotification:
 
     class Acquisition:
@@ -6,7 +8,7 @@ class AcqNotification:
 
         @staticmethod
         def to_string():
-            return "Global"
+            return "global"
 
     class Hardware:
         PRE_HARDWARE = "pre_hardware"
@@ -14,7 +16,7 @@ class AcqNotification:
 
         @staticmethod
         def to_string():
-            return "Hardware"
+            return "hardware"
 
     class Camera:
         PRE_SEQUENCE_STARTED = "pre_sequence_started"
@@ -23,7 +25,7 @@ class AcqNotification:
 
         @staticmethod
         def to_string():
-            return "Camera"
+            return "camera"
 
     class Image:
         IMAGE_SAVED = "image_saved"
@@ -31,23 +33,30 @@ class AcqNotification:
 
         @staticmethod
         def to_string():
-            return "Image"
+            return "image"
 
     def __init__(self, type, id, phase=None):
-        if type is None:
-            # then figure it out based on the phase
-            if phase in [AcqNotification.Camera.PRE_SNAP, AcqNotification.Camera.POST_EXPOSURE,
-                         AcqNotification.Camera.PRE_SEQUENCE_STARTED]:
-                type = AcqNotification.Camera
-            elif phase in [AcqNotification.Hardware.PRE_HARDWARE, AcqNotification.Hardware.POST_HARDWARE]:
-                type = AcqNotification.Hardware
-            elif phase == AcqNotification.Image.IMAGE_SAVED:
-                type = AcqNotification.Image
-            else:
-                raise ValueError("Unknown phase")
-        self.type = type
+        if type == AcqNotification.Acquisition.to_string():
+            self.type = AcqNotification.Acquisition
+            self.id = id
+            self.phase = phase
+        elif type == AcqNotification.Image.to_string() and phase == AcqNotification.Image.DATA_SINK_FINISHED:
+            self.type = AcqNotification.Image
+            self.id = id
+            self.phase = phase
+        elif phase in [AcqNotification.Camera.PRE_SNAP, AcqNotification.Camera.POST_EXPOSURE,
+                     AcqNotification.Camera.PRE_SEQUENCE_STARTED]:
+            self.type = AcqNotification.Camera
+            self.id = json.loads(id)
+        elif phase in [AcqNotification.Hardware.PRE_HARDWARE, AcqNotification.Hardware.POST_HARDWARE]:
+            self.type = AcqNotification.Hardware
+            self.id = json.loads(id)
+        elif phase == AcqNotification.Image.IMAGE_SAVED:
+            self.type = AcqNotification.Image
+            self.id = id
+        else:
+            raise ValueError("Unknown phase")
         self.phase = phase
-        self.id = id
 
 
     @staticmethod

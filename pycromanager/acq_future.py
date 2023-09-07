@@ -1,10 +1,9 @@
 import threading
 from pycromanager.acquisition.acq_eng_py.main.acq_notification import AcqNotification
 
-def _axes_to_key(axes_or_axes_list):
+def _axes_to_key(axes):
     """ Turn axes into a hashable key """
-    return frozenset(axes_or_axes_list.items())
-
+    return frozenset(axes.items())
 
 class AcquisitionFuture:
 
@@ -38,12 +37,18 @@ class AcquisitionFuture:
         received. Want to store this, rather than just waiting around for it, in case the await methods are called
         after the notification has already been sent.
         """
-        if notification.type == AcqNotification.Acquisition.ACQ_EVENTS_FINISHED:
+        if notification.phase == AcqNotification.Acquisition.ACQ_EVENTS_FINISHED or \
+            notification.phase == AcqNotification.Image.DATA_SINK_FINISHED:
             return # ignore for now...
-        key = _axes_to_key(notification.axes)
-        if key not in self._notification_recieved.keys():
+        if isinstance(notification.id, list):
+            keys = [_axes_to_key(ax) for ax in notification.id]
+        else:
+            keys = [_axes_to_key(notification.id)]
+        # check if any keys are present in the notification_recieved dict
+        if not any([key in self._notification_recieved.keys() for key in keys]):
             return # ignore notifications that aren't relevant to this future
-        self._notification_recieved[key][notification.phase] = True
+        for key in keys:
+            self._notification_recieved[key][notification.phase] = True
         with self._condition:
             self._condition.notify_all()
 
@@ -57,11 +62,18 @@ class AcquisitionFuture:
                 self._condition.wait()
 
     def await_image_saved(self, axes, return_image=False):
-        key = _axes_to_key(axes)
-        with self._condition:
-            while not self._notification_recieved[key][AcqNotification.Image.IMAGE_SAVED]:
-                self._condition.wait()
+        if isinstance(axes, list):
+            keys = [_axes_to_key(ax) for ax in axes]
+        else:
+            keys = [_axes_to_key(axes)]
+        for key in keys:
+            with self._condition:
+                while not self._notification_recieved[key][AcqNotification.Image.IMAGE_SAVED]:
+                    self._condition.wait()
         if return_image:
-            return self._acq.get_dataset().read_image(**axes)
+            if isinstance(axes, list):
+                return [self._acq.get_dataset().read_image(**ax) for ax in axes]
+            else:
+                return self._acq.get_dataset().read_image(**axes)
 
 

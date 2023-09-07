@@ -80,7 +80,7 @@ class Acquisition(metaclass=Meta):
             include various stages of the control of hardware and the camera and saving of images. Notification
             callbacks will execute asynchronously with respect to the acquisition process. The supplied function
             should take a single argument, which will be an AcqNotification object. It should execute quickly,
-             so as to not back up the processing of other notifications.
+            so as to not back up the processing of other notifications.
         image_saved_fn : Callable
             function that takes two arguments (the Axes of the image that just finished saving, and the Dataset)
             or three arguments (Axes, Dataset and the event_queue) and gets called whenever a new image is written to

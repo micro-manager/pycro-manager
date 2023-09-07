@@ -11,7 +11,7 @@ from inspect import signature
 class Acquisition(PycromanagerAcquisitionBase):
     def __new__(cls,
             directory: str = None,
-            name: str = None,
+            name: str = 'default_acq_name',
             image_process_fn: callable = None,
             event_generation_hook_fn: callable = None,
             pre_hardware_hook_fn: callable = None,

@@ -190,11 +190,16 @@ def _notification_handler_fn(acquisition, notification_push_port, connected_even
         while True:
             message = monitor_socket.receive()
             notification = AcqNotification.from_json(message)
-            acquisition._notification_queue.put(notification)
             # these are processed seperately to handle image saved callback
             if AcqNotification.is_image_saved_notification(notification):
+                if not notification.is_data_sink_finished_notification():
+                    # decode the NDTiff index entry
+                    index_entry = notification.id.encode('ISO-8859-1')
+                    axes = acquisition._dataset._add_index_entry(index_entry)
+                    # swap the notification id from the byte array of index information to axes
+                    notification.id = axes
                 acquisition._image_notification_queue.put(notification)
-
+            acquisition._notification_queue.put(notification)
             if AcqNotification.is_acquisition_finished_notification(notification):
                 events_finished = True
             elif AcqNotification.is_data_sink_finished_notification(notification):
@@ -218,7 +223,7 @@ class JavaBackendAcquisition(Acquisition, metaclass=NumpyDocstringInheritanceMet
     def __init__(
         self,
         directory: str=None,
-        name: str=None,
+        name: str='default_acq_name',
         image_process_fn : callable=None,
         event_generation_hook_fn: callable=None,
         pre_hardware_hook_fn: callable=None,
@@ -439,11 +444,9 @@ class JavaBackendAcquisition(Acquisition, metaclass=NumpyDocstringInheritanceMet
                 image_notification = self._image_notification_queue.get()
                 if AcqNotification.is_data_sink_finished_notification(image_notification):
                     break
-                index_entry = image_notification.id.encode('ISO-8859-1')
-                axes = dataset._add_index_entry(index_entry)
                 dataset._new_image_arrived = True
                 if callback is not None:
-                    callback(axes, dataset)
+                    callback(image_notification.id, dataset)
         t = threading.Thread(target=_storage_monitor_fn, name='StorageMonitorThread')
         t.start()
         return t
