@@ -201,7 +201,7 @@ def start_headless(
         if debug:
             print('Headless mode started')
             def logger():
-                while True:
+                while process in _JAVA_HEADLESS_SUBPROCESSES:
                     print(process.stdout.readline().decode('utf-8'))
             threading.Thread(target=logger).start()
 
