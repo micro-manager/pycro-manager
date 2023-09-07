@@ -112,7 +112,7 @@ def test_multi_d_acq(launch_mm_headless, setup_data_folder):
     )
 
     with Acquisition(setup_data_folder, 'acq', show_display=False,
-                     notification_callback_fn=lambda n : print(n)) as acq:
+                     notification_callback_fn=lambda n : print(n.to_json())) as acq:
         acq.acquire(events)
 
     dataset = acq.get_dataset()
