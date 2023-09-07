@@ -1,6 +1,6 @@
-from pycromanager import Core, Studio
+from pycromanager import ZMQRemoteMMCoreJ, Studio
 
-core = Core()
+core = ZMQRemoteMMCoreJ()
 studio = Studio()
 
 for i in range(20):

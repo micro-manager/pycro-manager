@@ -221,13 +221,13 @@ class _Bridge:
     _bridge_creation_lock = threading.Lock()
     _cached_bridges_by_port_and_thread = {}
 
-
-    def __new__(cls, port: int=DEFAULT_PORT, timeout: int=DEFAULT_TIMEOUT, convert_camel_case: bool=True,
-                debug: bool=False, *args, **kwargs):
+    @staticmethod
+    def create_or_get_existing_bridge(port: int=DEFAULT_PORT, convert_camel_case: bool=True,
+                                      debug: bool=False, ip_address: str="127.0.0.1", timeout: int=DEFAULT_TIMEOUT, iterate: bool = False):
         """
-        Only one instance of Bridge per a thread/port combo
+        Get a bridge for a given port and thread. If a bridge for that port/thread combo already exists,
+        return it
         """
-        # synchronize this method so multiple threads don't try to create a bridge at the same time
         with _Bridge._bridge_creation_lock:
             thread_id = threading.current_thread().ident
             port_thread_id = (port, thread_id)
@@ -246,7 +246,34 @@ class _Bridge:
                 if debug:
                     print("DEBUG: creating new beidge for port {} thread {}".format(
                         port, threading.current_thread().name))
-                return super(_Bridge, cls).__new__(cls)
+                return _Bridge(port, convert_camel_case, debug, ip_address, timeout, iterate)
+
+
+    # def __new__(cls, port: int=DEFAULT_PORT, timeout: int=DEFAULT_TIMEOUT, convert_camel_case: bool=True,
+    #             debug: bool=False, *args, **kwargs):
+    #     """
+    #     Only one instance of Bridge per a thread/port combo
+    #     """
+    #     # synchronize this method so multiple threads don't try to create a bridge at the same time
+    #     with _Bridge._bridge_creation_lock:
+    #         thread_id = threading.current_thread().ident
+    #         port_thread_id = (port, thread_id)
+    #
+    #         # return the existing cached bridge if it exists, otherwise make a new one
+    #         if port_thread_id in _Bridge._cached_bridges_by_port_and_thread.keys():
+    #             bridge = _Bridge._cached_bridges_by_port_and_thread[port_thread_id]()
+    #             if bridge is None:
+    #                 raise Exception("Bridge for port {} and thread {} has been "
+    #                                 "closed but not removed".format(port, threading.current_thread().name))
+    #             if debug:
+    #                 print("DEBUG: returning cached bridge for port {} thread {}".format(
+    #                     port, threading.current_thread().name))
+    #             return bridge
+    #         else:
+    #             if debug:
+    #                 print("DEBUG: creating new beidge for port {} thread {}".format(
+    #                     port, threading.current_thread().name))
+    #             return super(_Bridge, cls).__new__(cls)
 
 
     def __init__(
@@ -254,6 +281,7 @@ class _Bridge:
             debug: bool=False, ip_address: str="127.0.0.1", timeout: int=DEFAULT_TIMEOUT, iterate: bool = False
     ):
         """
+        This constructor should not be called directly. Instead, use the static method create_or_get_existing_bridge
         Parameters
         ----------
         port : int
@@ -267,16 +295,15 @@ class _Bridge:
         iterate : bool
             If True, ListArray will be iterated and give lists
         """
-        with _Bridge._bridge_creation_lock:
-            thread_id = threading.current_thread().ident
-            port_thread_id = (port, thread_id)
-            if port_thread_id in _Bridge._cached_bridges_by_port_and_thread.keys():
-                return # already initialized
-            self._port_thread_id = port_thread_id
-            # store weak refs so that the existence of thread/port bridge caching doesn't prevent
-            # the garbage collection of unused bridge objects
-            self._weak_self_ref = weakref.ref(self)
-            _Bridge._cached_bridges_by_port_and_thread[port_thread_id] = self._weak_self_ref
+        thread_id = threading.current_thread().ident
+        port_thread_id = (port, thread_id)
+        # if port_thread_id in _Bridge._cached_bridges_by_port_and_thread.keys():
+        #     return # already initialized
+        self._port_thread_id = port_thread_id
+        # store weak refs so that the existence of thread/port bridge caching doesn't prevent
+        # the garbage collection of unused bridge objects
+        self._weak_self_ref = weakref.ref(self)
+        _Bridge._cached_bridges_by_port_and_thread[port_thread_id] = self._weak_self_ref
 
         self._ip_address = ip_address
         self.port = port
@@ -392,8 +419,10 @@ class _Bridge:
         serialized_object = self._main_socket.receive()
         if new_socket:
             # create a new bridge over a different port
-            bridge = _Bridge(port=serialized_object["port"], ip_address=self._ip_address,
-                             timeout=self._timeout, debug=debug)
+            bridge = _Bridge.create_or_get_existing_bridge(
+                port=serialized_object["port"], ip_address=self._ip_address, timeout=self._timeout, debug=debug)
+            # bridge = _Bridge(port=serialized_object["port"], ip_address=self._ip_address,
+            #                  timeout=self._timeout, debug=debug)
         else:
             bridge = self
 
@@ -427,7 +456,7 @@ class _Bridge:
 
         if new_socket:
             # create a new bridge over a different port
-            bridge = _Bridge(port=serialized_object["port"], ip_address=self._ip_address,
+            bridge = _Bridge.create_or_get_existing_bridge(port=serialized_object["port"], ip_address=self._ip_address,
                              timeout=self._timeout, debug=debug)
         else:
             bridge = self
@@ -604,7 +633,7 @@ class _JavaObjectShadow:
         if threading.current_thread().ident == self._creation_thread:
             bridge_to_use = self._creation_bridge
         else:
-            bridge_to_use = _Bridge(
+            bridge_to_use = _Bridge.create_or_get_existing_bridge(
                     port=port,
                     convert_camel_case=self._convert_camel_case,
                     ip_address=self._ip_address,
@@ -1023,7 +1052,7 @@ if __name__ == "__main__":
     # Test basic bridge operations
     import traceback
 
-    b = _Bridge()
+    b = _Bridge.create_or_get_existing_bridge()
     try:
         s = b.get_studio()
     except:

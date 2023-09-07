@@ -1,4 +1,4 @@
-from pycromanager import Core
+from pycromanager import ZMQRemoteMMCoreJ
 import gc
 
 
@@ -14,7 +14,7 @@ import gc
 #         core.sleep(5)
 
 
-core = Core(debug=True)
+core = ZMQRemoteMMCoreJ(debug=True)
 print(core)
 core = None
 pass

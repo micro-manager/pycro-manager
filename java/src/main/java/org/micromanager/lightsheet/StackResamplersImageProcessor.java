@@ -1,5 +1,6 @@
 package org.micromanager.lightsheet;
 
+import java.util.concurrent.BlockingQueue;
 import mmcorej.TaggedImage;
 import mmcorej.org.json.JSONException;
 import mmcorej.org.json.JSONObject;
@@ -73,7 +74,7 @@ class StackResamplersImageProcessor extends ImageProcessorBase {
    /**
     * For testing purposes only
     */
-   LinkedBlockingDeque<TaggedImage> getOutputQueue() {
+   BlockingQueue<TaggedImage> getOutputQueue() {
       return sink_;
    }
 

@@ -9,9 +9,7 @@ import mmcorej.org.json.JSONException;
 import org.micromanager.acqj.api.AcqNotificationListener;
 import org.micromanager.acqj.api.AcquisitionAPI;
 import org.micromanager.acqj.main.AcqNotification;
-import org.micromanager.acqj.main.Acquisition;
 import org.micromanager.internal.zmq.ZMQPushSocket;
-import org.micromanager.ndtiffstorage.IndexEntryData;
 
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -55,6 +53,8 @@ public class RemoteNotificationHandler implements AcqNotificationListener {
    public void start() {
       //constantly poll the socket for more event sequences to submit
       executor_.submit(() -> {
+         boolean eventsFinished = false;
+         boolean dataSinkFinished = false;
          while (true) {
             AcqNotification e = null;
             try {
@@ -66,8 +66,14 @@ public class RemoteNotificationHandler implements AcqNotificationListener {
             }
 
             pushSocket_.push(e);
-            if (e.isAcquisitionFinishedNotification()) {
-               return;
+            if (e.isAcquisitionEventsFinishedNotification()) {
+               eventsFinished = true;
+            }
+            if (e.isDataSinkFinishedNotification()) {
+               dataSinkFinished = true;
+            }
+            if (eventsFinished && dataSinkFinished) {
+               break;
             }
          }
       });
@@ -80,7 +86,8 @@ public class RemoteNotificationHandler implements AcqNotificationListener {
 
    /**
     * Called by the python side to signal that the final shutdown signal has been received
-    * and that the push socket can be closed
+    * and that the push socket can be closed. Because otherwise it wouldn't be possible
+    * to know when the ZMQ push socket has finished doing its thing
     */
    public void notificationHandlingComplete() {
       executor_.submit(() -> {

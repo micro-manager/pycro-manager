@@ -24,7 +24,7 @@ class _CoreCallback:
 
     def _callback_recieving_fn(self, bridge_port, core_callback):
         callback_java = JavaObject(
-            "org.micromanager.remote.RemoteCoreCallback", args=(Core(port=bridge_port),)
+            "org.micromanager.remote.RemoteCoreCallback", args=(ZMQRemoteMMCoreJ(port=bridge_port),)
         )
 
         port = callback_java.get_push_port()
@@ -56,7 +56,7 @@ class _CoreCallback:
         self._thread.join()
 
 
-class Core(JavaObject):
+class ZMQRemoteMMCoreJ(JavaObject):
     """
     Remote instance of Micro-Manager Core
     """

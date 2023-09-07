@@ -1,4 +1,4 @@
-from pycromanager import Acquisition, multi_d_acquisition_events
+from pycromanager import JavaBackendAcquisition, multi_d_acquisition_events
 import numpy as np
 
 
@@ -19,7 +19,7 @@ def img_process_fn(image, metadata, bridge, event_queue):
 
     return image, metadata
 
-acq = Acquisition(
+acq = JavaBackendAcquisition(
     directory="/Users/henrypinkard/megllandump",
     name="acquisition_name",
     image_process_fn=img_process_fn,

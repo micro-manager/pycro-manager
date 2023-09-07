@@ -1,6 +1,6 @@
 from pycromanager import _Bridge
 
-from pycromanager import Acquisition, multi_d_acquisition_events
+from pycromanager import JavaBackendAcquisition, multi_d_acquisition_events
 
 
 def img_process_fn(image, metadata):
@@ -17,7 +17,7 @@ z_shg_center = 0
 
 if __name__ == "__main__":  # this is important, don't forget it
 
-    with Acquisition(
+    with JavaBackendAcquisition(
         directory="/Users/henrypinkard/megellandump/",
         name="exp_2_mda",
         image_process_fn=img_process_fn,

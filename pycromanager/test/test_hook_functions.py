@@ -15,7 +15,7 @@ def test_img_process_fn(launch_mm_headless, setup_data_folder):
         return image, metadata
 
     with Acquisition(setup_data_folder, 'acq', show_display=False,
-                     image_process_fn=hook_fn) as acq:
+                                image_process_fn=hook_fn) as acq:
         acq.acquire(events)
 
     dataset = acq.get_dataset()
@@ -35,7 +35,7 @@ def test_img_process_fn_no_save(launch_mm_headless):
         return None
 
     with Acquisition(directory=None, name='acq', show_display=False,
-                     image_process_fn=hook_fn) as acq:
+                                image_process_fn=hook_fn) as acq:
         acq.acquire(events)
         dataset = acq.get_dataset()  # Can this be moved out of the Acquisition context?
 

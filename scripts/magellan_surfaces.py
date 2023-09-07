@@ -1,4 +1,4 @@
-from pycromanager import _Bridge, Acquisition
+from pycromanager import _Bridge, JavaBackendAcquisition
 import numpy as np
 
 with _Bridge() as bridge:
@@ -59,5 +59,5 @@ with _Bridge() as bridge:
 # Run the acquisition
 
 # magellan example
-acq = Acquisition(magellan_acq_index=0, post_hardware_hook_fn=hook_fn)
+acq = JavaBackendAcquisition(magellan_acq_index=0, post_hardware_hook_fn=hook_fn)
 acq.await_completion()

@@ -1,4 +1,4 @@
-from pycromanager import ExploreAcquisition, Core
+from pycromanager import ExploreAcquisition, ZMQRemoteMMCoreJ
 
 # core = Core()
 

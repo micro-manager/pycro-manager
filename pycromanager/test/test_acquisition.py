@@ -2,7 +2,7 @@ import numpy as np
 import pytest
 import time
 from pycromanager import Acquisition, Core, multi_d_acquisition_events
-from pycromanager.acquisitions import AcqAlreadyCompleteException
+from pycromanager.acquisition.acquisition_superclass import AcqAlreadyCompleteException
 
 
 def check_acq_sequenced(events, expected_num_events):
@@ -21,7 +21,7 @@ def test_timelapse_acq(launch_mm_headless, setup_data_folder):
         return _events
 
     with Acquisition(setup_data_folder, 'acq', show_display=False,
-                     pre_hardware_hook_fn=hook_fn) as acq:
+                                pre_hardware_hook_fn=hook_fn) as acq:
         acq.acquire(events)
 
     dataset = acq.get_dataset()
@@ -39,7 +39,7 @@ def test_timelapse_seq_acq(launch_mm_headless, setup_data_folder):
         return _events
 
     with Acquisition(setup_data_folder, 'acq', show_display=False,
-                     pre_hardware_hook_fn=hook_fn) as acq:
+                                pre_hardware_hook_fn=hook_fn) as acq:
         acq.acquire(events)
 
     dataset = acq.get_dataset()
@@ -143,7 +143,7 @@ def test_zstack_seq_acq(launch_mm_headless, setup_data_folder):
         return None  # no need to actually acquire the data
 
     with Acquisition(setup_data_folder, 'acq', show_display=False,
-                     pre_hardware_hook_fn=hook_fn) as acq:
+                                pre_hardware_hook_fn=hook_fn) as acq:
         acq.acquire(events)
 
 
@@ -191,7 +191,7 @@ def test_channel_exp_seq_acq(launch_mm_headless, setup_data_folder):
         return None  # no need to actually acquire the data
 
     with Acquisition(setup_data_folder, 'acq', show_display=False,
-                     pre_hardware_hook_fn=hook_fn) as acq:
+                                pre_hardware_hook_fn=hook_fn) as acq:
         acq.acquire(events)
 
 
@@ -216,7 +216,7 @@ def test_channel_noseq_acq(launch_mm_headless, setup_data_folder):
         return _events
 
     with Acquisition(setup_data_folder, 'acq', show_display=False,
-                     pre_hardware_hook_fn=hook_fn) as acq:
+                                pre_hardware_hook_fn=hook_fn) as acq:
         acq.acquire(events)
 
     # check that the exposure time was correctly set
@@ -248,7 +248,7 @@ def test_channel_z_seq_acq(launch_mm_headless, setup_data_folder):
         return None  # no need to actually acquire the data
 
     with Acquisition(setup_data_folder, 'acq', show_display=False,
-                     pre_hardware_hook_fn=hook_fn) as acq:
+                                pre_hardware_hook_fn=hook_fn) as acq:
         acq.acquire(events)
 
 
@@ -271,7 +271,7 @@ def test_z_channel_seq_acq(launch_mm_headless, setup_data_folder):
         return None  # no need to actually acquire the data
 
     with Acquisition(setup_data_folder, 'acq', show_display=False,
-                     pre_hardware_hook_fn=hook_fn) as acq:
+                                pre_hardware_hook_fn=hook_fn) as acq:
         acq.acquire(events)
 
 
@@ -294,7 +294,7 @@ def test_channel_seq_z_noseq_acq(launch_mm_headless, setup_data_folder):
         return None  # no need to actually acquire the data
 
     with Acquisition(setup_data_folder, 'acq', show_display=False,
-                     pre_hardware_hook_fn=hook_fn) as acq:
+                                pre_hardware_hook_fn=hook_fn) as acq:
         acq.acquire(events)
 
 
@@ -324,7 +324,7 @@ def test_channel_noseq_z_seq_acq(launch_mm_headless, setup_data_folder):
         return _events
 
     with Acquisition(setup_data_folder, 'acq', show_display=False,
-                     pre_hardware_hook_fn=hook_fn) as acq:
+                                pre_hardware_hook_fn=hook_fn) as acq:
         acq.acquire(events)
 
     # check that the exposure time was correctly set
@@ -357,7 +357,7 @@ def test_time_channel_z_seq_acq(launch_mm_headless, setup_data_folder):
         return None  # no need to actually acquire the data
 
     with Acquisition(setup_data_folder, 'acq', show_display=False,
-                     pre_hardware_hook_fn=hook_fn) as acq:
+                                pre_hardware_hook_fn=hook_fn) as acq:
         acq.acquire(events)
 
 
@@ -381,7 +381,7 @@ def test_time_z_channel_seq_acq(launch_mm_headless, setup_data_folder):
         return None  # no need to actually acquire the data
 
     with Acquisition(setup_data_folder, 'acq', show_display=False,
-                     pre_hardware_hook_fn=hook_fn) as acq:
+                                pre_hardware_hook_fn=hook_fn) as acq:
         acq.acquire(events)
 
 
@@ -405,7 +405,7 @@ def test_time_noseq_z_channel_seq_acq(launch_mm_headless, setup_data_folder):
         return None  # no need to actually acquire the data
 
     with Acquisition(setup_data_folder, 'acq', show_display=False,
-                     pre_hardware_hook_fn=hook_fn) as acq:
+                                pre_hardware_hook_fn=hook_fn) as acq:
         acq.acquire(events)
 
 def test_time_noseq_z_seq_interval_acq(launch_mm_headless, setup_data_folder):
@@ -425,7 +425,7 @@ def test_time_noseq_z_seq_interval_acq(launch_mm_headless, setup_data_folder):
 
     t_start = time.time()
     with Acquisition(setup_data_folder, 'acq', show_display=False,
-                     pre_hardware_hook_fn=hook_fn) as acq:
+                                pre_hardware_hook_fn=hook_fn) as acq:
         acq.acquire(events)
     t_end = time.time()
 
@@ -445,7 +445,7 @@ def test_abort_sequenced_timelapse(launch_mm_headless, setup_data_folder):
     mmc.set_exposure(1000)
 
     with Acquisition(setup_data_folder, 'acq', show_display=False,
-                     pre_hardware_hook_fn=hook_fn) as acq:
+                                pre_hardware_hook_fn=hook_fn) as acq:
         events = multi_d_acquisition_events(1000)
         acq.acquire(events)
         time.sleep(10)
@@ -479,7 +479,7 @@ def test_abort_from_external(launch_mm_headless, setup_data_folder):
             acq.acquire(events[0])
             # this simulates an abort from the java side unbeknownst to python side
             # it comes from a new thread so it is non-blocking to the port
-            acq._remote_acq.abort()
+            acq._acq.abort()
             for event in events[1:]:
                 acq.acquire(event)
                 time.sleep(5)
@@ -498,7 +498,7 @@ def test_abort_sequenced_zstack(launch_mm_headless, setup_data_folder):
         return _events
 
     with Acquisition(setup_data_folder, 'acq', show_display=False,
-                     pre_hardware_hook_fn=hook_fn) as acq:
+                                pre_hardware_hook_fn=hook_fn) as acq:
         events = multi_d_acquisition_events(z_start=0, z_end=999, z_step=1)
         acq.acquire(events)
         time.sleep(4)
@@ -595,7 +595,7 @@ def test_multiple_positions_acq(launch_mm_headless, setup_data_folder):
         return _events
 
     with Acquisition(setup_data_folder, 'acq', show_display=False,
-                     pre_hardware_hook_fn=hook_fn) as acq:
+                                pre_hardware_hook_fn=hook_fn) as acq:
         acq.acquire(events)
 
     dataset = acq.get_dataset()
@@ -622,7 +622,7 @@ def test_multiple_labeled_positions_acq(launch_mm_headless, setup_data_folder):
         return _events
 
     with Acquisition(setup_data_folder, 'acq', show_display=False,
-                     pre_hardware_hook_fn=hook_fn) as acq:
+                                pre_hardware_hook_fn=hook_fn) as acq:
         acq.acquire(events)
 
     dataset = acq.get_dataset()

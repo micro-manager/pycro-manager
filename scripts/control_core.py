@@ -2,7 +2,7 @@
 This example shows how to use pycromanager to interact with the micro-manager core.
 Aside from the setup section, each following section can be run independently
 """
-from pycromanager import _Bridge, Core
+from pycromanager import _Bridge, ZMQRemoteMMCoreJ
 import numpy as np
 import matplotlib.pyplot as plt
 

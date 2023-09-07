@@ -1,8 +1,10 @@
 name = "pycromanager"
 
-from pycromanager.acquisitions import Acquisition, MagellanAcquisition, XYTiledAcquisition, ExploreAcquisition
-from pycromanager.acq_util import start_headless, multi_d_acquisition_events
-from ndtiff import Dataset
-from pycromanager.mm_java_classes import Studio, Magellan, Core
+from pycromanager.acquisition.java_backend_acquisitions import JavaBackendAcquisition, MagellanAcquisition, XYTiledAcquisition, ExploreAcquisition
+from pycromanager.acquisition.acquisition_superclass import multi_d_acquisition_events
+from pycromanager.acquisition.acq_constructor import Acquisition
+from pycromanager.headless import start_headless, stop_headless
+from pycromanager.mm_java_classes import Studio, Magellan
+from pycromanager.core import Core
 from pycromanager.zmq_bridge.wrappers import JavaObject, JavaClass, PullSocket, PushSocket
 from ._version import __version__, version_info

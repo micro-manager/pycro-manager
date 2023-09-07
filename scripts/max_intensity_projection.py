@@ -2,7 +2,7 @@
 Acquire a time series of Z-stacks, and use and image processor to make a second channel
 showing the maximum intensity projection of the z stack
 """
-from pycromanager import Acquisition, multi_d_acquisition_events
+from pycromanager import JavaBackendAcquisition, multi_d_acquisition_events
 import numpy as np
 
 
@@ -37,5 +37,5 @@ num_z_steps = len(set([event["axes"]["z"] for event in events]))
 save_dir = 'C:/Program Files/Micro-Manager-2.0'
 save_name = "max_intesnity_acq"
 
-with Acquisition(directory=save_dir, name=save_name, image_process_fn=img_process_fn) as acq:
+with JavaBackendAcquisition(directory=save_dir, name=save_name, image_process_fn=img_process_fn) as acq:
     acq.acquire(events)

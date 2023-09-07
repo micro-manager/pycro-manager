@@ -1,8 +1,8 @@
-from pycromanager import Core
+from pycromanager import ZMQRemoteMMCoreJ
 
-core = Core()
+core = ZMQRemoteMMCoreJ()
 
-core2 = Core()
+core2 = ZMQRemoteMMCoreJ()
 
 del core
 del core2

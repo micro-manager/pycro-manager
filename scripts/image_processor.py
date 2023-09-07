@@ -1,5 +1,5 @@
 import numpy as np
-from pycromanager import multi_d_acquisition_events, Acquisition
+from pycromanager import multi_d_acquisition_events, JavaBackendAcquisition
 
 # Version 1:
 def img_process_fn(image, metadata):
@@ -7,7 +7,7 @@ def img_process_fn(image, metadata):
     # raise Exception()
     return image, metadata
 
-with Acquisition(
+with JavaBackendAcquisition(
     directory=r"C:\Users\henry\Desktop\datadump", name="tcz_acq", image_process_fn=img_process_fn
 ) as acq:
     # Generate the events for a single z-stack

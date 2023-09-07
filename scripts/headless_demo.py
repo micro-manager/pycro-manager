@@ -1,4 +1,4 @@
-from pycromanager import Acquisition, multi_d_acquisition_events, Core, start_headless
+from pycromanager import JavaBackendAcquisition, multi_d_acquisition_events, ZMQRemoteMMCoreJ, start_headless
 import numpy as np
 import time
 
@@ -13,7 +13,7 @@ java_loc = "/Library/Java/JavaVirtualMachines/zulu-8.jdk/Contents/Home/bin/java"
 # java_loc = None
 start_headless(mm_app_path, config_file, java_loc=java_loc)
 
-core = Core()
+core = ZMQRemoteMMCoreJ()
 core.snap_image()
 print(core.get_image())
 
@@ -25,9 +25,9 @@ def image_saved_fn(axes, dataset):
     pixels = dataset.read_image(**axes)
     print(np.mean(pixels))
 
-with Acquisition(directory=save_dir, name="tcz_acq", show_display=True,
-                image_saved_fn=image_saved_fn
-                 ) as acq:
+with JavaBackendAcquisition(directory=save_dir, name="tcz_acq", show_display=True,
+                            image_saved_fn=image_saved_fn
+                            ) as acq:
     # Generate the events for a single z-stack
     events = multi_d_acquisition_events(
         num_time_points=5,

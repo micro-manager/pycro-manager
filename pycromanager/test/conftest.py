@@ -7,16 +7,16 @@ import wget
 import requests
 import re
 import time
+import glob
 
 import pycromanager
 from pycromanager import start_headless
-from pycromanager.acq_util import stop_headless
+from pycromanager.headless import stop_headless
 import socket
 
 def is_port_in_use(port):
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
         return s.connect_ex(('localhost', port)) == 0
-
 
 def find_jar(pathname, jar_name):
     p = re.compile(jar_name + r"-(\d+).(\d+).(\d+).jar")
@@ -82,13 +82,14 @@ def install_mm(download_mm_nightly):
     mm_running = False
     mm_install_dir = os.path.join(os.path.expanduser('~'), "Micro-Manager-nightly")
 
+
     # check if there is currently a Micro-manager instance running (used for local testing)
     if is_port_in_use(4827):
         mm_running = True
         print('Using Micro-manager running on port 4827 for testing')
         yield
     else:
-        if os.path.isdir(mm_install_dir):
+        if os.path.isdir(mm_install_dir) and os.listdir(mm_install_dir):
             # Check if Micro-manager installation is present in mm_install_dir.
             # If so, the latest Micro-manager nightly build will not be installed.
             print(f'Existing Micro-manager installation found at {mm_install_dir}')
@@ -107,7 +108,9 @@ def install_mm(download_mm_nightly):
                 "~/Micro-Manager-nightly"'''
                 )
 
-            os.mkdir(mm_install_dir)
+            # mkdir if not exists
+            if not os.path.isdir(mm_install_dir):
+                os.mkdir(mm_install_dir)
 
             print(f'Installing Micro-manager nightly build at: {mm_install_dir}')
             cmd = f"{mm_installer} /SP /VERYSILENT /SUPRESSMSGBOXES /CURRENTUSER /DIR={mm_install_dir} /LOG={mm_install_log_path}"
@@ -122,11 +125,25 @@ def install_mm(download_mm_nightly):
             else:
                 raise RuntimeError('Could not find pycro-manager/java path')
 
-            # Update pycromanager jar files packaged with the Micro-manager nightly build
+
+            # Delete the pycromanagerjava.jar file that is packaged with the nightly build
+            # use a wildcard to match the version number
+            pycromanager_jar_path = os.path.join(mm_install_dir, 'plugins', 'Micro-Manager', 'PycromanagerJava-[0-9]*.[0-9]*.[0-9]*.jar')
+            for file_path in glob.glob(pycromanager_jar_path):
+                os.remove(file_path)
+                print(f'Removed {file_path}')
+
+            # Copy the pycromanagerjava.jar file that was compiled by the github action
+            # into the nightly build so that it will test with the latest code
+            compiled_jar_path = os.path.join(java_path, 'target', 'PycromanagerJava-[0-9]*.[0-9]*.[0-9].jar')            # Destination path where the jar file should be copied to
+            destination_path = os.path.join(mm_install_dir, 'plugins', 'Micro-Manager', 'PycromanagerJava.jar')
+            # Find the actual file that matches the pattern and copy it to the destination
+            for file_path in glob.glob(compiled_jar_path):
+                shutil.copy2(file_path, destination_path)
+                print(f'Copied {file_path} to {destination_path}')
+
+            # Update pycromanager dependency jar files packaged with the Micro-manager nightly build
             # Files are updated only if they are larger version
-            if os.path.isdir(os.path.join(java_path, 'target')):
-                replace_jars(os.path.join(java_path, 'target'), os.path.join(mm_install_dir, 'plugins', 'Micro-Manager'),
-                        ['PycroManagerJava'])
             # Copy dependency jar files if present in target/dependency
             if os.path.isdir(os.path.join(java_path, 'target/dependency')):
                 replace_jars(os.path.join(java_path, 'target/dependency'), os.path.join(mm_install_dir, 'plugins', 'Micro-Manager'),
@@ -161,20 +178,18 @@ def setup_data_folder():
 def launch_mm_headless(install_mm):
     mm_install_dir = install_mm
     if mm_install_dir is None:
-        return # local manual testing where MM has been launched from source
+        yield # local manual testing where MM has been launched from source
+    else:
+        config_file = os.path.join(mm_install_dir, 'MMConfig_demo.cfg')
+        print('Launching Micro-manager in headless mode.')
 
-    config_file = os.path.join(mm_install_dir, 'MMConfig_demo.cfg')
+        # MM doesn't ship with Java on Mac so allow it to be defined here
+        java_loc = None
+        if "JAVA" in os.environ:
+            java_loc = os.environ["JAVA"]
 
-    print('Launching Micro-manager in headless mode.')
-    
-    # MM doesn't ship with Java on Mac so allow it to be defined here
-    java_loc = None
-    if "JAVA" in os.environ:
-        java_loc = os.environ["JAVA"]
+        start_headless(mm_install_dir, config_file, java_loc=java_loc, debug=True)
 
-    start_headless(mm_install_dir, config_file, java_loc=java_loc)
+        yield None
 
-    # yield
-    #
-    # cleanup()
-    # pass
+        stop_headless(debug=True)

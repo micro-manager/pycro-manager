@@ -42,7 +42,7 @@ public class ZMQServer extends ZMQSocketWrapper {
    private static Function<Class, Object> classMapper_;
    private static ZMQServer mainServer_;
    static boolean debug_ = false;
-   private Consumer<String> debugLogger_;
+   private static Consumer<String> debugLogger_;
 
    //for testing
 //   public static void main(String[] args) {
@@ -76,6 +76,9 @@ public class ZMQServer extends ZMQSocketWrapper {
    public ZMQServer(Collection<ClassLoader> cls, Function<Class, Object> classMapper,
                     String[] excludePaths, Consumer<String> debugLogger, int port) throws URISyntaxException, UnsupportedEncodingException {
       super(SocketType.REP, port);
+      mainServer_ = this;
+      debugLogger_ = debugLogger;
+
       classMapper_ = classMapper;
       util_ = new ZMQUtil(cls, excludePaths);
 
@@ -89,7 +92,6 @@ public class ZMQServer extends ZMQSocketWrapper {
             packages_.addAll(Stream.of(Package.getPackages()).map(p -> p.getName()).collect(Collectors.toList()));
          }
       }
-      debugLogger_ = debugLogger;
    }
 
    public static ZMQServer getMasterServer() {
@@ -440,8 +442,8 @@ public class ZMQServer extends ZMQSocketWrapper {
    protected JSONObject parseAndExecuteCommand(JSONObject request) throws Exception {
       JSONObject reply;
       switch (request.getString("command")) {
-         case "connect": {//Connect to master server
-            mainServer_ = this;
+         case "connect": {
+            // Connect to the server
             debug_ = request.getBoolean("debug");
             //Called by master process
             reply = new JSONObject();

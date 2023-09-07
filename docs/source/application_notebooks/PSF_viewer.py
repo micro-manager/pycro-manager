@@ -44,7 +44,7 @@ import queue
 import napari
 from napari.qt import thread_worker
 from magicgui import magicgui
-from pycromanager import Acquisition, multi_d_acquisition_events
+from pycromanager import JavaBackendAcquisition, multi_d_acquisition_events
 # open napari in an extra window, only needed for jupyter notebooks
 #%gui qt
 
@@ -166,9 +166,9 @@ def acquire_data(z_range):
     """ micro-manager data acquisition. Creates acquisition events for z-stack.
         This example: use custom events, not multi_d_acquisition because the 
         z-stage is not run from micro-manager but controlled via external DAQ."""
-    with Acquisition(directory=None, name=None, 
-                     show_display=True, 
-                     image_process_fn = grab_image) as acq:
+    with JavaBackendAcquisition(directory=None, name=None,
+                                show_display=True,
+                                image_process_fn = grab_image) as acq:
         events = []
         for index, z_um in enumerate(np.linspace(z_range[0], z_range[1], z_range[2])):
             evt = {"axes": {"z_ext": index}, "z_ext": z_um}
@@ -182,9 +182,9 @@ def acquire_multid(z_range):
         from micro-manager.
         Unless hardware triggering is set up in micro-manager, this will be fairly slow:
         micro-manager does not sweep the z-stage, but acquires plane by plane. """
-    with Acquisition(directory=None, name=None, 
-                     show_display=False, 
-                     image_process_fn = grab_image) as acq:
+    with JavaBackendAcquisition(directory=None, name=None,
+                                show_display=False,
+                                image_process_fn = grab_image) as acq:
         events = multi_d_acquisition_events(z_start=z_range[0], z_end=z_range[1], 
                                             z_step=(z_range[1]-z_range[0])/(z_range[2]-1))
         acq.acquire(events)

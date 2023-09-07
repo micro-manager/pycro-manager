@@ -1,8 +1,8 @@
-from pycromanager import Core
+from pycromanager import ZMQRemoteMMCoreJ
 import numpy as np
 import time
 
-core = Core()
+core = ZMQRemoteMMCoreJ()
 
 camera_name = core.get_camera_device()
 

@@ -3,7 +3,7 @@ Use the Acquisition class with Napari as an image viewer. This is tested in an I
 In other python environments (i.e. notebook), the relevant calls to napari might be different
 """
 from pycromanager import start_headless
-from pycromanager import Acquisition, multi_d_acquisition_events
+from pycromanager import JavaBackendAcquisition, multi_d_acquisition_events
 from napari.qt.threading import thread_worker
 import threading
 import napari
@@ -33,8 +33,8 @@ def image_saved_callback(axes, d):
 # This function will run an acquisition on a different thread (because calling
 # napari.run() will block on this thread
 def run_acq():
-    with Acquisition(directory="/Users/henrypinkard/tmp", name="tcz_acq",
-                     image_saved_fn=image_saved_callback, show_display=False) as acq:
+    with JavaBackendAcquisition(directory="/Users/henrypinkard/tmp", name="tcz_acq",
+                                image_saved_fn=image_saved_callback, show_display=False) as acq:
         events = multi_d_acquisition_events(
             num_time_points=10, time_interval_s=5,
             channel_group="Channel", channels=["DAPI", "FITC"],

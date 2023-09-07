@@ -1,10 +1,10 @@
-from pycromanager import Acquisition, multi_d_acquisition_events, start_headless, Core
+from pycromanager import JavaBackendAcquisition, multi_d_acquisition_events, start_headless, ZMQRemoteMMCoreJ
 import threading
 
 
 def snap_image():
     while True:
-        core = Core()
+        core = ZMQRemoteMMCoreJ()
         try:
             core.snap_image()
             image = core.get_tagged_image()
@@ -21,7 +21,7 @@ if __name__ == '__main__':
     # start_headless(mm_app_path, config_file, timeout=10000)
 
     # bridge = Bridge(timeout=1000)
-    core = Core()
+    core = ZMQRemoteMMCoreJ()
     print(core.get_version_info())
 
     t = threading.Thread(target=snap_image, args=())
