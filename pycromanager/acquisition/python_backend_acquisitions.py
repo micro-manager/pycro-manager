@@ -20,7 +20,7 @@ class PythonBackendAcquisition(Acquisition, metaclass=NumpyDocstringInheritanceM
     def __init__(
         self,
         directory: str=None,
-        name: str=None,
+        name: str='default_acq_name',
         image_process_fn: callable=None,
         event_generation_hook_fn: callable = None,
         pre_hardware_hook_fn: callable=None,

@@ -118,7 +118,7 @@ atexit.register(stop_headless)
 
 def start_headless(
     mm_app_path: str, config_file: str='', java_loc: str=None,
-        core_log_path: str='', python_backend=False,
+        python_backend=False, core_log_path: str='',
         buffer_size_mb: int=1024, max_memory_mb: int=2000,
         port: int=_Bridge.DEFAULT_PORT, debug=False):
     """
@@ -141,14 +141,14 @@ def start_headless(
         is left to the user.
     java_loc: str
         Path to the java version that it should be run with (Java backend only)
-    core_log_path : str
-        Path to where core log files should be created
     python_backend : bool
         Whether to use the python backend or the Java backend
+    core_log_path : str
+        Path to where core log files should be created
     buffer_size_mb : int
         Size of circular buffer in MB in MMCore
     max_memory_mb : int
-        Maximum amount of memory to be allocated to JVM
+        Maximum amount of memory to be allocated to JVM (Java backend only
     port : int
         Default port to use for ZMQServer (Java backend only)
     debug : bool
@@ -159,6 +159,7 @@ def start_headless(
         mmc = _create_pymmcore_instance()
         mmc.set_device_adapter_search_paths([mm_app_path])
         mmc.load_system_configuration(config_file)
+        mmc.set_circular_buffer_memory_footprint(buffer_size_mb)
         _PYMMCORES.append(mmc) # Store so it doesn't get garbage collected
         Engine(mmc)
     else:

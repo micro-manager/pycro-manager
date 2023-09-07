@@ -108,9 +108,17 @@ MagellanAcquisition
 .. autoclass:: MagellanAcquisition
 	:members:
 
+
+Headless mode
+#######################################################
+
 start_headless
 ===========================
 .. autofunction:: start_headless
+
+stop_headless
+===========================
+.. autofunction:: stop_headless
 
 
 Dataset
