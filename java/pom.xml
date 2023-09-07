@@ -2,7 +2,7 @@
     <modelVersion>4.0.0</modelVersion>
     <groupId>org.micro-manager.pycro-manager</groupId>
     <artifactId>PycroManagerJava</artifactId>
-     <version>0.43.1</version>
+     <version>0.43.2</version>
     <packaging>jar</packaging>
     <name>Pycro-Manager Java</name>
     <description>The Java components of Pycro-Manager</description>
@@ -64,7 +64,7 @@
       <dependency>
          <groupId>org.micro-manager.ndtiffstorage</groupId>
          <artifactId>NDTiffStorage</artifactId>
-     <version>2.14.0</version>
+     <version>2.15.1</version>
       </dependency>
   </dependencies>
 
