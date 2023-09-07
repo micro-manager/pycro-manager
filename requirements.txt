@@ -3,3 +3,4 @@ dask[array]>=2022.2.0
 pyzmq
 ndtiff>=2.2.0
 docstring-inheritance
+pymmcore
