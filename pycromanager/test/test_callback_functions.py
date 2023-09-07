@@ -1,3 +1,6 @@
+"""
+tests for acquisition hooks, image processors, image_saved functions, etc
+"""
 import numpy as np
 from pycromanager import Acquisition, multi_d_acquisition_events
 
@@ -40,6 +43,25 @@ def test_img_process_fn_no_save(launch_mm_headless):
         dataset = acq.get_dataset()  # Can this be moved out of the Acquisition context?
 
     assert dataset is None
+
+
+def test_img_process_fn_image_saved_fn_consistency(launch_mm_headless, setup_data_folder):
+    def processed(image, metadata):
+        processed.num_processed += 1
+        return image, metadata
+    processed.num_processed = 0
+
+    def saved(_axis, _dataset):
+        saved.num_saved += 1
+    saved.num_saved = 0
+
+    with Acquisition(directory=setup_data_folder, name="acq",
+                     image_saved_fn=saved, image_process_fn=processed,
+                     show_display=False) as acq:
+        acq.acquire(multi_d_acquisition_events(num_time_points=200))
+
+    assert(processed.num_processed == 200)
+    assert(saved.num_saved == 200)
 
 def test_event_serialize_and_deserialize(launch_mm_headless):
     """
