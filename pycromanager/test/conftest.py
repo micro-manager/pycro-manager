@@ -7,6 +7,7 @@ import wget
 import requests
 import re
 import time
+import glob
 
 import pycromanager
 from pycromanager import start_headless
@@ -16,7 +17,6 @@ import socket
 def is_port_in_use(port):
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
         return s.connect_ex(('localhost', port)) == 0
-
 
 def find_jar(pathname, jar_name):
     p = re.compile(jar_name + r"-(\d+).(\d+).(\d+).jar")
@@ -82,6 +82,7 @@ def install_mm(download_mm_nightly):
     mm_running = False
     mm_install_dir = os.path.join(os.path.expanduser('~'), "Micro-Manager-nightly")
 
+
     # check if there is currently a Micro-manager instance running (used for local testing)
     if is_port_in_use(4827):
         mm_running = True
@@ -122,11 +123,19 @@ def install_mm(download_mm_nightly):
             else:
                 raise RuntimeError('Could not find pycro-manager/java path')
 
-            # Update pycromanager jar files packaged with the Micro-manager nightly build
+
+            # Copy the pycromanagerjava.jar file that was compiled by the github action
+            # into the nightly build so that it will test with the latest code
+            compiled_jar_path = os.path.join(java_path, 'target', 'PycromanagerJava-*.jar')
+            # Destination path where the jar file should be copied to
+            destination_path = os.path.join(mm_install_dir, 'plugins', 'Micro-Manager', 'PycromanagerJava.jar')
+            # Find the actual file that matches the pattern and copy it to the destination
+            for file_path in glob.glob(compiled_jar_path):
+                shutil.copy2(file_path, destination_path)
+                print(f'Copied {file_path} to {destination_path}')
+
+            # Update pycromanager dependency jar files packaged with the Micro-manager nightly build
             # Files are updated only if they are larger version
-            if os.path.isdir(os.path.join(java_path, 'target')):
-                replace_jars(os.path.join(java_path, 'target'), os.path.join(mm_install_dir, 'plugins', 'Micro-Manager'),
-                        ['PycroManagerJava'])
             # Copy dependency jar files if present in target/dependency
             if os.path.isdir(os.path.join(java_path, 'target/dependency')):
                 replace_jars(os.path.join(java_path, 'target/dependency'), os.path.join(mm_install_dir, 'plugins', 'Micro-Manager'),
