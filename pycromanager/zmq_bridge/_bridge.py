@@ -246,35 +246,11 @@ class _Bridge:
                 if debug:
                     print("DEBUG: creating new beidge for port {} thread {}".format(
                         port, threading.current_thread().name))
-                return _Bridge(port, convert_camel_case, debug, ip_address, timeout, iterate)
-
-
-    # def __new__(cls, port: int=DEFAULT_PORT, timeout: int=DEFAULT_TIMEOUT, convert_camel_case: bool=True,
-    #             debug: bool=False, *args, **kwargs):
-    #     """
-    #     Only one instance of Bridge per a thread/port combo
-    #     """
-    #     # synchronize this method so multiple threads don't try to create a bridge at the same time
-    #     with _Bridge._bridge_creation_lock:
-    #         thread_id = threading.current_thread().ident
-    #         port_thread_id = (port, thread_id)
-    #
-    #         # return the existing cached bridge if it exists, otherwise make a new one
-    #         if port_thread_id in _Bridge._cached_bridges_by_port_and_thread.keys():
-    #             bridge = _Bridge._cached_bridges_by_port_and_thread[port_thread_id]()
-    #             if bridge is None:
-    #                 raise Exception("Bridge for port {} and thread {} has been "
-    #                                 "closed but not removed".format(port, threading.current_thread().name))
-    #             if debug:
-    #                 print("DEBUG: returning cached bridge for port {} thread {}".format(
-    #                     port, threading.current_thread().name))
-    #             return bridge
-    #         else:
-    #             if debug:
-    #                 print("DEBUG: creating new beidge for port {} thread {}".format(
-    #                     port, threading.current_thread().name))
-    #             return super(_Bridge, cls).__new__(cls)
-
+                b = _Bridge(port, convert_camel_case, debug, ip_address, timeout, iterate)
+                # store weak refs so that the existence of thread/port bridge caching doesn't prevent
+                # the garbage collection of unused bridge objects
+                _Bridge._cached_bridges_by_port_and_thread[port_thread_id] = weakref.ref(b)
+                return b
 
     def __init__(
         self, port: int=DEFAULT_PORT, convert_camel_case: bool=True,
@@ -297,14 +273,7 @@ class _Bridge:
         """
         thread_id = threading.current_thread().ident
         port_thread_id = (port, thread_id)
-        # if port_thread_id in _Bridge._cached_bridges_by_port_and_thread.keys():
-        #     return # already initialized
         self._port_thread_id = port_thread_id
-        # store weak refs so that the existence of thread/port bridge caching doesn't prevent
-        # the garbage collection of unused bridge objects
-        self._weak_self_ref = weakref.ref(self)
-        _Bridge._cached_bridges_by_port_and_thread[port_thread_id] = self._weak_self_ref
-
         self._ip_address = ip_address
         self.port = port
         self._convert_camel_case = convert_camel_case
@@ -571,9 +540,9 @@ class _JavaObjectShadow:
         self._iterate = bridge._iterate
 
         self._closed = False
-        # In case there's an exception rather than normal garbage collection,
-        # this makes sure cleanup occurs properly
-        # Need to use a wr to ensure that reference to close doesnt cause memeory leak
+        # # In case there's an exception rather than normal garbage collection,
+        # # this makes sure cleanup occurs properly
+        # # Need to use a wr to ensure that reference to close doesnt cause memeory leak
         wr = weakref.ref(self._close)
         def cleanup():
             if wr() is not None:
