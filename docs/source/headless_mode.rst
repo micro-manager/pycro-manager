@@ -24,7 +24,7 @@ Headless mode provides a lightweight environment that can also be run without a 
     core = Core()
 
 
-The example below shows headless mode in combination with an saved image callback, which calls a user-defined function whenever new data is stored (on disk or in RAM depending on the arguments to ``Acquisitoin``). This setup could be used to replace the pycro-manager viewer with a custom user interface (note the ``show_display=False`` in the acquisition).
+The example below shows headless mode in combination with an saved image callback, which calls a user-defined function whenever new data is stored (on disk or in RAM depending on the arguments to ``Acquisition``). This setup could be used to replace the pycro-manager viewer with a custom user interface (note the ``show_display=False`` in the acquisition).
 
 
 .. code-block:: python
