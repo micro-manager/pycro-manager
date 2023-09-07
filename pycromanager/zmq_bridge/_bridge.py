@@ -250,9 +250,6 @@ class _Bridge:
                 # store weak refs so that the existence of thread/port bridge caching doesn't prevent
                 # the garbage collection of unused bridge objects
                 _Bridge._cached_bridges_by_port_and_thread[port_thread_id] = weakref.ref(b)
-                print('cached bridges')
-                for key, beidge in _Bridge._cached_bridges_by_port_and_thread.items():
-                    print(key, beidge())
                 return b
 
     def __init__(
