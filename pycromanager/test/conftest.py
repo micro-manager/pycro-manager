@@ -192,4 +192,4 @@ def launch_mm_headless(install_mm):
 
         yield None
 
-        stop_headless()
+        stop_headless(debug=True)

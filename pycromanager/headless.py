@@ -87,15 +87,31 @@ def _create_pymmcore_instance():
 _JAVA_HEADLESS_SUBPROCESSES = []
 _PYMMCORES = []
 
-def stop_headless():
+def stop_headless(debug=False):
     for p in _JAVA_HEADLESS_SUBPROCESSES:
+        if debug:
+            print('Stopping headless process with pid {}'.format(p.pid))
         p.terminate()
+        if debug:
+            print('Waiting for process with pid {} to terminate'.format(p.pid))
         p.wait()  # wait for process to terminate
+        if debug:
+            print('Process with pid {} terminated'.format(p.pid))
     _JAVA_HEADLESS_SUBPROCESSES.clear()
+    if debug:
+        print('Stopping {} pymmcore instances'.format(len(_PYMMCORES)))
     for c in _PYMMCORES:
+        if debug:
+            print('Stopping pymmcore instance')
         c.unloadAllDevices()
+        if debug:
+            print('Unloaded all devices')
         Engine.get_instance().shutdown()
+        if debug:
+            print('Engine shut down')
     _PYMMCORES.clear()
+    if debug:
+        print('Headless stopped')
 
 # make sure any Java processes are cleaned up when Python exits
 atexit.register(stop_headless)
