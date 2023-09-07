@@ -178,19 +178,18 @@ def setup_data_folder():
 def launch_mm_headless(install_mm):
     mm_install_dir = install_mm
     if mm_install_dir is None:
-        return # local manual testing where MM has been launched from source
+        yield # local manual testing where MM has been launched from source
+    else:
+        config_file = os.path.join(mm_install_dir, 'MMConfig_demo.cfg')
+        print('Launching Micro-manager in headless mode.')
 
-    config_file = os.path.join(mm_install_dir, 'MMConfig_demo.cfg')
+        # MM doesn't ship with Java on Mac so allow it to be defined here
+        java_loc = None
+        if "JAVA" in os.environ:
+            java_loc = os.environ["JAVA"]
 
-    print('Launching Micro-manager in headless mode.')
-    
-    # MM doesn't ship with Java on Mac so allow it to be defined here
-    java_loc = None
-    if "JAVA" in os.environ:
-        java_loc = os.environ["JAVA"]
+        start_headless(mm_install_dir, config_file, java_loc=java_loc, debug=True)
 
-    start_headless(mm_install_dir, config_file, java_loc=java_loc, debug=True)
+        yield None
 
-    yield
-
-    stop_headless()
+        stop_headless()
