@@ -111,7 +111,7 @@ def test_multi_d_acq(launch_mm_headless, setup_data_folder):
         order="tcz",
     )
 
-    with Acquisition(setup_data_folder, 'acq', show_display=False,
+    with Acquisition(setup_data_folder, 'acq', show_display=False, debug=True,
                      notification_callback_fn=lambda n : print(n.to_json())) as acq:
         acq.acquire(events)
 

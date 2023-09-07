@@ -89,7 +89,7 @@ def install_mm(download_mm_nightly):
         print('Using Micro-manager running on port 4827 for testing')
         yield
     else:
-        if os.path.isdir(mm_install_dir):
+        if os.path.isdir(mm_install_dir) and os.listdir(mm_install_dir):
             # Check if Micro-manager installation is present in mm_install_dir.
             # If so, the latest Micro-manager nightly build will not be installed.
             print(f'Existing Micro-manager installation found at {mm_install_dir}')
@@ -108,7 +108,9 @@ def install_mm(download_mm_nightly):
                 "~/Micro-Manager-nightly"'''
                 )
 
-            os.mkdir(mm_install_dir)
+            # mkdir if not exists
+            if not os.path.isdir(mm_install_dir):
+                os.mkdir(mm_install_dir)
 
             print(f'Installing Micro-manager nightly build at: {mm_install_dir}')
             cmd = f"{mm_installer} /SP /VERYSILENT /SUPRESSMSGBOXES /CURRENTUSER /DIR={mm_install_dir} /LOG={mm_install_log_path}"
@@ -133,7 +135,7 @@ def install_mm(download_mm_nightly):
 
             # Copy the pycromanagerjava.jar file that was compiled by the github action
             # into the nightly build so that it will test with the latest code
-            compiled_jar_path = os.path.join(java_path, 'target', 'PycromanagerJava-[0-9]*.[0-9]*.[0-9]*.jar')            # Destination path where the jar file should be copied to
+            compiled_jar_path = os.path.join(java_path, 'target', 'PycromanagerJava-[0-9]*.[0-9]*.[0-9].jar')            # Destination path where the jar file should be copied to
             destination_path = os.path.join(mm_install_dir, 'plugins', 'Micro-Manager', 'PycromanagerJava.jar')
             # Find the actual file that matches the pattern and copy it to the destination
             for file_path in glob.glob(compiled_jar_path):
@@ -187,7 +189,7 @@ def launch_mm_headless(install_mm):
     if "JAVA" in os.environ:
         java_loc = os.environ["JAVA"]
 
-    start_headless(mm_install_dir, config_file, java_loc=java_loc)
+    start_headless(mm_install_dir, config_file, java_loc=java_loc, debug=True)
 
     # yield
     #
