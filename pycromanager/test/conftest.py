@@ -191,7 +191,6 @@ def launch_mm_headless(install_mm):
 
     start_headless(mm_install_dir, config_file, java_loc=java_loc, debug=True)
 
-    # yield
-    #
-    # cleanup()
-    # pass
+    yield
+
+    stop_headless()
