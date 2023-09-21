@@ -571,14 +571,12 @@ class _JavaObjectShadow:
                 "hash-code": self._hash_code,
                 "java_class_name": self._java_class # for debugging
                 }
-            print('sending message')
             self._send(message)
             reply_json = None
             while reply_json is None:
                 reply_json = self._get_bridge()._receive(timeout=self._timeout)
                 if self._creation_port in _Bridge._ports_with_terminated_servers:
                     break # the server has been terminated, so we can't expect a reply
-            print('got reply')
             if reply_json is not None and reply_json["type"] == "exception":
                 raise Exception(reply_json["value"])
             self._closed = True
