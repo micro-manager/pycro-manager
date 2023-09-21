@@ -5,7 +5,7 @@ import threading
 import types
 
 from pycromanager.acquisition.acq_eng_py.internal.engine import Engine
-from pycromanager.zmq_bridge._bridge import _Bridge
+from pycromanager.zmq_bridge.bridge import _Bridge, server_terminated
 from pymmcore import CMMCore
 import pymmcore
 
@@ -89,9 +89,11 @@ _PYMMCORES = []
 
 def stop_headless(debug=False):
     for p in _JAVA_HEADLESS_SUBPROCESSES:
+        port = p.port
         if debug:
             print('Stopping headless process with pid {}'.format(p.pid))
         p.terminate()
+        server_terminated(port)
         if debug:
             print('Waiting for process with pid {} to terminate'.format(p.pid))
         p.wait()  # wait for process to terminate
@@ -179,7 +181,6 @@ def start_headless(
                     classpath,
                     "-Dsun.java2d.dpiaware=false",
                     f"-Xmx{max_memory_mb}m",
-
                     # This is used by MM desktop app but breaks things on MacOS...Don't think its neccessary
                     # "-XX:MaxDirectMemorySize=1000",
                     "org.micromanager.remote.HeadlessLauncher",
@@ -189,6 +190,7 @@ def start_headless(
                     core_log_path,
                 ], cwd=mm_app_path, stdout=subprocess.PIPE
             )
+        process.port = port
         _JAVA_HEADLESS_SUBPROCESSES.append(process)
 
         started = False
@@ -203,7 +205,9 @@ def start_headless(
             print('Headless mode started')
             def logger():
                 while process in _JAVA_HEADLESS_SUBPROCESSES:
-                    print(process.stdout.readline().decode('utf-8'))
+                    line = process.stdout.readline().decode('utf-8')
+                    if line.strip() != '':
+                        print(line)
             threading.Thread(target=logger).start()
 
 
