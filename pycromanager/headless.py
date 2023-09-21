@@ -184,7 +184,7 @@ def start_headless(
                     # "-XX:MaxDirectMemorySize=1000",
                     "org.micromanager.remote.HeadlessLauncher",
                     str(port),
-                    config_file,
+                    '' if config_file is None else config_file,
                     str(buffer_size_mb),
                     core_log_path,
                 ], cwd=mm_app_path, stdout=subprocess.PIPE

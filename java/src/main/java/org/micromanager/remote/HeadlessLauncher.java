@@ -30,7 +30,9 @@ public class HeadlessLauncher {
       int bufferSizeMB = Integer.parseInt(args[2]);
       String coreLogPath = args[3];
 
-      core.loadSystemConfiguration(configFilePath);
+      if (configFilePath != null && configFilePath.isEmpty()) {
+         core.loadSystemConfiguration(configFilePath);
+      }
       core.setCircularBufferMemoryFootprint(bufferSizeMB);
       core.enableStderrLog(true);
       core.enableDebugLog(true);
