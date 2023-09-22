@@ -205,12 +205,19 @@ class _DataSocket:
                     print('closed socket {}'.format(self._port))
                 self._closed = True
 
+def server_terminated(port):
+    """
+    Call when the server on the Java side has been terminated. There is
+    no way to detect this directly due to the server-client architecture.
+    So this function will tell all JavaObjectShadow instances to not wait
+    around for a response from the server.
+    """
+    _Bridge._ports_with_terminated_servers.add(port)
 
 class _Bridge:
     """
     Create an object which acts as a client to a corresponding server (running in a Java process).
-    This enables construction and interaction with arbitrary java objects. Each bridge object should
-    be run using a context manager (i.e. `with Bridge() as b:`) or bridge.close() should be explicitly
+    This enables construction and interaction with arbitrary java objects. Bridge.close() should be explicitly
     called when finished
     """
 
@@ -220,6 +227,8 @@ class _Bridge:
 
     _bridge_creation_lock = threading.Lock()
     _cached_bridges_by_port_and_thread = {}
+    _ports_with_terminated_servers = set()
+
 
     @staticmethod
     def create_or_get_existing_bridge(port: int=DEFAULT_PORT, convert_camel_case: bool=True,
@@ -426,7 +435,7 @@ class _Bridge:
         if new_socket:
             # create a new bridge over a different port
             bridge = _Bridge.create_or_get_existing_bridge(port=serialized_object["port"], ip_address=self._ip_address,
-                             timeout=self._timeout, debug=debug)
+                                                           timeout=self._timeout, debug=debug)
         else:
             bridge = self
         return self._class_factory.create(
@@ -563,14 +572,18 @@ class _JavaObjectShadow:
                 "java_class_name": self._java_class # for debugging
                 }
             self._send(message)
-            reply_json = self._receive()
-
-            if reply_json["type"] == "exception":
+            reply_json = None
+            while reply_json is None:
+                reply_json = self._get_bridge()._receive(timeout=self._timeout)
+                if self._creation_port in _Bridge._ports_with_terminated_servers:
+                    break # the server has been terminated, so we can't expect a reply
+            if reply_json is not None and reply_json["type"] == "exception":
                 raise Exception(reply_json["value"])
             self._closed = True
             # release references to bridges so they can be garbage collected
             # if unused by other objects
             self._bridges_by_port_thread = None
+            self._creation_bridge = None
 
     def _send(self, message):
         """
