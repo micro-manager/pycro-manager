@@ -119,7 +119,7 @@ def stop_headless(debug=False):
 atexit.register(stop_headless)
 
 def start_headless(
-    mm_app_path: str, config_file: str='', java_loc: str=None,
+    mm_app_path: str, config_file: str=None, java_loc: str=None,
         python_backend=False, core_log_path: str='',
         buffer_size_mb: int=1024, max_memory_mb: int=2000,
         port: int=_Bridge.DEFAULT_PORT, debug=False):
@@ -185,7 +185,7 @@ def start_headless(
                     # "-XX:MaxDirectMemorySize=1000",
                     "org.micromanager.remote.HeadlessLauncher",
                     str(port),
-                    config_file,
+                    config_file if config_file is not None else '',
                     str(buffer_size_mb),
                     core_log_path,
                 ], cwd=mm_app_path, stdout=subprocess.PIPE
