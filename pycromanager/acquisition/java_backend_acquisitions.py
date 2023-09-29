@@ -234,7 +234,7 @@ class JavaBackendAcquisition(Acquisition, metaclass=NumpyDocstringInheritanceMet
         show_display: bool=True,
         napari_viewer=None,
         saving_queue_size: int=20,
-        timeout: int=2000,
+        timeout: int=2500,
         port: int=DEFAULT_PORT,
         debug: int=False
     ):
@@ -286,7 +286,8 @@ class JavaBackendAcquisition(Acquisition, metaclass=NumpyDocstringInheritanceMet
 
         try:
             self._remote_notification_handler = JavaObject('org.micromanager.remote.RemoteNotificationHandler',
-                                                           args=[self._acq], port=self._port, new_socket=False)
+                                                           args=[self._acq], port=self._port, new_socket=False,
+                                                           timeout=self._timeout)
             self._acq_notification_recieving_thread = self._start_receiving_notifications()
             self._acq_notification_dispatcher_thread = self._start_notification_dispatcher(notification_callback_fn)
         # TODO: can remove this after this feature has been present for a while
@@ -476,7 +477,7 @@ class JavaBackendAcquisition(Acquisition, metaclass=NumpyDocstringInheritanceMet
 
         if kwargs['image_process_fn'] is not None:
             java_processor = JavaObject(
-                "org.micromanager.remote.RemoteImageProcessor", port=self._port
+                "org.micromanager.remote.RemoteImageProcessor", port=self._port, timeout=self._timeout
             )
             self._acq.add_image_processor(java_processor)
             self._processor_thread = self._start_processor(
@@ -489,14 +490,14 @@ class JavaBackendAcquisition(Acquisition, metaclass=NumpyDocstringInheritanceMet
         self._hook_threads = []
         if kwargs['event_generation_hook_fn'] is not None:
             hook = JavaObject(
-                "org.micromanager.remote.RemoteAcqHook", port=self._port, args=[self._acq]
+                "org.micromanager.remote.RemoteAcqHook", port=self._port, args=[self._acq], timeout=self._timeout
             )
             self._hook_threads.append(self._start_hook(hook, kwargs['event_generation_hook_fn'],
                                                        self._event_queue, process=False))
             self._acq.add_hook(hook, self._acq.EVENT_GENERATION_HOOK)
         if kwargs['pre_hardware_hook_fn'] is not None:
             hook = JavaObject(
-                "org.micromanager.remote.RemoteAcqHook", port=self._port, args=[self._acq]
+                "org.micromanager.remote.RemoteAcqHook", port=self._port, args=[self._acq], timeout=self._timeout
             )
             self._hook_threads.append(self._start_hook(hook,
                                             kwargs['pre_hardware_hook_fn'], self._event_queue,
@@ -504,14 +505,14 @@ class JavaBackendAcquisition(Acquisition, metaclass=NumpyDocstringInheritanceMet
             self._acq.add_hook(hook, self._acq.BEFORE_HARDWARE_HOOK)
         if kwargs['post_hardware_hook_fn'] is not None:
             hook = JavaObject(
-                "org.micromanager.remote.RemoteAcqHook", port=self._port, args=[self._acq]
+                "org.micromanager.remote.RemoteAcqHook", port=self._port, args=[self._acq], timeout=self._timeout
             )
             self._hook_threads.append(self._start_hook(hook, kwargs['post_hardware_hook_fn'],
                                                        self._event_queue, process=False))
             self._acq.add_hook(hook, self._acq.AFTER_HARDWARE_HOOK)
         if kwargs['post_camera_hook_fn'] is not None:
             hook = JavaObject(
-                "org.micromanager.remote.RemoteAcqHook", port=self._port, args=[self._acq],
+                "org.micromanager.remote.RemoteAcqHook", port=self._port, args=[self._acq], timeout=self._timeout
             )
             self._hook_threads.append(self._start_hook(hook, kwargs['post_camera_hook_fn'],
                                                        self._event_queue, process=False))
@@ -523,7 +524,7 @@ class JavaBackendAcquisition(Acquisition, metaclass=NumpyDocstringInheritanceMet
             # create a new socket for it to run on so that it can have blocking calls without interfering with
             # the main socket or other internal sockets
             new_socket=True,
-            port=self._port, args=[core], debug=self._debug)
+            port=self._port, args=[core], debug=self._debug, timeout=self._timeout)
         show_viewer = kwargs['show_display'] is True and kwargs['napari_viewer'] is None
         self._acq = acq_factory.create_acquisition(kwargs['directory'], kwargs['name'], show_viewer,
                                                    kwargs['saving_queue_size'], self._debug,)
@@ -665,9 +666,8 @@ class XYTiledAcquisition(JavaBackendAcquisition):
 
     def _create_remote_acquisition(self, port, **kwargs):
         core = ZMQRemoteMMCoreJ(port=self._port, timeout=self._timeout)
-        acq_factory = JavaObject(
-            "org.micromanager.remote.RemoteAcquisitionFactory", port=self._port, args=[core]
-        )
+        acq_factory = JavaObject("org.micromanager.remote.RemoteAcquisitionFactory",
+                                 port=self._port, args=[core], timeout=self._timeout)
 
         show_viewer = kwargs['show_display'] is True and\
                       kwargs['napari_viewer'] is None and\
@@ -711,7 +711,7 @@ class ExploreAcquisition(JavaBackendAcquisition):
             show_display: bool=True,
             image_saved_fn: callable=None,
             saving_queue_size: int=20,
-            timeout: int=1000,
+            timeout: int=2500,
             port: int=DEFAULT_PORT,
             debug: bool=False,
     ):
