@@ -91,9 +91,18 @@ class Engine:
         return self.event_generator_executor.submit(submit_event_iterator_inner)
     
 
+    def check_for_default_devices(self, event: AcquisitionEvent):
+        xy_stage = self.core.get_xy_stage_device()
+        z_stage = self.core.get_focus_device()
+        if event.get_z_position() is not None and (z_stage is None or z_stage == ""):
+            raise Exception("Event requires a z position, but no Core-Focus device is set")
+        if event.get_x_position() is not None and (xy_stage is None or xy_stage == ""):
+            raise Exception("Event requires an x position, but no Core-XYStage device is set")
+
     def process_acquisition_event(self, event: AcquisitionEvent) -> Future:
         def process_acquisition_event_inner():
             try:
+                self.check_for_default_devices(event)
                 if event.acquisition_.is_debug_mode():
                     self.core.logMessage("Processing event: " + event.to_string())
                 if event.acquisition_.is_debug_mode():
