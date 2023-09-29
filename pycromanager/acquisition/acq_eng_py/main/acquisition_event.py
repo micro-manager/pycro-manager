@@ -69,6 +69,7 @@ class AcquisitionEvent:
         e.stageDeviceNamesToAxisNames_ = self.stageDeviceNamesToAxisNames_.copy()
         e.xPosition_ = self.xPosition_
         e.yPosition_ = self.yPosition_
+        e.zPosition_ = self.zPosition_
         e.miniumumStartTime_ms_ = self.miniumumStartTime_ms_
         e.slmImage_ = self.slmImage_
         e.acquireImage_ = self.acquireImage_
