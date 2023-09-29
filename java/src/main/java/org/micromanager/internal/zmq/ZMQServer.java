@@ -37,7 +37,7 @@ public class ZMQServer extends ZMQSocketWrapper {
    //map of objects that exist in some client of the server
    protected final ConcurrentHashMap<String, Object> externalObjects_ = new ConcurrentHashMap<String, Object>();
 
-   public static final String VERSION = "5.0.0";
+   public static final String VERSION = "5.1.0";
 
    private static Function<Class, Object> classMapper_;
    private static ZMQServer mainServer_;
