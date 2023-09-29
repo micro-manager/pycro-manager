@@ -223,7 +223,7 @@ class _Bridge:
 
     DEFAULT_PORT = 4827
     DEFAULT_TIMEOUT = 500
-    _EXPECTED_ZMQ_SERVER_VERSION = "5.0.0"
+    _EXPECTED_ZMQ_SERVER_VERSION = "5.1.0"
 
     _bridge_creation_lock = threading.Lock()
     _cached_bridges_by_port_and_thread = {}
