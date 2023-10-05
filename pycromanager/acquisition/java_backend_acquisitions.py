@@ -238,21 +238,6 @@ class JavaBackendAcquisition(Acquisition, metaclass=NumpyDocstringInheritanceMet
         port: int=DEFAULT_PORT,
         debug: int=False
     ):
-        """
-        Parameters
-        ----------
-        show_display : bool
-            If True, show the image viewer window. If False, show no viewer.
-        saving_queue_size : int
-            The number of images to queue (in memory) while waiting to write to disk. Higher values should
-            in theory allow sequence acquisitions to go faster, but requires the RAM to hold images while
-            they are waiting to save
-        timeout :
-            Timeout in ms for connecting to Java side
-        port :
-            Allows overriding the default port for using Java backends on a different port. Use this
-            after calling start_headless with the same non-default port
-        """
         # Get a dict of all named argument values (or default values when nothing provided)
         arg_names = [k for k in signature(JavaBackendAcquisition.__init__).parameters.keys() if k != 'self']
         l = locals()
