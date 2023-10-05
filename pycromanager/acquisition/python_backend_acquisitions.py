@@ -19,7 +19,6 @@ class PythonBackendAcquisition(Acquisition, metaclass=NumpyDocstringInheritanceM
 
     def __init__(
         self,
-        directory: str=None,
         name: str='default_acq_name',
         image_process_fn: callable=None,
         event_generation_hook_fn: callable = None,
@@ -38,8 +37,6 @@ class PythonBackendAcquisition(Acquisition, metaclass=NumpyDocstringInheritanceM
                                      dict(signature(PythonBackendAcquisition.__init__).parameters.items())[arg_name].default)
                                      for arg_name in arg_names }
         super().__init__(**named_args)
-        if directory is not None:
-            raise NotImplementedError('Saving to disk is not yet implemented for the python backend. ')
         self._dataset = RAMDataStorage()
         self._finished = False
         self._notifications_finished = False
