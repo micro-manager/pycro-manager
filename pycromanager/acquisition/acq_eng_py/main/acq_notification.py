@@ -48,10 +48,10 @@ class AcqNotification:
         elif phase in [AcqNotification.Camera.PRE_SNAP, AcqNotification.Camera.POST_EXPOSURE,
                      AcqNotification.Camera.PRE_SEQUENCE_STARTED]:
             self.type = AcqNotification.Camera
-            self.id = id
+            self.id = json.loads(id) # convert from '{'time': 5}' to {'time': 5}
         elif phase in [AcqNotification.Hardware.PRE_HARDWARE, AcqNotification.Hardware.POST_HARDWARE]:
             self.type = AcqNotification.Hardware
-            self.id = id
+            self.id = json.loads(id) # convert from '{'time': 5}' to {'time': 5}
         elif phase == AcqNotification.Image.IMAGE_SAVED:
             self.type = AcqNotification.Image
             self.id = id
