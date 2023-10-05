@@ -3,7 +3,7 @@ from pycromanager.acquisition.acq_eng_py.main.acq_notification import AcqNotific
 
 def _axes_to_key(axes):
     """ Turn axes into a hashable key """
-    return frozenset(axes.items())
+    return None if axes is None else frozenset(axes.items())
 
 class AcquisitionFuture:
 

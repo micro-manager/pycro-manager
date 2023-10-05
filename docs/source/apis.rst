@@ -85,9 +85,12 @@ Acquisition APIs
 
 Acquisition
 ==============
-.. currentmodule:: pycromanager
+.. currentmodule:: pycromanager.acquisition.acquisition_superclass
 .. autoclass:: Acquisition
 	:members:
+
+
+.. currentmodule:: pycromanager
 
 multi_d_acquisition_events
 ===========================
