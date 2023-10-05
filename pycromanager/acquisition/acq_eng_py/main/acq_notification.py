@@ -36,11 +36,12 @@ class AcqNotification:
             return "image"
 
     def __init__(self, type, id, phase=None):
-        if type == AcqNotification.Acquisition:
+        if type == AcqNotification.Acquisition or type == AcqNotification.Acquisition.to_string():
             self.type = AcqNotification.Acquisition
             self.id = id
             self.phase = phase
-        elif type == AcqNotification.Image and phase == AcqNotification.Image.DATA_SINK_FINISHED:
+        elif (type == AcqNotification.Image or type == AcqNotification.Image.to_string()) and \
+              phase == AcqNotification.Image.DATA_SINK_FINISHED:
             self.type = AcqNotification.Image
             self.id = id
             self.phase = phase
