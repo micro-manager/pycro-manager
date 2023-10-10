@@ -47,6 +47,7 @@ class Acquisition(metaclass=Meta):
         ----------
         directory : str
             saving directory for this acquisition. If it is not supplied, the image data will be stored in RAM
+            (Java backend only)
         name : str
             Name of the acquisition. This will be used to generate the folder where the data is saved.
         image_process_fn : Callable
@@ -76,7 +77,7 @@ class Acquisition(metaclass=Meta):
             external timing device that synchronizes with other hardware. Accepts either one argument (the current
             acquisition event) or two arguments (current event, event_queue)
         notification_callback_fn : Callable
-            (Experimental) function that will be called whenever a notification is received from the acquisition engine. These
+            function that will be called whenever a notification is received from the acquisition engine. These
             include various stages of the control of hardware and the camera and saving of images. Notification
             callbacks will execute asynchronously with respect to the acquisition process. The supplied function
             should take a single argument, which will be an AcqNotification object. It should execute quickly,
@@ -91,6 +92,17 @@ class Acquisition(metaclass=Meta):
             the user
         debug : bool
             whether to print debug messages
+        show_display : bool
+            If True, show the image viewer window. If False, show no viewer. (Java backend only)
+        saving_queue_size : int
+            The number of images to queue (in memory) while waiting to write to disk. Higher values should
+            in theory allow sequence acquisitions to go faster, but requires the RAM to hold images while
+            they are waiting to save (Java backend only)
+        timeout :
+            Timeout in ms for connecting to Java side (Java backend only)
+        port :
+            Allows overriding the default port for using Java backends on a different port. Use this
+            after calling start_headless with the same non-default port (Java backend only)
         """
         self._debug = debug
         self._dataset = None

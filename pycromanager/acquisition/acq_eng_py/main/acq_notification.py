@@ -36,21 +36,22 @@ class AcqNotification:
             return "image"
 
     def __init__(self, type, id, phase=None):
-        if type == AcqNotification.Acquisition.to_string():
+        if type == AcqNotification.Acquisition or type == AcqNotification.Acquisition.to_string():
             self.type = AcqNotification.Acquisition
             self.id = id
             self.phase = phase
-        elif type == AcqNotification.Image.to_string() and phase == AcqNotification.Image.DATA_SINK_FINISHED:
+        elif (type == AcqNotification.Image or type == AcqNotification.Image.to_string()) and \
+              phase == AcqNotification.Image.DATA_SINK_FINISHED:
             self.type = AcqNotification.Image
             self.id = id
             self.phase = phase
         elif phase in [AcqNotification.Camera.PRE_SNAP, AcqNotification.Camera.POST_EXPOSURE,
                      AcqNotification.Camera.PRE_SEQUENCE_STARTED]:
             self.type = AcqNotification.Camera
-            self.id = json.loads(id)
+            self.id = json.loads(id) if isinstance(id, str) else id # convert from '{'time': 5}' to {'time': 5}
         elif phase in [AcqNotification.Hardware.PRE_HARDWARE, AcqNotification.Hardware.POST_HARDWARE]:
             self.type = AcqNotification.Hardware
-            self.id = json.loads(id)
+            self.id = json.loads(id) if isinstance(id, str) else id # convert from '{'time': 5}' to {'time': 5}
         elif phase == AcqNotification.Image.IMAGE_SAVED:
             self.type = AcqNotification.Image
             self.id = id

@@ -1,6 +1,6 @@
-Sphinx==2.1.0
+Sphinx
 nbsphinx
-pygments<3,>=2.4.1
+pygments
 ipykernel
 sphinx_rtd_theme
 docstring-inheritance

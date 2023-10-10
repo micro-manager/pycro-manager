@@ -19,7 +19,6 @@ class PythonBackendAcquisition(Acquisition, metaclass=NumpyDocstringInheritanceM
 
     def __init__(
         self,
-        directory: str=None,
         name: str='default_acq_name',
         image_process_fn: callable=None,
         event_generation_hook_fn: callable = None,
@@ -30,6 +29,8 @@ class PythonBackendAcquisition(Acquisition, metaclass=NumpyDocstringInheritanceM
         napari_viewer=None,
         image_saved_fn: callable=None,
         debug: int=False,
+        # Specificly so the directory arg can be absorbed and ignored without error,
+        **kwargs
     ):
         # Get a dict of all named argument values (or default values when nothing provided)
         arg_names = [k for k in signature(PythonBackendAcquisition.__init__).parameters.keys() if k != 'self']
@@ -37,9 +38,11 @@ class PythonBackendAcquisition(Acquisition, metaclass=NumpyDocstringInheritanceM
         named_args = {arg_name: (l[arg_name] if arg_name in l else
                                      dict(signature(PythonBackendAcquisition.__init__).parameters.items())[arg_name].default)
                                      for arg_name in arg_names }
+        if 'kwargs' in named_args:
+            if 'directory' in named_args['kwargs'] and named_args['kwargs']['directory'] is not None:
+                raise Exception('The directory argument is not supported in Python backend acquisitions')
+            del named_args['kwargs']
         super().__init__(**named_args)
-        if directory is not None:
-            raise NotImplementedError('Saving to disk is not yet implemented for the python backend. ')
         self._dataset = RAMDataStorage()
         self._finished = False
         self._notifications_finished = False
