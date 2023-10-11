@@ -160,7 +160,8 @@ def start_headless(
     if python_backend:
         mmc = _create_pymmcore_instance()
         mmc.set_device_adapter_search_paths([mm_app_path])
-        mmc.load_system_configuration(config_file)
+        if config_file is not None and config_file != "":
+            mmc.load_system_configuration(config_file)
         mmc.set_circular_buffer_memory_footprint(buffer_size_mb)
         _PYMMCORES.append(mmc) # Store so it doesn't get garbage collected
         Engine(mmc)
