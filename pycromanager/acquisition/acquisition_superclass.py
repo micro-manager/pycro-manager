@@ -11,6 +11,7 @@ from abc import ABCMeta, abstractmethod
 from docstring_inheritance import NumpyDocstringInheritanceMeta
 import queue
 import weakref
+from pycromanager.logging_util import baseLogger
 from pycromanager.acq_future import AcqNotification, AcquisitionFuture
 import os
 import threading
@@ -40,7 +41,8 @@ class Acquisition(metaclass=Meta):
             notification_callback_fn: callable = None,
             image_saved_fn: callable = None,
             napari_viewer=None,
-            debug: int = False
+            debug: int = False,
+            logger=None
     ):
         """
         Parameters
@@ -92,6 +94,8 @@ class Acquisition(metaclass=Meta):
             the user
         debug : bool
             whether to print debug messages
+        logger: logging.Logger
+            logger instance to use for debug messages. If not provided, a local logger will be used
         show_display : bool
             If True, show the image viewer window. If False, show no viewer. (Java backend only)
         saving_queue_size : int
@@ -113,6 +117,7 @@ class Acquisition(metaclass=Meta):
         self._image_notification_queue = queue.Queue(100)
         self._acq_futures = []
         self._image_process_fn = image_process_fn
+        self._logger = logger if logger is not None else baseLogger
 
         pass
 

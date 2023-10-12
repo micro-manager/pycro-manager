@@ -21,6 +21,7 @@ class Acquisition(PycromanagerAcquisitionBase):
             image_saved_fn: callable = None,
             napari_viewer=None,
             debug: int = False,
+            logger=None,
                 **kwargs):
         # package up all the arguments
         arg_names = [k for k in signature(Acquisition.__init__).parameters.keys() if k != 'self']

@@ -15,10 +15,11 @@ class PullSocket(_DataSocket):
             self,
             port=_Bridge.DEFAULT_PORT,
             debug=False,
+            logger=None,
             ip_address="127.0.0.1"
     ):
         _DataSocket.__init__(self,
-                             context=zmq.Context.instance(), port=port, type=zmq.PULL, debug=debug, ip_address=ip_address)
+                             context=zmq.Context.instance(), port=port, type=zmq.PULL, debug=debug, logger=logger, ip_address=ip_address)
 
 
 class PushSocket(_DataSocket):
@@ -29,10 +30,11 @@ class PushSocket(_DataSocket):
             self,
             port=_Bridge.DEFAULT_PORT,
             debug=False,
+            logger=None,
             ip_address="127.0.0.1"
     ):
         _DataSocket.__init__(self,
-                             context=zmq.Context.instance(), port=port, type=zmq.PUSH, debug=debug, ip_address=ip_address)
+                             context=zmq.Context.instance(), port=port, type=zmq.PUSH, debug=debug, logger=logger, ip_address=ip_address)
 
 
 
@@ -52,6 +54,7 @@ class JavaObject(_JavaObjectShadow):
         new_socket=False,
         convert_camel_case=True,
         debug=False,
+        logger=None,
     ):
         """
         classpath: str
@@ -69,8 +72,10 @@ class JavaObject(_JavaObjectShadow):
             becomes class.method_name()
         debug:
             print debug messages
+        logger:
+            logger to use for debug messages
         """
-        bridge = _Bridge.create_or_get_existing_bridge(port=port, timeout=timeout, convert_camel_case=convert_camel_case, debug=debug)
+        bridge = _Bridge.create_or_get_existing_bridge(port=port, timeout=timeout, convert_camel_case=convert_camel_case, debug=debug, logger=logger)
         return bridge._construct_java_object(classpath, new_socket=new_socket, args=args)
 
 
@@ -88,6 +93,7 @@ class JavaClass(_JavaObjectShadow):
         new_socket=False,
         convert_camel_case=True,
         debug=False,
+        logger=None,
     ):
         """
         classpath: str
@@ -103,6 +109,8 @@ class JavaClass(_JavaObjectShadow):
             becomes class.method_name()
         debug:
             print debug messages
+        logger:
+            logger to use for debug messages
         """
-        bridge = _Bridge.create_or_get_existing_bridge(port=port, timeout=timeout, convert_camel_case=convert_camel_case, debug=debug)
+        bridge = _Bridge.create_or_get_existing_bridge(port=port, timeout=timeout, convert_camel_case=convert_camel_case, debug=debug, logger=logger)
         return bridge._get_java_class(classpath, new_socket=new_socket)

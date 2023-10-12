@@ -2,6 +2,7 @@
 Classes that wrap instance of known java objects for ease of use
 """
 from pycromanager.zmq_bridge.wrappers import JavaObject, PullSocket, DEFAULT_BRIDGE_PORT, DEFAULT_BRIDGE_TIMEOUT
+from pycromanager.logging_util import baseLogger
 import threading
 
 class _CoreCallback:
@@ -12,7 +13,8 @@ class _CoreCallback:
 
     """
 
-    def __init__(self, callback_fn=None, bridge_port=DEFAULT_BRIDGE_PORT):
+    def __init__(self, callback_fn=None, logger=None, bridge_port=DEFAULT_BRIDGE_PORT):
+        self._logger = logger if logger is not None else baseLogger
         self._closed = False
         self._thread = threading.Thread(
             target=self._callback_recieving_fn,
@@ -24,11 +26,11 @@ class _CoreCallback:
 
     def _callback_recieving_fn(self, bridge_port, core_callback):
         callback_java = JavaObject(
-            "org.micromanager.remote.RemoteCoreCallback", args=(ZMQRemoteMMCoreJ(port=bridge_port),)
+            "org.micromanager.remote.RemoteCoreCallback", args=(ZMQRemoteMMCoreJ(port=bridge_port, logger=self._logger),)
         )
 
         port = callback_java.get_push_port()
-        pull_socket = PullSocket(port)
+        pull_socket = PullSocket(port, logger=self._logger)
         callback_java.start_push()
 
         while True:
@@ -62,7 +64,7 @@ class ZMQRemoteMMCoreJ(JavaObject):
     """
 
     def __new__(
-        cls, convert_camel_case=True, port=DEFAULT_BRIDGE_PORT, new_socket=False, debug=False, timeout=1000,
+        cls, convert_camel_case=True, port=DEFAULT_BRIDGE_PORT, new_socket=False, debug=False, timeout=1000, logger=None,
     ):
         """
         Parameters
@@ -80,10 +82,12 @@ class ZMQRemoteMMCoreJ(JavaObject):
             print debug messages
         timeout:
             timeout for underlying bridge
+        logger:
+            logger to use for debug messages. If None then the default logger is used
         """
         try:
             return JavaObject("mmcorej.CMMCore", new_socket=new_socket,
-                      port=port, timeout=timeout, convert_camel_case=convert_camel_case, debug=debug)
+                      port=port, timeout=timeout, convert_camel_case=convert_camel_case, debug=debug, logger=logger)
         except Exception as e:
             raise Exception("Couldn't create Core. Is Micro-Manager running and is the ZMQ server on {port} option enabled?")
 
@@ -107,7 +111,7 @@ class Magellan(JavaObject):
 
     def __new__(
         cls, convert_camel_case=True, port=DEFAULT_BRIDGE_PORT, timeout=DEFAULT_BRIDGE_TIMEOUT,
-            new_socket=False, debug=False
+            new_socket=False, debug=False, logger=None,
     ):
         """
         convert_camel_case : bool
@@ -121,9 +125,11 @@ class Magellan(JavaObject):
             with the bridges main port
         debug: bool
             print debug messages
+        logger:
+            logger to use for debug messages. If None then the default logger is used
         """
         return JavaObject("org.micromanager.magellan.api.MagellanAPI", new_socket=new_socket,
-                      port=port, timeout=timeout, convert_camel_case=convert_camel_case, debug=debug)
+                      port=port, timeout=timeout, convert_camel_case=convert_camel_case, debug=debug, logger=logger)
 
 
 class Studio(JavaObject):
@@ -133,7 +139,7 @@ class Studio(JavaObject):
 
     def __new__(
         cls, convert_camel_case=True, port=DEFAULT_BRIDGE_PORT,
-            timeout=DEFAULT_BRIDGE_TIMEOUT, new_socket=False, debug=False):
+            timeout=DEFAULT_BRIDGE_TIMEOUT, new_socket=False, debug=False, logger=None):
         """
         convert_camel_case : bool
             If True, methods for Java objects that are passed across the bridge
@@ -146,7 +152,9 @@ class Studio(JavaObject):
             with the bridges main port
         debug: bool
             print debug messages
+        logger:
+            logger to use for debug messages. If None then the default logger is used
         """
         return JavaObject("org.micromanager.Studio", new_socket=new_socket,
-                          port=port, timeout=timeout, convert_camel_case=convert_camel_case, debug=debug)
+                          port=port, timeout=timeout, convert_camel_case=convert_camel_case, debug=debug, logger=logger)
 

@@ -6,6 +6,7 @@ import types
 
 from pycromanager.acquisition.acq_eng_py.internal.engine import Engine
 from pycromanager.zmq_bridge.bridge import _Bridge, server_terminated
+from pycromanager.logging_util import baseLogger
 from pymmcore import CMMCore
 import pymmcore
 
@@ -87,33 +88,36 @@ def _create_pymmcore_instance():
 _JAVA_HEADLESS_SUBPROCESSES = []
 _PYMMCORES = []
 
-def stop_headless(debug=False):
+def stop_headless(debug=False, logger=None):
+    
+    log = logger if logger is not None else baseLogger
+    
     for p in _JAVA_HEADLESS_SUBPROCESSES:
         port = p.port
         if debug:
-            print('Stopping headless process with pid {}'.format(p.pid))
+            log.debug('Stopping headless process with pid {}'.format(p.pid))
         p.terminate()
         server_terminated(port)
         if debug:
-            print('Waiting for process with pid {} to terminate'.format(p.pid))
+            log.debug('Waiting for process with pid {} to terminate'.format(p.pid))
         p.wait()  # wait for process to terminate
         if debug:
-            print('Process with pid {} terminated'.format(p.pid))
+            log.debug('Process with pid {} terminated'.format(p.pid))
     _JAVA_HEADLESS_SUBPROCESSES.clear()
     if debug:
-        print('Stopping {} pymmcore instances'.format(len(_PYMMCORES)))
+        log.debug('Stopping {} pymmcore instances'.format(len(_PYMMCORES)))
     for c in _PYMMCORES:
         if debug:
-            print('Stopping pymmcore instance')
+            log.debug('Stopping pymmcore instance')
         c.unloadAllDevices()
         if debug:
-            print('Unloaded all devices')
+            log.debug('Unloaded all devices')
         Engine.get_instance().shutdown()
         if debug:
-            print('Engine shut down')
+            log.debug('Engine shut down')
     _PYMMCORES.clear()
     if debug:
-        print('Headless stopped')
+        log.debug('Headless stopped')
 
 # make sure any Java processes are cleaned up when Python exits
 atexit.register(stop_headless)
@@ -122,7 +126,7 @@ def start_headless(
     mm_app_path: str, config_file: str=None, java_loc: str=None,
         python_backend=False, core_log_path: str='',
         buffer_size_mb: int=1024, max_memory_mb: int=2000,
-        port: int=_Bridge.DEFAULT_PORT, debug=False):
+        port: int=_Bridge.DEFAULT_PORT, debug=False, logger=None):
     """
     Start a Java process that contains the neccessary libraries for pycro-manager to run,
     so that it can be run independently of the Micro-Manager GUI/application. This calls
@@ -155,7 +159,10 @@ def start_headless(
         Default port to use for ZMQServer (Java backend only)
     debug : bool
         Print debug messages
+    logger: loggin.Logger
+        Logger to use for debug messages. If None then the default logger is used
     """
+    log = logger if logger is not None else baseLogger
 
     if python_backend:
         mmc = _create_pymmcore_instance()
@@ -203,12 +210,12 @@ def start_headless(
         if not started:
             raise Exception('Error starting headless mode')
         if debug:
-            print('Headless mode started')
-            def logger():
+            log.debug('Headless mode started')
+            def loggerFunction():
                 while process in _JAVA_HEADLESS_SUBPROCESSES:
                     line = process.stdout.readline().decode('utf-8')
                     if line.strip() != '':
-                        print(line)
-            threading.Thread(target=logger).start()
+                        log.debug(line)
+            threading.Thread(target=loggerFunction).start()
 
 
