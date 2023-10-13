@@ -34,7 +34,7 @@ class _DataSocket:
         self._java_objects = weakref.WeakSet()
         self._port = port
         self._close_lock = Lock()
-        self._closed = False    
+        self._closed = False
         if type == zmq.PUSH:
             if debug:
                 logging.main_logger.debug("binding {}".format(port))
@@ -198,12 +198,12 @@ class _DataSocket:
                     java_object._close()
                     del java_object # potentially redundant, trying to fix closing race condition
                 self._java_objects = None
-                if self._debug:
-                    logging.main_logger.debug('closing socket {}'.format(self._port))
                 self._socket.close()
                 while not self._socket.closed:
                     time.sleep(0.01)
                 self._socket = None
+                if self._debug:
+                    logging.main_logger.debug('closed socket {}'.format(self._port))
                 self._closed = True
 
 def server_terminated(port):
