@@ -157,8 +157,6 @@ def start_headless(
         Default port to use for ZMQServer (Java backend only)
     debug : bool
         Print debug messages
-    logger: loggin.Logger
-        Logger to use for debug messages. If None then the default logger is used
     """
 
     if python_backend:

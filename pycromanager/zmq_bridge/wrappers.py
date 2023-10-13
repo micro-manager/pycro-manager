@@ -69,8 +69,6 @@ class JavaObject(_JavaObjectShadow):
             becomes class.method_name()
         debug:
             print debug messages
-        logger:
-            logger to use for debug messages
         """
         bridge = _Bridge.create_or_get_existing_bridge(port=port, timeout=timeout, convert_camel_case=convert_camel_case, debug=debug)
         return bridge._construct_java_object(classpath, new_socket=new_socket, args=args)
@@ -105,8 +103,6 @@ class JavaClass(_JavaObjectShadow):
             becomes class.method_name()
         debug:
             print debug messages
-        logger:
-            logger to use for debug messages
         """
         bridge = _Bridge.create_or_get_existing_bridge(port=port, timeout=timeout, convert_camel_case=convert_camel_case, debug=debug)
         return bridge._get_java_class(classpath, new_socket=new_socket)

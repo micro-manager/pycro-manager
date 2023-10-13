@@ -80,8 +80,6 @@ class ZMQRemoteMMCoreJ(JavaObject):
             print debug messages
         timeout:
             timeout for underlying bridge
-        logger:
-            logger to use for debug messages. If None then the default logger is used
         """
         try:
             return JavaObject("mmcorej.CMMCore", new_socket=new_socket,
@@ -123,8 +121,6 @@ class Magellan(JavaObject):
             with the bridges main port
         debug: bool
             print debug messages
-        logger:
-            logger to use for debug messages. If None then the default logger is used
         """
         return JavaObject("org.micromanager.magellan.api.MagellanAPI", new_socket=new_socket,
                       port=port, timeout=timeout, convert_camel_case=convert_camel_case, debug=debug)
@@ -150,8 +146,6 @@ class Studio(JavaObject):
             with the bridges main port
         debug: bool
             print debug messages
-        logger:
-            logger to use for debug messages. If None then the default logger is used
         """
         return JavaObject("org.micromanager.Studio", new_socket=new_socket,
                           port=port, timeout=timeout, convert_camel_case=convert_camel_case, debug=debug)
