@@ -182,7 +182,7 @@ def _run_image_processor(
             process_and_sendoff(processed, pixels.dtype)
 
 def _notification_handler_fn(acquisition, notification_push_port, connected_event, debug=False):
-    monitor_socket = PullSocket(notification_push_port, debug=debug)
+    monitor_socket = PullSocket(notification_push_port)
     connected_event.set()
 
     try:
@@ -237,7 +237,7 @@ class JavaBackendAcquisition(Acquisition, metaclass=NumpyDocstringInheritanceMet
         saving_queue_size: int=20,
         timeout: int=2500,
         port: int=DEFAULT_PORT,
-        debug: int=False,
+        debug: int=False
     ):
         # Get a dict of all named argument values (or default values when nothing provided)
         arg_names = [k for k in signature(JavaBackendAcquisition.__init__).parameters.keys() if k != 'self']
