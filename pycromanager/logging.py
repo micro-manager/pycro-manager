@@ -10,7 +10,6 @@ def set_logger_instance(logger_name: str) -> None:
         logger (str): name of new logger to use (i.e. logger.name)
     """
     global main_logger
-    main_logger.info("Using custom logger: " + logger_name)
     main_logger = logging.getLogger(logger_name)
 
 def reset_logger_instance() -> None:
