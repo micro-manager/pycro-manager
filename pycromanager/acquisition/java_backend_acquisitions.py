@@ -13,7 +13,7 @@ from pycromanager.zmq_bridge.bridge import deserialize_array
 from pycromanager.zmq_bridge.wrappers import PullSocket, PushSocket, JavaObject, JavaClass
 from pycromanager.zmq_bridge.wrappers import DEFAULT_BRIDGE_PORT as DEFAULT_PORT
 from pycromanager.mm_java_classes import ZMQRemoteMMCoreJ, Magellan
-from pycromanager.logging_util import baseLogger
+import pycromanager.logging as logging
 from ndtiff import Dataset
 import os.path
 import queue
@@ -28,14 +28,13 @@ from pycromanager.acq_future import AcqNotification, AcquisitionFuture
 # prevent problems with pickling when running them in differnet process
 # although they are currently only used in different threads
 
-def _run_acq_event_source(acquisition, event_port, event_queue, debug=False, logger=None):
-    log = logger if logger is not None else baseLogger        
-    event_socket = PushSocket(event_port, debug=debug, logger=logger)
+def _run_acq_event_source(acquisition, event_port, event_queue, debug=False):  
+    event_socket = PushSocket(event_port, debug=debug)
     try:
         while True:
             events = event_queue.get(block=True)
             if debug:
-                log.debug(f"got event(s): {events}")
+                logging.main_logger.debug(f"got event(s): {events}")
             if events is None:
                 # Initiate the normal shutdown process
                 if not acquisition._acq.is_finished():
@@ -53,7 +52,7 @@ def _run_acq_event_source(acquisition, event_port, event_queue, debug=False, log
             #  maybe consider putting a timeout on the send?
             event_socket.send({"events": events if type(events) == list else [events]})
             if debug:
-                log.debug("sent events")
+                logging.main_logger.debug("sent events")
     except Exception as e:
         acquisition.abort(e)
     finally:
@@ -61,10 +60,10 @@ def _run_acq_event_source(acquisition, event_port, event_queue, debug=False, log
 
 
 def _run_acq_hook(acquisition, pull_port,
-                  push_port, hook_connected_evt, event_queue, hook_fn, debug=False, logger=None):
+                  push_port, hook_connected_evt, event_queue, hook_fn, debug=False):
 
-    push_socket = PushSocket(pull_port, debug=debug, logger=logger)
-    pull_socket = PullSocket(push_port, debug=debug, logger=logger)
+    push_socket = PushSocket(pull_port, debug=debug)
+    pull_socket = PullSocket(push_port, debug=debug)
     hook_connected_evt.set()
 
     exception = None
@@ -102,14 +101,13 @@ def _run_acq_hook(acquisition, pull_port,
 
 
 def _run_image_processor(
-        acquisition, pull_port, push_port, sockets_connected_evt, process_fn, event_queue, debug, logger=None
+        acquisition, pull_port, push_port, sockets_connected_evt, process_fn, event_queue, debug
 ):
-    log = logger if logger is not None else baseLogger
     acquisition._process_fn = process_fn
-    push_socket = PushSocket(pull_port, debug=debug, logger=logger)
-    pull_socket = PullSocket(push_port, debug=debug, logger=logger)
+    push_socket = PushSocket(pull_port, debug=debug)
+    pull_socket = PullSocket(push_port, debug=debug)
     if debug:
-        log.debug("image processing sockets connected")
+        logging.main_logger.debug("image processing sockets connected")
     sockets_connected_evt.set()
 
     def process_and_sendoff(image_tags_tuple, original_dtype):
@@ -183,9 +181,8 @@ def _run_image_processor(
         else:
             process_and_sendoff(processed, pixels.dtype)
 
-def _notification_handler_fn(acquisition, notification_push_port, connected_event, debug=False, logger=None):
-    log = logger if logger is not None else baseLogger
-    monitor_socket = PullSocket(notification_push_port, logger=log, debug=debug)
+def _notification_handler_fn(acquisition, notification_push_port, connected_event, debug=False):
+    monitor_socket = PullSocket(notification_push_port, debug=debug)
     connected_event.set()
 
     try:
@@ -241,7 +238,6 @@ class JavaBackendAcquisition(Acquisition, metaclass=NumpyDocstringInheritanceMet
         timeout: int=2500,
         port: int=DEFAULT_PORT,
         debug: int=False,
-        logger=None,
     ):
         # Get a dict of all named argument values (or default values when nothing provided)
         arg_names = [k for k in signature(JavaBackendAcquisition.__init__).parameters.keys() if k != 'self']
@@ -458,7 +454,7 @@ class JavaBackendAcquisition(Acquisition, metaclass=NumpyDocstringInheritanceMet
 
         self._event_thread = threading.Thread(
             target=_run_acq_event_source,
-            args=(self, self.event_port, self._event_queue, self._debug, self._logger),
+            args=(self, self.event_port, self._event_queue, self._debug),
             name="Event sending",
         )
         self._event_thread.start()

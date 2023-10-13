@@ -13,7 +13,7 @@ import threading
 import weakref
 import atexit
 import traceback
-from pycromanager.logging_util import baseLogger
+import pycromanager.logging as logging
 
 
 class _DataSocket:
@@ -22,7 +22,7 @@ class _DataSocket:
     Includes ZMQ client, push, and pull sockets
     """
 
-    def __init__(self, context, port, type, debug=False, logger=None, ip_address="127.0.0.1"):
+    def __init__(self, context, port, type, debug=False, ip_address="127.0.0.1"):
         # request reply socket
         self._socket = context.socket(type)
         # if 1000 messages are queued up, queue indefinitely until they can be sent
@@ -34,15 +34,14 @@ class _DataSocket:
         self._java_objects = weakref.WeakSet()
         self._port = port
         self._close_lock = Lock()
-        self._closed = False
-        self._logger = logger        
+        self._closed = False    
         if type == zmq.PUSH:
             if debug:
-                logger.debug("binding {}".format(port))
+                logging.main_logger.debug("binding {}".format(port))
             self._socket.bind("tcp://{}:{}".format(ip_address, port))
         else:
             if debug:
-                logger.debug("connecting {}".format(port))
+                logging.main_logger.debug("connecting {}".format(port))
             self._socket.connect("tcp://{}:{}".format(ip_address, port))
 
     def _register_java_object(self, object):
@@ -112,7 +111,7 @@ class _DataSocket:
         self._remove_bytes(bytes_data, message)
         message_string = json.dumps(message)
         if self._debug and not suppress_debug_message:
-            self._logger.debug("sending: {}".format(message))
+            logging.main_logger.debug("sending: {}".format(message))
         # convert keys to byte array
         key_vals = [(identifier.tobytes(), value) for identifier, value in bytes_data]
         message_parts = [bytes(message_string, "iso-8859-1")] + [
@@ -181,7 +180,7 @@ class _DataSocket:
             self._replace_bytes(message, identity_hash, value)
 
         if self._debug and not suppress_debug_message:
-            self._logger.debug("received: {}".format(message))
+            logging.main_logger.debug("received: {}".format(message))
         self._check_exception(message)
         return message
 
@@ -200,7 +199,7 @@ class _DataSocket:
                     del java_object # potentially redundant, trying to fix closing race condition
                 self._java_objects = None
                 if self._debug:
-                    self._logger.debug('closing socket {}'.format(self._port))
+                    logging.main_logger.debug('closing socket {}'.format(self._port))
                 self._socket.close()
                 while not self._socket.closed:
                     time.sleep(0.01)
@@ -234,12 +233,11 @@ class _Bridge:
 
     @staticmethod
     def create_or_get_existing_bridge(port: int=DEFAULT_PORT, convert_camel_case: bool=True,
-                                      debug: bool=False, logger=None, ip_address: str="127.0.0.1", timeout: int=DEFAULT_TIMEOUT, iterate: bool = False):
+                                      debug: bool=False, ip_address: str="127.0.0.1", timeout: int=DEFAULT_TIMEOUT, iterate: bool = False):
         """
         Get a bridge for a given port and thread. If a bridge for that port/thread combo already exists,
         return it
         """
-        log = logger if logger is not None else baseLogger
         with _Bridge._bridge_creation_lock:
             thread_id = threading.current_thread().ident
             port_thread_id = (port, thread_id)
@@ -251,14 +249,14 @@ class _Bridge:
                     raise Exception("Bridge for port {} and thread {} has been "
                                     "closed but not removed".format(port, threading.current_thread().name))
                 if debug:
-                    log.debug("returning cached bridge for port {} thread {}".format(
+                    logging.main_logger.debug("returning cached bridge for port {} thread {}".format(
                         port, threading.current_thread().name))
                 return bridge
             else:
                 if debug:
-                    log.debug("creating new bridge for port {} thread {}".format(
+                    logging.main_logger.debug("creating new bridge for port {} thread {}".format(
                         port, threading.current_thread().name))
-                b = _Bridge(port, convert_camel_case, debug, log, ip_address, timeout, iterate)
+                b = _Bridge(port, convert_camel_case, debug, ip_address, timeout, iterate)
                 # store weak refs so that the existence of thread/port bridge caching doesn't prevent
                 # the garbage collection of unused bridge objects
                 _Bridge._cached_bridges_by_port_and_thread[port_thread_id] = weakref.ref(b)
@@ -266,7 +264,7 @@ class _Bridge:
 
     def __init__(
         self, port: int=DEFAULT_PORT, convert_camel_case: bool=True,
-            debug: bool=False, logger=None, ip_address: str="127.0.0.1", timeout: int=DEFAULT_TIMEOUT, iterate: bool = False
+            debug: bool=False, ip_address: str="127.0.0.1", timeout: int=DEFAULT_TIMEOUT, iterate: bool = False
     ):
         """
         This constructor should not be called directly. Instead, use the static method create_or_get_existing_bridge
@@ -280,8 +278,6 @@ class _Bridge:
             becomes class.method_name()
         debug : bool
             If True print helpful stuff for debugging
-        logger : logging.Logger
-            logger to use for debug messages
         iterate : bool
             If True, ListArray will be iterated and give lists
         """
@@ -294,9 +290,8 @@ class _Bridge:
         self._debug = debug
         self._timeout = timeout
         self._iterate = iterate
-        self._logger = logger
         self._main_socket = _DataSocket(
-            zmq.Context.instance(), port, zmq.REQ, debug=debug, logger=logger, ip_address=self._ip_address
+            zmq.Context.instance(), port, zmq.REQ, debug=debug, ip_address=self._ip_address
         )
         self._main_socket.send({"command": "connect", "debug": debug})
         self._class_factory = _JavaClassFactory()
@@ -327,9 +322,9 @@ class _Bridge:
             # than the one that created the bridge
             del _Bridge._cached_bridges_by_port_and_thread[self._port_thread_id]
             if self._debug:
-                self._logger.debug("BRIDGE DESCTRUCTOR for {} on port {} thread {}".format(
+                logging.main_logger.debug("BRIDGE DESCTRUCTOR for {} on port {} thread {}".format(
                     str(self), self.port, threading.current_thread().name))
-                self._logger.debug("Running on thread {}".format(threading.current_thread().name))
+                logging.main_logger.debug("Running on thread {}".format(threading.current_thread().name))
 
 
 
@@ -404,7 +399,7 @@ class _Bridge:
         if new_socket:
             # create a new bridge over a different port
             bridge = _Bridge.create_or_get_existing_bridge(
-                port=serialized_object["port"], ip_address=self._ip_address, timeout=self._timeout, debug=debug, logger=self._logger)
+                port=serialized_object["port"], ip_address=self._ip_address, timeout=self._timeout, debug=debug)
             # bridge = _Bridge(port=serialized_object["port"], ip_address=self._ip_address,
             #                  timeout=self._timeout, debug=debug)
         else:
@@ -441,7 +436,7 @@ class _Bridge:
         if new_socket:
             # create a new bridge over a different port
             bridge = _Bridge.create_or_get_existing_bridge(port=serialized_object["port"], ip_address=self._ip_address,
-                                                           timeout=self._timeout, debug=debug, logger=self._logger)
+                                                           timeout=self._timeout, debug=debug)
         else:
             bridge = self
         return self._class_factory.create(
@@ -547,7 +542,6 @@ class _JavaObjectShadow:
         self._creation_bridge = bridge
         # Cache arguments for the bridge that created this object
         self._debug = bridge._debug
-        self._logger = bridge._logger
         self._convert_camel_case = bridge._convert_camel_case
         self._creation_port = bridge.port
         self._creation_thread = threading.current_thread().ident
@@ -642,7 +636,7 @@ class _JavaObjectShadow:
             # print('bridge just created', bridge_to_use,
             #       'cached', self._bridges_by_port_thread[combo_id])
             if self._debug:
-                self._logger.debug(self)
+                logging.main_logger.debug(self)
                 # print current call stack
                 traceback.print_stack()
             warnings.warn("Duplicate bridges on port {} thread {}".format(port, thread_id))
@@ -655,14 +649,14 @@ class _JavaObjectShadow:
         Tell java side this object is garbage collected so it can do the same if needed
         """
         if self._debug:
-            self._logger.debug('destructor for {} on thread {}'.format(
+            logging.main_logger.debug('destructor for {} on thread {}'.format(
                 str(self), threading.current_thread().name))
-            self._logger.debug('Thread name: {}'.format(threading.current_thread().name))
+            logging.main_logger.debug('Thread name: {}'.format(threading.current_thread().name))
         try:
             self._close()
         except Exception as e:
             traceback.print_exc()
-            self._logger.error('Exception in destructor for {} on thread {}'.format(
+            logging.main_logger.error('Exception in destructor for {} on thread {}'.format(
                 str(self), threading.current_thread().name))
 
     def _access_field(self, name):
