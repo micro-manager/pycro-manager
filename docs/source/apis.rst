@@ -165,3 +165,17 @@ Convenience classes for special Java objects
 
 .. autoclass:: Studio
 	:members:
+
+
+Logging control
+###############
+
+set_logging_instance
+====================
+
+.. autofunction:: set_logging_instance
+
+reset_logger_instance
+=====================
+
+.. autofunction:: reset_logger_instance

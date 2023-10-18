@@ -13,6 +13,7 @@ import threading
 import weakref
 import atexit
 import traceback
+import pycromanager.logging as logging
 
 
 class _DataSocket:
@@ -36,11 +37,11 @@ class _DataSocket:
         self._closed = False
         if type == zmq.PUSH:
             if debug:
-                print("binding {}".format(port))
+                logging.main_logger.debug("binding {}".format(port))
             self._socket.bind("tcp://{}:{}".format(ip_address, port))
         else:
             if debug:
-                print("connecting {}".format(port))
+                logging.main_logger.debug("connecting {}".format(port))
             self._socket.connect("tcp://{}:{}".format(ip_address, port))
 
     def _register_java_object(self, object):
@@ -110,7 +111,7 @@ class _DataSocket:
         self._remove_bytes(bytes_data, message)
         message_string = json.dumps(message)
         if self._debug and not suppress_debug_message:
-            print("DEBUG, sending: {}".format(message))
+            logging.main_logger.debug("sending: {}".format(message))
         # convert keys to byte array
         key_vals = [(identifier.tobytes(), value) for identifier, value in bytes_data]
         message_parts = [bytes(message_string, "iso-8859-1")] + [
@@ -179,7 +180,7 @@ class _DataSocket:
             self._replace_bytes(message, identity_hash, value)
 
         if self._debug and not suppress_debug_message:
-            print("DEBUG, recieved: {}".format(message))
+            logging.main_logger.debug("received: {}".format(message))
         self._check_exception(message)
         return message
 
@@ -202,7 +203,7 @@ class _DataSocket:
                     time.sleep(0.01)
                 self._socket = None
                 if self._debug:
-                    print('closed socket {}'.format(self._port))
+                    logging.main_logger.debug('closed socket {}'.format(self._port))
                 self._closed = True
 
 def server_terminated(port):
@@ -248,12 +249,12 @@ class _Bridge:
                     raise Exception("Bridge for port {} and thread {} has been "
                                     "closed but not removed".format(port, threading.current_thread().name))
                 if debug:
-                    print("DEBUG: returning cached bridge for port {} thread {}".format(
+                    logging.main_logger.debug("returning cached bridge for port {} thread {}".format(
                         port, threading.current_thread().name))
                 return bridge
             else:
                 if debug:
-                    print("DEBUG: creating new beidge for port {} thread {}".format(
+                    logging.main_logger.debug("creating new bridge for port {} thread {}".format(
                         port, threading.current_thread().name))
                 b = _Bridge(port, convert_camel_case, debug, ip_address, timeout, iterate)
                 # store weak refs so that the existence of thread/port bridge caching doesn't prevent
@@ -321,9 +322,9 @@ class _Bridge:
             # than the one that created the bridge
             del _Bridge._cached_bridges_by_port_and_thread[self._port_thread_id]
             if self._debug:
-                print("DEBUG: BRIDGE DESCTRUCTOR for {} on port {} thread {}".format(
+                logging.main_logger.debug("BRIDGE DESCTRUCTOR for {} on port {} thread {}".format(
                     str(self), self.port, threading.current_thread().name))
-                print("DEBUG:      running on thread {}".format(threading.current_thread().name))
+                logging.main_logger.debug("Running on thread {}".format(threading.current_thread().name))
 
 
 
@@ -635,7 +636,7 @@ class _JavaObjectShadow:
             # print('bridge just created', bridge_to_use,
             #       'cached', self._bridges_by_port_thread[combo_id])
             if self._debug:
-                print(self)
+                logging.main_logger.debug(self)
                 # print current call stack
                 traceback.print_stack()
             warnings.warn("Duplicate bridges on port {} thread {}".format(port, thread_id))
@@ -648,14 +649,14 @@ class _JavaObjectShadow:
         Tell java side this object is garbage collected so it can do the same if needed
         """
         if self._debug:
-            print('DEBUG: destructor for {} on thread {}'.format(
+            logging.main_logger.debug('destructor for {} on thread {}'.format(
                 str(self), threading.current_thread().name))
-            print('DEBUG:       thread name: {}'.format(threading.current_thread().name))
+            logging.main_logger.debug('Thread name: {}'.format(threading.current_thread().name))
         try:
             self._close()
         except Exception as e:
             traceback.print_exc()
-            print('Exception in destructor for {} on thread {}'.format(
+            logging.main_logger.error('Exception in destructor for {} on thread {}'.format(
                 str(self), threading.current_thread().name))
 
     def _access_field(self, name):

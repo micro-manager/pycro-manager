@@ -7,6 +7,7 @@ import types
 from pycromanager.acquisition.acq_eng_py.internal.engine import Engine
 from pycromanager.zmq_bridge.bridge import _Bridge, server_terminated
 from pymmcore import CMMCore
+import pycromanager.logging as logging
 import pymmcore
 
 import re
@@ -88,32 +89,33 @@ _JAVA_HEADLESS_SUBPROCESSES = []
 _PYMMCORES = []
 
 def stop_headless(debug=False):
+    
     for p in _JAVA_HEADLESS_SUBPROCESSES:
         port = p.port
         if debug:
-            print('Stopping headless process with pid {}'.format(p.pid))
+            logging.main_logger.debug('Stopping headless process with pid {}'.format(p.pid))
         p.terminate()
         server_terminated(port)
         if debug:
-            print('Waiting for process with pid {} to terminate'.format(p.pid))
+            logging.main_logger.debug('Waiting for process with pid {} to terminate'.format(p.pid))
         p.wait()  # wait for process to terminate
         if debug:
-            print('Process with pid {} terminated'.format(p.pid))
+            logging.main_logger.debug('Process with pid {} terminated'.format(p.pid))
     _JAVA_HEADLESS_SUBPROCESSES.clear()
     if debug:
-        print('Stopping {} pymmcore instances'.format(len(_PYMMCORES)))
+        logging.main_logger.debug('Stopping {} pymmcore instances'.format(len(_PYMMCORES)))
     for c in _PYMMCORES:
         if debug:
-            print('Stopping pymmcore instance')
+            logging.main_logger.debug('Stopping pymmcore instance')
         c.unloadAllDevices()
         if debug:
-            print('Unloaded all devices')
+            logging.main_logger.debug('Unloaded all devices')
         Engine.get_instance().shutdown()
         if debug:
-            print('Engine shut down')
+            logging.main_logger.debug('Engine shut down')
     _PYMMCORES.clear()
     if debug:
-        print('Headless stopped')
+        logging.main_logger.debug('Headless stopped')
 
 # make sure any Java processes are cleaned up when Python exits
 atexit.register(stop_headless)
@@ -203,12 +205,12 @@ def start_headless(
         if not started:
             raise Exception('Error starting headless mode')
         if debug:
-            print('Headless mode started')
-            def logger():
+            logging.main_logger.debug('Headless mode started')
+            def loggerFunction():
                 while process in _JAVA_HEADLESS_SUBPROCESSES:
                     line = process.stdout.readline().decode('utf-8')
                     if line.strip() != '':
-                        print(line)
-            threading.Thread(target=logger).start()
+                        logging.main_logger.debug(line)
+            threading.Thread(target=loggerFunction).start()
 
 

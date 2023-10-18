@@ -13,6 +13,7 @@ from pycromanager.zmq_bridge.bridge import deserialize_array
 from pycromanager.zmq_bridge.wrappers import PullSocket, PushSocket, JavaObject, JavaClass
 from pycromanager.zmq_bridge.wrappers import DEFAULT_BRIDGE_PORT as DEFAULT_PORT
 from pycromanager.mm_java_classes import ZMQRemoteMMCoreJ, Magellan
+import pycromanager.logging as logging
 from ndtiff import Dataset
 import os.path
 import queue
@@ -27,13 +28,13 @@ from pycromanager.acq_future import AcqNotification, AcquisitionFuture
 # prevent problems with pickling when running them in differnet process
 # although they are currently only used in different threads
 
-def _run_acq_event_source(acquisition, event_port, event_queue, debug=False):
+def _run_acq_event_source(acquisition, event_port, event_queue, debug=False):  
     event_socket = PushSocket(event_port, debug=debug)
     try:
         while True:
             events = event_queue.get(block=True)
             if debug:
-                print("got event(s):", events)
+                logging.main_logger.debug(f"got event(s): {events}")
             if events is None:
                 # Initiate the normal shutdown process
                 if not acquisition._acq.is_finished():
@@ -51,7 +52,7 @@ def _run_acq_event_source(acquisition, event_port, event_queue, debug=False):
             #  maybe consider putting a timeout on the send?
             event_socket.send({"events": events if type(events) == list else [events]})
             if debug:
-                print("sent events")
+                logging.main_logger.debug("sent events")
     except Exception as e:
         acquisition.abort(e)
     finally:
@@ -106,7 +107,7 @@ def _run_image_processor(
     push_socket = PushSocket(pull_port, debug=debug)
     pull_socket = PullSocket(push_port, debug=debug)
     if debug:
-        print("image processing sockets connected")
+        logging.main_logger.debug("image processing sockets connected")
     sockets_connected_evt.set()
 
     def process_and_sendoff(image_tags_tuple, original_dtype):
