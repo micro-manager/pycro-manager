@@ -271,6 +271,7 @@ class Acquisition(metaclass=Meta):
         self.mark_finished()
         # now wait on it to finish
         self.await_completion()
+        self.get_dataset().close()
 
 
 def _validate_acq_events(events: dict or list):
