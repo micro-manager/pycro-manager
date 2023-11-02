@@ -1,3 +1,10 @@
+---
+name: Bug Report
+about: Report a bug in pycro-manager
+labels: bug
+---
+
+
 <!--Before submitting a bug report, make sure you have 
     1) installed the latest version of pycromanager (pip install pycromanager --upgrade) 
     2) are using the latest nightly build of micro-manager
