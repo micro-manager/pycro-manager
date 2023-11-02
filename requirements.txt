@@ -4,3 +4,4 @@ pyzmq
 ndtiff>=2.2.0
 docstring-inheritance
 pymmcore
+sortedcontainers
