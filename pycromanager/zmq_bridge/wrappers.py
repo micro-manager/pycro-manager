@@ -17,8 +17,7 @@ class PullSocket(_DataSocket):
             debug=False,
             ip_address="127.0.0.1"
     ):
-        _DataSocket.__init__(self,
-                             context=zmq.Context.instance(), port=port, type=zmq.PULL, debug=debug, ip_address=ip_address)
+        _DataSocket.__init__(self, port=port, type=zmq.PULL, debug=debug, ip_address=ip_address)
 
 
 class PushSocket(_DataSocket):
@@ -31,8 +30,7 @@ class PushSocket(_DataSocket):
             debug=False,
             ip_address="127.0.0.1"
     ):
-        _DataSocket.__init__(self,
-                             context=zmq.Context.instance(), port=port, type=zmq.PUSH, debug=debug, ip_address=ip_address)
+        _DataSocket.__init__(self, port=port, type=zmq.PUSH, debug=debug, ip_address=ip_address)
 
 
 
