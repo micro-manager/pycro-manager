@@ -13,18 +13,6 @@ import threading
 import weakref
 import atexit
 
-# global map from threads to zmq contexts
-ZMQ_CONTEXTS = {}
-
-# this is the last thing that should happen, so we register it first
-def context_cleanup(contexts):
-    for context in contexts.values():
-        context.term()
-    del contexts
-
-atexit.register(context_cleanup, ZMQ_CONTEXTS)
-
-
 class _DataSocket:
     """
     Wrapper for ZMQ socket that sends and recieves dictionaries
@@ -33,12 +21,7 @@ class _DataSocket:
 
     def __init__(self, port, type, debug=False, ip_address="127.0.0.1"):
         # request reply socket
-        # check if context already exists for this thread
-        if threading.current_thread().ident in ZMQ_CONTEXTS:
-            context = ZMQ_CONTEXTS[threading.current_thread().ident]
-        else:
-            context = zmq.Context()
-            ZMQ_CONTEXTS[threading.current_thread().ident] = context
+        context = zmq.Context.instance()
         self._socket = context.socket(type)
         # if 1000 messages are queued up, queue indefinitely until they can be sent
         self._socket.setsockopt(zmq.SNDHWM, 1000)
