@@ -553,11 +553,11 @@ class _JavaObjectShadow:
         # # In case there's an exception rather than normal garbage collection,
         # # this makes sure cleanup occurs properly
         # # Need to use a wr to ensure that reference to close doesnt cause memeory leak
-        wr = weakref.ref(self._close)
+        wr = weakref.ref(self)
         def cleanup():
             if wr() is not None:
                 # It hasn't already been garbage collected
-                wr()()
+                wr()._close()
         atexit.register(cleanup)
         self._close_lock = Lock()
 
