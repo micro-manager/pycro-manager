@@ -17,9 +17,9 @@ import org.micromanager.acqj.api.AcquisitionAPI;
 import org.micromanager.acqj.main.AcqEngMetadata;
 import org.micromanager.acqj.api.TaggedImageProcessor;
 import org.micromanager.acqj.main.Acquisition;
-import org.micromanager.internal.zmq.ZMQPullSocket;
-import org.micromanager.internal.zmq.ZMQPushSocket;
-import org.micromanager.internal.zmq.ZMQUtil;
+import org.micromanager.pyjavaz.ZMQPullSocket;
+import org.micromanager.pyjavaz.ZMQPushSocket;
+import org.micromanager.pyjavaz.ZMQUtil;
 
 /**
  * Implements an ImageProcessor that sends/recieves images from a remote source

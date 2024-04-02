@@ -10,10 +10,9 @@ import java.util.concurrent.*;
 
 import mmcorej.org.json.JSONException;
 import mmcorej.org.json.JSONObject;
-import org.micromanager.internal.zmq.ZMQPushSocket;
+import org.micromanager.pyjavaz.ZMQPushSocket;
 import org.micromanager.ndtiffstorage.ImageWrittenListener;
 import org.micromanager.ndtiffstorage.IndexEntryData;
-import org.micromanager.ndtiffstorage.NDTiffStorage;
 
 /**
  * A class that broadcasts information about images that have finsihed saving to disk

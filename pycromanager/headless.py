@@ -5,10 +5,10 @@ import threading
 import types
 
 from pycromanager.acquisition.acq_eng_py.internal.engine import Engine
-from pycromanager.zmq_bridge.bridge import _Bridge, server_terminated
 from pymmcore import CMMCore
 import pycromanager.logging as logging
 import pymmcore
+from pyjavaz import DEFAULT_BRIDGE_PORT, server_terminated
 
 import re
 
@@ -124,7 +124,7 @@ def start_headless(
     mm_app_path: str, config_file: str=None, java_loc: str=None,
         python_backend=False, core_log_path: str='',
         buffer_size_mb: int=1024, max_memory_mb: int=2000,
-        port: int=_Bridge.DEFAULT_PORT, debug=False):
+        port: int=DEFAULT_BRIDGE_PORT, debug=False):
     """
     Start a Java process that contains the neccessary libraries for pycro-manager to run,
     so that it can be run independently of the Micro-Manager GUI/application. This calls

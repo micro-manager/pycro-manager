@@ -2,7 +2,7 @@ package org.micromanager.remote;
 
 import mmcorej.CMMCore;
 import org.micromanager.acqj.internal.Engine;
-import org.micromanager.internal.zmq.ZMQServer;
+import org.micromanager.pyjavaz.ZMQServer;
 
 import javax.swing.*;
 import javax.swing.plaf.ColorUIResource;

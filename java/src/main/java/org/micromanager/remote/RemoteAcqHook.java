@@ -15,8 +15,8 @@ import mmcorej.org.json.JSONObject;
 import org.micromanager.acqj.api.AcquisitionAPI;
 import org.micromanager.acqj.main.AcquisitionEvent;
 import org.micromanager.acqj.api.AcquisitionHook;
-import org.micromanager.internal.zmq.ZMQPullSocket;
-import org.micromanager.internal.zmq.ZMQPushSocket;
+import org.micromanager.pyjavaz.ZMQPullSocket;
+import org.micromanager.pyjavaz.ZMQPushSocket;
 
 /**
  *

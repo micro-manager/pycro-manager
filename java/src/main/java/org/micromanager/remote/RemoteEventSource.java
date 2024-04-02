@@ -17,7 +17,7 @@ import mmcorej.org.json.JSONException;
 import mmcorej.org.json.JSONObject;
 import org.micromanager.acqj.main.Acquisition;
 import org.micromanager.acqj.main.AcquisitionEvent;
-import org.micromanager.internal.zmq.ZMQPullSocket;
+import org.micromanager.pyjavaz.ZMQPullSocket;
 
 import javax.swing.*;
 
