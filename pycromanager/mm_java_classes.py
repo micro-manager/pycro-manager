@@ -1,7 +1,7 @@
 """
 Classes that wrap instance of known java objects for ease of use
 """
-from pycromanager.zmq_bridge.wrappers import JavaObject, PullSocket, DEFAULT_BRIDGE_PORT, DEFAULT_BRIDGE_TIMEOUT
+from pyjavaz import JavaObject, PullSocket, DEFAULT_BRIDGE_PORT, DEFAULT_BRIDGE_TIMEOUT
 import threading
 
 class _CoreCallback:

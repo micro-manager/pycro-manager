@@ -28,7 +28,7 @@ import mmcorej.MMEventCallback;
 import mmcorej.org.json.JSONArray;
 import mmcorej.org.json.JSONException;
 import mmcorej.org.json.JSONObject;
-import org.micromanager.internal.zmq.ZMQPushSocket;
+import org.micromanager.pyjavaz.ZMQPushSocket;
 
 /**
  * Class that connects core callbacks to a ZMQPush socket so they can be dispatched to external clients

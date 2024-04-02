@@ -9,7 +9,7 @@ import mmcorej.org.json.JSONException;
 import org.micromanager.acqj.api.AcqNotificationListener;
 import org.micromanager.acqj.api.AcquisitionAPI;
 import org.micromanager.acqj.main.AcqNotification;
-import org.micromanager.internal.zmq.ZMQPushSocket;
+import org.micromanager.pyjavaz.ZMQPushSocket;
 
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;

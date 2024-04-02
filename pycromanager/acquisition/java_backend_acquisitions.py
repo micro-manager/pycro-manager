@@ -9,9 +9,9 @@ import multiprocessing
 import threading
 from inspect import signature
 import time
-from pycromanager.zmq_bridge.bridge import deserialize_array
-from pycromanager.zmq_bridge.wrappers import PullSocket, PushSocket, JavaObject, JavaClass
-from pycromanager.zmq_bridge.wrappers import DEFAULT_BRIDGE_PORT as DEFAULT_PORT
+from pyjavaz import deserialize_array
+from pyjavaz import PullSocket, PushSocket, JavaObject, JavaClass
+from pyjavaz import DEFAULT_BRIDGE_PORT as DEFAULT_PORT
 from pycromanager.mm_java_classes import ZMQRemoteMMCoreJ, Magellan
 import pycromanager.logging as logging
 from ndtiff import Dataset
