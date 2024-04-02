@@ -2,7 +2,7 @@
     <modelVersion>4.0.0</modelVersion>
     <groupId>org.micro-manager.pycro-manager</groupId>
     <artifactId>PycroManagerJava</artifactId>
-     <version>0.45.1</version>
+     <version>0.45.2</version>
     <packaging>jar</packaging>
     <name>Pycro-Manager Java</name>
     <description>The Java components of Pycro-Manager</description>
@@ -131,6 +131,7 @@
        <serverId>ossrh</serverId>
        <nexusUrl>https://s01.oss.sonatype.org/</nexusUrl>
        <autoReleaseAfterClose>true</autoReleaseAfterClose>
+        <stagingProgressTimeoutMinutes>20</stagingProgressTimeoutMinutes>
       </configuration>
       <dependencies>
        <dependency>
