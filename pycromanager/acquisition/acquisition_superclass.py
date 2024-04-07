@@ -15,7 +15,49 @@ from pycromanager.acq_future import AcqNotification, AcquisitionFuture
 import os
 import threading
 from inspect import signature
+from typing import Generator
+from types import GeneratorType
 
+from queue import Queue
+from typing import Generator, Dict, Union
+
+
+class EventQueue(Queue):
+    """
+    A queue that can hold both events/lists of events and generators of events/lists of events. When a generator is
+    retrieved from the queue, it will be automatically expanded and its elements will be the output of queue.get
+    """
+    def __init__(self, maxsize=0):
+        super().__init__(maxsize)
+        self.current_generator: Union[Generator[Dict, None, None], None] = None
+
+    def put(self, item: Union[Dict, Generator[Dict, None, None]], block=True, timeout=None):
+        if isinstance(item, dict):
+            super().put(item, block, timeout)
+        if isinstance(item, list):
+            super().put(item, block, timeout)
+        # if isinstance(item, tuple):
+        #     super().put(item, block, timeout)
+        elif isinstance(item, Generator):
+            super().put(item, block, timeout)
+        elif item is None:
+            super().put(item, block, timeout)
+        else:
+            raise TypeError("Event must be a dictionary, list or generator")
+
+    def get(self, block=True, timeout=None) -> Dict:
+        while True:
+            if self.current_generator is None:
+                item = super().get(block, timeout)
+                if isinstance(item, Generator):
+                    self.current_generator = item
+                else:
+                    return item
+            else:
+                try:
+                    return next(self.current_generator)
+                except StopIteration:
+                    self.current_generator = None
 
 class AcqAlreadyCompleteException(Exception):
     def __init__(self, message):
@@ -183,7 +225,7 @@ class Acquisition(metaclass=Meta):
             # this should shut down storage and viewer as appropriate
             self._event_queue.put(None)
 
-    def acquire(self, event_or_events: dict or list):
+    def acquire(self, event_or_events: dict or list or Generator) -> AcquisitionFuture:
         """
         Submit an event or a list of events for acquisition. A single event is a python dictionary
         with a specific structure. The acquisition engine will determine if multiple events can
@@ -194,8 +236,9 @@ class Acquisition(metaclass=Meta):
 
         Parameters
         ----------
-        event_or_events  : list, dict
-            A single acquistion event (a dict) or a list of acquisition events
+        event_or_events  : list, dict, Generator
+            A single acquistion event (a dict), a list of acquisition events, or a generator that yields
+            acquisition events.
 
         """
         if self._acq.are_events_finished():
@@ -207,11 +250,25 @@ class Acquisition(metaclass=Meta):
             self._event_queue.put(None)
             return
 
-        _validate_acq_events(event_or_events)
+        if isinstance(event_or_events, GeneratorType):
+            acq_future = AcquisitionFuture(self)
 
-        axes_or_axes_list = event_or_events['axes'] if type(event_or_events) == dict\
-            else [e['axes'] for e in event_or_events]
-        acq_future = AcquisitionFuture(self, axes_or_axes_list)
+            def notifying_generator(original_generator):
+                # store in a weakref so that if user code doesn't hange on to AcqFuture
+                # it doesn't needlessly track events
+                acq_future_weakref = weakref.ref(acq_future)
+                for event in original_generator:
+                    future = acq_future_weakref()
+                    if future is not None:
+                        acq_future._monitor_axes(event['axes'])
+                    _validate_acq_events(event)
+                    yield event
+            event_or_events = notifying_generator(event_or_events)
+        else:
+            _validate_acq_events(event_or_events)
+            axes_or_axes_list = event_or_events['axes'] if type(event_or_events) == dict\
+                else [e['axes'] for e in event_or_events]
+            acq_future = AcquisitionFuture(self, axes_or_axes_list)
         self._acq_futures.append(weakref.ref(acq_future))
         # clear out old weakrefs
         self._acq_futures = [f for f in self._acq_futures if f() is not None]
@@ -243,7 +300,7 @@ class Acquisition(metaclass=Meta):
 
     def _create_event_queue(self):
         """Create thread safe queue for events so they can be passed from multiple processes"""
-        self._event_queue = queue.Queue()
+        self._event_queue = EventQueue()
 
     def _call_image_process_fn(self, image, metadata):
         params = signature(self._process_fn).parameters

@@ -170,7 +170,19 @@ class RemoteViewerStorageAdapter implements NDViewerDataSource, AcqEngJDataSink,
          });
       }
       try {
-         return added.get();
+         Object result = added.get();
+
+         JSONObject json = new JSONObject();
+         // Indicate the storage format of the image
+         if (storage_ instanceof NDTiffStorage) {
+            return result;
+         } else if (storage_ instanceof NDRAMStorage) {
+            return AcqEngMetadata.serializeAxes(axes);
+         } else {
+            throw new RuntimeException("Unknown storage type");
+         }
+
+
       } catch (Exception e) {
          throw new RuntimeException(e);
       }

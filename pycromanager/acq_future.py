@@ -1,5 +1,6 @@
 import threading
 from pycromanager.acquisition.acq_eng_py.main.acq_notification import AcqNotification
+from types import GeneratorType
 
 def _axes_to_key(axes):
     """ Turn axes into a hashable key """
@@ -7,17 +8,22 @@ def _axes_to_key(axes):
 
 class AcquisitionFuture:
 
-    def __init__(self, acq, axes_or_axes_list):
+    def __init__(self, acq, axes_or_axes_list=None):
         """
-        :param event_or_events: a single event (dictionary) or a list of events
+        :param axes_or_axes_list: a single axes (dictionary) or a list of axes
         """
         self._acq = acq
         self._condition = threading.Condition()
         self._notification_recieved = {}
+        self._generator_events = axes_or_axes_list is None
+        if not self._generator_events:
+            self._add_notifications(axes_or_axes_list)
+        self._last_notification = None
+
+    def _add_notifications(self, axes_or_axes_list):
         if isinstance(axes_or_axes_list, dict):
             axes_or_axes_list = [axes_or_axes_list]
         for axes in axes_or_axes_list:
-            # single event
             # TODO maybe unify snap and sequence cause this is confusing
             self._notification_recieved[_axes_to_key(axes)] = {
                 AcqNotification.Hardware.PRE_HARDWARE: False,
@@ -37,9 +43,12 @@ class AcquisitionFuture:
         received. Want to store this, rather than just waiting around for it, in case the await methods are called
         after the notification has already been sent.
         """
+        self._last_notification = notification
         if notification.phase == AcqNotification.Acquisition.ACQ_EVENTS_FINISHED or \
             notification.phase == AcqNotification.Image.DATA_SINK_FINISHED:
-            return # ignore for now...
+            with self._condition:
+                self._condition.notify_all()
+            return
         if isinstance(notification.id, list):
             keys = [_axes_to_key(ax) for ax in notification.id]
         else:
@@ -52,28 +61,81 @@ class AcquisitionFuture:
         with self._condition:
             self._condition.notify_all()
 
-    def await_execution(self, axes, phase):
+    def _monitor_axes(self, axes_or_axes_list):
+        """
+        In the case where the acquisition future is constructed for a Generator, the events to be monitored
+        are not known until the generator is run. If user code awaits for an event and that event has already
+        passed, the future must be able to check if the event has already passed and return immediately.
+        So this function is called by the generator as events are created to add them to the list of events to
+        keep track of.
+
+        :param axes_or_axes_list: the axes of the event
+        """
+        if self._generator_events:
+            self._add_notifications(axes_or_axes_list)
+        else:
+            raise ValueError("This future was not constructed with a generator")
+
+    def await_execution(self, phase, axes=None):
+        """
+        Block until the given phase is executed for the given axes
+        :param axes: the axes to wait for
+        :param phase: the phase to wait for
+        """
         key = _axes_to_key(axes)
-        if key not in self._notification_recieved.keys() or phase not in self._notification_recieved[key].keys():
-            notification = AcqNotification(None, axes, phase)
-            raise ValueError("this future is not expecting a notification for: " + str(notification.to_json()))
+        if not self._generator_events:
+            if key not in self._notification_recieved.keys() or phase not in self._notification_recieved[key].keys():
+                notification = AcqNotification(None, axes, phase)
+                raise ValueError("this future is not expecting a notification for: " + str(notification.to_json()))
         with self._condition:
             while not self._notification_recieved[key][phase]:
                 self._condition.wait()
 
-    def await_image_saved(self, axes, return_image=False):
-        if isinstance(axes, list):
-            keys = [_axes_to_key(ax) for ax in axes]
-        else:
-            keys = [_axes_to_key(axes)]
-        for key in keys:
+    def await_image_saved(self, axes=None, return_image=False, return_metadata=False):
+        """
+        Block until the image with the given axes is saved. Return the image and/or metadata if requested.
+        :param axes: the axes of the image to wait for. In the case of None, wait for the next image
+        :param return_image: if True, return the image
+        :param return_metadata: if True, return the metadata
+        """
+
+        if axes is None:
+            # wait for the next image to be saved
+            axes = self._last_notification.id
             with self._condition:
-                while not self._notification_recieved[key][AcqNotification.Image.IMAGE_SAVED]:
+                while not self._last_notification.phase == AcqNotification.Image.IMAGE_SAVED and \
+                        not self._last_notification.phase == AcqNotification.Image.DATA_SINK_FINISHED:
                     self._condition.wait()
+        else:
+            if isinstance(axes, list):
+                keys = [_axes_to_key(ax) for ax in axes]
+            else:
+                keys = [_axes_to_key(axes)]
+            if not self._generator_events and axes is not None:
+                # make sure this is a valid axes to wait for associated with this Future
+                if any([key not in self._notification_recieved.keys() for key in keys]):
+                    raise ValueError("This AcquisitionFuture is not expecting a notification for the given axes")
+            # wait until all images are saved
+            for key in keys:
+                with self._condition:
+                    if not self._generator_events:
+                        while not self._notification_recieved[key][AcqNotification.Image.IMAGE_SAVED]:
+                            self._condition.wait()
+
         if return_image:
             if isinstance(axes, list):
                 return [self._acq.get_dataset().read_image(**ax) for ax in axes]
             else:
                 return self._acq.get_dataset().read_image(**axes)
+        if return_metadata:
+            if isinstance(axes, list):
+                return [self._acq.get_dataset().read_metadata(**ax) for ax in axes]
+            else:
+                return self._acq.get_dataset().read_metadata(**axes)
+        if return_image and return_metadata:
+            if isinstance(axes, list):
+                return [(self._acq.get_dataset().read_image(**ax), self._acq.get_dataset().read_metadata(**ax)) for ax in axes]
+            else:
+                return self._acq.get_dataset().read_image(**axes), self._acq.get_dataset().read_metadata(**axes)
 
 

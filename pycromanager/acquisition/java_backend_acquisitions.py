@@ -1,6 +1,7 @@
 """
 The Pycro-manager Acquisiton system
 """
+import json
 import warnings
 import weakref
 
@@ -21,7 +22,7 @@ from docstring_inheritance import NumpyDocstringInheritanceMeta
 from pycromanager.acquisition.acquisition_superclass import Acquisition
 import traceback
 from pycromanager.acq_future import AcqNotification, AcquisitionFuture
-
+import json
 
 
 ### These functions are defined outside the Acquisition class to
@@ -192,13 +193,16 @@ def _notification_handler_fn(acquisition, notification_push_port, connected_even
             message = monitor_socket.receive()
             notification = AcqNotification.from_json(message)
             # these are processed seperately to handle image saved callback
-            if AcqNotification.is_image_saved_notification(notification):
+            if AcqNotification.is_image_saved_notification(notification): # it was saved to RAM, not disk
                 if not notification.is_data_sink_finished_notification():
-                    # decode the NDTiff index entry
-                    index_entry = notification.id.encode('ISO-8859-1')
-                    axes = acquisition._dataset._add_index_entry(index_entry)
-                    # swap the notification id from the byte array of index information to axes
-                    notification.id = axes
+                    # check if NDTiff data storage used
+                    if acquisition._directory is not None:
+                        index_entry = notification.id.encode('ISO-8859-1')
+                        axes = acquisition._dataset._add_index_entry(index_entry)
+                        # swap the notification id from the byte array of index information to axes
+                        notification.id = axes
+                    else: # RAM storage
+                        notification.id = json.loads(notification.id)
                 acquisition._image_notification_queue.put(notification)
             acquisition._notification_queue.put(notification)
             if AcqNotification.is_acquisition_finished_notification(notification):

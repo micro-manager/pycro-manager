@@ -76,6 +76,10 @@ class AcqNotification:
     def create_image_saved_notification(image_descriptor):
         return AcqNotification(AcqNotification.Image, image_descriptor, AcqNotification.Image.IMAGE_SAVED)
 
+    def __repr__(self):
+        json = self.to_json()
+        return f"AcqNotification({json})"
+
     def to_json(self):
         n = {}
         n['type'] = self.type
