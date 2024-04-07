@@ -2,7 +2,7 @@
     <modelVersion>4.0.0</modelVersion>
     <groupId>org.micro-manager.pycro-manager</groupId>
     <artifactId>PycroManagerJava</artifactId>
-     <version>0.45.2</version>
+     <version>0.45.3</version>
     <packaging>jar</packaging>
     <name>Pycro-Manager Java</name>
     <description>The Java components of Pycro-Manager</description>
@@ -55,7 +55,7 @@
       <dependency>
          <groupId>org.micro-manager.acqengj</groupId>
          <artifactId>AcqEngJ</artifactId>
-     <version>0.34.2</version>
+     <version>0.34.4</version>
       </dependency>
       <dependency>
          <groupId>org.micro-manager.ndviewer</groupId>
@@ -137,7 +137,7 @@
        <dependency>
          <groupId>com.thoughtworks.xstream</groupId>
          <artifactId>xstream</artifactId>
-         <version>1.4.15</version> <!-- apparently this needs to be exactly this version -->
+         <version>1.4.15</version> 
        </dependency>
       </dependencies>
       </plugin>
