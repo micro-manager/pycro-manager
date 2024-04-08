@@ -31,6 +31,10 @@ class EventQueue(Queue):
         super().__init__(maxsize)
         self.current_generator: Union[Generator[Dict, None, None], None] = None
 
+    def clear(self):
+        self.queue.clear()
+        self.current_generator = None
+
     def put(self, item: Union[Dict, Generator[Dict, None, None]], block=True, timeout=None):
         if isinstance(item, dict):
             super().put(item, block, timeout)
@@ -293,7 +297,7 @@ class Acquisition(metaclass=Meta):
 
         # Clear any pending events on the python side, if applicable
         if self._event_queue is not None:
-            self._event_queue.queue.clear()
+            self._event_queue.clear()
             # Don't send any more events. The event sending thread should know shut itself down by
             # checking the status of the acquisition
         self._acq.abort()
