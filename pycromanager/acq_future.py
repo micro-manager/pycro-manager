@@ -43,22 +43,23 @@ class AcquisitionFuture:
         received. Want to store this, rather than just waiting around for it, in case the await methods are called
         after the notification has already been sent.
         """
-        self._last_notification = notification
-        if notification.phase == AcqNotification.Acquisition.ACQ_EVENTS_FINISHED or \
-            notification.phase == AcqNotification.Image.DATA_SINK_FINISHED:
+        if notification.milestone == AcqNotification.Acquisition.ACQ_EVENTS_FINISHED or \
+            notification.milestone == AcqNotification.Image.DATA_SINK_FINISHED:
             with self._condition:
+                self._last_notification = notification
                 self._condition.notify_all()
             return
-        if isinstance(notification.id, list):
-            keys = [_axes_to_key(ax) for ax in notification.id]
+        if isinstance(notification.payload, list):
+            keys = [_axes_to_key(ax) for ax in notification.payload]
         else:
-            keys = [_axes_to_key(notification.id)]
+            keys = [_axes_to_key(notification.payload)]
         # check if any keys are present in the notification_recieved dict
         if not any([key in self._notification_recieved.keys() for key in keys]):
             return # ignore notifications that aren't relevant to this future
         for key in keys:
-            self._notification_recieved[key][notification.phase] = True
+            self._notification_recieved[key][notification.milestone] = True
         with self._condition:
+            self._last_notification = notification
             self._condition.notify_all()
 
     def _monitor_axes(self, axes_or_axes_list):
@@ -76,19 +77,19 @@ class AcquisitionFuture:
         else:
             raise ValueError("This future was not constructed with a generator")
 
-    def await_execution(self, phase, axes=None):
+    def await_execution(self, milestone, axes=None):
         """
-        Block until the given phase is executed for the given axes
+        Block until the given milestone is executed for the given axes
         :param axes: the axes to wait for
-        :param phase: the phase to wait for
+        :param milestone: the milestone to wait for
         """
         key = _axes_to_key(axes)
         if not self._generator_events:
-            if key not in self._notification_recieved.keys() or phase not in self._notification_recieved[key].keys():
-                notification = AcqNotification(None, axes, phase)
+            if key not in self._notification_recieved.keys() or milestone not in self._notification_recieved[key].keys():
+                notification = AcqNotification(None, axes, milestone)
                 raise ValueError("this future is not expecting a notification for: " + str(notification.to_json()))
         with self._condition:
-            while not self._notification_recieved[key][phase]:
+            while not self._notification_recieved[key][milestone]:
                 self._condition.wait()
 
     def await_image_saved(self, axes=None, return_image=False, return_metadata=False):
@@ -101,11 +102,14 @@ class AcquisitionFuture:
 
         if axes is None:
             # wait for the next image to be saved
-            axes = self._last_notification.id
             with self._condition:
-                while not self._last_notification.phase == AcqNotification.Image.IMAGE_SAVED and \
-                        not self._last_notification.phase == AcqNotification.Image.DATA_SINK_FINISHED:
+                # wait until something happens
+                self._condition.wait()
+                while self._last_notification is None or \
+                        (not self._last_notification.milestone == AcqNotification.Image.IMAGE_SAVED and \
+                        not self._last_notification.milestone == AcqNotification.Image.DATA_SINK_FINISHED):
                     self._condition.wait()
+                axes = self._last_notification.payload
         else:
             if isinstance(axes, list):
                 keys = [_axes_to_key(ax) for ax in axes]

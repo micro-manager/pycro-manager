@@ -111,8 +111,6 @@ class PythonBackendAcquisition(Acquisition, metaclass=NumpyDocstringInheritanceM
 
 
     ########  Public API ###########
-    def get_dataset(self):
-        return self._dataset
 
     def await_completion(self):
         """Wait for acquisition to finish and resources to be cleaned up"""

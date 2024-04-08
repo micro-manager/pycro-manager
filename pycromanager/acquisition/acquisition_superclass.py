@@ -195,12 +195,6 @@ class Acquisition(metaclass=Meta):
         return dispatcher_thread
 
     @abstractmethod
-    def get_dataset(self):
-        """
-        Get access to the dataset backing this acquisition
-        """
-
-    @abstractmethod
     def await_completion(self):
         """
         Wait for acquisition to finish and resources to be cleaned up. If data is being written to
@@ -213,6 +207,12 @@ class Acquisition(metaclass=Meta):
         Return a reference to the current viewer, if the show_display argument
         was set to True. The returned object is either an instance of NDViewer or napari.Viewer()
         """
+
+    def get_dataset(self):
+        """
+        Get access to the dataset backing this acquisition
+        """
+        return self._dataset
 
     def mark_finished(self):
         """
