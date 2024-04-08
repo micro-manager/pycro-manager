@@ -42,7 +42,7 @@ def test_img_process_fn_no_save(launch_mm_headless):
         acq.acquire(events)
         dataset = acq.get_dataset()  # Can this be moved out of the Acquisition context?
 
-    assert dataset is None
+    assert len(dataset.get_index_keys()) == 0
 
 
 def test_img_process_fn_image_saved_fn_consistency(launch_mm_headless, setup_data_folder):

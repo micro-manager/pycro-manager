@@ -38,9 +38,9 @@ class EventQueue(Queue):
     def put(self, item: Union[Dict, Generator[Dict, None, None]], block=True, timeout=None):
         if isinstance(item, dict):
             super().put(item, block, timeout)
-        if isinstance(item, list):
+        elif isinstance(item, list):
             super().put(item, block, timeout)
-        # if isinstance(item, tuple):
+        # elif isinstance(item, tuple):
         #     super().put(item, block, timeout)
         elif isinstance(item, Generator):
             super().put(item, block, timeout)
