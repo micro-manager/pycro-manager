@@ -133,11 +133,12 @@ def install_mm(download_mm_nightly):
 
             # Copy the pycromanagerjava.jar file that was compiled by the github action
             # into the nightly build so that it will test with the latest code
-            compiled_jar_path = os.path.join(java_path, 'target', 'PycromanagerJava-*.jar')
+            compiled_jar_path = os.path.join(java_path, 'target', 'PycromanagerJava-[0-9]*.[0-9]*.[0-9]*.jar')
             destination_path = os.path.join(mm_install_dir, 'plugins', 'Micro-Manager', 'PycromanagerJava.jar')
 
             # Find the actual file that matches the pattern and copy it to the destination
-            matched_files = glob.glob(compiled_jar_path)
+            matched_files = [file for file in glob.glob(compiled_jar_path)
+                             if not any(exclude in file for exclude in ['-javadoc', '-sources', '.asc', '.pom'])]
             if matched_files:
                 file_path = matched_files[0]
                 shutil.copy2(file_path, destination_path)
