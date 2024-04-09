@@ -1,6 +1,7 @@
 """
 The Pycro-manager Acquisiton system
 """
+import json
 import warnings
 import weakref
 
@@ -13,6 +14,7 @@ from pyjavaz import deserialize_array
 from pyjavaz import PullSocket, PushSocket, JavaObject, JavaClass
 from pyjavaz import DEFAULT_BRIDGE_PORT as DEFAULT_PORT
 from pycromanager.mm_java_classes import ZMQRemoteMMCoreJ, Magellan
+from pycromanager.acquisition.java_RAMStorage import JavaRAMDataStorage
 import pycromanager.logging as logging
 from ndtiff import Dataset
 import os.path
@@ -21,7 +23,7 @@ from docstring_inheritance import NumpyDocstringInheritanceMeta
 from pycromanager.acquisition.acquisition_superclass import Acquisition
 import traceback
 from pycromanager.acq_future import AcqNotification, AcquisitionFuture
-
+import json
 
 
 ### These functions are defined outside the Acquisition class to
@@ -191,15 +193,23 @@ def _notification_handler_fn(acquisition, notification_push_port, connected_even
         while True:
             message = monitor_socket.receive()
             notification = AcqNotification.from_json(message)
+
             # these are processed seperately to handle image saved callback
-            if AcqNotification.is_image_saved_notification(notification):
+            # Decode the Data storage class-specific notification
+            if AcqNotification.is_image_saved_notification(notification): # it was saved to RAM, not disk
                 if not notification.is_data_sink_finished_notification():
-                    # decode the NDTiff index entry
-                    index_entry = notification.id.encode('ISO-8859-1')
-                    axes = acquisition._dataset._add_index_entry(index_entry)
-                    # swap the notification id from the byte array of index information to axes
-                    notification.id = axes
+                    # check if NDTiff data storage used
+                    if acquisition._directory is not None:
+                        index_entry = notification.payload.encode('ISO-8859-1')
+                        axes = acquisition._dataset._add_index_entry(index_entry)
+                        # swap the notification.payload from the byte array of index information to axes
+                        notification.payload = axes
+                    else: # RAM storage
+                        axes = json.loads(notification.payload)
+                        acquisition._dataset._add_index_entry(axes)
+                        notification.payload = axes
                 acquisition._image_notification_queue.put(notification)
+
             acquisition._notification_queue.put(notification)
             if AcqNotification.is_acquisition_finished_notification(notification):
                 events_finished = True
@@ -298,17 +308,20 @@ class JavaBackendAcquisition(Acquisition, metaclass=NumpyDocstringInheritanceMet
 
         # Load remote storage
         data_sink = self._acq.get_data_sink()
-        if data_sink is not None:
-            # load a view of the dataset in progress. This is used so that acq.get_dataset() can be called
-            # while the acquisition is still running, and (optionally )so that a image_saved_fn can be called
-            # when images are written to disk
-            ndtiff_storage = data_sink.get_storage()
-            summary_metadata = ndtiff_storage.get_summary_metadata()
-            if directory is not None:
-                self._dataset = Dataset(dataset_path=self._dataset_disk_location, _summary_metadata=summary_metadata)
-                # Monitor image arrival so they can be loaded on python side, but with no callback function
-                # Need to do this regardless of whether you use it, so that it signals to shut down on Java side
-                self._storage_monitor_thread = self._add_storage_monitor_fn(image_saved_fn=image_saved_fn)
+        # load a view of the dataset in progress. This is used so that acq.get_dataset() can be called
+        # while the acquisition is still running, and (optionally )so that a image_saved_fn can be called
+        # when images are written to disk/RAM storage
+        storage_java_class = data_sink.get_storage()
+        summary_metadata = storage_java_class.get_summary_metadata()
+        if directory is not None:
+            # NDTiff dataset saved to disk on Java side
+            self._dataset = Dataset(dataset_path=self._dataset_disk_location, _summary_metadata=summary_metadata)
+        else:
+            # Saved to RAM on Java side
+            self._dataset = JavaRAMDataStorage(storage_java_class)
+        # Monitor image arrival so they can be loaded on python side, but with no callback function
+        # Need to do this regardless of whether you use it, so that it signals to shut down on Java side
+        self._storage_monitor_thread = self._add_storage_monitor_fn(image_saved_fn=image_saved_fn)
 
         if show_display:
             if napari_viewer is None:
@@ -327,12 +340,6 @@ class JavaBackendAcquisition(Acquisition, metaclass=NumpyDocstringInheritanceMet
 
 
     ########  Public API methods with unique implementations for Java backend ###########
-    def get_dataset(self):
-        if self._finished:
-            if self._dataset is None:
-                self._dataset = Dataset(self._dataset_disk_location)
-
-        return self._dataset
 
     def await_completion(self):
         while not self._acq.are_events_finished() or (
@@ -413,7 +420,6 @@ class JavaBackendAcquisition(Acquisition, metaclass=NumpyDocstringInheritanceMet
         image_saved_fn : Callable
             user function to be run whenever an image is ready on disk
         """
-        # TODO: this should read from a queue of image-specific notifications and dispatch accordingly
 
         callback = None
         if image_saved_fn is not None:
@@ -433,7 +439,7 @@ class JavaBackendAcquisition(Acquisition, metaclass=NumpyDocstringInheritanceMet
                     break
                 dataset._new_image_arrived = True
                 if callback is not None:
-                    callback(image_notification.id, dataset)
+                    callback(image_notification.payload, dataset)
         t = threading.Thread(target=_storage_monitor_fn, name='StorageMonitorThread')
         t.start()
         return t

@@ -125,22 +125,27 @@ def install_mm(download_mm_nightly):
             else:
                 raise RuntimeError('Could not find pycro-manager/java path')
 
-
             # Delete the pycromanagerjava.jar file that is packaged with the nightly build
-            # use a wildcard to match the version number
-            pycromanager_jar_path = os.path.join(mm_install_dir, 'plugins', 'Micro-Manager', 'PycromanagerJava-[0-9]*.[0-9]*.[0-9]*.jar')
+            pycromanager_jar_path = os.path.join(mm_install_dir, 'plugins', 'Micro-Manager', 'PycromanagerJava-*.jar')
             for file_path in glob.glob(pycromanager_jar_path):
                 os.remove(file_path)
                 print(f'Removed {file_path}')
 
             # Copy the pycromanagerjava.jar file that was compiled by the github action
             # into the nightly build so that it will test with the latest code
-            compiled_jar_path = os.path.join(java_path, 'target', 'PycromanagerJava-[0-9]*.[0-9]*.[0-9].jar')            # Destination path where the jar file should be copied to
+            compiled_jar_path = os.path.join(java_path, 'target', 'PycromanagerJava-*.jar')
             destination_path = os.path.join(mm_install_dir, 'plugins', 'Micro-Manager', 'PycromanagerJava.jar')
+
             # Find the actual file that matches the pattern and copy it to the destination
-            for file_path in glob.glob(compiled_jar_path):
+            matched_files = [file for file in glob.glob(compiled_jar_path)
+                             if not any(exclude in file for exclude in ['-javadoc', '-sources', '.asc', '.pom'])]
+            if matched_files:
+                file_path = matched_files[0]
                 shutil.copy2(file_path, destination_path)
                 print(f'Copied {file_path} to {destination_path}')
+            else:
+                print(f'No matching JAR file found at {compiled_jar_path}')
+                raise FileNotFoundError(f'No matching JAR file found at {compiled_jar_path}')
 
             # Update pycromanager dependency jar files packaged with the Micro-manager nightly build
             # Files are updated only if they are larger version
@@ -183,12 +188,14 @@ def launch_mm_headless(install_mm):
         config_file = os.path.join(mm_install_dir, 'MMConfig_demo.cfg')
         print('Launching Micro-manager in headless mode.')
 
-        # MM doesn't ship with Java on Mac so allow it to be defined here
+        # MM doesn't ship with Java on Mac so allow it to be defined here if using mac os
         java_loc = None
-        if "JAVA" in os.environ:
+        if "JAVA" in os.environ and sys.platform == "darwin":
             java_loc = os.environ["JAVA"]
 
-        start_headless(mm_install_dir, config_file, java_loc=java_loc, debug=True)
+        start_headless(mm_install_dir, config_file, java_loc=java_loc,
+                       buffer_size_mb=128, max_memory_mb=128, # set these low for github actions
+                       debug=True)
 
         yield None
 
