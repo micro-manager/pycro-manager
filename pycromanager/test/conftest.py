@@ -188,7 +188,9 @@ def launch_mm_headless(install_mm):
         if "JAVA" in os.environ and sys.platform == "darwin":
             java_loc = os.environ["JAVA"]
 
-        start_headless(mm_install_dir, config_file, java_loc=java_loc, debug=True)
+        start_headless(mm_install_dir, config_file, java_loc=java_loc,
+                       buffer_size_mb=128, max_memory_mb=128, # set these low for github actions
+                       debug=True)
 
         yield None
 

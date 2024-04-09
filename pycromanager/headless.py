@@ -3,6 +3,7 @@ import platform
 import atexit
 import threading
 import types
+import os
 
 from pycromanager.acquisition.acq_eng_py.internal.engine import Engine
 from pymmcore import CMMCore
@@ -175,6 +176,15 @@ def start_headless(
                 java_loc = mm_app_path + "/jre/bin/javaw.exe"
             else:
                 java_loc = "java"
+        if debug:
+            logging.main_logger.debug(f'Java location: {java_loc}')
+            #print classpath
+            logging.main_logger.debug(f'Classpath: {classpath}')
+            # print stuff in the classpath directory
+            logging.main_logger.debug('Contents of classpath directory:')
+            for f in os.listdir(classpath):
+                logging.main_logger.debug(f)
+
         # This starts Java process and instantiates essential objects (core,
         # acquisition engine, ZMQServer)
         process = subprocess.Popen(
