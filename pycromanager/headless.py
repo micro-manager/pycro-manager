@@ -169,7 +169,7 @@ def start_headless(
         _PYMMCORES.append(mmc) # Store so it doesn't get garbage collected
         Engine(mmc)
     else:
-        classpath = mm_app_path + '/plugins/Micro-Manager/'
+        classpath = mm_app_path + '/plugins/Micro-Manager/*'
         if java_loc is None:
             if platform.system() == "Windows":
                 # windows comes with its own JRE
