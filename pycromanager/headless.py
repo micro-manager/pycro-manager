@@ -182,7 +182,7 @@ def start_headless(
             logging.main_logger.debug(f'Classpath: {classpath}')
             # print stuff in the classpath directory
             logging.main_logger.debug('Contents of classpath directory:')
-            for f in os.listdir(classpath):
+            for f in os.listdir(classpath.split('*')[0]):
                 logging.main_logger.debug(f)
 
         # This starts Java process and instantiates essential objects (core,
