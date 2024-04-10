@@ -246,7 +246,7 @@ class Engine:
                 height = self.core.get_image_height()
                 self.core.snap_image()
             event.acquisition_.post_notification(AcqNotification(
-                AcqNotification.Camera, event.axisPositions_, AcqNotification.Camera.POST_EXPOSURE))
+                AcqNotification.Camera, event.axisPositions_, AcqNotification.Camera.POST_SNAP))
             for h in event.acquisition_.get_after_exposure_hooks():
                 h.run(event)
         
@@ -382,6 +382,12 @@ class Engine:
                 corresponding_event.acquisition_.add_tags_to_tagged_image(ti.tags, corresponding_event.get_tags())
                 corresponding_event.acquisition_.add_to_image_metadata(ti.tags)
                 corresponding_event.acquisition_.add_to_output(ti)
+
+        self.stop_hardware_sequences(hardware_sequences_in_progress)
+
+        if event.get_sequence() is not None:
+            event.acquisition_.post_notification(AcqNotification(
+                AcqNotification.Camera, event.axisPositions_, AcqNotification.Camera.POST_SEQUENCE_STOPPED))
 
         if timeout:
             raise TimeoutError("Timeout waiting for images to arrive in circular buffer")

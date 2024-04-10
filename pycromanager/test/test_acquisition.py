@@ -652,3 +652,18 @@ def test_multi_channel_parsing(launch_mm_headless, setup_data_folder):
         assert all([channel in dataset.get_channel_names() for channel in ["DAPI", "FITC"]])
     finally:
         dataset.close()
+
+
+def test_empty_axes(launch_mm_headless, setup_data_folder):
+    """
+    Test that images with empty axes are correctly saved
+    """
+
+    with Acquisition(setup_data_folder, 'acq', show_display=False) as acq:
+        acq.acquire({'axes': {}})
+
+    dataset = acq.get_dataset()
+    try:
+        assert dataset.read_image() is not None and dataset.read_image().max() > 0
+    finally:
+        dataset.close()
