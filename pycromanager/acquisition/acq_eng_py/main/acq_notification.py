@@ -20,8 +20,9 @@ class AcqNotification:
 
     class Camera:
         PRE_SEQUENCE_STARTED = "pre_sequence_started"
+        POST_SEQUENCE_STOPPED = "post_sequence_stopped"
         PRE_SNAP = "pre_snap"
-        POST_EXPOSURE = "post_exposure"
+        POST_SNAP = "post_snap"
 
         @staticmethod
         def to_string():
