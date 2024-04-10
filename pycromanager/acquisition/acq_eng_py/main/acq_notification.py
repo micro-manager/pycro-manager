@@ -46,8 +46,8 @@ class AcqNotification:
             self.type = AcqNotification.Image
             self.payload = payload
             self.milestone = milestone
-        elif milestone in [AcqNotification.Camera.PRE_SNAP, AcqNotification.Camera.POST_EXPOSURE,
-                     AcqNotification.Camera.PRE_SEQUENCE_STARTED]:
+        elif milestone in [AcqNotification.Camera.PRE_SNAP, AcqNotification.Camera.POST_SNAP,
+                     AcqNotification.Camera.PRE_SEQUENCE_STARTED, AcqNotification.Camera.POST_SEQUENCE_STOPPED]:
             self.type = AcqNotification.Camera
             self.payload = json.loads(payload) if isinstance(payload, str) else payload # convert from '{'time': 5}' to {'time': 5}
         elif milestone in [AcqNotification.Hardware.PRE_HARDWARE, AcqNotification.Hardware.POST_HARDWARE]:

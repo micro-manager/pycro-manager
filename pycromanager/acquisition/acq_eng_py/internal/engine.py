@@ -385,8 +385,9 @@ class Engine:
 
         self.stop_hardware_sequences(hardware_sequences_in_progress)
 
-        event.acquisition_.post_notification(AcqNotification(
-            AcqNotification.Camera, event.axisPositions_, AcqNotification.Camera.POST_SEQUENCE_STOPPED))
+        if event.get_sequence() is not None:
+            event.acquisition_.post_notification(AcqNotification(
+                AcqNotification.Camera, event.axisPositions_, AcqNotification.Camera.POST_SEQUENCE_STOPPED))
 
         if timeout:
             raise TimeoutError("Timeout waiting for images to arrive in circular buffer")
