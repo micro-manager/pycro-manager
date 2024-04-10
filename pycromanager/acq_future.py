@@ -31,7 +31,8 @@ class AcquisitionFuture:
 
                 AcqNotification.Camera.PRE_SNAP: False,
                 AcqNotification.Camera.PRE_SEQUENCE_STARTED: False,
-                AcqNotification.Camera.POST_EXPOSURE: False,
+                AcqNotification.Camera.POST_SNAP: False,
+                AcqNotification.Camera.POST_SEQUENCE_STOPPED: False,
 
                 AcqNotification.Image.IMAGE_SAVED: False,
             }
