@@ -27,6 +27,7 @@ class AcquisitionFuture:
             # TODO maybe unify snap and sequence cause this is confusing
             self._notification_recieved[_axes_to_key(axes)] = {
                 AcqNotification.Hardware.PRE_HARDWARE: False,
+                AcqNotification.Hardware.PRE_Z_DRIVE: False,
                 AcqNotification.Hardware.POST_HARDWARE: False,
 
                 AcqNotification.Camera.PRE_SNAP: False,
