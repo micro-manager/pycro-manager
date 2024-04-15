@@ -1,4 +1,6 @@
 import json
+import warnings
+
 
 class AcqNotification:
 
@@ -58,7 +60,7 @@ class AcqNotification:
             self.type = AcqNotification.Image
             self.payload = payload
         else:
-            raise ValueError("Unknown milestone")
+            warnings.warn(f"Unknown notification type {type} with milestone {milestone}")
         self.milestone = milestone
 
 
