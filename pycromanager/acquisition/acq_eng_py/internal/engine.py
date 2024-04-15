@@ -179,6 +179,21 @@ class Engine:
             except HardwareControlException as e:
                 self.stop_hardware_sequences(hardware_sequences_in_progress)
                 raise e
+
+            event.acquisition_.post_notification(AcqNotification(
+                AcqNotification.Hardware, event.axisPositions_, AcqNotification.Hardware.PRE_Z_DRIVE))
+            for h in event.acquisition_.get_before_z_drive_hooks():
+                event = h.run(event)
+                if event is None:
+                    return  # The hook cancelled this event
+                self.abort_if_requested(event, None)
+            hardware_sequences_in_progress = HardwareSequences()
+            try:
+                self.start_z_drive(event, hardware_sequences_in_progress)
+            except HardwareControlException as e:
+                self.stop_hardware_sequences(hardware_sequences_in_progress)
+                raise e
+
             # TODO restore this
             event.acquisition_.post_notification(AcqNotification(
                 AcqNotification.Hardware, event.axisPositions_, AcqNotification.Hardware.POST_HARDWARE))
@@ -486,30 +501,6 @@ class Engine:
                 ex.print_stack_trace()
                 raise HardwareControlException(ex.get_message())
 
-        def move_z_device(event):
-            try:
-                if event.is_z_sequenced():
-                    self.core.start_stage_sequence(z_stage)
-                else:
-                    previous_z = None if self.last_event is None else None if self.last_event.get_sequence() is None else \
-                        self.last_event.get_sequence()[0].get_z_position()
-                    current_z = event.get_z_position() if event.get_sequence() is None else \
-                        event.get_sequence()[0].get_z_position()
-                    if current_z is None:
-                        return
-                    change = previous_z is None or previous_z != current_z
-                    if not change:
-                        return
-
-                    # Wait for it to not be busy
-                    self.core.wait_for_device(z_stage)
-                    # Move Z
-                    self.core.set_position(z_stage, float(current_z))
-                    # Wait for move to finish
-                    self.core.wait_for_device(z_stage)
-            except Exception as ex:
-                raise HardwareControlException(ex)
-
         def move_other_stage_devices(event):
             try:
                 for stage_device_name in event.get_stage_device_names():
@@ -572,7 +563,6 @@ class Engine:
         try:
             # Get the hardware specific to this acquisition
             xy_stage = self.core.get_xy_stage_device()
-            z_stage = self.core.get_focus_device()
             slm = self.core.get_slm_device()
 
             # Prepare sequences if applicable
@@ -623,9 +613,7 @@ class Engine:
                         self.core.load_xy_stage_sequence(xy_stage, x_sequence, y_sequence)
                         hardware_sequences_in_progress.device_names.add(xy_stage)
 
-                    if event.is_z_sequenced():
-                        self.core.load_stage_sequence(z_stage, z_sequence)
-                        hardware_sequences_in_progress.device_names.add(z_stage)
+
 
                     if event.is_config_group_sequenced():
                         for i in range(config.size()):
@@ -644,8 +632,7 @@ class Engine:
                     if self.last_event is not None and self.last_event.acquisition_ != event.acquisition_:
                         self.last_event = None  # Update all hardware if switching to a new acquisition
 
-            # Z stage
-            loop_hardware_command_retries(lambda: move_z_device(event), "Moving Z device")
+
             # Other stage devices
             loop_hardware_command_retries(lambda: move_other_stage_devices(event), "Moving other stage devices")
             # XY Stage
@@ -663,6 +650,63 @@ class Engine:
         except:
             traceback.print_exc()
             raise HardwareControlException("Error executing event")
+
+    def start_z_drive(self, event: AcquisitionEvent, hardware_sequences_in_progress: HardwareSequences) -> None:
+        def loop_hardware_command_retries(r, command_name):
+            for i in range(HARDWARE_ERROR_RETRIES):
+                try:
+                    r()
+                    return
+                except Exception as e:
+                    self.core.log_message(traceback.format_exc())
+                    print(self.get_current_date_and_time() + ": Problem " + command_name + "\n Retry #" + str(
+                        i) + " in " + str(DELAY_BETWEEN_RETRIES_MS) + " ms")
+                    time.sleep(DELAY_BETWEEN_RETRIES_MS / 1000)
+            raise HardwareControlException(command_name + " unsuccessful")
+
+        def move_z_device(event):
+            try:
+                if event.is_z_sequenced():
+                    self.core.start_stage_sequence(z_stage)
+                else:
+                    previous_z = None if self.last_event is None else None if self.last_event.get_sequence() is None else \
+                        self.last_event.get_sequence()[0].get_z_position()
+                    current_z = event.get_z_position() if event.get_sequence() is None else \
+                        event.get_sequence()[0].get_z_position()
+                    if current_z is None:
+                        return
+                    change = previous_z is None or previous_z != current_z
+                    if not change:
+                        return
+
+                    # Wait for it to not be busy
+                    self.core.wait_for_device(z_stage)
+                    # Move Z
+                    self.core.set_position(z_stage, float(current_z))
+                    # Wait for move to finish
+                    self.core.wait_for_device(z_stage)
+            except Exception as ex:
+                raise HardwareControlException(ex)
+
+        try:
+            z_stage = self.core.get_focus_device()
+            if event.get_sequence() is not None:
+                z_sequence = pymmcore.DoubleVector() if event.is_z_sequenced() else None
+                for e in event.get_sequence():
+                    if z_sequence is not None:
+                        z_sequence.add(e.get_z_position())
+                if event.is_z_sequenced():
+                    self.core.load_stage_sequence(z_stage, z_sequence)
+                    hardware_sequences_in_progress.device_names.add(z_stage)
+
+            # Z stage
+            loop_hardware_command_retries(lambda: move_z_device(event), "Moving Z device")
+        except:
+            traceback.print_exc()
+            raise HardwareControlException("Error executing event")
+
+
+
 
     def get_current_date_and_time(self):
         return datetime.datetime.now().strftime("%Y/%m/%d %H:%M:%S")

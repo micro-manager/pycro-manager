@@ -16,15 +16,18 @@ class Acquisition():
     # This hook runs before changes to the hardware (corresponding to the instructions in the
     # event) are made
     BEFORE_HARDWARE_HOOK = 1
+    # This hook runs after all changes to the hardware except dor setting th Z drive have been
+    # made.  This is useful for things such as autofocus.
+    BEFORE_Z_DRIVE = 2
     # This hook runs after changes to the hardware took place, but before camera exposure
     # (either a snap or a sequence) is started
-    AFTER_HARDWARE_HOOK = 2
+    AFTER_HARDWARE_HOOK = 3
     # Hook runs after the camera sequence acquisition has started. This can be used for
     # external triggering of the camera
-    AFTER_CAMERA_HOOK = 3
+    AFTER_CAMERA_HOOK = 4
     # Hook runs after the camera exposure ended (when possible, before readout of the camera
     # and availability of the images in memory).
-    AFTER_EXPOSURE_HOOK = 4
+    AFTER_EXPOSURE_HOOK = 5
 
     IMAGE_QUEUE_SIZE = 30
 
@@ -36,6 +39,7 @@ class Acquisition():
         self.paused_ = False
         self.event_generation_hooks_ = []
         self.before_hardware_hooks_ = []
+        self.before_z_hooks_ = []
         self.after_hardware_hooks_ = []
         self.after_camera_hooks_ = []
         self.after_exposure_hooks_ = []
@@ -155,6 +159,8 @@ class Acquisition():
             self.event_generation_hooks_.append(h)
         elif type_ == self.BEFORE_HARDWARE_HOOK:
             self.before_hardware_hooks_.append(h)
+        elif type_ == self.BEFORE_Z_HOOK:
+            self.before_z_hooks_.append(h)
         elif type_ == self.AFTER_HARDWARE_HOOK:
             self.after_hardware_hooks_.append(h)
         elif type_ == self.AFTER_CAMERA_HOOK:
@@ -220,6 +226,9 @@ class Acquisition():
 
     def get_before_hardware_hooks(self):
         return self.before_hardware_hooks_
+
+    def get_before_z_hooks(self):
+        return self.before_z_hooks_
 
     def get_after_hardware_hooks(self):
         return self.after_hardware_hooks_
