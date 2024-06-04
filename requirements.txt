@@ -5,4 +5,4 @@ ndtiff>=2.3.0
 docstring-inheritance
 pymmcore
 sortedcontainers
-pyjavaz==1.1.0
+pyjavaz==1.1.1
