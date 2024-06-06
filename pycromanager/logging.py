@@ -1,6 +1,5 @@
 import logging
 
-logging.basicConfig(level=logging.DEBUG)
 main_logger = _base_logger = logging.getLogger("pycromanager")
 
 def set_logger_instance(logger_name: str) -> None:
