@@ -201,12 +201,12 @@ def _notification_handler_fn(acquisition, notification_push_port, connected_even
                     # check if NDTiff data storage used
                     if acquisition._directory is not None:
                         index_entry = notification.payload.encode('ISO-8859-1')
-                        axes = acquisition._dataset._add_index_entry(index_entry)
+                        axes = acquisition._dataset.add_index_entry(index_entry)
                         # swap the notification.payload from the byte array of index information to axes
                         notification.payload = axes
                     else: # RAM storage
                         axes = json.loads(notification.payload)
-                        acquisition._dataset._add_index_entry(axes)
+                        acquisition._dataset.add_index_entry(axes)
                         notification.payload = axes
                 acquisition._image_notification_queue.put(notification)
 
@@ -315,7 +315,7 @@ class JavaBackendAcquisition(Acquisition, metaclass=NumpyDocstringInheritanceMet
         summary_metadata = storage_java_class.get_summary_metadata()
         if directory is not None:
             # NDTiff dataset saved to disk on Java side
-            self._dataset = Dataset(dataset_path=self._dataset_disk_location, _summary_metadata=summary_metadata)
+            self._dataset = Dataset(dataset_path=self._dataset_disk_location, summary_metadata=summary_metadata)
         else:
             # Saved to RAM on Java side
             self._dataset = JavaRAMDataStorage(storage_java_class)
