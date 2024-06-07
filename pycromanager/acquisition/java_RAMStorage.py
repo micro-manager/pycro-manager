@@ -13,7 +13,7 @@ class JavaRAMDataStorage:
         self._java_RAM_data_storage = java_RAM_data_storage
         self._index_keys = set()
 
-    def _add_index_entry(self, data):
+    def add_index_entry(self, data):
         self._index_keys.add(frozenset(data.items()))
 
     # def get_channel_names(self):
