@@ -1,3 +1,4 @@
+import logging
 import subprocess
 import platform
 import atexit
@@ -7,11 +8,12 @@ import os
 
 from pycromanager.acquisition.acq_eng_py.internal.engine import Engine
 from pymmcore import CMMCore
-import pycromanager.logging as logging
 import pymmcore
 from pyjavaz import DEFAULT_BRIDGE_PORT, server_terminated
 
 import re
+
+logger = logging.getLogger(__name__)
 
 class TaggedImage:
 
@@ -94,29 +96,29 @@ def stop_headless(debug=False):
     for p in _JAVA_HEADLESS_SUBPROCESSES:
         port = p.port
         if debug:
-            logging.main_logger.debug('Stopping headless process with pid {}'.format(p.pid))
+            logger.debug('Stopping headless process with pid {}'.format(p.pid))
         p.terminate()
         server_terminated(port)
         if debug:
-            logging.main_logger.debug('Waiting for process with pid {} to terminate'.format(p.pid))
+            logger.debug('Waiting for process with pid {} to terminate'.format(p.pid))
         p.wait()  # wait for process to terminate
         if debug:
-            logging.main_logger.debug('Process with pid {} terminated'.format(p.pid))
+            logger.debug('Process with pid {} terminated'.format(p.pid))
     _JAVA_HEADLESS_SUBPROCESSES.clear()
     if debug:
-        logging.main_logger.debug('Stopping {} pymmcore instances'.format(len(_PYMMCORES)))
+        logger.debug('Stopping {} pymmcore instances'.format(len(_PYMMCORES)))
     for c in _PYMMCORES:
         if debug:
-            logging.main_logger.debug('Stopping pymmcore instance')
+            logger.debug('Stopping pymmcore instance')
         c.unloadAllDevices()
         if debug:
-            logging.main_logger.debug('Unloaded all devices')
+            logger.debug('Unloaded all devices')
         Engine.get_instance().shutdown()
         if debug:
-            logging.main_logger.debug('Engine shut down')
+            logger.debug('Engine shut down')
     _PYMMCORES.clear()
     if debug:
-        logging.main_logger.debug('Headless stopped')
+        logger.debug('Headless stopped')
 
 # make sure any Java processes are cleaned up when Python exits
 atexit.register(stop_headless)
@@ -177,13 +179,13 @@ def start_headless(
             else:
                 java_loc = "java"
         if debug:
-            logging.main_logger.debug(f'Java location: {java_loc}')
+            logger.debug(f'Java location: {java_loc}')
             #print classpath
-            logging.main_logger.debug(f'Classpath: {classpath}')
+            logger.debug(f'Classpath: {classpath}')
             # print stuff in the classpath directory
-            logging.main_logger.debug('Contents of classpath directory:')
+            logger.debug('Contents of classpath directory:')
             for f in os.listdir(classpath.split('*')[0]):
-                logging.main_logger.debug(f)
+                logger.debug(f)
 
         # This starts Java process and instantiates essential objects (core,
         # acquisition engine, ZMQServer)
@@ -215,12 +217,12 @@ def start_headless(
         if not started:
             raise Exception('Error starting headless mode')
         if debug:
-            logging.main_logger.debug('Headless mode started')
+            logger.debug('Headless mode started')
             def loggerFunction():
                 while process in _JAVA_HEADLESS_SUBPROCESSES:
                     line = process.stdout.readline().decode('utf-8')
                     if line.strip() != '':
-                        logging.main_logger.debug(line)
+                        logger.debug(line)
             threading.Thread(target=loggerFunction).start()
 
 

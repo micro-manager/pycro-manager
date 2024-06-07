@@ -2,6 +2,7 @@
 The Pycro-manager Acquisiton system
 """
 import json
+import logging
 import warnings
 import weakref
 
@@ -15,7 +16,7 @@ from pyjavaz import PullSocket, PushSocket, JavaObject, JavaClass
 from pyjavaz import DEFAULT_BRIDGE_PORT as DEFAULT_PORT
 from pycromanager.mm_java_classes import ZMQRemoteMMCoreJ, Magellan
 from pycromanager.acquisition.java_RAMStorage import JavaRAMDataStorage
-import pycromanager.logging as logging
+
 from ndtiff import Dataset
 import os.path
 import queue
@@ -24,6 +25,8 @@ from pycromanager.acquisition.acquisition_superclass import Acquisition
 import traceback
 from pycromanager.acq_future import AcqNotification, AcquisitionFuture
 import json
+
+logger = logging.getLogger(__name__)
 
 
 ### These functions are defined outside the Acquisition class to
@@ -36,7 +39,7 @@ def _run_acq_event_source(acquisition, event_port, event_queue, debug=False):
         while True:
             events = event_queue.get(block=True)
             if debug:
-                logging.main_logger.debug(f"got event(s): {events}")
+                logger.debug(f"got event(s): {events}")
             if events is None:
                 # Initiate the normal shutdown process
                 if not acquisition._acq.is_finished():
@@ -54,7 +57,7 @@ def _run_acq_event_source(acquisition, event_port, event_queue, debug=False):
             #  maybe consider putting a timeout on the send?
             event_socket.send({"events": events if type(events) == list else [events]})
             if debug:
-                logging.main_logger.debug("sent events")
+                logger.debug("sent events")
     except Exception as e:
         acquisition.abort(e)
     finally:
@@ -109,7 +112,7 @@ def _run_image_processor(
     push_socket = PushSocket(pull_port, debug=debug)
     pull_socket = PullSocket(push_port, debug=debug)
     if debug:
-        logging.main_logger.debug("image processing sockets connected")
+        logger.debug("image processing sockets connected")
     sockets_connected_evt.set()
 
     def process_and_sendoff(image_tags_tuple, original_dtype):
