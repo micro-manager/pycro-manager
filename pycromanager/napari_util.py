@@ -29,22 +29,24 @@ def start_napari_signalling(viewer, dataset):
     @thread_worker(connect={'yielded': update_layer})
     def napari_signaller():
         """
-        Monitor for signals that Acqusition has a new image ready, and when that happens
+        Monitor for signals that Acquisition has a new image ready, and when that happens
         update napari appropriately
         """
+        # don't update faster than the display can handle
+        min_update_time = 1 / 30
+        last_update_time = time.time()
         while True:
-            time.sleep(1 / 60)  # limit to 60 hz refresh
-            image = None
-
-            if dataset is not None and dataset.has_new_image():
-                # A new image has arrived, this could be overwriting something existing or have a new combination of axes
-                image = dataset.as_array()
-                shape = np.array([len(dataset.axes[name]) for name in dataset.axes.keys()])
-                if not hasattr(napari_signaller, 'old_shape') or \
-                        napari_signaller.old_shape.size != shape.size or \
-                        np.any(napari_signaller.old_shape != shape):
-                    napari_signaller.old_shape = shape
-
+            dataset_writing_complete = dataset.is_finished()
+            new_image_ready = dataset.await_new_image(timeout=.25)
+            if not new_image_ready:
+                continue
+            image = dataset.as_array()
+            update_time = time.time()
             yield image
+            if dataset_writing_complete:
+                break
+            if update_time - last_update_time < min_update_time:
+                time.sleep(min_update_time - (update_time - last_update_time))
+            last_update_time = time.time()
 
     napari_signaller()

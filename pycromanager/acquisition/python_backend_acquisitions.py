@@ -1,12 +1,13 @@
 from docstring_inheritance import NumpyDocstringInheritanceMeta
 from pycromanager.acquisition.acq_eng_py.main.AcqEngPy_Acquisition import Acquisition as pymmcore_Acquisition
-from pycromanager.acquisition.RAMStorage import RAMDataStorage
 from pycromanager.acquisition.acquisition_superclass import _validate_acq_events, Acquisition
 from pycromanager.acquisition.acq_eng_py.main.acquisition_event import AcquisitionEvent
 from pycromanager.acq_future import AcqNotification
 import threading
 from inspect import signature
 
+from ndtiff.ndram_dataset import NDRAMDataset
+from ndtiff.ndtiff_dataset import NDTiffDataset
 
 class PythonBackendAcquisition(Acquisition, metaclass=NumpyDocstringInheritanceMeta):
     """
@@ -19,6 +20,7 @@ class PythonBackendAcquisition(Acquisition, metaclass=NumpyDocstringInheritanceM
 
     def __init__(
         self,
+        directory: str=None,
         name: str='default_acq_name',
         image_process_fn: callable=None,
         event_generation_hook_fn: callable = None,
@@ -29,8 +31,7 @@ class PythonBackendAcquisition(Acquisition, metaclass=NumpyDocstringInheritanceM
         napari_viewer=None,
         image_saved_fn: callable=None,
         debug: int=False,
-        # Specificly so the directory arg can be absorbed and ignored without error,
-        **kwargs
+
     ):
         # Get a dict of all named argument values (or default values when nothing provided)
         arg_names = [k for k in signature(PythonBackendAcquisition.__init__).parameters.keys() if k != 'self']
@@ -38,12 +39,8 @@ class PythonBackendAcquisition(Acquisition, metaclass=NumpyDocstringInheritanceM
         named_args = {arg_name: (l[arg_name] if arg_name in l else
                                      dict(signature(PythonBackendAcquisition.__init__).parameters.items())[arg_name].default)
                                      for arg_name in arg_names }
-        if 'kwargs' in named_args:
-            if 'directory' in named_args['kwargs'] and named_args['kwargs']['directory'] is not None:
-                raise Exception('The directory argument is not supported in Python backend acquisitions')
-            del named_args['kwargs']
         super().__init__(**named_args)
-        self._dataset = RAMDataStorage()
+        self._dataset = NDRAMDataset() if not directory else NDTiffDataset(directory, name, writable=True)
         self._finished = False
         self._notifications_finished = False
         self._create_event_queue()
@@ -87,13 +84,13 @@ class PythonBackendAcquisition(Acquisition, metaclass=NumpyDocstringInheritanceM
 
         # add hooks and image processor
         if pre_hardware_hook_fn is not None:
-            self._acq.add_hook(AcquisitionHook(pre_hardware_hook_fn),self._acq.BEFORE_HARDWARE_HOOK)
+            self._acq.add_hook(AcquisitionHook(pre_hardware_hook_fn), self._acq.BEFORE_HARDWARE_HOOK)
         if post_hardware_hook_fn is not None:
-            self._acq.add_hook(AcquisitionHook(post_hardware_hook_fn),self._acq.AFTER_HARDWARE_HOOK)
+            self._acq.add_hook(AcquisitionHook(post_hardware_hook_fn), self._acq.AFTER_HARDWARE_HOOK)
         if post_camera_hook_fn is not None:
-            self._acq.add_hook(AcquisitionHook(post_camera_hook_fn),self._acq.AFTER_CAMERA_HOOK)
+            self._acq.add_hook(AcquisitionHook(post_camera_hook_fn), self._acq.AFTER_CAMERA_HOOK)
         if event_generation_hook_fn is not None:
-            self._acq.add_hook(AcquisitionHook(event_generation_hook_fn),self._acq.EVENT_GENERATION_HOOK)
+            self._acq.add_hook(AcquisitionHook(event_generation_hook_fn), self._acq.EVENT_GENERATION_HOOK)
         if self._image_processor is not None:
             self._acq.add_image_processor(self._image_processor)
 

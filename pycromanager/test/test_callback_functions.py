@@ -37,12 +37,11 @@ def test_img_process_fn_no_save(launch_mm_headless):
     def hook_fn(image, metadata):
         return None
 
-    with Acquisition(directory=None, name='acq', show_display=False,
-                                image_process_fn=hook_fn) as acq:
+    with Acquisition(directory=None, name='acq', show_display=False, image_process_fn=hook_fn) as acq:
         acq.acquire(events)
         dataset = acq.get_dataset()  # Can this be moved out of the Acquisition context?
 
-    assert len(dataset.get_index_keys()) == 0
+    assert len(dataset.get_image_coordinates_list()) == 0
 
 
 def test_img_process_fn_image_saved_fn_consistency(launch_mm_headless, setup_data_folder):

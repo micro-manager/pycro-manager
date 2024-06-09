@@ -179,8 +179,9 @@ def setup_data_folder():
     shutil.rmtree(data_folder_path)
 
 
-@pytest.fixture(scope="session")
-def launch_mm_headless(install_mm):
+@pytest.fixture(scope="session", params=[True, False])
+def launch_mm_headless(request, install_mm):
+    python_backend = request.param
     mm_install_dir = install_mm
     if mm_install_dir is None:
         yield # local manual testing where MM has been launched from source
@@ -195,6 +196,7 @@ def launch_mm_headless(install_mm):
 
         start_headless(mm_install_dir, config_file, java_loc=java_loc,
                        buffer_size_mb=128, max_memory_mb=128, # set these low for github actions
+                       python_backend=python_backend,
                        debug=True)
 
         yield None

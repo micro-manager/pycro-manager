@@ -30,7 +30,6 @@ def test_timelapse_acq(launch_mm_headless, setup_data_folder):
     finally:
         dataset.close()
 
-
 def test_timelapse_seq_acq(launch_mm_headless, setup_data_folder):
     events = multi_d_acquisition_events(num_time_points=10, time_interval_s=0)
 

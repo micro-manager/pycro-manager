@@ -15,7 +15,7 @@ from pyjavaz import deserialize_array
 from pyjavaz import PullSocket, PushSocket, JavaObject, JavaClass
 from pyjavaz import DEFAULT_BRIDGE_PORT as DEFAULT_PORT
 from pycromanager.mm_java_classes import ZMQRemoteMMCoreJ, Magellan
-from pycromanager.acquisition.java_RAMStorage import JavaRAMDataStorage
+from pycromanager.acquisition.RAMStorage_java import NDRAMDatasetJava
 
 from ndtiff import Dataset
 import os.path
@@ -209,7 +209,7 @@ def _notification_handler_fn(acquisition, notification_push_port, connected_even
                         notification.payload = axes
                     else: # RAM storage
                         axes = json.loads(notification.payload)
-                        acquisition._dataset.add_index_entry(axes)
+                        acquisition._dataset.add_available_axes(axes)
                         notification.payload = axes
                 acquisition._image_notification_queue.put(notification)
 
@@ -321,7 +321,7 @@ class JavaBackendAcquisition(Acquisition, metaclass=NumpyDocstringInheritanceMet
             self._dataset = Dataset(dataset_path=self._dataset_disk_location, summary_metadata=summary_metadata)
         else:
             # Saved to RAM on Java side
-            self._dataset = JavaRAMDataStorage(storage_java_class)
+            self._dataset = NDRAMDatasetJava(storage_java_class)
         # Monitor image arrival so they can be loaded on python side, but with no callback function
         # Need to do this regardless of whether you use it, so that it signals to shut down on Java side
         self._storage_monitor_thread = self._add_storage_monitor_fn(image_saved_fn=image_saved_fn)
