@@ -563,7 +563,7 @@ class AcqEngMetadata:
 
     @staticmethod
     def set_stage_x_intended(smd, x):
-        smd[AcqEngMetadata.X_UM_INTENDED] = x
+        smd[AcqEngMetadata.X_UM_INTENDED] = float(x)
 
     @staticmethod
     def has_stage_x_intended(map):
@@ -578,7 +578,7 @@ class AcqEngMetadata:
 
     @staticmethod
     def set_stage_y_intended(smd, y):
-        smd[AcqEngMetadata.Y_UM_INTENDED] = y
+        smd[AcqEngMetadata.Y_UM_INTENDED] = float(y)
 
     @staticmethod
     def has_stage_y_intended(map):
@@ -593,7 +593,7 @@ class AcqEngMetadata:
 
     @staticmethod
     def set_stage_z_intended(smd, y):
-        smd[AcqEngMetadata.Z_UM_INTENDED] = y
+        smd[AcqEngMetadata.Z_UM_INTENDED] = float(y)
 
     @staticmethod
     def has_stage_z_intended(map):
@@ -756,6 +756,9 @@ class AcqEngMetadata:
             axes_map = {}
             for key in axes:
                 axes_map[key] = axes[key]
+                if not isinstance(axes_map[key], str):
+                    # make sure they're not numpy int64s because they can't be serialized and this causes problems
+                    axes_map[key] = int(axes_map[key])
             return axes_map
         except KeyError:
             raise ValueError("Could not create axes")

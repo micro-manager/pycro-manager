@@ -245,40 +245,44 @@ class Acquisition(metaclass=Meta):
             acquisition events.
 
         """
-        if self._acq.are_events_finished():
-            raise AcqAlreadyCompleteException(
-                'Cannot submit more events because this acquisition is already finished')
+        try:
+            if self._acq.are_events_finished():
+                raise AcqAlreadyCompleteException(
+                    'Cannot submit more events because this acquisition is already finished')
 
-        if event_or_events is None:
-            # manual shutdown
-            self._event_queue.put(None)
-            return
+            if event_or_events is None:
+                # manual shutdown
+                self._event_queue.put(None)
+                return
 
-        if isinstance(event_or_events, GeneratorType):
-            acq_future = AcquisitionFuture(self)
+            if isinstance(event_or_events, GeneratorType):
+                acq_future = AcquisitionFuture(self)
 
-            def notifying_generator(original_generator):
-                # store in a weakref so that if user code doesn't hange on to AcqFuture
-                # it doesn't needlessly track events
-                acq_future_weakref = weakref.ref(acq_future)
-                for event in original_generator:
-                    future = acq_future_weakref()
-                    if future is not None:
-                        acq_future._monitor_axes(event['axes'])
-                    _validate_acq_events(event)
-                    yield event
-            event_or_events = notifying_generator(event_or_events)
-        else:
-            _validate_acq_events(event_or_events)
-            axes_or_axes_list = event_or_events['axes'] if type(event_or_events) == dict\
-                else [e['axes'] for e in event_or_events]
-            acq_future = AcquisitionFuture(self, axes_or_axes_list)
-        self._acq_futures.append(weakref.ref(acq_future))
-        # clear out old weakrefs
-        self._acq_futures = [f for f in self._acq_futures if f() is not None]
+                def notifying_generator(original_generator):
+                    # store in a weakref so that if user code doesn't hange on to AcqFuture
+                    # it doesn't needlessly track events
+                    acq_future_weakref = weakref.ref(acq_future)
+                    for event in original_generator:
+                        future = acq_future_weakref()
+                        if future is not None:
+                            acq_future._monitor_axes(event['axes'])
+                        _validate_acq_events(event)
+                        yield event
+                event_or_events = notifying_generator(event_or_events)
+            else:
+                _validate_acq_events(event_or_events)
+                axes_or_axes_list = event_or_events['axes'] if type(event_or_events) == dict\
+                    else [e['axes'] for e in event_or_events]
+                acq_future = AcquisitionFuture(self, axes_or_axes_list)
+            self._acq_futures.append(weakref.ref(acq_future))
+            # clear out old weakrefs
+            self._acq_futures = [f for f in self._acq_futures if f() is not None]
 
-        self._event_queue.put(event_or_events)
-        return acq_future
+            self._event_queue.put(event_or_events)
+            return acq_future
+        except Exception as e:
+            self.abort(e)
+            raise e
 
 
 
@@ -507,7 +511,7 @@ def multi_d_acquisition_events(
                 absolute_start_times = np.cumsum(time_interval_s)
             for time_index in time_indices:
                 new_event = copy.deepcopy(event)
-                new_event["axes"]["time"] = time_index
+                new_event["axes"]["time"] = int(time_index)
                 if isinstance(time_interval_s, list):
                     new_event["min_start_time"] = absolute_start_times[time_index]
                 else:

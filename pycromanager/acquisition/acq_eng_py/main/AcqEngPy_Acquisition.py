@@ -119,9 +119,9 @@ class Acquisition():
                         img = acq.first_dequeue_.get()
                         if acq.debug_mode_:
                             acq.core_.log_message("got image to save")
+                        acq.save_image(img)
                         if img.tags is None and img.pix is None:
                             break
-                        acq.save_image(img)
                     else:
                         img = acq.processor_output_queues_[acq.image_processors_[-1]].get()
                         if acq.data_sink_:

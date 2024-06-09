@@ -105,7 +105,6 @@ class Engine:
                 self.check_for_default_devices(event)
                 if event.acquisition_.is_debug_mode():
                     self.core.logMessage("Processing event: " + event.to_string())
-                if event.acquisition_.is_debug_mode():
                     self.core.logMessage("checking for sequencing")
                 if not self.sequenced_events and not event.is_acquisition_sequence_end_event():
                     self.sequenced_events.append(event)
@@ -182,7 +181,7 @@ class Engine:
 
             event.acquisition_.post_notification(AcqNotification(
                 AcqNotification.Hardware, event.axisPositions_, AcqNotification.Hardware.PRE_Z_DRIVE))
-            for h in event.acquisition_.get_before_z_drive_hooks():
+            for h in event.acquisition_.get_before_z_hooks():
                 event = h.run(event)
                 if event is None:
                     return  # The hook cancelled this event
@@ -342,7 +341,7 @@ class Engine:
                                 # This is a little different from the java version due to differences in metadata
                                 # handling in the SWIG wrapper
                                 camera_name = self.core.get_camera_device()
-                                ti = self.core.get_tagged_image(self, cam_index, camera_name, height, width)
+                                ti = self.core.get_tagged_image(cam_index, camera_name, height, width)
                             except Exception as e:
                                 # continue waiting
                                 pass
@@ -492,9 +491,9 @@ class Engine:
                     group = event.get_sequence()[0].get_config_group()
                     config = self.core.get_config_data(group, event.get_sequence()[0].get_config_preset())
                     for i in range(config.size()):
-                        ps = config.get_setting(i)
-                        device_name = ps.get_device_label()
-                        prop_name = ps.get_property_name()
+                        ps = config.getSetting(i)
+                        device_name = ps.getDeviceLabel()
+                        prop_name = ps.getPropertyName()
                         if self.core.is_property_sequenceable(device_name, prop_name):
                             self.core.start_property_sequence(device_name, prop_name)
             except Exception as ex:
@@ -588,16 +587,16 @@ class Engine:
                     # Set sequences for all channel properties
                     if prop_sequences is not None:
                         for i in range(config.size()):
-                            ps = config.get_setting(i)
-                            device_name = ps.get_device_label()
-                            prop_name = ps.get_property_name()
+                            ps = config.getSetting(i)
+                            device_name = ps.getDeviceLabel()
+                            prop_name = ps.getPropertyName()
 
                             if e == event.get_sequence()[0]:  # First property
                                 # TODO: what is this in pymmcore
                                 prop_sequences.add(StrVector())
 
                             channel_preset_config = self.core.get_config_data(group, e.get_config_preset())
-                            prop_value = channel_preset_config.get_setting(device_name, prop_name).get_property_value()
+                            prop_value = channel_preset_config.getSetting(device_name, prop_name).getPropertyValue()
 
                             if self.core.is_property_sequenceable(device_name, prop_name):
                                 prop_sequences.get(i).add(prop_value)
@@ -617,9 +616,9 @@ class Engine:
 
                     if event.is_config_group_sequenced():
                         for i in range(config.size()):
-                            ps = config.get_setting(i)
-                            device_name = ps.get_device_label()
-                            prop_name = ps.get_property_name()
+                            ps = config.getSetting(i)
+                            device_name = ps.getDeviceLabel()
+                            prop_name = ps.getPropertyName()
 
                             if prop_sequences.get(i).size() > 0:
                                 self.core.load_property_sequence(device_name, prop_name, prop_sequences.get(i))
@@ -726,12 +725,12 @@ class Engine:
                                                     previous_event.get_config_preset())
                 config2 = self.core.get_config_data(next_event.get_config_group(), next_event.get_config_preset())
                 for i in range(config1.size()):
-                    ps1 = config1.get_setting(i)
-                    device_name = ps1.get_device_label()
-                    prop_name = ps1.get_property_name()
-                    prop_value1 = ps1.get_property_value()
-                    ps2 = config2.get_setting(i)
-                    prop_value2 = ps2.get_property_value()
+                    ps1 = config1.getSetting(i)
+                    device_name = ps1.getDeviceLabel()
+                    prop_name = ps1.getPropertyName()
+                    prop_value1 = ps1.getPropertyValue()
+                    ps2 = config2.getSetting(i)
+                    prop_value2 = ps2.getPropertyValue()
                     if prop_value1 != prop_value2:
                         if not self.core.is_property_sequenceable(device_name, prop_name):
                             return False

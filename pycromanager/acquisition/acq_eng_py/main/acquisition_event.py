@@ -83,17 +83,17 @@ class AcquisitionEvent:
     def event_to_json(e):
         data = {}
 
-        if e.isAcquisitionFinishedEvent():
+        if e.is_acquisition_finished_event():
             data["special"] = "acquisition-end"
-            return json.dumps(data)
-        elif e.isAcquisitionSequenceEndEvent():
+            return data
+        elif e.is_acquisition_sequence_end_event():
             data["special"] = "sequence-end"
-            return json.dumps(data)
+            return data
 
         if e.miniumumStartTime_ms_:
             data["min_start_time"] = e.miniumumStartTime_ms_ / 1000
 
-        if e.hasConfigGroup():
+        if e.has_config_group():
             data["config_group"] = [e.configGroup_, e.configPreset_]
 
         if e.exposure_:
@@ -109,7 +109,8 @@ class AcquisitionEvent:
         if axes:
             data["axes"] = axes
 
-        stage_positions = [[stageDevice, e.getStageSingleAxisStagePosition(stageDevice)] for stageDevice in e.getStageDeviceNames()]
+        stage_positions = [[stageDevice, e.get_stage_single_axis_stage_position(stageDevice)]
+                           for stageDevice in e.get_stage_device_names()]
         if stage_positions:
             data["stage_positions"] = stage_positions
 
@@ -125,22 +126,22 @@ class AcquisitionEvent:
         if e.camera_:
             data["camera"] = e.camera_
 
-        if e.getTags() and e.getTags():  # Assuming getTags is a method in the class
+        if e.get_tags() and e.get_tags():  # Assuming getTags is a method in the class
             data["tags"] = {key: value for key, value in e.getTags().items()}
 
         props = [[t.dev, t.prop, t.val] for t in e.properties_]
         if props:
             data["properties"] = props
 
-        return json.dumps(data)
+        return data
 
     @staticmethod
     def event_from_json(data, acq):
         if "special" in data:
             if data["special"] == "acquisition-end":
-                return AcquisitionEvent.createAcquisitionFinishedEvent(acq)
+                return AcquisitionEvent.create_acquisition_finished_event(acq)
             elif data["special"] == "sequence-end":
-                return AcquisitionEvent.createAcquisitionSequenceEndEvent(acq)
+                return AcquisitionEvent.create_acquisition_sequence_end_event(acq)
 
         event = AcquisitionEvent(acq)
 
@@ -214,17 +215,17 @@ class AcquisitionEvent:
     def to_json(self):
         if self.sequence_:
             events = [self.event_to_json(e) for e in self.sequence_]
-            return json.dumps({"events": events})
+            return events
         else:
             return self.event_to_json(self)
 
     @staticmethod
     def from_json(data, acq):
-        if "events" not in data:
+        if not isinstance(data, list):
             return AcquisitionEvent.event_from_json(data, acq)
         else:
-            sequence = [AcquisitionEvent.event_from_json(item, acq) for item in data["events"]]
-            return AcquisitionEvent(sequence)
+            sequence = [AcquisitionEvent.event_from_json(event, acq) for event in data]
+            return AcquisitionEvent(acq, sequence=sequence)
 
     def get_camera_device_name(self):
         return self.camera_

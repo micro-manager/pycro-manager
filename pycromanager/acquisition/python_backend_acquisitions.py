@@ -40,7 +40,7 @@ class PythonBackendAcquisition(Acquisition, metaclass=NumpyDocstringInheritanceM
                                      dict(signature(PythonBackendAcquisition.__init__).parameters.items())[arg_name].default)
                                      for arg_name in arg_names }
         super().__init__(**named_args)
-        self._dataset = NDRAMDataset() if not directory else NDTiffDataset(directory, name, writable=True)
+        self._dataset = NDRAMDataset() if not directory else NDTiffDataset(directory, name=name, writable=True)
         self._finished = False
         self._notifications_finished = False
         self._create_event_queue()
@@ -196,7 +196,12 @@ class AcquisitionHook:
         self._hook_fn = hook_fn
 
     def run(self, event):
-        self._hook_fn(event)
+        if AcquisitionEvent.is_acquisition_finished_event(event):
+            return event
+        acq = event.acquisition_
+        output = self._hook_fn(event.to_json())
+        if output is not None:
+            return AcquisitionEvent.from_json(output, acq)
 
     def close(self):
         pass # nothing to do here
