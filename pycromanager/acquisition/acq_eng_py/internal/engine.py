@@ -186,14 +186,13 @@ class Engine:
                 if event is None:
                     return  # The hook cancelled this event
                 self.abort_if_requested(event, None)
-            hardware_sequences_in_progress = HardwareSequences()
+
             try:
                 self.start_z_drive(event, hardware_sequences_in_progress)
             except HardwareControlException as e:
                 self.stop_hardware_sequences(hardware_sequences_in_progress)
                 raise e
 
-            # TODO restore this
             event.acquisition_.post_notification(AcqNotification(
                 AcqNotification.Hardware, event.axisPositions_, AcqNotification.Hardware.POST_HARDWARE))
             for h in event.acquisition_.get_after_hardware_hooks():
@@ -415,11 +414,11 @@ class Engine:
         # Stop any hardware sequences
         for device_name in hardware_sequences_in_progress.device_names:
             try:
-                if str(self.core.getDeviceType(device_name)) == "StageDevice":
-                    str(self.core.stopStageSequence(device_name))
-                elif str(self.core.getDeviceType(device_name)) == "XYStageDevice":
+                if self.core.get_device_type(device_name) == 5:
+                    self.core.stopStageSequence(device_name)
+                elif self.core.get_device_type(device_name) == 6:
                     self.core.stopXYStageSequence(device_name)
-                elif (self.core.getDeviceType(device_name)) == "CameraDevice":
+                elif self.core.get_device_type(device_name) == 2: # camera device
                     self.core.stopSequenceAcquisition(self.core.getCameraDevice())
             except Exception as ee:
                 traceback.print_exc()
@@ -576,13 +575,13 @@ class Engine:
 
                 for e in event.get_sequence():
                     if z_sequence is not None:
-                        z_sequence.add(e.get_z_position())
+                        z_sequence.append(e.get_z_position())
                     if x_sequence is not None:
-                        x_sequence.add(e.get_x_position())
+                        x_sequence.append(e.get_x_position())
                     if y_sequence is not None:
-                        y_sequence.add(e.get_y_position())
+                        y_sequence.append(e.get_y_position())
                     if exposure_sequence_ms is not None:
-                        exposure_sequence_ms.add(e.get_exposure())
+                        exposure_sequence_ms.append(e.get_exposure())
 
                     # Set sequences for all channel properties
                     if prop_sequences is not None:
@@ -592,6 +591,7 @@ class Engine:
                             prop_name = ps.getPropertyName()
 
                             if e == event.get_sequence()[0]:  # First property
+                                raise NotImplementedError("Property sequences not yet implemented")
                                 # TODO: what is this in pymmcore
                                 prop_sequences.add(StrVector())
 
@@ -601,35 +601,33 @@ class Engine:
                             if self.core.is_property_sequenceable(device_name, prop_name):
                                 prop_sequences.get(i).add(prop_value)
 
-                    hardware_sequences_in_progress.device_names.append(self.core.get_camera_device())
+                hardware_sequences_in_progress.device_names.append(self.core.get_camera_device())
 
-                    # Now have built up all the sequences, apply them
-                    if event.is_exposure_sequenced():
-                        self.core.load_exposure_sequence(self.core.get_camera_device(), exposure_sequence_ms)
-                        # Already added camera
+                # Now have built up all the sequences, apply them
+                if event.is_exposure_sequenced():
+                    self.core.load_exposure_sequence(self.core.get_camera_device(), exposure_sequence_ms)
+                    # Already added camera
 
-                    if event.is_xy_sequenced():
-                        self.core.load_xy_stage_sequence(xy_stage, x_sequence, y_sequence)
-                        hardware_sequences_in_progress.device_names.add(xy_stage)
+                if event.is_xy_sequenced():
+                    self.core.load_xy_stage_sequence(xy_stage, x_sequence, y_sequence)
+                    hardware_sequences_in_progress.device_names.add(xy_stage)
 
+                if event.is_config_group_sequenced():
+                    for i in range(config.size()):
+                        ps = config.getSetting(i)
+                        device_name = ps.getDeviceLabel()
+                        prop_name = ps.getPropertyName()
 
+                        if prop_sequences.get(i).size() > 0:
+                            self.core.load_property_sequence(device_name, prop_name, prop_sequences.get(i))
+                            hardware_sequences_in_progress.property_names.add(prop_name)
+                            hardware_sequences_in_progress.property_device_names.add(device_name)
 
-                    if event.is_config_group_sequenced():
-                        for i in range(config.size()):
-                            ps = config.getSetting(i)
-                            device_name = ps.getDeviceLabel()
-                            prop_name = ps.getPropertyName()
+                self.core.prepare_sequence_acquisition(self.core.get_camera_device())
 
-                            if prop_sequences.get(i).size() > 0:
-                                self.core.load_property_sequence(device_name, prop_name, prop_sequences.get(i))
-                                hardware_sequences_in_progress.property_names.add(prop_name)
-                                hardware_sequences_in_progress.property_device_names.add(device_name)
-
-                    self.core.prepare_sequence_acquisition(self.core.get_camera_device())
-
-                    # Compare to last event to see what needs to change
-                    if self.last_event is not None and self.last_event.acquisition_ != event.acquisition_:
-                        self.last_event = None  # Update all hardware if switching to a new acquisition
+                # Compare to last event to see what needs to change
+                if self.last_event is not None and self.last_event.acquisition_ != event.acquisition_:
+                    self.last_event = None  # Update all hardware if switching to a new acquisition
 
 
             # Other stage devices
@@ -693,10 +691,10 @@ class Engine:
                 z_sequence = pymmcore.DoubleVector() if event.is_z_sequenced() else None
                 for e in event.get_sequence():
                     if z_sequence is not None:
-                        z_sequence.add(e.get_z_position())
+                        z_sequence.append(e.get_z_position())
                 if event.is_z_sequenced():
                     self.core.load_stage_sequence(z_stage, z_sequence)
-                    hardware_sequences_in_progress.device_names.add(z_stage)
+                    hardware_sequences_in_progress.device_names.append(z_stage)
 
             # Z stage
             loop_hardware_command_retries(lambda: move_z_device(event), "Moving Z device")

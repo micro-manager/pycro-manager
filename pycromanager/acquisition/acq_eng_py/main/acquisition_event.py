@@ -42,15 +42,15 @@ class AcquisitionEvent:
             exposureSet = set()
             configSet = set()
             for event in self.sequence_:
-                if event.zPosition_:
+                if event.zPosition_ is not None:
                     zPosSet.add(event.get_z_position())
-                if event.xPosition_:
+                if event.xPosition_ is not None:
                     xPosSet.add(event.get_x_position())
-                if event.yPosition_:
+                if event.yPosition_ is not None:
                     yPosSet.add(event.get_y_position())
-                if event.exposure_:
+                if event.exposure_ is not None:
                     exposureSet.add(event.get_exposure())
-                if event.configPreset_:
+                if event.configPreset_ is not None:
                     configSet.add(event.get_config_preset())
             self.exposureSequenced_ = len(exposureSet) > 1
             self.configGroupSequenced_ = len(configSet) > 1
@@ -96,13 +96,13 @@ class AcquisitionEvent:
         if e.has_config_group():
             data["config_group"] = [e.configGroup_, e.configPreset_]
 
-        if e.exposure_:
+        if e.exposure_ is not None:
             data["exposure"] = e.exposure_
 
         if e.slmImage_:
             data["slm_pattern"] = e.slmImage_
 
-        if e.timeout_ms_:
+        if e.timeout_ms_ is not None:
             data["timeout_ms"] = e.timeout_ms_
 
         axes = {axis: e.axisPositions_[axis] for axis in e.axisPositions_}
@@ -114,13 +114,13 @@ class AcquisitionEvent:
         if stage_positions:
             data["stage_positions"] = stage_positions
 
-        if e.zPosition_:
+        if e.zPosition_ is not None:
             data["z"] = e.zPosition_
 
-        if e.xPosition_:
+        if e.xPosition_ is not None:
             data["x"] = e.xPosition_
 
-        if e.yPosition_:
+        if e.yPosition_ is not None:
             data["y"] = e.yPosition_
 
         if e.camera_:
@@ -153,29 +153,29 @@ class AcquisitionEvent:
             event.miniumumStartTime_ms_ = int(data["min_start_time"] * 1000)
 
         if "timeout" in data:
-            event.timeout_ms_ = data["timeout"]
+            event.timeout_ms_ = float(data["timeout"])
 
         if "config_group" in data:
             event.configGroup_ = data["config_group"][0]
             event.configPreset_ = data["config_group"][1]
 
         if "exposure" in data:
-            event.exposure_ = data["exposure"]
+            event.exposure_ = float(data["exposure"])
 
         if "timeout_ms" in data:
-            event.slmImage_ = data["timeout_ms"]
+            event.slmImage_ = float(data["timeout_ms"])
 
         if "stage_positions" in data:
             for stagePos in data["stage_positions"]:
                 event.setStageCoordinate(stagePos[0], stagePos[1])
 
         if "z" in data:
-            event.zPosition_ = data["z"]
+            event.zPosition_ = float(data["z"])
 
         if "stage" in data:
             deviceName = data["stage"]["device_name"]
             position = data["stage"]["position"]
-            event.axisPositions_[deviceName] = position
+            event.axisPositions_[deviceName] = float(position)
             if "axis_name" in data["stage"]:
                 axisName = data["stage"]["axis_name"]
                 event.stageDeviceNamesToAxisNames_[deviceName] = axisName
@@ -190,10 +190,10 @@ class AcquisitionEvent:
         #     event.yPosition_ = xyPos.y
 
         if "x" in data:
-            event.xPosition_ = data["x"]
+            event.xPosition_ = float(data["x"])
 
         if "y" in data:
-            event.yPosition_ = data["y"]
+            event.yPosition_ = float(data["y"])
 
         if "slm_pattern" in data:
             event.slmImage_ = data["slm_pattern"]
@@ -239,7 +239,7 @@ class AcquisitionEvent:
     def should_acquire_image(self):
         if self.sequence_:
             return True
-        return self.configPreset_ is not None or len(self.axisPositions_) > 0
+        return self.configPreset_ is not None or self.axisPositions_ is not None
 
     def has_config_group(self):
         return self.configPreset_ is not None and self.configGroup_ is not None

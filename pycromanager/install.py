@@ -50,12 +50,12 @@ def download_and_install(windows=True, destination='auto'):
     wget.download(latest_version, out=installer, bar=lambda curr, total, width: print(f"\rDownloading installer: {curr / total*100:.2f}%", end=''))
 
     if windows:
-        # TODO: need to test this
-        cmd = f"{installer} /SP /VERYSILENT /SUPRESSMSGBOXES"
-        # /CURRENTUSER"
-              # f"/DIR={mm_install_dir} /LOG={mm_install_log_path}"
+        if destination == 'auto':
+            destination = r'C:\Program Files\Micro-Manager'
+        cmd = f"{installer} /SP /VERYSILENT /SUPRESSMSGBOXES /DIR={destination}"
+         # /LOG={mm_install_log_path}"
         subprocess.run(cmd, shell=True)
-        return 'TODO: Windows install path'
+        return destination
     else:
         if destination == 'auto':
             destination = os.path.expanduser('~') + '/Micro-Manager'

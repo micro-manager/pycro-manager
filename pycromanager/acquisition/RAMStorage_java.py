@@ -25,6 +25,9 @@ class NDRAMDatasetJava(NDStorage):
         # update information about the available images
         self._update_axes(image_coordinates)
         self._new_image_event.set()
+        if self.dtype is None:
+            image = self.read_image(**image_coordinates)
+            self._infer_image_properties(image)
 
     def get_image_coordinates_list(self):
         """

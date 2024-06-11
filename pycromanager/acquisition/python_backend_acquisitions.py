@@ -1,3 +1,4 @@
+import warnings
 from docstring_inheritance import NumpyDocstringInheritanceMeta
 from pycromanager.acquisition.acq_eng_py.main.AcqEngPy_Acquisition import Acquisition as pymmcore_Acquisition
 from pycromanager.acquisition.acquisition_superclass import _validate_acq_events, Acquisition
@@ -75,8 +76,11 @@ class PythonBackendAcquisition(Acquisition, metaclass=NumpyDocstringInheritanceM
         def post_notification(notification):
             self._notification_queue.put(notification)
             # these are processed seperately to handle image saved callback
-            if AcqNotification.is_image_saved_notification(notification):
+            if AcqNotification.is_image_saved_notification(notification) or \
+                    AcqNotification.is_data_sink_finished_notification(notification):
                 self._image_notification_queue.put(notification)
+                if self._image_notification_queue.qsize() > self._image_notification_queue.maxsize * 0.9:
+                    warnings.warn(f"Acquisition image notification queue size: {self._image_notification_queue.qsize()}")
 
         self._acq.add_acq_notification_listener(NotificationListener(post_notification))
 
@@ -94,6 +98,10 @@ class PythonBackendAcquisition(Acquisition, metaclass=NumpyDocstringInheritanceM
         if self._image_processor is not None:
             self._acq.add_image_processor(self._image_processor)
 
+        # Monitor image arrival so they can be loaded on python side, but with no callback function
+        # Need to do this regardless of whether you use it, so that notifcation handling shuts down
+        self._storage_monitor_thread = self._add_storage_monitor_fn(image_saved_fn=image_saved_fn)
+
 
         if napari_viewer is not None:
             # using napari viewer
@@ -105,6 +113,7 @@ class PythonBackendAcquisition(Acquisition, metaclass=NumpyDocstringInheritanceM
             assert isinstance(napari_viewer, napari.Viewer), 'napari_viewer must be an instance of napari.Viewer'
             self._napari_viewer = napari_viewer
             start_napari_signalling(self._napari_viewer, self.get_dataset())
+        self._acq.start()
 
 
     ########  Public API ###########
@@ -120,6 +129,7 @@ class PythonBackendAcquisition(Acquisition, metaclass=NumpyDocstringInheritanceM
             self._check_for_exceptions()
         self._event_thread.join()
         self._notification_dispatch_thread.join()
+        self._storage_monitor_thread.join()
 
         self._acq = None
         self._finished = True

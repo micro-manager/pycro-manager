@@ -211,7 +211,11 @@ def _notification_handler_fn(acquisition, notification_push_port, connected_even
                         axes = json.loads(notification.payload)
                         acquisition._dataset.add_available_axes(axes)
                         notification.payload = axes
+
                 acquisition._image_notification_queue.put(notification)
+                # check size
+                if acquisition._image_notification_queue.qsize() > acquisition._image_notification_queue.maxsize * 0.9:
+                    warnings.warn(f"Acquisition image notification queue size: {acquisition._image_notification_queue.qsize()}")
 
             acquisition._notification_queue.put(notification)
             if AcqNotification.is_acquisition_finished_notification(notification):
@@ -412,40 +416,6 @@ class JavaBackendAcquisition(Acquisition, metaclass=NumpyDocstringInheritanceMet
         # start pushing out all the notifications
         self._remote_notification_handler.start()
         return notification_thread
-
-    def _add_storage_monitor_fn(self, image_saved_fn=None):
-        """
-        Add a callback function that gets called whenever a new image is writtern to disk (for acquisitions in
-        progress only)
-
-        Parameters
-        ----------
-        image_saved_fn : Callable
-            user function to be run whenever an image is ready on disk
-        """
-
-        callback = None
-        if image_saved_fn is not None:
-            params = signature(image_saved_fn).parameters
-            if len(params) == 2:
-                callback = image_saved_fn
-            elif len(params) == 3:
-                callback = lambda axes, dataset: image_saved_fn(axes, dataset, self._event_queue)
-            else:
-                raise Exception('Image saved callbacks must have either 2 or three parameters')
-
-        def _storage_monitor_fn():
-            dataset = self.get_dataset()
-            while True:
-                image_notification = self._image_notification_queue.get()
-                if AcqNotification.is_data_sink_finished_notification(image_notification):
-                    break
-                dataset._new_image_arrived = True
-                if callback is not None:
-                    callback(image_notification.payload, dataset)
-        t = threading.Thread(target=_storage_monitor_fn, name='StorageMonitorThread')
-        t.start()
-        return t
 
     def _check_for_exceptions(self):
         """

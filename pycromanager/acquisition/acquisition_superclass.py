@@ -284,8 +284,6 @@ class Acquisition(metaclass=Meta):
             self.abort(e)
             raise e
 
-
-
     def abort(self, exception=None):
         """
         Cancel any pending events and shut down immediately
@@ -305,6 +303,42 @@ class Acquisition(metaclass=Meta):
             # Don't send any more events. The event sending thread should know shut itself down by
             # checking the status of the acquisition
         self._acq.abort()
+
+
+    def _add_storage_monitor_fn(self, image_saved_fn=None):
+        """
+        Add a callback function that gets called whenever a new image is writtern to disk (for acquisitions in
+        progress only)
+
+        Parameters
+        ----------
+        image_saved_fn : Callable
+            user function to be run whenever an image is ready on disk
+        """
+
+        callback = None
+        if image_saved_fn is not None:
+            params = signature(image_saved_fn).parameters
+            if len(params) == 2:
+                callback = image_saved_fn
+            elif len(params) == 3:
+                callback = lambda axes, dataset: image_saved_fn(axes, dataset, self._event_queue)
+            else:
+                raise Exception('Image saved callbacks must have either 2 or three parameters')
+
+        def _storage_monitor_fn():
+            dataset = self.get_dataset()
+            while True:
+                image_notification = self._image_notification_queue.get()
+                if AcqNotification.is_data_sink_finished_notification(image_notification):
+                    break
+                dataset._new_image_arrived = True
+                if callback is not None:
+                    callback(image_notification.payload, dataset)
+
+        t = threading.Thread(target=_storage_monitor_fn, name='StorageMonitorThread')
+        t.start()
+        return t
 
     def _create_event_queue(self):
         """Create thread safe queue for events so they can be passed from multiple processes"""

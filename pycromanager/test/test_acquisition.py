@@ -443,19 +443,21 @@ def test_abort_sequenced_timelapse(launch_mm_headless, setup_data_folder):
     mmc = Core()
     mmc.set_exposure(1000)
 
-    with Acquisition(setup_data_folder, 'acq', show_display=False,
-                                pre_hardware_hook_fn=hook_fn) as acq:
+    with Acquisition(setup_data_folder, 'acq', show_display=False, pre_hardware_hook_fn=hook_fn) as acq:
         events = multi_d_acquisition_events(1000)
         acq.acquire(events)
         time.sleep(10)
         acq.abort()
+
+    assert not mmc.is_sequence_running()
 
     # reset exposure time
     mmc.set_exposure(10)
 
     dataset = acq.get_dataset()
     try:
-        assert(0 < len(dataset.index) < 100)
+        assert(0 < len(dataset.axes['time']) < 100)
+
     finally:
         dataset.close()
 
@@ -463,10 +465,10 @@ def test_abort_with_no_events(launch_mm_headless, setup_data_folder):
     """
     Test that aborting before any events processed doesnt cause hang or exception
     """
+    mmc = Core()
     with Acquisition(setup_data_folder, 'acq', show_display=False) as acq:
         acq.abort()
-    assert True
-
+    assert not mmc.is_sequence_running()
 
 def test_abort_from_external(launch_mm_headless, setup_data_folder):
     """
@@ -508,7 +510,7 @@ def test_abort_sequenced_zstack(launch_mm_headless, setup_data_folder):
 
     dataset = acq.get_dataset()
     try:
-        assert(len(dataset.index) < 1000)
+        assert(len(dataset.axes['z']) < 1000)
     finally:
         dataset.close()
 
@@ -648,7 +650,7 @@ def test_multi_channel_parsing(launch_mm_headless, setup_data_folder):
         
     dataset = acq.get_dataset()
     try:
-        assert all([channel in dataset.get_channel_names() for channel in ["DAPI", "FITC"]])
+        assert all([channel in dataset.axes['channel'] for channel in ["DAPI", "FITC"]])
     finally:
         dataset.close()
 

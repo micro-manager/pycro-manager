@@ -234,7 +234,11 @@ class RemoteViewerStorageAdapter implements NDViewerDataSource, AcqEngJDataSink,
    
    public void close() {
       try {
-         storage_.closeAndWait();
+         if (!(storage_ instanceof NDRAMStorage)) {
+            // If its RAM storage, the python side may want to hang onto it
+            storage_.closeAndWait();
+            storage_ = null;
+         }
       } catch (InterruptedException e) {
          throw new RuntimeException(e);
       }
