@@ -1,7 +1,7 @@
 from pyjavaz.wrappers import JavaObject
-from ndtiff import NDStorage
+from ndtiff.ndstorage_base import NDStorageBase
 
-class NDRAMDatasetJava(NDStorage):
+class NDRAMDatasetJava(NDStorageBase):
     """
     A python class that wraps a Java-backend RAM data storage.
 
@@ -14,8 +14,12 @@ class NDRAMDatasetJava(NDStorage):
         self._java_RAM_data_storage = java_RAM_data_storage
         self._index_keys = set()
 
+    def __del__(self):
+        print('ram storage descutructor called')
+        self.close()
+
     def close(self):
-        pass
+        self._java_RAM_data_storage = None # allow the Java side to be garbage collected
 
     def add_available_axes(self, image_coordinates):
         """
@@ -51,6 +55,7 @@ class NDRAMDatasetJava(NDStorage):
         if key not in self._index_keys:
             return None
         java_hashmap = JavaObject('java.util.HashMap')
+        # raise Exception
         for k, v in axes.items():
             java_hashmap.put(k, v)
         tagged_image = self._java_RAM_data_storage.get_image(java_hashmap)

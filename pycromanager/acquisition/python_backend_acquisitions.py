@@ -7,8 +7,8 @@ from pycromanager.acq_future import AcqNotification
 import threading
 from inspect import signature
 
-from ndtiff.ndram_dataset import NDRAMDataset
-from ndtiff.ndtiff_dataset import NDTiffDataset
+from ndstorage.ndram_dataset import NDRAMDataset
+from ndstorage.ndtiff_dataset import NDTiffDataset
 
 class PythonBackendAcquisition(Acquisition, metaclass=NumpyDocstringInheritanceMeta):
     """
@@ -120,19 +120,21 @@ class PythonBackendAcquisition(Acquisition, metaclass=NumpyDocstringInheritanceM
 
     def await_completion(self):
         """Wait for acquisition to finish and resources to be cleaned up"""
-        while not self._acq.are_events_finished() or (
-                self._acq.get_data_sink() is not None and not self._acq.get_data_sink().is_finished()):
-            self._check_for_exceptions()
-            self._acq.block_until_events_finished(0.05)
-            if self._acq.get_data_sink() is not None:
-                self._acq.get_data_sink().block_until_finished(0.05)
-            self._check_for_exceptions()
-        self._event_thread.join()
-        self._notification_dispatch_thread.join()
-        self._storage_monitor_thread.join()
+        try:
+            while not self._acq.are_events_finished() or (
+                    self._acq.get_data_sink() is not None and not self._acq.get_data_sink().is_finished()):
+                self._check_for_exceptions()
+                self._acq.block_until_events_finished(0.05)
+                if self._acq.get_data_sink() is not None:
+                    self._acq.get_data_sink().block_until_finished(0.05)
+                self._check_for_exceptions()
+        finally:
+            self._event_thread.join()
+            self._notification_dispatch_thread.join()
+            self._storage_monitor_thread.join()
 
-        self._acq = None
-        self._finished = True
+            self._acq = None
+            self._finished = True
 
     def get_viewer(self):
         """

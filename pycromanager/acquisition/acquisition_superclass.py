@@ -17,6 +17,7 @@ import threading
 from inspect import signature
 from typing import Generator
 from types import GeneratorType
+import time
 
 from queue import Queue
 from typing import Generator, Dict, Union
@@ -335,6 +336,7 @@ class Acquisition(metaclass=Meta):
                 dataset._new_image_arrived = True
                 if callback is not None:
                     callback(image_notification.payload, dataset)
+
 
         t = threading.Thread(target=_storage_monitor_fn, name='StorageMonitorThread')
         t.start()

@@ -15,11 +15,6 @@ from pycromanager.headless import stop_headless
 import socket
 from pycromanager.install import download_and_install
 
-# def pytest_runtest_protocol(item, nextitem):
-#     """Add a delay between each test."""
-#     time.sleep(0.5)  # Adjust the delay time (in seconds) as needed
-#     return None  # Continue with the default test execution
-
 def is_port_in_use(port):
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
         return s.connect_ex(('localhost', port)) == 0
@@ -114,7 +109,6 @@ def install_mm():
 
 
 @pytest.fixture(scope="session",  params=['save_to_disk', 'RAM'])
-# @pytest.fixture(scope="session",  params=['RAM'])
 def setup_data_folder(request):
     if request.param != 'save_to_disk':
         yield None
@@ -128,8 +122,7 @@ def setup_data_folder(request):
         shutil.rmtree(data_folder_path)
 
 
-# @pytest.fixture(scope="session", params=['python_backend', 'java_backend'])
-@pytest.fixture(scope="session", params=['java_backend'])
+@pytest.fixture(scope="session", params=['python_backend', 'java_backend'])
 def launch_mm_headless(request, install_mm):
     python_backend = request.param == 'python_backend'
     mm_install_dir = install_mm

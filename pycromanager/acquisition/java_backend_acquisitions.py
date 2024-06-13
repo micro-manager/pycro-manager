@@ -17,7 +17,7 @@ from pyjavaz import DEFAULT_BRIDGE_PORT as DEFAULT_PORT
 from pycromanager.mm_java_classes import ZMQRemoteMMCoreJ, Magellan
 from pycromanager.acquisition.RAMStorage_java import NDRAMDatasetJava
 
-from ndtiff import Dataset
+from ndstorage import Dataset
 import os.path
 import queue
 from docstring_inheritance import NumpyDocstringInheritanceMeta
@@ -345,43 +345,43 @@ class JavaBackendAcquisition(Acquisition, metaclass=NumpyDocstringInheritanceMet
                 self._napari_viewer = napari_viewer
                 start_napari_signalling(self._napari_viewer, self.get_dataset())
 
-
     ########  Public API methods with unique implementations for Java backend ###########
 
     def await_completion(self):
-        while not self._acq.are_events_finished() or (
-                self._acq.get_data_sink() is not None and not self._acq.get_data_sink().is_finished()):
+        try:
+            while not self._acq.are_events_finished() or (
+                    self._acq.get_data_sink() is not None and not self._acq.get_data_sink().is_finished()):
+                self._check_for_exceptions()
+                self._acq.block_until_events_finished(0.01)
+            # This will block until saving is finished, if there is a data sink
+            self._acq.wait_for_completion()
             self._check_for_exceptions()
-            self._acq.block_until_events_finished(0.01)
-        # This will block until saving is finished, if there is a data sink
-        self._acq.wait_for_completion()
-        self._check_for_exceptions()
+        finally:
+            for hook_thread in self._hook_threads:
+                hook_thread.join()
 
-        for hook_thread in self._hook_threads:
-            hook_thread.join()
+            if hasattr(self, '_event_thread'):
+                self._event_thread.join()
 
-        if hasattr(self, '_event_thread'):
-            self._event_thread.join()
-
-        # need to do this so its _Bridge can be garbage collected and a reference to the JavaBackendAcquisition
-        # does not prevent Bridge cleanup and process exiting
-        self._remote_acq = None
-
-        # Wait on all the other threads to shut down properly
-        if hasattr(self, '_storage_monitor_thread'):
-            self._storage_monitor_thread.join()
-
-        if hasattr(self, '_acq_notification_recieving_thread'):
-            # for backwards compatiblitiy with older versions of Pycromanager java before this added
-            self._acq_notification_recieving_thread.join()
-            self._remote_notification_handler.notification_handling_complete()
             # need to do this so its _Bridge can be garbage collected and a reference to the JavaBackendAcquisition
             # does not prevent Bridge cleanup and process exiting
-            self._remote_notification_handler = None
-            self._acq_notification_dispatcher_thread.join()
+            self._remote_acq = None
 
-        self._acq = None
-        self._finished = True
+            # Wait on all the other threads to shut down properly
+            if hasattr(self, '_storage_monitor_thread'):
+                self._storage_monitor_thread.join()
+
+            if hasattr(self, '_acq_notification_recieving_thread'):
+                # for backwards compatiblitiy with older versions of Pycromanager java before this added
+                self._acq_notification_recieving_thread.join()
+                self._remote_notification_handler.notification_handling_complete()
+                # need to do this so its _Bridge can be garbage collected and a reference to the JavaBackendAcquisition
+                # does not prevent Bridge cleanup and process exiting
+                self._remote_notification_handler = None
+                self._acq_notification_dispatcher_thread.join()
+
+            self._acq = None
+            self._finished = True
 
 
     def get_viewer(self):

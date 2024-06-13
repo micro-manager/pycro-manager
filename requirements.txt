@@ -1,8 +1,8 @@
 numpy
 dask[array]>=2022.2.0
 pyzmq
-ndtiff>=3.0.1
+ndstorage
 docstring-inheritance
 pymmcore
 sortedcontainers
-pyjavaz==1.1.1
+pyjavaz>=1.2

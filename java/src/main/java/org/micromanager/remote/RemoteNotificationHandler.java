@@ -64,7 +64,6 @@ public class RemoteNotificationHandler implements AcqNotificationListener {
                ex.printStackTrace();
                throw new RuntimeException(ex);
             }
-
             pushSocket_.push(e);
             if (e.isAcquisitionEventsFinishedNotification()) {
                eventsFinished = true;

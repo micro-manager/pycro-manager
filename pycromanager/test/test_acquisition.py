@@ -12,7 +12,6 @@ def check_acq_sequenced(events, expected_num_events):
 def check_acq_not_sequenced(events):
     return isinstance(events, dict)
 
-
 def test_timelapse_acq(launch_mm_headless, setup_data_folder):
     events = multi_d_acquisition_events(num_time_points=10, time_interval_s=0.1)
 
