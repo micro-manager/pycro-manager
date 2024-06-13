@@ -15,7 +15,7 @@ class NDRAMDatasetJava(NDStorageBase):
         self._index_keys = set()
 
     def __del__(self):
-            self.close()
+        self.close()
 
     def close(self):
         self._java_RAM_data_storage = None # allow the Java side to be garbage collected
