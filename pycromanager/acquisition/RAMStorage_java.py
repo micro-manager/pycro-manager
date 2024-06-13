@@ -15,7 +15,6 @@ class NDRAMDatasetJava(NDStorageBase):
         self._index_keys = set()
 
     def __del__(self):
-        print('ram storage descutructor called')
         self.close()
 
     def close(self):
