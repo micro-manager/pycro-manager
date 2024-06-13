@@ -2,6 +2,8 @@ import os
 import sys
 import shutil
 import subprocess
+import warnings
+
 import pytest
 import wget
 import requests
@@ -72,40 +74,45 @@ def install_mm():
             raise RuntimeError('Could not find pycro-manager/java path')
 
         # Delete the pycromanagerjava.jar file that is packaged with the nightly build
-        pycromanager_jar_path = os.path.join(mm_install_dir, 'plugins', 'Micro-Manager', 'PycromanagerJava-*.jar')
-        for file_path in glob.glob(pycromanager_jar_path):
-            os.remove(file_path)
-            print(f'Removed {file_path}')
+        try:
+            pycromanager_jar_path = os.path.join(mm_install_dir, 'plugins', 'Micro-Manager', 'PycromanagerJava-*.jar')
+            for file_path in glob.glob(pycromanager_jar_path):
+                os.remove(file_path)
+                print(f'Removed {file_path}')
 
-        # Copy the pycromanagerjava.jar file that was compiled by the github action
-        # into the nightly build so that it will test with the latest code
-        compiled_jar_path = os.path.join(java_path, 'target', 'PycromanagerJava-*.jar')
-        destination_path = os.path.join(mm_install_dir, 'plugins', 'Micro-Manager', 'PycromanagerJava.jar')
+            # Copy the pycromanagerjava.jar file that was compiled by the github action
+            # into the nightly build so that it will test with the latest code
+            compiled_jar_path = os.path.join(java_path, 'target', 'PycromanagerJava-*.jar')
+            destination_path = os.path.join(mm_install_dir, 'plugins', 'Micro-Manager', 'PycromanagerJava.jar')
 
-        # Find the actual file that matches the pattern and copy it to the destination
-        matched_files = [file for file in glob.glob(compiled_jar_path)
-                         if not any(exclude in file for exclude in ['-javadoc', '-sources', '.asc', '.pom'])]
-        if matched_files:
-            file_path = matched_files[0]
-            shutil.copy2(file_path, destination_path)
-            print(f'Copied {file_path} to {destination_path}')
-        else:
-            print(f'No matching JAR file found at {compiled_jar_path}')
-            raise FileNotFoundError(f'No matching JAR file found at {compiled_jar_path}')
+            # Find the actual file that matches the pattern and copy it to the destination
+            matched_files = [file for file in glob.glob(compiled_jar_path)
+                             if not any(exclude in file for exclude in ['-javadoc', '-sources', '.asc', '.pom'])]
+            if matched_files:
+                file_path = matched_files[0]
+                shutil.copy2(file_path, destination_path)
+                print(f'Copied {file_path} to {destination_path}')
+            else:
+                print(f'No matching JAR file found at {compiled_jar_path}')
+                raise FileNotFoundError(f'No matching JAR file found at {compiled_jar_path}')
 
-        # Update pycromanager dependency jar files packaged with the Micro-manager nightly build
-        # Files are updated only if they are larger version
-        # Copy dependency jar files if present in target/dependency
-        if os.path.isdir(os.path.join(java_path, 'target/dependency')):
-            replace_jars(os.path.join(java_path, 'target/dependency'), os.path.join(mm_install_dir, 'plugins', 'Micro-Manager'),
-                    ['AcqEngJ', 'NDTiffStorage', 'NDViewer'])
-        # Copy dependency jar files if present in ../../REPO_NAME/target
-        for repo_name in ['AcqEngJ', 'NDTiffStorage', 'NDViewer']:
-            if os.path.isdir(os.path.join(java_path, f'../../{repo_name}/target')):
-                replace_jars(os.path.join(java_path, f'../../{repo_name}/target'),
-                                os.path.join(mm_install_dir, 'plugins', 'Micro-Manager'), [repo_name])
+            # Update pycromanager dependency jar files packaged with the Micro-manager nightly build
+            # Files are updated only if they are larger version
+            # Copy dependency jar files if present in target/dependency
+            if os.path.isdir(os.path.join(java_path, 'target/dependency')):
+                replace_jars(os.path.join(java_path, 'target/dependency'), os.path.join(mm_install_dir, 'plugins', 'Micro-Manager'),
+                        ['AcqEngJ', 'NDTiffStorage', 'NDViewer'])
+            # Copy dependency jar files if present in ../../REPO_NAME/target
+            for repo_name in ['AcqEngJ', 'NDTiffStorage', 'NDViewer']:
+                if os.path.isdir(os.path.join(java_path, f'../../{repo_name}/target')):
+                    replace_jars(os.path.join(java_path, f'../../{repo_name}/target'),
+                                    os.path.join(mm_install_dir, 'plugins', 'Micro-Manager'), [repo_name])
 
+        except Exception as e:
+            warnings.warn(f'Failed to replace JAR files: {e}')
+            # let this continue so python tests can still run
         yield mm_install_dir
+
 
 
 @pytest.fixture(scope="session",  params=['save_to_disk', 'RAM'])
