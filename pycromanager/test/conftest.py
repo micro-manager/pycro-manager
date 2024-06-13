@@ -59,7 +59,7 @@ def install_mm():
         yield
     else:
         # Download an install latest nightly build
-        mm_install_dir = download_and_install(windows=sys.platform.startswith('win'), destination='auto')
+        mm_install_dir = download_and_install(destination='auto')
 
         #### Replace with newer versions of Java libraries ####
         # find pycro-manager/java path
