@@ -1,5 +1,5 @@
 from pyjavaz.wrappers import JavaObject
-from ndtiff.ndstorage_base import NDStorageBase
+from ndstorage.ndstorage_base import NDStorageBase
 
 class NDRAMDatasetJava(NDStorageBase):
     """
