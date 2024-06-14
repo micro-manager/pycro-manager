@@ -39,7 +39,7 @@ def test_img_process_fn_no_save(launch_mm_headless):
 
     with Acquisition(directory=None, name='acq', show_display=False, image_process_fn=hook_fn) as acq:
         acq.acquire(events)
-        dataset = acq.get_dataset()  # Can this be moved out of the Acquisition context?
+    dataset = acq.get_dataset()
 
     assert len(dataset.get_image_coordinates_list()) == 0
 
