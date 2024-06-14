@@ -63,7 +63,14 @@ def download_and_install(destination='auto', mm_install_log_path=None):
     platform = 'Windows' if windows else 'Mac'
     installer = 'mm_installer.exe' if windows else 'mm_installer.dmg'
     latest_version = MM_DOWNLOAD_URL_BASE + _find_versions()[0]
-    wget.download(latest_version, out=installer, bar=lambda curr, total, width: print(f"\rDownloading installer: {curr / total*100:.2f}%", end=''))
+    # make a progress bar that updates every 0.5 seconds
+    def bar(curr, total, width):
+        if not hasattr(bar, 'last_update'):
+            bar.last_update = 0
+        if curr / total*100 - bar.last_update > 0.5:
+            print(f"\rDownloading installer: {curr / total*100:.2f}%", end='')
+            bar.last_update = curr / total*100
+    wget.download(latest_version, out=installer, bar=bar)
 
     if windows:
         if destination == 'auto':

@@ -100,10 +100,17 @@ def install_mm():
             # Files are updated only if they are larger version
             # Copy dependency jar files if present in target/dependency
             if os.path.isdir(os.path.join(java_path, 'target/dependency')):
+                # print jars present here
+                print('JAR files present in target/dependency:')
+                for f in os.listdir(os.path.join(java_path, 'target/dependency')):
+                    print(f)
                 replace_jars(os.path.join(java_path, 'target/dependency'), os.path.join(mm_install_dir, 'plugins', 'Micro-Manager'),
-                        ['AcqEngJ', 'NDTiffStorage', 'NDViewer'])
+                        ['AcqEngJ', 'NDTiffStorage', 'NDViewer', 'PyJavaZ'])
             # Copy dependency jar files if present in ../../REPO_NAME/target
             for repo_name in ['AcqEngJ', 'NDTiffStorage', 'NDViewer', 'PyJavaZ']:
+                print(f'JAR files present in {repo_name}/target:')
+                for f in os.listdir(os.path.join(java_path, f'../../{repo_name}/target')):
+                    print(f)
                 if os.path.isdir(os.path.join(java_path, f'../../{repo_name}/target')):
                     replace_jars(os.path.join(java_path, f'../../{repo_name}/target'),
                                     os.path.join(mm_install_dir, 'plugins', 'Micro-Manager'), [repo_name])
@@ -111,6 +118,7 @@ def install_mm():
         except Exception as e:
             warnings.warn(f'Failed to replace JAR files: {e}')
             # let this continue so python tests can still run
+
         yield mm_install_dir
 
 
