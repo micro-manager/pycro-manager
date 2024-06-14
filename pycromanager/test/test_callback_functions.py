@@ -31,7 +31,7 @@ def test_img_process_fn(launch_mm_headless, setup_data_folder):
         dataset.close()
 
 
-def test_img_process_fn_no_save(launch_mm_headless):
+def test_img_process_fn_no_save(launch_mm_headless, setup_data_folder):
     events = multi_d_acquisition_events(num_time_points=3)
 
     def hook_fn(image, metadata):
@@ -64,7 +64,7 @@ def test_img_process_fn_image_saved_fn_consistency(launch_mm_headless, setup_dat
     assert(saved.num_saved == 200)
     acq.get_dataset().close()
 
-def test_event_serialize_and_deserialize(launch_mm_headless):
+def test_event_serialize_and_deserialize(launch_mm_headless, setup_data_folder):
     """
     Test for cycle consistency of event serialization and deserialization.
     """
