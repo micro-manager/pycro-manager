@@ -42,6 +42,7 @@ def test_img_process_fn_no_save(launch_mm_headless):
     dataset = acq.get_dataset()
 
     assert len(dataset.get_image_coordinates_list()) == 0
+    dataset.close()
 
 
 def test_img_process_fn_image_saved_fn_consistency(launch_mm_headless, setup_data_folder):
@@ -61,6 +62,7 @@ def test_img_process_fn_image_saved_fn_consistency(launch_mm_headless, setup_dat
 
     assert(processed.num_processed == 200)
     assert(saved.num_saved == 200)
+    acq.get_dataset().close()
 
 def test_event_serialize_and_deserialize(launch_mm_headless):
     """
@@ -94,5 +96,6 @@ def test_event_serialize_and_deserialize(launch_mm_headless):
         events_copy = [e for e in events]
         for test_event in events:
             acq.acquire(test_event)
+    acq.get_dataset().close()
 
 

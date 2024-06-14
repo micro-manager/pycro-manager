@@ -51,5 +51,5 @@ def test_async_images_read_sequence(launch_mm_headless, setup_data_folder):
     # Make sure the returned images were the correct ones
     on_disk = [acq.get_dataset().read_image(time=t) for t in [7, 8, 9]]
     assert all([np.all(on_disk[i] == images[i]) for i in range(3)])
-    acq.get_dataset().close()
+    # acq.get_dataset().close()
 
