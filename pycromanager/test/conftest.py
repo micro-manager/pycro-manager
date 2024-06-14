@@ -162,7 +162,7 @@ def launch_mm_headless(request, install_mm):
                 java_loc = os.environ["JAVA"]
 
             start_headless(mm_install_dir, config_file, java_loc=java_loc,
-                           buffer_size_mb=128, max_memory_mb=128, # set these low for github actions
+                           buffer_size_mb=2048, max_memory_mb=2048, # set these low for github actions
                            debug=True)
 
             yield
@@ -171,7 +171,7 @@ def launch_mm_headless(request, install_mm):
     else: # python backend
         config_file = os.path.join(mm_install_dir, 'MMConfig_demo.cfg')
         start_headless(mm_install_dir, config_file,
-                       buffer_size_mb=128, max_memory_mb=128,  # set these low for github actions
+                       buffer_size_mb=2048, max_memory_mb=2048,  # set these low for github actions
                        python_backend=True,
                        debug=True)
         yield
