@@ -18,21 +18,21 @@ import numpy as np
 
 def test_async_image_read(launch_mm_headless, setup_data_folder):
     events = multi_d_acquisition_events(num_time_points=10, time_interval_s=0.5)
-    with Acquisition(directory=setup_data_folder, show_display=False) as acq:
+    with Acquisition(directory=setup_data_folder, name='test_async_image_read', show_display=False) as acq:
         future = acq.acquire(events)
         image = future.await_image_saved({'time': 5}, return_image=True)
         assert np.all(image == acq.get_dataset().read_image(time=5))
 
 def test_async_image_read_sequence(launch_mm_headless, setup_data_folder):
     events = multi_d_acquisition_events(num_time_points=10, time_interval_s=0)
-    with Acquisition(directory=setup_data_folder, show_display=False) as acq:
+    with Acquisition(directory=setup_data_folder, name='test_async_image_read_sequence', show_display=False) as acq:
         future = acq.acquire(events)
         image = future.await_image_saved({'time': 5}, return_image=True)
         assert np.all(image == acq.get_dataset().read_image(time=5))
 
 def test_async_images_read(launch_mm_headless, setup_data_folder):
     events = multi_d_acquisition_events(num_time_points=10, time_interval_s=0.5)
-    with Acquisition(directory=setup_data_folder, show_display=False) as acq:
+    with Acquisition(directory=setup_data_folder, name='test_async_images_read', show_display=False) as acq:
         future = acq.acquire(events)
         images = future.await_image_saved([{'time': 7}, {'time': 8}, {'time': 9}], return_image=True)
         assert (len(images) == 3)
@@ -43,7 +43,7 @@ def test_async_images_read(launch_mm_headless, setup_data_folder):
 
 def test_async_images_read_sequence(launch_mm_headless, setup_data_folder):
     events = multi_d_acquisition_events(num_time_points=10, time_interval_s=0)
-    with Acquisition(directory=setup_data_folder, show_display=False) as acq:
+    with Acquisition(directory=setup_data_folder, name='test_async_images_read_sequence', show_display=False) as acq:
         future = acq.acquire(events)
         images = future.await_image_saved([{'time': 7}, {'time': 8}, {'time': 9}], return_image=True)
         assert (len(images) == 3)
