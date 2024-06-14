@@ -44,6 +44,24 @@ def _find_versions():
         raise ValueError(f"Unsupported OS: {platform}")
     return re.findall(r'class="rowDefault" href="([^"]+)', webpage.text)
 
+def find_existing_mm_install():
+    """
+    Check if Micro-Manager is installed in the default auto-download paths
+
+    Returns
+    -------
+    str
+        The path to the installed Micro-Manager directory, or None if not found
+    """
+    platform = _get_platform()
+    if platform == 'Windows':
+        if os.path.isdir(r'C:\Program Files\Micro-Manager'):
+            return r'C:\Program Files\Micro-Manager'
+    elif platform == 'Mac':
+        if os.path.isdir(str(os.path.expanduser('~')) + '/Micro-Manager'):
+            return str(os.path.expanduser('~')) + '/Micro-Manager'
+    else:
+        raise ValueError(f"Unsupported OS: {platform}")
 
 def download_and_install(destination='auto', mm_install_log_path=None):
     """
@@ -84,7 +102,7 @@ def download_and_install(destination='auto', mm_install_log_path=None):
         return destination
     else:
         if destination == 'auto':
-            destination = os.path.expanduser('~') + '/Micro-Manager'
+            destination = str(os.path.expanduser('~')) + '/Micro-Manager'
         try:
             # unmount if already mounted
             subprocess.run(['hdiutil', 'detach', '/Volumes/Micro-Manager'])

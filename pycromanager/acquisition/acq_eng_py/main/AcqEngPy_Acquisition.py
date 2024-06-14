@@ -127,7 +127,7 @@ class Acquisition():
                         if acq.data_sink_:
                             if acq.debug_mode_:
                                 acq.core_.log_message("Saving image")
-                            if not img.pix and not img.tags:
+                            if img.tags is None and img.pix is None:
                                 break
                             acq.save_image(img)
                             if acq.debug_mode_:

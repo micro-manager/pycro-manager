@@ -194,9 +194,17 @@ class ImageProcessor:
                 # this is a signal to stop
                 self.output_queue.put(tagged_image)
                 break
-            process_fn_result = self._pycromanager_acq._call_image_process_fn(tagged_image.tags, tagged_image.pix)
+            process_fn_result = self._pycromanager_acq._call_image_process_fn(tagged_image.pix, tagged_image.tags)
+            try:
+                self._pycromanager_acq._check_for_exceptions()
+            except Exception as e:
+                # unclear if this is functioning properly, check later
+                self._acq.abort()
             if process_fn_result is not None:
-                self.output_queue.put(process_fn_result)
+                # turn it into the expected tagged_image
+                # TODO: change this on later unification of acq engines
+                tagged_image.pix, tagged_image.tags = process_fn_result
+                self.output_queue.put(tagged_image)
             # otherwise the image processor intercepted the image and nothing to do here
 
 class AcquisitionHook:

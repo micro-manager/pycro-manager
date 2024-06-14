@@ -15,7 +15,7 @@ import pycromanager
 from pycromanager import start_headless
 from pycromanager.headless import stop_headless
 import socket
-from pycromanager.install import download_and_install
+from pycromanager.install import download_and_install, find_existing_mm_install
 
 def is_port_in_use(port):
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
@@ -61,6 +61,9 @@ def install_mm():
     if is_port_in_use(4827):
         print('Using Micro-manager running on port 4827 for testing')
         yield
+    elif find_existing_mm_install():
+        print('Micro-Manager is already installed, skipping installation')
+        yield find_existing_mm_install()
     else:
         # Download an install latest nightly build
         mm_install_dir = download_and_install(destination='auto')
