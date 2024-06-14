@@ -190,10 +190,10 @@ def _notification_handler_fn(acquisition, notification_push_port, connected_even
     monitor_socket = PullSocket(notification_push_port)
     connected_event.set()
 
-    try:
-        events_finished = False
-        data_sink_finished = False
-        while True:
+    events_finished = False
+    data_sink_finished = False
+    while True:
+        try:
             message = monitor_socket.receive()
             notification = AcqNotification.from_json(message)
 
@@ -226,11 +226,12 @@ def _notification_handler_fn(acquisition, notification_push_port, connected_even
             if events_finished and data_sink_finished:
                 break
 
-    except Exception as e:
-        traceback.print_exc()
-        acquisition.abort(e)
-    finally:
-        monitor_socket.close()
+        except Exception as e:
+            traceback.print_exc()
+            acquisition.abort(e)
+            continue # perform an orderly shutdown
+
+    monitor_socket.close()
 
 
 class JavaBackendAcquisition(Acquisition, metaclass=NumpyDocstringInheritanceMeta):
@@ -319,6 +320,7 @@ class JavaBackendAcquisition(Acquisition, metaclass=NumpyDocstringInheritanceMet
         # while the acquisition is still running, and (optionally )so that a image_saved_fn can be called
         # when images are written to disk/RAM storage
         storage_java_class = data_sink.get_storage()
+        print(storage_java_class)
         summary_metadata = storage_java_class.get_summary_metadata()
         if directory is not None:
             # NDTiff dataset saved to disk on Java side
@@ -380,8 +382,12 @@ class JavaBackendAcquisition(Acquisition, metaclass=NumpyDocstringInheritanceMet
                 self._remote_notification_handler = None
                 self._acq_notification_dispatcher_thread.join()
 
-            self._acq = None
-            self._finished = True
+            try:
+                # one final check for exceptions for stuff that may have happened during shutdown
+                self._check_for_exceptions()
+            finally:
+                self._acq = None
+                self._finished = True
 
 
     def get_viewer(self):

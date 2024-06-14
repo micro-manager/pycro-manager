@@ -77,6 +77,7 @@ def test_empty_mda_acq(launch_mm_headless, setup_data_folder):
     with Acquisition(setup_data_folder, 'acq', show_display=False) as acq:
         acq.acquire(events)
 
+
     dataset = acq.get_dataset()
     try:
         assert dataset.axes == {}
