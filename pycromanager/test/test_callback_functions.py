@@ -37,7 +37,7 @@ def test_img_process_fn_no_save(launch_mm_headless):
     def hook_fn(image, metadata):
         return None
 
-    with Acquisition(directory=None, name='acq', show_display=False, image_process_fn=hook_fn) as acq:
+    with Acquisition(directory=None, name='test_img_process_fn_no_save', show_display=False, image_process_fn=hook_fn) as acq:
         acq.acquire(events)
     dataset = acq.get_dataset()
 
@@ -54,7 +54,7 @@ def test_img_process_fn_image_saved_fn_consistency(launch_mm_headless, setup_dat
         saved.num_saved += 1
     saved.num_saved = 0
 
-    with Acquisition(directory=setup_data_folder, name="acq",
+    with Acquisition(directory=setup_data_folder, name="test_img_process_fn_image_saved_fn_consistency",
                      image_saved_fn=saved, image_process_fn=processed,
                      show_display=False) as acq:
         acq.acquire(multi_d_acquisition_events(num_time_points=200))
