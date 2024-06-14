@@ -108,6 +108,8 @@ def install_mm():
                     print(f)
                 replace_jars(os.path.join(java_path, 'target/dependency'), os.path.join(mm_install_dir, 'plugins', 'Micro-Manager'),
                         ['AcqEngJ', 'NDTiffStorage', 'NDViewer', 'PyJavaZ'])
+
+
             # Not needed because deps of deps are already included in the JARs?
             # Copy dependency jar files if present in ../../REPO_NAME/target
             # for repo_name in ['AcqEngJ', 'NDTiffStorage', 'NDViewer', 'PyJavaZ']:
