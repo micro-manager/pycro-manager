@@ -131,9 +131,7 @@ def install_mm():
 
 
 
-# @pytest.fixture(scope="session",  params=['save_to_disk', 'RAM'])
-@pytest.fixture(scope="session",  params=['RAM'])
-
+@pytest.fixture(scope="session",  params=['save_to_disk', 'RAM'])
 def setup_data_folder(request):
     if request.param != 'save_to_disk':
         yield None
@@ -147,9 +145,7 @@ def setup_data_folder(request):
         shutil.rmtree(data_folder_path)
 
 
-# @pytest.fixture(scope="session", params=['python_backend', 'java_backend'])
-@pytest.fixture(scope="session", params=['java_backend'])
-
+@pytest.fixture(scope="session", params=['python_backend', 'java_backend'])
 def launch_mm_headless(request, install_mm):
     python_backend = request.param == 'python_backend'
     mm_install_dir = install_mm

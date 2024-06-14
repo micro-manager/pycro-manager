@@ -57,8 +57,6 @@ class NDRAMDatasetJava(NDStorageBase):
         for k, v in axes.items():
             java_hashmap.put(k, v)
         tagged_image = self._java_RAM_data_storage.get_image(java_hashmap)
-        print('java ram storage class:', str(self._java_RAM_data_storage))
-        print('tagged image: ', str(tagged_image))
         pixels = tagged_image.pix
         metadata = tagged_image.tags
         return pixels.reshape(metadata['Height'], metadata['Width'])

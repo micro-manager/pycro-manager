@@ -320,7 +320,6 @@ class JavaBackendAcquisition(Acquisition, metaclass=NumpyDocstringInheritanceMet
         # while the acquisition is still running, and (optionally )so that a image_saved_fn can be called
         # when images are written to disk/RAM storage
         storage_java_class = data_sink.get_storage()
-        print(storage_java_class)
         summary_metadata = storage_java_class.get_summary_metadata()
         if directory is not None:
             # NDTiff dataset saved to disk on Java side
