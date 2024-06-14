@@ -43,6 +43,8 @@ def replace_jars(new_file_path, old_file_path, jar_names: list):
         new_jar_name, new_jar_version = find_jar(new_file_path, jar_name)
         old_jar_name, old_jar_version = find_jar(old_file_path, jar_name)
 
+        print('Old version:', old_jar_name, old_jar_version)
+        print('New version:', new_jar_name, new_jar_version)
         if new_jar_name is not None:
             # Only replace jar file if newly compiled file version is larger
             if new_jar_version[0] > old_jar_version[0] or \
@@ -106,14 +108,15 @@ def install_mm():
                     print(f)
                 replace_jars(os.path.join(java_path, 'target/dependency'), os.path.join(mm_install_dir, 'plugins', 'Micro-Manager'),
                         ['AcqEngJ', 'NDTiffStorage', 'NDViewer', 'PyJavaZ'])
+            # Not needed because deps of deps are already included in the JARs?
             # Copy dependency jar files if present in ../../REPO_NAME/target
-            for repo_name in ['AcqEngJ', 'NDTiffStorage', 'NDViewer', 'PyJavaZ']:
-                print(f'JAR files present in {repo_name}/target:')
-                for f in os.listdir(os.path.join(java_path, f'../../{repo_name}/target')):
-                    print(f)
-                if os.path.isdir(os.path.join(java_path, f'../../{repo_name}/target')):
-                    replace_jars(os.path.join(java_path, f'../../{repo_name}/target'),
-                                    os.path.join(mm_install_dir, 'plugins', 'Micro-Manager'), [repo_name])
+            # for repo_name in ['AcqEngJ', 'NDTiffStorage', 'NDViewer', 'PyJavaZ']:
+            #     print(f'JAR files present in {repo_name}/target:')
+            #     for f in os.listdir(os.path.join(java_path, f'../../{repo_name}/target')):
+            #         print(f)
+            #     if os.path.isdir(os.path.join(java_path, f'../../{repo_name}/target')):
+            #         replace_jars(os.path.join(java_path, f'../../{repo_name}/target'),
+            #                         os.path.join(mm_install_dir, 'plugins', 'Micro-Manager'), [repo_name])
 
         except Exception as e:
             warnings.warn(f'Failed to replace JAR files: {e}')
