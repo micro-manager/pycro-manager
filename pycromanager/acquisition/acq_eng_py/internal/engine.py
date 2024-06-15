@@ -104,7 +104,7 @@ class Engine:
             try:
                 self.check_for_default_devices(event)
                 if event.acquisition_.is_debug_mode():
-                    self.core.logMessage("Processing event: " + event.to_string())
+                    self.core.logMessage("Processing event: " + str(event))
                     self.core.logMessage("checking for sequencing")
                 if not self.sequenced_events and not event.is_acquisition_sequence_end_event():
                     self.sequenced_events.append(event)

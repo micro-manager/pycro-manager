@@ -152,8 +152,8 @@ class AcquisitionEvent:
         if "min_start_time" in data:
             event.miniumumStartTime_ms_ = int(data["min_start_time"] * 1000)
 
-        if "timeout" in data:
-            event.timeout_ms_ = float(data["timeout"])
+        if "timeout_ms" in data:
+            event.timeout_ms_ = float(data["timeout_ms"])
 
         if "config_group" in data:
             event.configGroup_ = data["config_group"][0]
@@ -162,12 +162,12 @@ class AcquisitionEvent:
         if "exposure" in data:
             event.exposure_ = float(data["exposure"])
 
-        if "timeout_ms" in data:
-            event.slmImage_ = float(data["timeout_ms"])
+        # if "timeout_ms" in data:
+        #     event.slmImage_ = float(data["timeout_ms"])
 
         if "stage_positions" in data:
             for stagePos in data["stage_positions"]:
-                event.setStageCoordinate(stagePos[0], stagePos[1])
+                event.set_stage_coordinate(stagePos[0], stagePos[1])
 
         if "z" in data:
             event.zPosition_ = float(data["z"])
@@ -423,9 +423,9 @@ class AcquisitionEvent:
         return dict(self.tags_)
 
     def __str__(self):
-        if self.specialFlag_ == AcquisitionEvent.SpecialFlag.AcquisitionFinished:
+        if self.specialFlag_ == AcquisitionEvent.SpecialFlag.ACQUISITION_FINISHED:
             return "Acq finished event"
-        elif self.specialFlag_ == AcquisitionEvent.SpecialFlag.AcquisitionSequenceEnd:
+        elif self.specialFlag_ == AcquisitionEvent.SpecialFlag.ACQUISITION_SEQUENCE_END:
             return "Acq sequence end event"
 
         builder = []

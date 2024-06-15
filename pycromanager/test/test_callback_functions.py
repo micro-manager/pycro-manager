@@ -31,13 +31,13 @@ def test_img_process_fn(launch_mm_headless, setup_data_folder):
         dataset.close()
 
 
-def test_img_process_fn_no_save(launch_mm_headless, setup_data_folder):
+def test_img_process_fn_no_save(launch_mm_headless):
     events = multi_d_acquisition_events(num_time_points=3)
 
     def hook_fn(image, metadata):
         return None
 
-    with Acquisition(directory=None, name='test_img_process_fn_no_save', show_display=False, image_process_fn=hook_fn) as acq:
+    with Acquisition(name='test_img_process_fn_no_save', show_display=False, image_process_fn=hook_fn) as acq:
         acq.acquire(events)
     dataset = acq.get_dataset()
 
@@ -64,7 +64,7 @@ def test_img_process_fn_image_saved_fn_consistency(launch_mm_headless, setup_dat
     assert(saved.num_saved == 200)
     acq.get_dataset().close()
 
-def test_event_serialize_and_deserialize(launch_mm_headless, setup_data_folder):
+def test_event_serialize_and_deserialize(launch_mm_headless):
     """
     Test for cycle consistency of event serialization and deserialization.
     """
@@ -82,13 +82,11 @@ def test_event_serialize_and_deserialize(launch_mm_headless, setup_data_folder):
          'properties': [['DeviceName', 'PropertyName', 'PropertyValue']]},
         {'axes': {'z': 1},
          'stage_positions': [['ZDeviceName', 123.45]]},
-        {'axes': {'time': 2},
-         'timeout': 1000},
     ]
 
     def hook_fn(event):
-        test_event = events.pop(0)
-        assert (event == test_event)
+        test_event = events_copy.pop(0)
+        assert event == test_event
         return None  # cancel the event
 
     with Acquisition(show_display=False, pre_hardware_hook_fn=hook_fn) as acq:

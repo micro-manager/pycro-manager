@@ -6,6 +6,7 @@ from pycromanager.acquisition.acq_eng_py.main.acquisition_event import Acquisiti
 from pycromanager.acq_future import AcqNotification
 import threading
 from inspect import signature
+import traceback
 
 from ndstorage.ndram_dataset import NDRAMDataset
 from ndstorage.ndtiff_dataset import NDTiffDataset
@@ -219,7 +220,12 @@ class AcquisitionHook:
         if AcquisitionEvent.is_acquisition_finished_event(event):
             return event
         acq = event.acquisition_
-        output = self._hook_fn(event.to_json())
+        try:
+            output = self._hook_fn(event.to_json())
+        except Exception as e:
+            acq.abort()
+            traceback.print_exc()
+            return # cancel event and let the shutdown process handle the exception
         if output is not None:
             return AcquisitionEvent.from_json(output, acq)
 
