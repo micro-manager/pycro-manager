@@ -55,13 +55,13 @@ jobs:
       - uses: actions/checkout@v3
 
       - name: Set up JDK 8
-        uses: actions/setup-java@v3
+        uses: actions/setup-java@v4
         with:
           java-version: 8
           distribution: 'zulu'
 
       - name: Set up Apache Maven Central
-        uses: actions/setup-java@v3
+        uses: actions/setup-java@v4
         with: # running setup-java again overwrites the settings.xml
           java-version: 8
           distribution: 'zulu'
