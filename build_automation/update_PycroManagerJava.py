@@ -11,7 +11,7 @@ def read_versions(root):
     for dependency in dependencies:
         artifactId = dependency.find("artifactId").text
         version = dependency.find("version").text
-        if artifactId in ["NDStorage", "NDViewer", "AcqEngJ"]:
+        if artifactId in ["NDTiffStorage", "NDViewer", "AcqEngJ"]:
             versions[artifactId] = Version(version)
     return versions
 
