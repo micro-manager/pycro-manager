@@ -6,12 +6,12 @@ import requests
 def read_versions(root):
     versions = {}
     versions['PycroManagerJava'] = Version(root.find("version").text)
-    # iterate through the dependencies and get NDTiff, NDViewer, and AcqEngJ
+    # iterate through the dependencies and get NDStorage, NDViewer, and AcqEngJ
     dependencies = root.findall(".//dependency")
     for dependency in dependencies:
         artifactId = dependency.find("artifactId").text
         version = dependency.find("version").text
-        if artifactId in ["NDTiffStorage", "NDViewer", "AcqEngJ"]:
+        if artifactId in ["NDStorage", "NDViewer", "AcqEngJ"]:
             versions[artifactId] = Version(version)
     return versions
 

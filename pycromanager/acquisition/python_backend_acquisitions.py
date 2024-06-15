@@ -1,12 +1,15 @@
+import warnings
 from docstring_inheritance import NumpyDocstringInheritanceMeta
 from pycromanager.acquisition.acq_eng_py.main.AcqEngPy_Acquisition import Acquisition as pymmcore_Acquisition
-from pycromanager.acquisition.RAMStorage import RAMDataStorage
 from pycromanager.acquisition.acquisition_superclass import _validate_acq_events, Acquisition
 from pycromanager.acquisition.acq_eng_py.main.acquisition_event import AcquisitionEvent
 from pycromanager.acq_future import AcqNotification
 import threading
 from inspect import signature
+import traceback
 
+from ndstorage.ndram_dataset import NDRAMDataset
+from ndstorage.ndtiff_dataset import NDTiffDataset
 
 class PythonBackendAcquisition(Acquisition, metaclass=NumpyDocstringInheritanceMeta):
     """
@@ -19,6 +22,7 @@ class PythonBackendAcquisition(Acquisition, metaclass=NumpyDocstringInheritanceM
 
     def __init__(
         self,
+        directory: str=None,
         name: str='default_acq_name',
         image_process_fn: callable=None,
         event_generation_hook_fn: callable = None,
@@ -29,8 +33,7 @@ class PythonBackendAcquisition(Acquisition, metaclass=NumpyDocstringInheritanceM
         napari_viewer=None,
         image_saved_fn: callable=None,
         debug: int=False,
-        # Specificly so the directory arg can be absorbed and ignored without error,
-        **kwargs
+
     ):
         # Get a dict of all named argument values (or default values when nothing provided)
         arg_names = [k for k in signature(PythonBackendAcquisition.__init__).parameters.keys() if k != 'self']
@@ -38,12 +41,8 @@ class PythonBackendAcquisition(Acquisition, metaclass=NumpyDocstringInheritanceM
         named_args = {arg_name: (l[arg_name] if arg_name in l else
                                      dict(signature(PythonBackendAcquisition.__init__).parameters.items())[arg_name].default)
                                      for arg_name in arg_names }
-        if 'kwargs' in named_args:
-            if 'directory' in named_args['kwargs'] and named_args['kwargs']['directory'] is not None:
-                raise Exception('The directory argument is not supported in Python backend acquisitions')
-            del named_args['kwargs']
         super().__init__(**named_args)
-        self._dataset = RAMDataStorage()
+        self._dataset = NDRAMDataset() if not directory else NDTiffDataset(directory, name=name, writable=True)
         self._finished = False
         self._notifications_finished = False
         self._create_event_queue()
@@ -78,8 +77,11 @@ class PythonBackendAcquisition(Acquisition, metaclass=NumpyDocstringInheritanceM
         def post_notification(notification):
             self._notification_queue.put(notification)
             # these are processed seperately to handle image saved callback
-            if AcqNotification.is_image_saved_notification(notification):
+            if AcqNotification.is_image_saved_notification(notification) or \
+                    AcqNotification.is_data_sink_finished_notification(notification):
                 self._image_notification_queue.put(notification)
+                if self._image_notification_queue.qsize() > self._image_notification_queue.maxsize * 0.9:
+                    warnings.warn(f"Acquisition image notification queue size: {self._image_notification_queue.qsize()}")
 
         self._acq.add_acq_notification_listener(NotificationListener(post_notification))
 
@@ -87,15 +89,19 @@ class PythonBackendAcquisition(Acquisition, metaclass=NumpyDocstringInheritanceM
 
         # add hooks and image processor
         if pre_hardware_hook_fn is not None:
-            self._acq.add_hook(AcquisitionHook(pre_hardware_hook_fn),self._acq.BEFORE_HARDWARE_HOOK)
+            self._acq.add_hook(AcquisitionHook(pre_hardware_hook_fn), self._acq.BEFORE_HARDWARE_HOOK)
         if post_hardware_hook_fn is not None:
-            self._acq.add_hook(AcquisitionHook(post_hardware_hook_fn),self._acq.AFTER_HARDWARE_HOOK)
+            self._acq.add_hook(AcquisitionHook(post_hardware_hook_fn), self._acq.AFTER_HARDWARE_HOOK)
         if post_camera_hook_fn is not None:
-            self._acq.add_hook(AcquisitionHook(post_camera_hook_fn),self._acq.AFTER_CAMERA_HOOK)
+            self._acq.add_hook(AcquisitionHook(post_camera_hook_fn), self._acq.AFTER_CAMERA_HOOK)
         if event_generation_hook_fn is not None:
-            self._acq.add_hook(AcquisitionHook(event_generation_hook_fn),self._acq.EVENT_GENERATION_HOOK)
+            self._acq.add_hook(AcquisitionHook(event_generation_hook_fn), self._acq.EVENT_GENERATION_HOOK)
         if self._image_processor is not None:
             self._acq.add_image_processor(self._image_processor)
+
+        # Monitor image arrival so they can be loaded on python side, but with no callback function
+        # Need to do this regardless of whether you use it, so that notifcation handling shuts down
+        self._storage_monitor_thread = self._add_storage_monitor_fn(image_saved_fn=image_saved_fn)
 
 
         if napari_viewer is not None:
@@ -108,24 +114,28 @@ class PythonBackendAcquisition(Acquisition, metaclass=NumpyDocstringInheritanceM
             assert isinstance(napari_viewer, napari.Viewer), 'napari_viewer must be an instance of napari.Viewer'
             self._napari_viewer = napari_viewer
             start_napari_signalling(self._napari_viewer, self.get_dataset())
+        self._acq.start()
 
 
     ########  Public API ###########
 
     def await_completion(self):
         """Wait for acquisition to finish and resources to be cleaned up"""
-        while not self._acq.are_events_finished() or (
-                self._acq.get_data_sink() is not None and not self._acq.get_data_sink().is_finished()):
-            self._check_for_exceptions()
-            self._acq.block_until_events_finished(0.05)
-            if self._acq.get_data_sink() is not None:
-                self._acq.get_data_sink().block_until_finished(0.05)
-            self._check_for_exceptions()
-        self._event_thread.join()
-        self._notification_dispatch_thread.join()
+        try:
+            while not self._acq.are_events_finished() or (
+                    self._acq.get_data_sink() is not None and not self._acq.get_data_sink().is_finished()):
+                self._check_for_exceptions()
+                self._acq.block_until_events_finished(0.05)
+                if self._acq.get_data_sink() is not None:
+                    self._acq.get_data_sink().block_until_finished(0.05)
+                self._check_for_exceptions()
+        finally:
+            self._event_thread.join()
+            self._notification_dispatch_thread.join()
+            self._storage_monitor_thread.join()
 
-        self._acq = None
-        self._finished = True
+            self._acq = None
+            self._finished = True
 
     def get_viewer(self):
         """
@@ -185,9 +195,17 @@ class ImageProcessor:
                 # this is a signal to stop
                 self.output_queue.put(tagged_image)
                 break
-            process_fn_result = self._pycromanager_acq._call_image_process_fn(tagged_image.tags, tagged_image.pix)
+            process_fn_result = self._pycromanager_acq._call_image_process_fn(tagged_image.pix, tagged_image.tags)
+            try:
+                self._pycromanager_acq._check_for_exceptions()
+            except Exception as e:
+                # unclear if this is functioning properly, check later
+                self._acq.abort()
             if process_fn_result is not None:
-                self.output_queue.put(process_fn_result)
+                # turn it into the expected tagged_image
+                # TODO: change this on later unification of acq engines
+                tagged_image.pix, tagged_image.tags = process_fn_result
+                self.output_queue.put(tagged_image)
             # otherwise the image processor intercepted the image and nothing to do here
 
 class AcquisitionHook:
@@ -199,7 +217,17 @@ class AcquisitionHook:
         self._hook_fn = hook_fn
 
     def run(self, event):
-        self._hook_fn(event)
+        if AcquisitionEvent.is_acquisition_finished_event(event):
+            return event
+        acq = event.acquisition_
+        try:
+            output = self._hook_fn(event.to_json())
+        except Exception as e:
+            acq.abort()
+            traceback.print_exc()
+            return # cancel event and let the shutdown process handle the exception
+        if output is not None:
+            return AcquisitionEvent.from_json(output, acq)
 
     def close(self):
         pass # nothing to do here

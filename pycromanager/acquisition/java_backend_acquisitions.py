@@ -15,9 +15,9 @@ from pyjavaz import deserialize_array
 from pyjavaz import PullSocket, PushSocket, JavaObject, JavaClass
 from pyjavaz import DEFAULT_BRIDGE_PORT as DEFAULT_PORT
 from pycromanager.mm_java_classes import ZMQRemoteMMCoreJ, Magellan
-from pycromanager.acquisition.java_RAMStorage import JavaRAMDataStorage
+from pycromanager.acquisition.RAMStorage_java import NDRAMDatasetJava
 
-from ndtiff import Dataset
+from ndstorage import Dataset
 import os.path
 import queue
 from docstring_inheritance import NumpyDocstringInheritanceMeta
@@ -190,10 +190,10 @@ def _notification_handler_fn(acquisition, notification_push_port, connected_even
     monitor_socket = PullSocket(notification_push_port)
     connected_event.set()
 
-    try:
-        events_finished = False
-        data_sink_finished = False
-        while True:
+    events_finished = False
+    data_sink_finished = False
+    while True:
+        try:
             message = monitor_socket.receive()
             notification = AcqNotification.from_json(message)
 
@@ -209,9 +209,13 @@ def _notification_handler_fn(acquisition, notification_push_port, connected_even
                         notification.payload = axes
                     else: # RAM storage
                         axes = json.loads(notification.payload)
-                        acquisition._dataset.add_index_entry(axes)
+                        acquisition._dataset.add_available_axes(axes)
                         notification.payload = axes
+
                 acquisition._image_notification_queue.put(notification)
+                # check size
+                if acquisition._image_notification_queue.qsize() > acquisition._image_notification_queue.maxsize * 0.9:
+                    warnings.warn(f"Acquisition image notification queue size: {acquisition._image_notification_queue.qsize()}")
 
             acquisition._notification_queue.put(notification)
             if AcqNotification.is_acquisition_finished_notification(notification):
@@ -222,11 +226,12 @@ def _notification_handler_fn(acquisition, notification_push_port, connected_even
             if events_finished and data_sink_finished:
                 break
 
-    except Exception as e:
-        traceback.print_exc()
-        acquisition.abort(e)
-    finally:
-        monitor_socket.close()
+        except Exception as e:
+            traceback.print_exc()
+            acquisition.abort(e)
+            continue # perform an orderly shutdown
+
+    monitor_socket.close()
 
 
 class JavaBackendAcquisition(Acquisition, metaclass=NumpyDocstringInheritanceMeta):
@@ -321,7 +326,7 @@ class JavaBackendAcquisition(Acquisition, metaclass=NumpyDocstringInheritanceMet
             self._dataset = Dataset(dataset_path=self._dataset_disk_location, summary_metadata=summary_metadata)
         else:
             # Saved to RAM on Java side
-            self._dataset = JavaRAMDataStorage(storage_java_class)
+            self._dataset = NDRAMDatasetJava(storage_java_class)
         # Monitor image arrival so they can be loaded on python side, but with no callback function
         # Need to do this regardless of whether you use it, so that it signals to shut down on Java side
         self._storage_monitor_thread = self._add_storage_monitor_fn(image_saved_fn=image_saved_fn)
@@ -341,43 +346,47 @@ class JavaBackendAcquisition(Acquisition, metaclass=NumpyDocstringInheritanceMet
                 self._napari_viewer = napari_viewer
                 start_napari_signalling(self._napari_viewer, self.get_dataset())
 
-
     ########  Public API methods with unique implementations for Java backend ###########
 
     def await_completion(self):
-        while not self._acq.are_events_finished() or (
-                self._acq.get_data_sink() is not None and not self._acq.get_data_sink().is_finished()):
+        try:
+            while not self._acq.are_events_finished() or (
+                    self._acq.get_data_sink() is not None and not self._acq.get_data_sink().is_finished()):
+                self._check_for_exceptions()
+                self._acq.block_until_events_finished(0.01)
+            # This will block until saving is finished, if there is a data sink
+            self._acq.wait_for_completion()
             self._check_for_exceptions()
-            self._acq.block_until_events_finished(0.01)
-        # This will block until saving is finished, if there is a data sink
-        self._acq.wait_for_completion()
-        self._check_for_exceptions()
+        finally:
+            for hook_thread in self._hook_threads:
+                hook_thread.join()
 
-        for hook_thread in self._hook_threads:
-            hook_thread.join()
+            if hasattr(self, '_event_thread'):
+                self._event_thread.join()
 
-        if hasattr(self, '_event_thread'):
-            self._event_thread.join()
-
-        # need to do this so its _Bridge can be garbage collected and a reference to the JavaBackendAcquisition
-        # does not prevent Bridge cleanup and process exiting
-        self._remote_acq = None
-
-        # Wait on all the other threads to shut down properly
-        if hasattr(self, '_storage_monitor_thread'):
-            self._storage_monitor_thread.join()
-
-        if hasattr(self, '_acq_notification_recieving_thread'):
-            # for backwards compatiblitiy with older versions of Pycromanager java before this added
-            self._acq_notification_recieving_thread.join()
-            self._remote_notification_handler.notification_handling_complete()
             # need to do this so its _Bridge can be garbage collected and a reference to the JavaBackendAcquisition
             # does not prevent Bridge cleanup and process exiting
-            self._remote_notification_handler = None
-            self._acq_notification_dispatcher_thread.join()
+            self._remote_acq = None
 
-        self._acq = None
-        self._finished = True
+            # Wait on all the other threads to shut down properly
+            if hasattr(self, '_storage_monitor_thread'):
+                self._storage_monitor_thread.join()
+
+            if hasattr(self, '_acq_notification_recieving_thread'):
+                # for backwards compatiblitiy with older versions of Pycromanager java before this added
+                self._acq_notification_recieving_thread.join()
+                self._remote_notification_handler.notification_handling_complete()
+                # need to do this so its _Bridge can be garbage collected and a reference to the JavaBackendAcquisition
+                # does not prevent Bridge cleanup and process exiting
+                self._remote_notification_handler = None
+                self._acq_notification_dispatcher_thread.join()
+
+            try:
+                # one final check for exceptions for stuff that may have happened during shutdown
+                self._check_for_exceptions()
+            finally:
+                self._acq = None
+                self._finished = True
 
 
     def get_viewer(self):
@@ -412,40 +421,6 @@ class JavaBackendAcquisition(Acquisition, metaclass=NumpyDocstringInheritanceMet
         # start pushing out all the notifications
         self._remote_notification_handler.start()
         return notification_thread
-
-    def _add_storage_monitor_fn(self, image_saved_fn=None):
-        """
-        Add a callback function that gets called whenever a new image is writtern to disk (for acquisitions in
-        progress only)
-
-        Parameters
-        ----------
-        image_saved_fn : Callable
-            user function to be run whenever an image is ready on disk
-        """
-
-        callback = None
-        if image_saved_fn is not None:
-            params = signature(image_saved_fn).parameters
-            if len(params) == 2:
-                callback = image_saved_fn
-            elif len(params) == 3:
-                callback = lambda axes, dataset: image_saved_fn(axes, dataset, self._event_queue)
-            else:
-                raise Exception('Image saved callbacks must have either 2 or three parameters')
-
-        def _storage_monitor_fn():
-            dataset = self.get_dataset()
-            while True:
-                image_notification = self._image_notification_queue.get()
-                if AcqNotification.is_data_sink_finished_notification(image_notification):
-                    break
-                dataset._new_image_arrived = True
-                if callback is not None:
-                    callback(image_notification.payload, dataset)
-        t = threading.Thread(target=_storage_monitor_fn, name='StorageMonitorThread')
-        t.start()
-        return t
 
     def _check_for_exceptions(self):
         """

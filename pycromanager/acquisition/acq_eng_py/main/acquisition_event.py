@@ -42,15 +42,15 @@ class AcquisitionEvent:
             exposureSet = set()
             configSet = set()
             for event in self.sequence_:
-                if event.zPosition_:
+                if event.zPosition_ is not None:
                     zPosSet.add(event.get_z_position())
-                if event.xPosition_:
+                if event.xPosition_ is not None:
                     xPosSet.add(event.get_x_position())
-                if event.yPosition_:
+                if event.yPosition_ is not None:
                     yPosSet.add(event.get_y_position())
-                if event.exposure_:
+                if event.exposure_ is not None:
                     exposureSet.add(event.get_exposure())
-                if event.configPreset_:
+                if event.configPreset_ is not None:
                     configSet.add(event.get_config_preset())
             self.exposureSequenced_ = len(exposureSet) > 1
             self.configGroupSequenced_ = len(configSet) > 1
@@ -83,64 +83,65 @@ class AcquisitionEvent:
     def event_to_json(e):
         data = {}
 
-        if e.isAcquisitionFinishedEvent():
+        if e.is_acquisition_finished_event():
             data["special"] = "acquisition-end"
-            return json.dumps(data)
-        elif e.isAcquisitionSequenceEndEvent():
+            return data
+        elif e.is_acquisition_sequence_end_event():
             data["special"] = "sequence-end"
-            return json.dumps(data)
+            return data
 
         if e.miniumumStartTime_ms_:
             data["min_start_time"] = e.miniumumStartTime_ms_ / 1000
 
-        if e.hasConfigGroup():
+        if e.has_config_group():
             data["config_group"] = [e.configGroup_, e.configPreset_]
 
-        if e.exposure_:
+        if e.exposure_ is not None:
             data["exposure"] = e.exposure_
 
         if e.slmImage_:
             data["slm_pattern"] = e.slmImage_
 
-        if e.timeout_ms_:
+        if e.timeout_ms_ is not None:
             data["timeout_ms"] = e.timeout_ms_
 
         axes = {axis: e.axisPositions_[axis] for axis in e.axisPositions_}
         if axes:
             data["axes"] = axes
 
-        stage_positions = [[stageDevice, e.getStageSingleAxisStagePosition(stageDevice)] for stageDevice in e.getStageDeviceNames()]
+        stage_positions = [[stageDevice, e.get_stage_single_axis_stage_position(stageDevice)]
+                           for stageDevice in e.get_stage_device_names()]
         if stage_positions:
             data["stage_positions"] = stage_positions
 
-        if e.zPosition_:
+        if e.zPosition_ is not None:
             data["z"] = e.zPosition_
 
-        if e.xPosition_:
+        if e.xPosition_ is not None:
             data["x"] = e.xPosition_
 
-        if e.yPosition_:
+        if e.yPosition_ is not None:
             data["y"] = e.yPosition_
 
         if e.camera_:
             data["camera"] = e.camera_
 
-        if e.getTags() and e.getTags():  # Assuming getTags is a method in the class
+        if e.get_tags() and e.get_tags():  # Assuming getTags is a method in the class
             data["tags"] = {key: value for key, value in e.getTags().items()}
 
         props = [[t.dev, t.prop, t.val] for t in e.properties_]
         if props:
             data["properties"] = props
 
-        return json.dumps(data)
+        return data
 
     @staticmethod
     def event_from_json(data, acq):
         if "special" in data:
             if data["special"] == "acquisition-end":
-                return AcquisitionEvent.createAcquisitionFinishedEvent(acq)
+                return AcquisitionEvent.create_acquisition_finished_event(acq)
             elif data["special"] == "sequence-end":
-                return AcquisitionEvent.createAcquisitionSequenceEndEvent(acq)
+                return AcquisitionEvent.create_acquisition_sequence_end_event(acq)
 
         event = AcquisitionEvent(acq)
 
@@ -151,30 +152,30 @@ class AcquisitionEvent:
         if "min_start_time" in data:
             event.miniumumStartTime_ms_ = int(data["min_start_time"] * 1000)
 
-        if "timeout" in data:
-            event.timeout_ms_ = data["timeout"]
+        if "timeout_ms" in data:
+            event.timeout_ms_ = float(data["timeout_ms"])
 
         if "config_group" in data:
             event.configGroup_ = data["config_group"][0]
             event.configPreset_ = data["config_group"][1]
 
         if "exposure" in data:
-            event.exposure_ = data["exposure"]
+            event.exposure_ = float(data["exposure"])
 
-        if "timeout_ms" in data:
-            event.slmImage_ = data["timeout_ms"]
+        # if "timeout_ms" in data:
+        #     event.slmImage_ = float(data["timeout_ms"])
 
         if "stage_positions" in data:
             for stagePos in data["stage_positions"]:
-                event.setStageCoordinate(stagePos[0], stagePos[1])
+                event.set_stage_coordinate(stagePos[0], stagePos[1])
 
         if "z" in data:
-            event.zPosition_ = data["z"]
+            event.zPosition_ = float(data["z"])
 
         if "stage" in data:
             deviceName = data["stage"]["device_name"]
             position = data["stage"]["position"]
-            event.axisPositions_[deviceName] = position
+            event.axisPositions_[deviceName] = float(position)
             if "axis_name" in data["stage"]:
                 axisName = data["stage"]["axis_name"]
                 event.stageDeviceNamesToAxisNames_[deviceName] = axisName
@@ -189,10 +190,10 @@ class AcquisitionEvent:
         #     event.yPosition_ = xyPos.y
 
         if "x" in data:
-            event.xPosition_ = data["x"]
+            event.xPosition_ = float(data["x"])
 
         if "y" in data:
-            event.yPosition_ = data["y"]
+            event.yPosition_ = float(data["y"])
 
         if "slm_pattern" in data:
             event.slmImage_ = data["slm_pattern"]
@@ -214,17 +215,17 @@ class AcquisitionEvent:
     def to_json(self):
         if self.sequence_:
             events = [self.event_to_json(e) for e in self.sequence_]
-            return json.dumps({"events": events})
+            return events
         else:
             return self.event_to_json(self)
 
     @staticmethod
     def from_json(data, acq):
-        if "events" not in data:
+        if not isinstance(data, list):
             return AcquisitionEvent.event_from_json(data, acq)
         else:
-            sequence = [AcquisitionEvent.event_from_json(item, acq) for item in data["events"]]
-            return AcquisitionEvent(sequence)
+            sequence = [AcquisitionEvent.event_from_json(event, acq) for event in data]
+            return AcquisitionEvent(acq, sequence=sequence)
 
     def get_camera_device_name(self):
         return self.camera_
@@ -238,7 +239,7 @@ class AcquisitionEvent:
     def should_acquire_image(self):
         if self.sequence_:
             return True
-        return self.configPreset_ is not None or len(self.axisPositions_) > 0
+        return self.configPreset_ is not None or self.axisPositions_ is not None
 
     def has_config_group(self):
         return self.configPreset_ is not None and self.configGroup_ is not None
@@ -422,9 +423,9 @@ class AcquisitionEvent:
         return dict(self.tags_)
 
     def __str__(self):
-        if self.specialFlag_ == AcquisitionEvent.SpecialFlag.AcquisitionFinished:
+        if self.specialFlag_ == AcquisitionEvent.SpecialFlag.ACQUISITION_FINISHED:
             return "Acq finished event"
-        elif self.specialFlag_ == AcquisitionEvent.SpecialFlag.AcquisitionSequenceEnd:
+        elif self.specialFlag_ == AcquisitionEvent.SpecialFlag.ACQUISITION_SEQUENCE_END:
             return "Acq sequence end event"
 
         builder = []

@@ -15,7 +15,7 @@ import re
 def read_versions(root):
     versions = {}
     versions['PycroManagerJava'] = Version(root.find("version").text)
-    # iterate through the dependencies and get NDTiff, NDViewer, and AcqEngJ
+    # iterate through the dependencies and get NDStorage, NDViewer, and AcqEngJ
     dependencies = root.findall(".//dependency")
     for dependency in dependencies:
         artifactId = dependency.find("artifactId").text

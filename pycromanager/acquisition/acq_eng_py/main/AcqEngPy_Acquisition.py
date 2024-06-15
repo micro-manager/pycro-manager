@@ -9,7 +9,6 @@ from pycromanager.acquisition.acq_eng_py.main.acq_notification import AcqNotific
 from pycromanager.acquisition.acq_eng_py.internal.notification_handler import NotificationHandler
 
 
-
 class Acquisition():
 
     EVENT_GENERATION_HOOK = 0
@@ -120,15 +119,15 @@ class Acquisition():
                         img = acq.first_dequeue_.get()
                         if acq.debug_mode_:
                             acq.core_.log_message("got image to save")
+                        acq.save_image(img)
                         if img.tags is None and img.pix is None:
                             break
-                        acq.save_image(img)
                     else:
                         img = acq.processor_output_queues_[acq.image_processors_[-1]].get()
                         if acq.data_sink_:
                             if acq.debug_mode_:
                                 acq.core_.log_message("Saving image")
-                            if not img.pix and not img.tags:
+                            if img.tags is None and img.pix is None:
                                 break
                             acq.save_image(img)
                             if acq.debug_mode_:
@@ -169,15 +168,10 @@ class Acquisition():
             self.after_exposure_hooks_.append(h)
 
     def initialize(self):
-        if self.core_:
-            summary_metadata = AcqEngMetadata.make_summary_metadata(self.core_, self)
-            self.add_to_summary_metadata(summary_metadata)
-            try:
-                self.summary_metadata_ = summary_metadata
-            except json.JSONDecodeError:
-                print("Couldn't copy summary metadata")
-            if self.data_sink_:
-                self.data_sink_.initialize(self, summary_metadata)
+        summary_metadata = AcqEngMetadata.make_summary_metadata(self.core_, self)
+        self.add_to_summary_metadata(summary_metadata)
+        if self.data_sink_:
+            self.data_sink_.initialize(summary_metadata)
 
     def start(self):
         if self.data_sink_:
@@ -190,8 +184,9 @@ class Acquisition():
             self.data_sink_.finish()
             self.post_notification(AcqNotification.create_data_sink_finished_notification())
         else:
-            self.data_sink_.put_image(image)
-            axes = AcqEngMetadata.get_axes(image.tags)
+            pixels, metadata = image.pix, image.tags
+            axes = AcqEngMetadata.get_axes(metadata)
+            self.data_sink_.put_image(axes, pixels, metadata)
             self.post_notification(AcqNotification.create_image_saved_notification(axes))
 
     def get_start_time_ms(self):
@@ -212,8 +207,9 @@ class Acquisition():
     def get_summary_metadata(self):
         return self.summary_metadata_
 
-    def anything_acquired(self):
-        return not self.data_sink_ or self.data_sink_.anything_acquired()
+    # perhaps not needed in python like it is in java
+    # def anything_acquired(self):
+    #     return not self.data_sink_ or self.data_sink_.anything_acquired()
 
     def add_image_metadata_processor(self, processor):
         if not self.image_metadata_processor_:

@@ -31,7 +31,7 @@ class Acquisition(PycromanagerAcquisitionBase):
 
         if _PYMMCORES:
             # Python backend detected, so create a python backend acquisition
-            specific_arg_names = [k for k in signature(JavaBackendAcquisition.__init__).parameters.keys() if k != 'self']
+            specific_arg_names = [k for k in signature(PythonBackendAcquisition.__init__).parameters.keys() if k != 'self']
             for name in specific_arg_names:
                 if name in kwargs:
                     named_args[name] = kwargs[name]

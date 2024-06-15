@@ -1,4 +1,4 @@
-# When NDTiff, AcqEngJ, or NDViewer update, a automatic push
+# When NDStorage, AcqEngJ, or NDViewer update, a automatic push
 # to the dependency-update branch of pycro-manager will be generated
 # that updates the version in their POM.xml files
 # This script should then:

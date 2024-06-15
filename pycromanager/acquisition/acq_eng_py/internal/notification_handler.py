@@ -1,5 +1,8 @@
+import warnings
 from queue import Queue
+import queue
 import threading
+import traceback
 
 class NotificationHandler:
     def __init__(self):
@@ -23,9 +26,11 @@ class NotificationHandler:
                 break
 
     def post_notification(self, notification):
-        self.notification_queue.put(notification)
-        if self.notification_queue.qsize() > 500:
-            print(f"Warning: Acquisition notification queue size: {self.notification_queue.qsize()}")
+            # print(f"NotificationHandler.post_notification: {notification}")
+            self.notification_queue.put(notification)
+            # print("NotificationHandler.post_notification. size", self.notification_queue.qsize() )
+            if self.notification_queue.qsize() > 500:
+                warnings.warn(f"Acquisition notification queue size: {self.notification_queue.qsize()}")
 
     def add_listener(self, listener):
         self.listeners.append(listener)

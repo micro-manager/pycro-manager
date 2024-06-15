@@ -12,7 +12,6 @@ def check_acq_sequenced(events, expected_num_events):
 def check_acq_not_sequenced(events):
     return isinstance(events, dict)
 
-
 def test_timelapse_acq(launch_mm_headless, setup_data_folder):
     events = multi_d_acquisition_events(num_time_points=10, time_interval_s=0.1)
 
@@ -20,7 +19,7 @@ def test_timelapse_acq(launch_mm_headless, setup_data_folder):
         assert check_acq_not_sequenced(_events)
         return _events
 
-    with Acquisition(setup_data_folder, 'acq', show_display=False,
+    with Acquisition(setup_data_folder, 'test_timelapse_acq', show_display=False,
                                 pre_hardware_hook_fn=hook_fn) as acq:
         acq.acquire(events)
 
@@ -30,7 +29,6 @@ def test_timelapse_acq(launch_mm_headless, setup_data_folder):
     finally:
         dataset.close()
 
-
 def test_timelapse_seq_acq(launch_mm_headless, setup_data_folder):
     events = multi_d_acquisition_events(num_time_points=10, time_interval_s=0)
 
@@ -38,7 +36,7 @@ def test_timelapse_seq_acq(launch_mm_headless, setup_data_folder):
         assert check_acq_sequenced(_events, 10), 'Sequenced acquisition is not built correctly'
         return _events
 
-    with Acquisition(setup_data_folder, 'acq', show_display=False,
+    with Acquisition(setup_data_folder, 'test_timelapse_seq_acq', show_display=False,
                                 pre_hardware_hook_fn=hook_fn) as acq:
         acq.acquire(events)
 
@@ -53,7 +51,7 @@ def test_empty_list_acq(launch_mm_headless, setup_data_folder):
     events = []
 
     with pytest.raises(Exception):
-        with Acquisition(setup_data_folder, 'acq', show_display=False) as acq:
+        with Acquisition(setup_data_folder, 'test_empty_list_acq', show_display=False) as acq:
             acq.acquire(events)
 
 
@@ -61,7 +59,7 @@ def test_empty_dict_acq(launch_mm_headless, setup_data_folder):
     events = {}
 
     with pytest.raises(Exception):
-        with Acquisition(setup_data_folder, 'acq', show_display=False) as acq:
+        with Acquisition(setup_data_folder, 'test_empty_dict_acq', show_display=False) as acq:
             acq.acquire(events)
 
 
@@ -69,15 +67,16 @@ def test_empty_dict_list_acq(launch_mm_headless, setup_data_folder):
     events = [{}, {}]
 
     with pytest.raises(Exception):
-        with Acquisition(setup_data_folder, 'acq', show_display=False) as acq:
+        with Acquisition(setup_data_folder, 'test_empty_dict_list_acq', show_display=False) as acq:
             acq.acquire(events)
 
 
 def test_empty_mda_acq(launch_mm_headless, setup_data_folder):
     events = multi_d_acquisition_events()
 
-    with Acquisition(setup_data_folder, 'acq', show_display=False) as acq:
+    with Acquisition(setup_data_folder, 'test_empty_mda_acq', show_display=False) as acq:
         acq.acquire(events)
+
 
     dataset = acq.get_dataset()
     try:
@@ -89,7 +88,7 @@ def test_empty_mda_acq(launch_mm_headless, setup_data_folder):
 def test_single_snap_acq(launch_mm_headless, setup_data_folder):
     events = multi_d_acquisition_events(num_time_points=1)
 
-    with Acquisition(setup_data_folder, 'acq', show_display=False) as acq:
+    with Acquisition(setup_data_folder, 'test_single_snap_acq', show_display=False) as acq:
         acq.acquire(events)
 
     dataset = acq.get_dataset()
@@ -111,7 +110,7 @@ def test_multi_d_acq(launch_mm_headless, setup_data_folder):
         order="tcz",
     )
 
-    with Acquisition(setup_data_folder, 'acq', show_display=False) as acq:
+    with Acquisition(setup_data_folder, 'test_multi_d_acq', show_display=False) as acq:
         acq.acquire(events)
 
     dataset = acq.get_dataset()
@@ -142,7 +141,7 @@ def test_zstack_seq_acq(launch_mm_headless, setup_data_folder):
         assert check_acq_sequenced(_events, len(events)), 'Sequenced acquisition is not built correctly'
         return None  # no need to actually acquire the data
 
-    with Acquisition(setup_data_folder, 'acq', show_display=False,
+    with Acquisition(setup_data_folder, 'test_zstack_seq_acq', show_display=False,
                                 pre_hardware_hook_fn=hook_fn) as acq:
         acq.acquire(events)
 
@@ -164,7 +163,7 @@ def test_channel_seq_acq(launch_mm_headless, setup_data_folder):
         assert check_acq_sequenced(_events, len(events)), 'Sequenced acquisition is not built correctly'
         return None  # no need to actually acquire the data
 
-    with Acquisition(setup_data_folder, 'acq', show_display=False,
+    with Acquisition(setup_data_folder, 'test_channel_seq_acq', show_display=False,
                      pre_hardware_hook_fn=hook_fn) as acq:
         acq.acquire(events)
 
@@ -190,7 +189,7 @@ def test_channel_exp_seq_acq(launch_mm_headless, setup_data_folder):
         assert check_acq_sequenced(_events, len(events)), 'Sequenced acquisition is not built correctly'
         return None  # no need to actually acquire the data
 
-    with Acquisition(setup_data_folder, 'acq', show_display=False,
+    with Acquisition(setup_data_folder, 'test_channel_exp_seq_acq', show_display=False,
                                 pre_hardware_hook_fn=hook_fn) as acq:
         acq.acquire(events)
 
@@ -215,7 +214,7 @@ def test_channel_noseq_acq(launch_mm_headless, setup_data_folder):
         assert check_acq_not_sequenced(_events), 'Sequenced acquisition is not built correctly'
         return _events
 
-    with Acquisition(setup_data_folder, 'acq', show_display=False,
+    with Acquisition(setup_data_folder, 'test_channel_noseq_acq', show_display=False,
                                 pre_hardware_hook_fn=hook_fn) as acq:
         acq.acquire(events)
 
@@ -247,7 +246,7 @@ def test_channel_z_seq_acq(launch_mm_headless, setup_data_folder):
         assert check_acq_sequenced(_events, len(events)), 'Sequenced acquisition is not built correctly'
         return None  # no need to actually acquire the data
 
-    with Acquisition(setup_data_folder, 'acq', show_display=False,
+    with Acquisition(setup_data_folder, 'test_channel_z_seq_acq', show_display=False,
                                 pre_hardware_hook_fn=hook_fn) as acq:
         acq.acquire(events)
 
@@ -270,7 +269,7 @@ def test_z_channel_seq_acq(launch_mm_headless, setup_data_folder):
         assert check_acq_sequenced(_events, len(events)), 'Sequenced acquisition is not built correctly'
         return None  # no need to actually acquire the data
 
-    with Acquisition(setup_data_folder, 'acq', show_display=False,
+    with Acquisition(setup_data_folder, 'test_z_channel_seq_acq', show_display=False,
                                 pre_hardware_hook_fn=hook_fn) as acq:
         acq.acquire(events)
 
@@ -293,7 +292,7 @@ def test_channel_seq_z_noseq_acq(launch_mm_headless, setup_data_folder):
         assert check_acq_sequenced(_events, 4), 'Sequenced acquisition is not built correctly'
         return None  # no need to actually acquire the data
 
-    with Acquisition(setup_data_folder, 'acq', show_display=False,
+    with Acquisition(setup_data_folder, 'test_channel_seq_z_noseq_acq', show_display=False,
                                 pre_hardware_hook_fn=hook_fn) as acq:
         acq.acquire(events)
 
@@ -323,7 +322,7 @@ def test_channel_noseq_z_seq_acq(launch_mm_headless, setup_data_folder):
         assert check_acq_sequenced(_events, 5), 'Sequenced acquisition is not built correctly'
         return _events
 
-    with Acquisition(setup_data_folder, 'acq', show_display=False,
+    with Acquisition(setup_data_folder, 'test_channel_noseq_z_seq_acq', show_display=False,
                                 pre_hardware_hook_fn=hook_fn) as acq:
         acq.acquire(events)
 
@@ -356,7 +355,7 @@ def test_time_channel_z_seq_acq(launch_mm_headless, setup_data_folder):
         assert check_acq_sequenced(_events, len(events)), 'Sequenced acquisition is not built correctly'
         return None  # no need to actually acquire the data
 
-    with Acquisition(setup_data_folder, 'acq', show_display=False,
+    with Acquisition(setup_data_folder, 'test_time_channel_z_seq_acq', show_display=False,
                                 pre_hardware_hook_fn=hook_fn) as acq:
         acq.acquire(events)
 
@@ -380,7 +379,7 @@ def test_time_z_channel_seq_acq(launch_mm_headless, setup_data_folder):
         assert check_acq_sequenced(_events, len(events)), 'Sequenced acquisition is not built correctly'
         return None  # no need to actually acquire the data
 
-    with Acquisition(setup_data_folder, 'acq', show_display=False,
+    with Acquisition(setup_data_folder, 'test_time_z_channel_seq_acq', show_display=False,
                                 pre_hardware_hook_fn=hook_fn) as acq:
         acq.acquire(events)
 
@@ -404,7 +403,7 @@ def test_time_noseq_z_channel_seq_acq(launch_mm_headless, setup_data_folder):
         assert check_acq_sequenced(_events, 20), 'Sequenced acquisition is not built correctly'
         return None  # no need to actually acquire the data
 
-    with Acquisition(setup_data_folder, 'acq', show_display=False,
+    with Acquisition(setup_data_folder, 'test_time_noseq_z_channel_seq_acq', show_display=False,
                                 pre_hardware_hook_fn=hook_fn) as acq:
         acq.acquire(events)
 
@@ -424,7 +423,7 @@ def test_time_noseq_z_seq_interval_acq(launch_mm_headless, setup_data_folder):
         return _events
 
     t_start = time.time()
-    with Acquisition(setup_data_folder, 'acq', show_display=False,
+    with Acquisition(setup_data_folder, 'test_time_noseq_z_seq_interval_acq', show_display=False,
                                 pre_hardware_hook_fn=hook_fn) as acq:
         acq.acquire(events)
     t_end = time.time()
@@ -444,19 +443,21 @@ def test_abort_sequenced_timelapse(launch_mm_headless, setup_data_folder):
     mmc = Core()
     mmc.set_exposure(1000)
 
-    with Acquisition(setup_data_folder, 'acq', show_display=False,
-                                pre_hardware_hook_fn=hook_fn) as acq:
+    with Acquisition(setup_data_folder, 'test_abort_sequenced_timelapse', show_display=False, pre_hardware_hook_fn=hook_fn) as acq:
         events = multi_d_acquisition_events(1000)
         acq.acquire(events)
         time.sleep(10)
         acq.abort()
+
+    assert not mmc.is_sequence_running()
 
     # reset exposure time
     mmc.set_exposure(10)
 
     dataset = acq.get_dataset()
     try:
-        assert(0 < len(dataset.index) < 100)
+        assert(0 < len(dataset.axes['time']) < 100)
+
     finally:
         dataset.close()
 
@@ -464,17 +465,17 @@ def test_abort_with_no_events(launch_mm_headless, setup_data_folder):
     """
     Test that aborting before any events processed doesnt cause hang or exception
     """
-    with Acquisition(setup_data_folder, 'acq', show_display=False) as acq:
+    mmc = Core()
+    with Acquisition(setup_data_folder, 'test_abort_with_no_events', show_display=False) as acq:
         acq.abort()
-    assert True
-
+    assert not mmc.is_sequence_running()
 
 def test_abort_from_external(launch_mm_headless, setup_data_folder):
     """
     Simulates the acquisition being shutdown from a remote source (e.g. Xing out the viewer)
     """
     with pytest.raises(AcqAlreadyCompleteException):
-        with Acquisition(setup_data_folder, 'acq', show_display=False) as acq:
+        with Acquisition(setup_data_folder, 'test_abort_from_external', show_display=False) as acq:
             events = multi_d_acquisition_events(num_time_points=6)
             acq.acquire(events[0])
             # this simulates an abort from the java side unbeknownst to python side
@@ -497,7 +498,7 @@ def test_abort_sequenced_zstack(launch_mm_headless, setup_data_folder):
         assert check_acq_sequenced(_events, 1000), 'Sequenced acquisition is not built correctly'
         return _events
 
-    with Acquisition(setup_data_folder, 'acq', show_display=False,
+    with Acquisition(setup_data_folder, 'test_abort_sequenced_zstack', show_display=False,
                                 pre_hardware_hook_fn=hook_fn) as acq:
         events = multi_d_acquisition_events(z_start=0, z_end=999, z_step=1)
         acq.acquire(events)
@@ -509,7 +510,7 @@ def test_abort_sequenced_zstack(launch_mm_headless, setup_data_folder):
 
     dataset = acq.get_dataset()
     try:
-        assert(len(dataset.index) < 1000)
+        assert(len(dataset.axes['z']) < 1000)
     finally:
         dataset.close()
 
@@ -522,7 +523,7 @@ def test_change_image_size(launch_mm_headless, setup_data_folder):
     mmc.set_property('Camera', 'OnCameraCCDXSize', '1024')
     mmc.set_property('Camera', 'OnCameraCCDYSize', '1024')
 
-    with Acquisition(setup_data_folder, 'acq', show_display=False) as acq:
+    with Acquisition(setup_data_folder, 'test_change_image_size', show_display=False) as acq:
         events = multi_d_acquisition_events(num_time_points=5)
         acq.acquire(events)
 
@@ -544,7 +545,7 @@ def test_change_roi(launch_mm_headless, setup_data_folder):
     mmc = Core()
     mmc.set_roi(*(0, 0, 100, 100))
 
-    with Acquisition(setup_data_folder, 'acq', show_display=False) as acq:
+    with Acquisition(setup_data_folder, 'test_change_roi', show_display=False) as acq:
         events = multi_d_acquisition_events(num_time_points=5)
         acq.acquire(events)
 
@@ -567,7 +568,7 @@ def test_change_binning(launch_mm_headless, setup_data_folder):
     mmc.set_property('Camera', 'OnCameraCCDYSize', '512')
     mmc.set_property('Camera', 'Binning', '2')
 
-    with Acquisition(setup_data_folder, 'acq', show_display=False) as acq:
+    with Acquisition(setup_data_folder, 'test_change_binning', show_display=False) as acq:
         events = multi_d_acquisition_events(num_time_points=5)
         acq.acquire(events)
 
@@ -594,7 +595,7 @@ def test_multiple_positions_acq(launch_mm_headless, setup_data_folder):
         assert check_acq_not_sequenced(_events), 'Sequenced acquisition is not built correctly'
         return _events
 
-    with Acquisition(setup_data_folder, 'acq', show_display=False,
+    with Acquisition(setup_data_folder, 'test_multiple_positions_acq', show_display=False,
                                 pre_hardware_hook_fn=hook_fn) as acq:
         acq.acquire(events)
 
@@ -621,7 +622,7 @@ def test_multiple_labeled_positions_acq(launch_mm_headless, setup_data_folder):
         assert check_acq_not_sequenced(_events), 'Sequenced acquisition is not built correctly'
         return _events
 
-    with Acquisition(setup_data_folder, 'acq', show_display=False,
+    with Acquisition(setup_data_folder, 'test_multiple_labeled_positions_acq', show_display=False,
                                 pre_hardware_hook_fn=hook_fn) as acq:
         acq.acquire(events)
 
@@ -644,12 +645,12 @@ def test_multi_channel_parsing(launch_mm_headless, setup_data_folder):
         channels=["DAPI", "FITC"],
     )
 
-    with Acquisition(setup_data_folder, 'acq', show_display=False) as acq:
+    with Acquisition(setup_data_folder, 'test_multi_channel_parsing', show_display=False) as acq:
         acq.acquire(events)
         
     dataset = acq.get_dataset()
     try:
-        assert all([channel in dataset.get_channel_names() for channel in ["DAPI", "FITC"]])
+        assert all([channel in dataset.axes['channel'] for channel in ["DAPI", "FITC"]])
     finally:
         dataset.close()
 
@@ -659,7 +660,7 @@ def test_empty_axes(launch_mm_headless, setup_data_folder):
     Test that images with empty axes are correctly saved
     """
 
-    with Acquisition(setup_data_folder, 'acq', show_display=False) as acq:
+    with Acquisition(setup_data_folder, 'test_empty_axes', show_display=False) as acq:
         acq.acquire({'axes': {}})
 
     dataset = acq.get_dataset()

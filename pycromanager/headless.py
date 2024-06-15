@@ -60,12 +60,12 @@ def _create_pymmcore_instance():
         tags = {key: md.GetSingleTag(key).GetValue() for key in md.GetKeys()}
         return TaggedImage(tags, pix)
 
-    def get_tagged_image(self, cam_index, camera, height, width, binning=None, pixel_type=None, roi_x_start=None,
+    def get_tagged_image(core, cam_index, camera, height, width, binning=None, pixel_type=None, roi_x_start=None,
                          roi_y_start=None):
         """
         Different signature than the Java version because of difference in metadata handling in the swig layers
         """
-        pix = self.get_image()
+        pix = core.get_image()
         md = pymmcore.Metadata()
         # most of the same tags from pop_next_tagged_image, which may not be the same as the MMCoreJ version of this function
         tags = {'Camera': camera, 'Height': height, 'Width': width, 'PixelType': pixel_type,
