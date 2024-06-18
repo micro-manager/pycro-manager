@@ -6,3 +6,4 @@ docstring-inheritance
 pymmcore
 sortedcontainers
 pyjavaz>=1.2.1
+wget
