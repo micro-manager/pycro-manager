@@ -1,7 +1,7 @@
 numpy
 dask[array]>=2022.2.0
 pyzmq
-ndstorage>=0.1.5
+ndstorage>=0.1.6
 docstring-inheritance
 pymmcore
 sortedcontainers

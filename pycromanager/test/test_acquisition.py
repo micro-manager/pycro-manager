@@ -668,3 +668,23 @@ def test_empty_axes(launch_mm_headless, setup_data_folder):
         assert dataset.read_image() is not None and dataset.read_image().max() > 0
     finally:
         dataset.close()
+
+
+def test_8bit(launch_mm_headless, setup_data_folder):
+    """
+    Test that images with empty axes are correctly saved
+    """
+    events = multi_d_acquisition_events(10)
+    core = Core()
+    core.set_property('Camera', 'BitDepth', '8')
+    core.set_property('Camera', 'PixelType', '8bit')
+
+    with Acquisition(setup_data_folder, 'test_8_bit', show_display=False) as acq:
+        acq.acquire(events)
+
+    dataset = acq.get_dataset()
+    try:
+        image_coordinates = events[0]['axes']
+        assert dataset.read_image(**image_coordinates) is not None and dataset.read_image(**image_coordinates).max() > 0
+    finally:
+        dataset.close()
