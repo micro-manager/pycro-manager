@@ -1,14 +1,13 @@
 import traceback
-from concurrent.futures import Future
 from concurrent.futures import ThreadPoolExecutor
 import time
 import datetime
 
-from pycromanager.acquisition.acq_eng_py.main.acquisition_event import AcquisitionEvent
-from pycromanager.acquisition.acq_eng_py.main.acq_eng_metadata import AcqEngMetadata
+from pycromanager.acquisition.new.acq_events import AcquisitionEvent
 from pycromanager.acquisition.acq_eng_py.internal.hardware_sequences import HardwareSequences
 import pymmcore
 from pycromanager.acquisition.acq_eng_py.main.acq_notification import AcqNotification
+from pycromanager.acquisition.python_backend_acquisitions import PythonBackendAcquisition
 
 HARDWARE_ERROR_RETRIES = 6
 DELAY_BETWEEN_RETRIES_MS = 5
@@ -33,7 +32,7 @@ class Engine:
 
     @staticmethod
     def get_core():
-        return Engine.singleton.core
+        return Engine.singleton._core
 
     @staticmethod
     def get_instance():
@@ -41,54 +40,22 @@ class Engine:
 
     def finish_acquisition(self, acq):
         def finish_acquisition_inner():
-            if acq.is_debug_mode():
-                Engine.get_core().logMessage("recieved acquisition finished signal")
             self.sequenced_events.clear()
-            if acq.is_debug_mode():
-                Engine.get_core().logMessage("creating acquisition finished event")
-            self.execute_acquisition_event(AcquisitionEvent.create_acquisition_finished_event(acq))
+            self.execute_acquisition_event(acq, None)
             acq.block_until_events_finished()
 
         return self.event_generator_executor.submit(finish_acquisition_inner)
 
-    def submit_event_iterator(self, event_iterator):
-        def submit_event_iterator_inner():
-            acq = None
-            while True:
-                try:
-                    event = next(event_iterator, None)
-                except StopIteration:
-                    traceback.print_exc()
-                    break
-                if event is None:
-                    break # iterator exhausted
-                acq = event.acquisition_
-                if acq.is_debug_mode():
-                    Engine.get_core().logMessage("got event: " + event.to_string())
-                for h in event.acquisition_.get_event_generation_hooks():
-                    event = h.run(event)
-                    if event is None:
-                        return
-                while event.acquisition_.is_paused():
-                    time.sleep(0.005)
-                try:
-                    if acq.is_abort_requested():
-                        if acq.is_debug_mode():
-                            Engine.get_core().logMessage("acquisition aborted")
-                        return
-                    image_acquired_future = self.process_acquisition_event(event)
-                    image_acquired_future.result()
+    def submit_event_iterator(self, acquisition, event_generator):
 
-                except Exception as ex:
-                    traceback.print_exc()
-                    acq.abort(ex)
-                    raise ex
+        for event in event_generator:
+            image_acquired_future = self.acq_executor.submit(lambda: self.execute_acquisition_event(acquisition, event))
 
-            last_image_future = self.process_acquisition_event(AcquisitionEvent.create_acquisition_sequence_end_event(acq))
-            last_image_future.result()
+        # TODO: before, this used to use the event generator thread to do any transpiling (i.e. checking for sequenceing)
+        #  in order to (theoretically) improve speed. Now we're just returning the image acquired future directly.
+        #   Probably doesn't matter becuase this is suppoed to be async anyway
 
-
-        return self.event_generator_executor.submit(submit_event_iterator_inner)
+        # return self.event_generator_executor.submit(submit_event_iterator_inner)
     
 
     def check_for_default_devices(self, event: AcquisitionEvent):
@@ -99,134 +66,65 @@ class Engine:
         if event.get_x_position() is not None and (xy_stage is None or xy_stage == ""):
             raise Exception("Event requires an x position, but no Core-XYStage device is set")
 
-    def process_acquisition_event(self, event: AcquisitionEvent) -> Future:
-        def process_acquisition_event_inner():
-            try:
-                self.check_for_default_devices(event)
-                if event.acquisition_.is_debug_mode():
-                    self.core.logMessage("Processing event: " + str(event))
-                    self.core.logMessage("checking for sequencing")
-                if not self.sequenced_events and not event.is_acquisition_sequence_end_event():
-                    self.sequenced_events.append(event)
-                elif self.is_sequencable(self.sequenced_events, event, len(self.sequenced_events) + 1):
-                    # merge event into the sequence
-                    self.sequenced_events.append(event)
-                else:
-                    # all events
-                    sequence_event = self.merge_sequence_event(self.sequenced_events)
-                    self.sequenced_events.clear()
-                    # Add in the start of the new sequence
-                    if not event.is_acquisition_sequence_end_event():
-                        self.sequenced_events.append(event)
-                    if event.acquisition_.is_debug_mode():
-                        self.core.logMessage("executing acquisition event")
-                    try:
-                        self.execute_acquisition_event(sequence_event)
-                    except HardwareControlException as e:
-                        raise e
-            except Exception as e:
-                traceback.print_exc()
-                if self.core.is_sequence_running():
-                    self.core.stop_sequence_acquisition()
-                raise e
+    # def process_acquisition_event(self, acquisition: PythonBackendAcquisition,
+    #                               event: AcquisitionEvent) -> Future:
 
+        # TODO
+        # def process_acquisition_event_inner():
+        #     try:
+        #         self.check_for_default_devices(event)
+        #         if event.acquisition_.is_debug_mode():
+        #             self.core.logMessage("Processing event: " + str(event))
+        #             self.core.logMessage("checking for sequencing")
+        #         if not self.sequenced_events and not event.is_acquisition_sequence_end_event():
+        #             self.sequenced_events.append(event)
+        #         elif self.is_sequencable(self.sequenced_events, event, len(self.sequenced_events) + 1):
+        #             # merge event into the sequence
+        #             self.sequenced_events.append(event)
+        #         else:
+        #             # all events
+        #             sequence_event = self.merge_sequence_event(self.sequenced_events)
+        #             self.sequenced_events.clear()
+        #             # Add in the start of the new sequence
+        #             if not event.is_acquisition_sequence_end_event():
+        #                 self.sequenced_events.append(event)
+        #             if event.acquisition_.is_debug_mode():
+        #                 self.core.logMessage("executing acquisition event")
+        #             try:
+        #                 self.execute_acquisition_event(sequence_event)
+        #             except HardwareControlException as e:
+        #                 raise e
+        #     except Exception as e:
+        #         traceback.print_exc()
+        #         if self.core.is_sequence_running():
+        #             self.core.stop_sequence_acquisition()
+        #         raise e
+        #
+        #
+        # return self.acq_executor.submit(process_acquisition_event_inner)
 
-        return self.acq_executor.submit(process_acquisition_event_inner)
-
-    def execute_acquisition_event(self, event: AcquisitionEvent):
+    def execute_acquisition_event(self, acquisition: PythonBackendAcquisition,event: AcquisitionEvent):
         # check if we should pause until the minimum start time of the event has occured
-        while event.get_minimum_start_time_absolute() is not None and \
-                time.time() * 1000 < event.get_minimum_start_time_absolute():
-            wait_time = event.get_minimum_start_time_absolute() - time.time() * 1000
-            event.acquisition_.block_unless_aborted(wait_time)
+        # while event.get_minimum_start_time_absolute() is not None and \
+        #         time.time() * 1000 < event.get_minimum_start_time_absolute():
+        #     wait_time = event.get_minimum_start_time_absolute() - time.time() * 1000
+        #     event.acquisition_.block_unless_aborted(wait_time)
 
-        if event.is_acquisition_finished_event():
-            # signal to finish saving thread and mark acquisition as finished
-            if event.acquisition_.are_events_finished():
-                return  # Duplicate finishing event, possibly from x-ing out viewer
-
-            # send message acquisition finished message so things shut down properly
-            for h in event.acquisition_.get_event_generation_hooks():
-                h.run(event)
-                h.close()
-            for h in event.acquisition_.get_before_hardware_hooks():
-                h.run(event)
-                h.close()
-            for h in event.acquisition_.get_after_hardware_hooks():
-                h.run(event)
-                h.close()
-            for h in event.acquisition_.get_after_camera_hooks():
-                h.run(event)
-                h.close()
-            for h in event.acquisition_.get_after_exposure_hooks():
-                h.run(event)
-                h.close()
-            event.acquisition_.add_to_output(self.core.TaggedImage(None, None))
-            event.acquisition_.post_notification(AcqNotification.create_acq_events_finished_notification())
-
+        if event is not None:
+            # execute the event
+            for instruction in event.device_instructions:
+                instruction.execute()
         else:
-            event.acquisition_.post_notification(AcqNotification(
-                AcqNotification.Hardware, event.axisPositions_, AcqNotification.Hardware.PRE_HARDWARE))
-            for h in event.acquisition_.get_before_hardware_hooks():
-                event = h.run(event)
-                if event is None:
-                    return  # The hook cancelled this event
-                self.abort_if_requested(event, None)
-            hardware_sequences_in_progress = HardwareSequences()
-            try:
-                self.prepare_hardware(event, hardware_sequences_in_progress)
-            except HardwareControlException as e:
-                self.stop_hardware_sequences(hardware_sequences_in_progress)
-                raise e
+            # signal to finish saving thread and mark acquisition as finished
+            if acquisition._are_events_finished():
+                return  # Duplicate finishing event, possibly from x-ing out viewer
+            acquisition._add_to_output(None)
+            acquisition._post_notification(AcqNotification.create_acq_events_finished_notification())
 
-            event.acquisition_.post_notification(AcqNotification(
-                AcqNotification.Hardware, event.axisPositions_, AcqNotification.Hardware.PRE_Z_DRIVE))
-            for h in event.acquisition_.get_before_z_hooks():
-                event = h.run(event)
-                if event is None:
-                    return  # The hook cancelled this event
-                self.abort_if_requested(event, None)
-
-            try:
-                self.start_z_drive(event, hardware_sequences_in_progress)
-            except HardwareControlException as e:
-                self.stop_hardware_sequences(hardware_sequences_in_progress)
-                raise e
-
-            event.acquisition_.post_notification(AcqNotification(
-                AcqNotification.Hardware, event.axisPositions_, AcqNotification.Hardware.POST_HARDWARE))
-            for h in event.acquisition_.get_after_hardware_hooks():
-                event = h.run(event)
-                if event is None:
-                    return  # The hook cancelled this event
-                self.abort_if_requested(event, hardware_sequences_in_progress)
-            # Hardware hook may have modified wait time, so check again if we should
-            # pause until the minimum start time of the event has occurred.
-            while event.get_minimum_start_time_absolute() is not None and \
-                    time.time() * 1000 < event.get_minimum_start_time_absolute():
-                try:
-                    self.abort_if_requested(event, hardware_sequences_in_progress)
-                    wait_time = event.get_minimum_start_time_absolute() - time.time() * 1000
-                    event.acquisition_.block_unless_aborted(wait_time)
-                except Exception:
-                    # Abort while waiting for next time point
-                    return
-
-            if event.should_acquire_image():
-                if event.acquisition_.is_debug_mode():
-                    self.core.logMessage("acquiring image(s)")
-                try:
-                    self.acquire_images(event, hardware_sequences_in_progress)
-                except TimeoutError:
-                    # Don't abort on a timeout
-                    # TODO: this could probably be an option added to the acquisition in the future
-                    print("Timeout while acquiring images")
-
-                # if the acquisition was aborted, make sure everything shuts down properly
-                self.abort_if_requested(event, hardware_sequences_in_progress)
 
         
-    def acquire_images(self, event: AcquisitionEvent, hardware_sequences_in_progress: HardwareSequences) -> None:
+    def acquire_images(self, acquisition : PythonBackendAcquisition,
+                       event: AcquisitionEvent, hardware_sequences_in_progress: HardwareSequences) -> None:
         """
         Acquire 1 or more images in a sequence, add some metadata, then
         put them into an output queue.
@@ -234,176 +132,25 @@ class Engine:
         If the event is a sequence and a sequence acquisition is started in the core,
         It should be completed by the time this method returns.
         """
-        camera_image_counts = event.get_camera_image_counts(self.core.get_camera_device())
-        if event.get_sequence() is not None and len(event.get_sequence()) > 1:
-            # start sequences on one or more cameras
-            for camera_device_name, image_count in camera_image_counts.items():
-                event.acquisition_.post_notification(AcqNotification(
-                    AcqNotification.Camera, event.axisPositions_, AcqNotification.Camera.PRE_SEQUENCE_STARTED))
-                self.core.start_sequence_acquisition(
-                    camera_device_name, camera_image_counts[camera_device_name], 0, True)
-        else:
-            # snap one image with no sequencing
-            event.acquisition_.post_notification(AcqNotification(
-                AcqNotification.Camera, event.axisPositions_, AcqNotification.Camera.PRE_SNAP))
-            if event.get_camera_device_name() is not None:
-                current_camera = self.core.get_camera_device()
-                width = self.core.get_image_width()
-                height = self.core.get_image_height()
-                self.core.set_camera_device(event.get_camera_device_name())
-                self.core.snap_image()
-                self.core.set_camera_device(current_camera)
-            else:
-                # Unlike MMCoreJ, pymmcore does not automatically add this metadata when snapping, so need to do it manually
-                width = self.core.get_image_width()
-                height = self.core.get_image_height()
-                self.core.snap_image()
-            event.acquisition_.post_notification(AcqNotification(
-                AcqNotification.Camera, event.axisPositions_, AcqNotification.Camera.POST_SNAP))
-            for h in event.acquisition_.get_after_exposure_hooks():
-                h.run(event)
-        
-        # get elapsed time
-        current_time_ms = time.time() * 1000
-        if event.acquisition_.get_start_time_ms() == -1:
-            # first image, initialize
-            event.acquisition_.set_start_time_ms(current_time_ms)
 
-        # need to assign events to images as they come out, assuming they might be in arbitrary order,
-        # but that each camera itself is ordered
-        multi_cam_adapter_camera_event_lists = None
-        if event.get_sequence() is not None:
-            multi_cam_adapter_camera_event_lists = {}
-            for cam_index in range(self.core.get_number_of_camera_channels()):
-                multi_cam_adapter_camera_event_lists[cam_index] = []
-                for e in event.get_sequence():
-                    multi_cam_adapter_camera_event_lists[cam_index].append(e)
+        acquisition.post_notification(AcqNotification(
+            AcqNotification.Camera, event.axisPositions_, AcqNotification.Camera.PRE_SEQUENCE_STARTED))
 
-        # Run a hook after the camera sequence acquisition has started. This can be used for
-        # external triggering of the camera (when it is in sequence mode).
-        # note: SnapImage will block until exposure finishes.
-        # If it is desired that AfterCameraHooks trigger cameras
-        # in Snap mode, one possibility is that those hooks (or SnapImage) should run
-        # in a separate thread, started after snapImage is started. But there is no
-        # guarantee that the camera will be ready to accept a trigger at that point.
-        for h in event.acquisition_.get_after_camera_hooks():
-            h.run(event)
+        # add standard metadata
+        # TODO
+        # AcqEngMetadata.add_image_metadata(self.core, ti.tags, corresponding_event,
+        #                                   current_time_ms - corresponding_event.acquisition_.get_start_time_ms(),
+        #                                   exposure)
+        # add user metadata specified in the event
+        # acquisition.add_tags_to_tagged_image(ti.tags, corresponding_event.get_tags())
 
-        if event.acquisition_.is_debug_mode():
-            self.core.log_message("images acquired, copying from core")
-        start_copy_time = time.time()
-        # Loop through and collect all acquired images. There will be
-        # (# of images in sequence) x (# of camera channels) of them
-        timeout = False
-        for i in range(0, 1 if event.get_sequence() is None else len(event.get_sequence())):
-            if timeout:
-                # Cancel the rest of the sequence
-                self.stop_hardware_sequences(hardware_sequences_in_progress)
-                break
-            try:
-                exposure = self.core.get_exposure() if event.get_exposure() is None else event.get_exposure()
-            except Exception as ex:
-                raise Exception("Couldnt get exposure form core")
-            num_cam_channels = self.core.get_number_of_camera_channels()
 
-            need_to_run_after_exposure_hooks = len(event.acquisition_.get_after_exposure_hooks()) > 0
-            for cam_index in range(num_cam_channels):
-                ti = None
-                camera_name = None
-                while ti is None:
-                    if event.acquisition_.is_abort_requested():
-                        return
-                    try:
-                        if event.get_sequence() is not None and len(event.get_sequence()) > 1:
-                            if self.core.is_buffer_overflowed():
-                                raise Exception("Sequence buffer overflow")
-                            try:
-                                ti = self.core.pop_next_tagged_image()
-                                camera_name = ti.tags["Camera"]
-                            except Exception as e:
-                                # continue waiting
-                                if not self.core.is_sequence_running() and self.core.get_remaining_image_count() == 0:
-                                    raise Exception("Expected images did not arrive in circular buffer")
-                                # check if timeout has been exceeded. This is used in the case of a
-                                # camera waiting for a trigger that never comes.
-                                if event.get_sequence()[i].get_timeout_ms() is not None:
-                                    if time.time() - start_copy_time > event.get_sequence()[i].get_timeout_ms():
-                                        timeout = True
-                                        self.core.stop_sequence_acquisition()
-                                        while self.core.is_sequence_running():
-                                            time.sleep(0.001)
-                                        break
-                        else:
-                            try:
-                                # TODO: probably there should be a timeout here too, but I'm
-                                #  not sure the snap_image system supports it (as opposed to sequences)
-                                # This is a little different from the java version due to differences in metadata
-                                # handling in the SWIG wrapper
-                                camera_name = self.core.get_camera_device()
-                                ti = self.core.get_tagged_image(cam_index, camera_name, height, width)
-                            except Exception as e:
-                                # continue waiting
-                                pass
-                    except Exception as ex:
-                        # Sequence buffer overflow
-                        e = HardwareControlException(str(ex))
-                        event.acquisition_.abort(e)
-                        raise e
-                if need_to_run_after_exposure_hooks:
-                    for camera_device_name in camera_image_counts.keys():
-                        if self.core.is_sequence_running(camera_device_name):
-                            # all of the sequences are not yet done, so this will need to be handled
-                            # on another iteration of the loop
-                            break
-                    event.acquisition_.post_notification(AcqNotification(
-                        AcqNotification.Camera, event.axisPositions_, AcqNotification.Camera.POST_EXPOSURE))
-                    for h in event.acquisition_.get_after_exposure_hooks():
-                        h.run(event)
-                    need_to_run_after_exposure_hooks = False
 
-                if timeout:
-                    break
-                # Doesn't seem to be a version in the API in which you don't have to do this
-                actual_cam_index = cam_index
-                if "Multi Camera-CameraChannelIndex" in ti.tags.keys() :
-                    actual_cam_index = ti.tags["Multi Camera-CameraChannelIndex"]
-                    if num_cam_channels == 1:
-                        # probably a mistake in the core....
-                        actual_cam_index = 0  # Override index because not using multi cam mode right now
+        acquisition._add_to_output(ti)
 
-                corresponding_event = event
-                if event.get_sequence() is not None:
-                    # Find the event that corresponds to the camera that captured this image.
-                    # This assumes that the images from a single camera are in order
-                    # in the sequence, though different camera images may be interleaved
-                    if event.get_sequence()[0].get_camera_device_name() is not None:
-                        # camera is specified in the acquisition event. Find the first event that matches
-                        # this camera name.
-                        the_camera_name = camera_name
-                        corresponding_event = next(filter(lambda
-                                                              e: e.get_camera_device_name() is not None and e.get_camera_device_name() == the_camera_name,
-                                                          multi_cam_adapter_camera_event_lists.get(actual_cam_index)))
-                        multi_cam_adapter_camera_event_lists.get(actual_cam_index).remove(corresponding_event)
-                    else:
-                        # multi camera adapter or just using the default camera
-                        corresponding_event = multi_cam_adapter_camera_event_lists.get(actual_cam_index).pop(0)
-                # add standard metadata
-                AcqEngMetadata.add_image_metadata(self.core, ti.tags, corresponding_event,
-                                                  current_time_ms - corresponding_event.acquisition_.get_start_time_ms(),
-                                                  exposure)
-                # add user metadata specified in the event
-                corresponding_event.acquisition_.add_tags_to_tagged_image(ti.tags, corresponding_event.get_tags())
-                corresponding_event.acquisition_.add_to_image_metadata(ti.tags)
-                corresponding_event.acquisition_.add_to_output(ti)
-
-        self.stop_hardware_sequences(hardware_sequences_in_progress)
-
-        if event.get_sequence() is not None:
-            event.acquisition_.post_notification(AcqNotification(
-                AcqNotification.Camera, event.axisPositions_, AcqNotification.Camera.POST_SEQUENCE_STOPPED))
-
-        if timeout:
-            raise TimeoutError("Timeout waiting for images to arrive in circular buffer")
+        # TODO stop sequences
+        # TODO: exceptiopn handling
+        # TODO: shutdown
 
     def abort_if_requested(self, event: AcquisitionEvent, hardware_sequences_in_progress: HardwareSequences) -> None:
         if event.acquisition_.is_abort_requested():
@@ -440,7 +187,7 @@ class Engine:
                 if event.is_xy_sequenced():
                     self.core.start_xy_stage_sequence(xy_stage)
                 else:
-                    # Could be sequenced over other devices, in that case get xy position from first in sequence
+                    # Could be sequenced over other devices.py, in that case get xy position from first in sequence
                     prev_x_position = None if self.last_event is None else None if self.last_event.get_sequence() is None else \
                         self.last_event.get_sequence()[0].get_x_position()
                     x_position = event.get_sequence()[
@@ -630,8 +377,8 @@ class Engine:
                     self.last_event = None  # Update all hardware if switching to a new acquisition
 
 
-            # Other stage devices
-            loop_hardware_command_retries(lambda: move_other_stage_devices(event), "Moving other stage devices")
+            # Other stage devices.py
+            loop_hardware_command_retries(lambda: move_other_stage_devices(event), "Moving other stage devices.py")
             # XY Stage
             loop_hardware_command_retries(lambda: move_xy_stage(event), "Moving XY stage")
             # Channels
@@ -746,7 +493,7 @@ class Engine:
                     return False
 
             # arbitrary z stages
-            # TODO implement sequences along arbitrary other stage devices
+            # TODO implement sequences along arbitrary other stage devices.py
             for stage_device in previous_event.get_stage_device_names():
                 return False
 

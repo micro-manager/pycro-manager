@@ -51,40 +51,7 @@ def _create_pymmcore_instance():
 
     # Create and return a new class that subclasses the original class and has the new attributes
     clz = type(CMMCore.__name__ + "SnakeCase", (CMMCore,), new_attributes)
-
     instance = clz()
-
-    def pop_next_tagged_image(self):
-        md = pymmcore.Metadata()
-        pix = self.pop_next_image_md(0, 0, md)
-        tags = {key: md.GetSingleTag(key).GetValue() for key in md.GetKeys()}
-        return TaggedImage(tags, pix)
-
-    def get_tagged_image(core, cam_index, camera, height, width, binning=None, pixel_type=None, roi_x_start=None,
-                         roi_y_start=None):
-        """
-        Different signature than the Java version because of difference in metadata handling in the swig layers
-        """
-        pix = core.get_image()
-        md = pymmcore.Metadata()
-        # most of the same tags from pop_next_tagged_image, which may not be the same as the MMCoreJ version of this function
-        tags = {'Camera': camera, 'Height': height, 'Width': width, 'PixelType': pixel_type,
-                'CameraChannelIndex': cam_index}
-        # Could optionally add these for completeness but there might be a performance hit
-        if binning is not None:
-            tags['Binning'] = binning
-        if roi_x_start is not None:
-            tags['ROI-X-start'] = roi_x_start
-        if roi_y_start is not None:
-            tags['ROI-Y-start'] = roi_y_start
-
-        return TaggedImage(tags, pix)
-
-    instance.get_tagged_image = types.MethodType(get_tagged_image, instance)
-    instance.pop_next_tagged_image = types.MethodType(pop_next_tagged_image, instance)
-
-    # attach TaggedImage class
-    instance.TaggedImage = TaggedImage
     return instance
 
 
@@ -112,7 +79,7 @@ def stop_headless(debug=False):
             logger.debug('Stopping pymmcore instance')
         c.unloadAllDevices()
         if debug:
-            logger.debug('Unloaded all devices')
+            logger.debug('Unloaded all devices.py')
         Engine.get_instance().shutdown()
         if debug:
             logger.debug('Engine shut down')

@@ -5,22 +5,20 @@ Generic acquisition functionality used by both Python and Java backends
 import copy
 import types
 import numpy as np
-from typing import Union, List, Iterable
+from typing import List, Iterable
 import warnings
 from abc import ABCMeta, abstractmethod
 from docstring_inheritance import NumpyDocstringInheritanceMeta
 import queue
 import weakref
 from pycromanager.acq_future import AcqNotification, AcquisitionFuture
-import os
 import threading
 from inspect import signature
-from typing import Generator
 from types import GeneratorType
-import time
 
 from queue import Queue
 from typing import Generator, Dict, Union
+from pycromanager.acquisition.new.acq_events import AcquisitionEvent
 
 
 class EventQueue(Queue):
@@ -30,13 +28,14 @@ class EventQueue(Queue):
     """
     def __init__(self, maxsize=0):
         super().__init__(maxsize)
-        self.current_generator: Union[Generator[Dict, None, None], None] = None
+        self.current_generator: Union[Generator[AcquisitionEvent, None, None], None] = None
 
     def clear(self):
         self.queue.clear()
         self.current_generator = None
 
-    def put(self, item: Union[Dict, Generator[Dict, None, None]], block=True, timeout=None):
+    def put(self, item: Union[AcquisitionEvent, List[AcquisitionEvent],
+            Generator[AcquisitionEvent, None, None], None], block=True, timeout=None):
         if isinstance(item, dict):
             super().put(item, block, timeout)
         elif isinstance(item, list):
@@ -50,7 +49,7 @@ class EventQueue(Queue):
         else:
             raise TypeError("Event must be a dictionary, list or generator")
 
-    def get(self, block=True, timeout=None) -> Dict:
+    def get(self, block=True, timeout=None) -> AcquisitionEvent:
         while True:
             if self.current_generator is None:
                 item = super().get(block, timeout)
@@ -247,7 +246,7 @@ class Acquisition(metaclass=Meta):
 
         """
         try:
-            if self._acq.are_events_finished():
+            if self._are_events_finished():
                 raise AcqAlreadyCompleteException(
                     'Cannot submit more events because this acquisition is already finished')
 
@@ -260,7 +259,7 @@ class Acquisition(metaclass=Meta):
                 acq_future = AcquisitionFuture(self)
 
                 def notifying_generator(original_generator):
-                    # store in a weakref so that if user code doesn't hange on to AcqFuture
+                    # store in a weakref so that if user code doesn't hang on to AcqFuture
                     # it doesn't needlessly track events
                     acq_future_weakref = weakref.ref(acq_future)
                     for event in original_generator:
@@ -269,6 +268,7 @@ class Acquisition(metaclass=Meta):
                             acq_future._monitor_axes(event['axes'])
                         _validate_acq_events(event)
                         yield event
+
                 event_or_events = notifying_generator(event_or_events)
             else:
                 _validate_acq_events(event_or_events)
@@ -303,8 +303,14 @@ class Acquisition(metaclass=Meta):
             self._event_queue.clear()
             # Don't send any more events. The event sending thread should know shut itself down by
             # checking the status of the acquisition
-        self._acq.abort()
+        self.abort()
 
+    @abstractmethod
+    def _are_events_finished(self):
+        """
+        Check if all events have been processed and executed
+        """
+        pass
 
     def _add_storage_monitor_fn(self, image_saved_fn=None):
         """
@@ -422,18 +428,18 @@ def _validate_acq_dict(event: dict):
 
 
 def multi_d_acquisition_events(
-    num_time_points: int=None,
-    time_interval_s: Union[float, List[float]]=0,
-    z_start: float=None,
-    z_end: float=None,
-    z_step: float=None,
-    channel_group: str=None,
-    channels: list=None,
-    channel_exposures_ms: list=None,
-    xy_positions: Iterable=None,
-    xyz_positions: Iterable=None,
-    position_labels: List[str]=None,
-    order: str="tpcz",
+        num_time_points: int = None,
+        time_interval_s: Union[float, List[float]] = 0,
+        z_start: float = None,
+        z_end: float = None,
+        z_step: float = None,
+        channel_group: str = None,
+        channels: list = None,
+        channel_exposures_ms: list = None,
+        xy_positions: Iterable = None,
+        xyz_positions: Iterable = None,
+        position_labels: List[str] = None,
+        order: str = "tpcz",
 ):
     """Convenience function for generating the events of a typical multi-dimensional acquisition (i.e. an
     acquisition with some combination of multiple timepoints, channels, z-slices, or xy positions)
@@ -443,8 +449,8 @@ def multi_d_acquisition_events(
     num_time_points : int
         How many time points if it is a timelapse (Default value = None)
     time_interval_s : float or list of floats
-        the minimum interval between consecutive time points in seconds. If set to 0, the 
-        acquisition will go as fast as possible. If a list is provided, its length should 
+        the minimum interval between consecutive time points in seconds. If set to 0, the
+        acquisition will go as fast as possible. If a list is provided, its length should
         be equal to 'num_time_points'. Elements in the list are assumed to be the intervals
         between consecutive timepoints in the timelapse. First element in the list indicates
         delay before capturing the first image (Default value = 0)
@@ -500,7 +506,7 @@ def multi_d_acquisition_events(
             raise ValueError("xy_positions and position_labels must be of equal length")
         if xyz_positions is not None and len(xyz_positions) != len(position_labels):
             raise ValueError("xyz_positions and position_labels must be of equal length")
-    
+
     # If any of z_start, z_step, z_end are provided, then they should all be provided
     # Here we can't use `all` as some of the values of z_start, z_step, z_end
     # may be zero and all((0,)) = False
@@ -576,7 +582,7 @@ def multi_d_acquisition_events(
         elif order[0] == "c" and channel_group is not None and channels is not None:
             for i in range(len(channels)):
                 new_event = copy.deepcopy(event)
-                new_event["config_group"] = [channel_group,  channels[i]]
+                new_event["config_group"] = [channel_group, channels[i]]
                 new_event["axes"]["channel"] = channels[i]
                 if channel_exposures_ms is not None:
                     new_event["exposure"] = channel_exposures_ms[i]
@@ -609,5 +615,3 @@ def multi_d_acquisition_events(
 
     appender(generate_events(base_event, order))
     return events
-
-

@@ -114,7 +114,7 @@ class AcqEngMetadata:
         AcqEngMetadata.set_pixel_type_from_byte_depth(summary, byte_depth)
         AcqEngMetadata.set_pixel_size_um(summary, core.get_pixel_size_um())
 
-        # Info about core devices
+        # Info about core devices.py
         try:
             AcqEngMetadata.set_core_xy(summary, core.get_xy_stage_device())
             AcqEngMetadata.set_core_focus(summary, core.get_focus_device())
@@ -125,7 +125,7 @@ class AcqEngMetadata:
             AcqEngMetadata.set_core_slm(summary, core.get_slm_device())
             AcqEngMetadata.set_core_shutter(summary, core.get_shutter_device())
         except Exception as e:
-            raise RuntimeError("couldn't get info from core about devices")
+            raise RuntimeError("couldn't get info from core about devices.py")
 
         # TODO restore
         # # Affine transform

@@ -350,7 +350,7 @@ class JavaBackendAcquisition(Acquisition, metaclass=NumpyDocstringInheritanceMet
 
     def await_completion(self):
         try:
-            while not self._acq.are_events_finished() or (
+            while not self._acq._are_events_finished() or (
                     self._acq.get_data_sink() is not None and not self._acq.get_data_sink().is_finished()):
                 self._check_for_exceptions()
                 self._acq.block_until_events_finished(0.01)
@@ -395,6 +395,10 @@ class JavaBackendAcquisition(Acquisition, metaclass=NumpyDocstringInheritanceMet
         else:
             return self._napari_viewer
 
+    def abort(self, exception=None):
+        self._exception = exception
+        self._acq.abort()
+
     ########  Private methods ###########
     def _start_receiving_notifications(self):
         """
@@ -431,6 +435,9 @@ class JavaBackendAcquisition(Acquisition, metaclass=NumpyDocstringInheritanceMet
         self._acq.check_for_exceptions()
         if self._exception is not None:
             raise self._exception
+
+    def _are_events_finished(self):
+        return self._acq.are_events_finished()
 
     def _start_events(self, **kwargs):
 
