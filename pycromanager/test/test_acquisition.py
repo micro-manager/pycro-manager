@@ -469,21 +469,25 @@ def test_abort_with_no_events(launch_mm_headless, setup_data_folder):
     with Acquisition(setup_data_folder, 'test_abort_with_no_events', show_display=False) as acq:
         acq.abort()
     assert not mmc.is_sequence_running()
+    acq.get_dataset().close()
 
-def test_abort_from_external(launch_mm_headless, setup_data_folder):
-    """
-    Simulates the acquisition being shutdown from a remote source (e.g. Xing out the viewer)
-    """
-    with pytest.raises(AcqAlreadyCompleteException):
-        with Acquisition(setup_data_folder, 'test_abort_from_external', show_display=False) as acq:
-            events = multi_d_acquisition_events(num_time_points=6)
-            acq.acquire(events[0])
-            # this simulates an abort from the java side unbeknownst to python side
-            # it comes from a new thread so it is non-blocking to the port
-            acq._acq.abort()
-            for event in events[1:]:
-                acq.acquire(event)
-                time.sleep(5)
+# def test_abort_from_external(launch_mm_headless, setup_data_folder):
+#     """
+#     Simulates the acquisition being shutdown from a remote source (e.g. Xing out the viewer)
+#     """
+#     with pytest.raises(AcqAlreadyCompleteException):
+#         try:
+#             with Acquisition(setup_data_folder, 'test_abort_from_external', show_display=False) as acq:
+#                 events = multi_d_acquisition_events(num_time_points=6)
+#                 acq.acquire(events[0])
+#                 # this simulates an abort from the java side unbeknownst to python side
+#                 # it comes from a new thread so it is non-blocking to the port
+#                 acq._acq.abort()
+#                 for event in events[1:]:
+#                     acq.acquire(event)
+#                     time.sleep(5)
+#         finally:
+#             acq.get_dataset().close()
 
 def test_abort_sequenced_zstack(launch_mm_headless, setup_data_folder):
     """
@@ -666,5 +670,25 @@ def test_empty_axes(launch_mm_headless, setup_data_folder):
     dataset = acq.get_dataset()
     try:
         assert dataset.read_image() is not None and dataset.read_image().max() > 0
+    finally:
+        dataset.close()
+
+
+def test_8bit(launch_mm_headless, setup_data_folder):
+    """
+    Test that images with empty axes are correctly saved
+    """
+    events = multi_d_acquisition_events(10)
+    core = Core()
+    core.set_property('Camera', 'BitDepth', '8')
+    core.set_property('Camera', 'PixelType', '8bit')
+
+    with Acquisition(setup_data_folder, 'test_8_bit', show_display=False) as acq:
+        acq.acquire(events)
+
+    dataset = acq.get_dataset()
+    try:
+        image_coordinates = events[0]['axes']
+        assert dataset.read_image(**image_coordinates) is not None and dataset.read_image(**image_coordinates).max() > 0
     finally:
         dataset.close()

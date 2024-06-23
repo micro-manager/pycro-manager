@@ -202,7 +202,8 @@ def _notification_handler_fn(acquisition, notification_push_port, connected_even
             if AcqNotification.is_image_saved_notification(notification): # it was saved to RAM, not disk
                 if not notification.is_data_sink_finished_notification():
                     # check if NDTiff data storage used
-                    if acquisition._directory is not None:
+                    if acquisition._directory is not None or isinstance(acquisition, MagellanAcquisition) or \
+                            isinstance(acquisition, XYTiledAcquisition):
                         index_entry = notification.payload.encode('ISO-8859-1')
                         axes = acquisition._dataset.add_index_entry(index_entry)
                         # swap the notification.payload from the byte array of index information to axes
@@ -300,12 +301,7 @@ class JavaBackendAcquisition(Acquisition, metaclass=NumpyDocstringInheritanceMet
             warnings.warn('Could not create acquisition notification handler. '
                           'Update Micro-Manager and Pyrcro-Manager to the latest versions to fix this')
 
-        # Start remote acquisition
-        # Acquistition.start is now deprecated, so this can be removed later
-        # Acquisitions now get started automatically when the first events submitted
-        # but Magellan acquisitons (and probably others that generate their own events)
-        # will need some new method to submit events only after image processors etc have been added
-        self._acq.start()
+
         self._dataset_disk_location = (
             self._acq.get_data_sink().get_storage().get_disk_location()
             if self._acq.get_data_sink() is not None
@@ -321,7 +317,7 @@ class JavaBackendAcquisition(Acquisition, metaclass=NumpyDocstringInheritanceMet
         # when images are written to disk/RAM storage
         storage_java_class = data_sink.get_storage()
         summary_metadata = storage_java_class.get_summary_metadata()
-        if directory is not None:
+        if directory is not None or isinstance(self, MagellanAcquisition) or isinstance(self, XYTiledAcquisition):
             # NDTiff dataset saved to disk on Java side
             self._dataset = Dataset(dataset_path=self._dataset_disk_location, summary_metadata=summary_metadata)
         else:
@@ -363,10 +359,6 @@ class JavaBackendAcquisition(Acquisition, metaclass=NumpyDocstringInheritanceMet
 
             if hasattr(self, '_event_thread'):
                 self._event_thread.join()
-
-            # need to do this so its _Bridge can be garbage collected and a reference to the JavaBackendAcquisition
-            # does not prevent Bridge cleanup and process exiting
-            self._remote_acq = None
 
             # Wait on all the other threads to shut down properly
             if hasattr(self, '_storage_monitor_thread'):
@@ -633,6 +625,7 @@ class XYTiledAcquisition(JavaBackendAcquisition):
         l = locals()
         named_args = {arg_name: l[arg_name] for arg_name in arg_names}
         super().__init__(**named_args)
+        self._acq.start()
 
     def _create_remote_acquisition(self, port, **kwargs):
         core = ZMQRemoteMMCoreJ(port=self._port, timeout=self._timeout)
@@ -648,7 +641,7 @@ class XYTiledAcquisition(JavaBackendAcquisition):
             x_overlap = self.tile_overlap
             y_overlap = self.tile_overlap
 
-        self._remote_acq = acq_factory.create_tiled_acquisition(
+        self._acq = acq_factory.create_tiled_acquisition(
             kwargs['directory'],
             kwargs['name'],
             show_viewer,
@@ -710,6 +703,7 @@ class ExploreAcquisition(JavaBackendAcquisition):
         l = locals()
         named_args = {arg_name: l[arg_name] for arg_name in arg_names}
         super().__init__(**named_args)
+        self._acq.start()
 
     def _create_remote_acquisition(self, port, **kwargs):
         if type(self.tile_overlap) is tuple:
@@ -720,7 +714,7 @@ class ExploreAcquisition(JavaBackendAcquisition):
 
         ui_class = JavaClass('org.micromanager.explore.ExploreAcqUIAndStorage')
         ui = ui_class.create(kwargs['directory'], kwargs['name'], x_overlap, y_overlap, self.z_step_um, self.channel_group)
-        self._remote_acq = ui.get_acquisition()
+        self._acq = ui.get_acquisition()
 
     def _start_events(self, **kwargs):
         pass # These come from the user
@@ -767,6 +761,7 @@ class MagellanAcquisition(JavaBackendAcquisition):
         l = locals()
         named_args = {arg_name: l[arg_name] for arg_name in arg_names}
         super().__init__(**named_args)
+        self._acq.start()
 
     def _start_events(self, **kwargs):
         pass # Magellan handles this on Java side
@@ -777,7 +772,7 @@ class MagellanAcquisition(JavaBackendAcquisition):
     def _create_remote_acquisition(self, **kwargs):
         magellan_api = Magellan()
         if self.magellan_acq_index is not None:
-            self._remote_acq = magellan_api.create_acquisition(self.magellan_acq_index, False)
+            self._acq = magellan_api.create_acquisition(self.magellan_acq_index, False)
         elif self.magellan_explore:
-            self._remote_acq = magellan_api.create_explore_acquisition(False)
+            self._acq = magellan_api.create_explore_acquisition(False)
         self._event_queue = None
