@@ -14,6 +14,26 @@ MM_DOWNLOAD_URL_BASE = 'https://download.micro-manager.org'
 MM_DOWNLOAD_URL_MAC = MM_DOWNLOAD_URL_BASE + '/nightly/2.0/Mac'
 MM_DOWNLOAD_URL_WINDOWS = MM_DOWNLOAD_URL_BASE + '/nightly/2.0/Windows'
 
+def _get_download_url(ci_build=False):
+    """
+    Get the download URL for the latest nightly build of Micro-Manager
+
+    Returns
+    -------
+    str
+        The URL to the latest nightly build
+    """
+    platform = _get_platform()
+    if platform == 'Windows':
+        url = MM_DOWNLOAD_URL_WINDOWS
+    elif platform == 'Mac':
+        url = MM_DOWNLOAD_URL_MAC
+    else:
+        raise ValueError(f"Unsupported OS: {platform}")
+    if ci_build:
+        url = url.replace('nightly', 'ci')
+    return url
+
 def _get_platform():
     """
     Get the platform of the system
@@ -30,18 +50,12 @@ def _get_platform():
     else:
         raise ValueError(f"Unsupported OS: {sys.platform}")
 
-def _find_versions():
+def _find_versions(ci_build=False):
     """
-    Find all available versions of Micro-Manager nightly builds
+    Find all available versions of Micro-Manager  builds
     """
-    platform = _get_platform()
     # Get the webpage
-    if platform == 'Windows':
-        webpage = requests.get(MM_DOWNLOAD_URL_WINDOWS)
-    elif platform == 'Mac':
-        webpage = requests.get(MM_DOWNLOAD_URL_MAC)
-    else:
-        raise ValueError(f"Unsupported OS: {platform}")
+    webpage = requests.get(_get_download_url(ci_build))
     return re.findall(r'class="rowDefault" href="([^"]+)', webpage.text)
 
 def find_existing_mm_install():
@@ -63,7 +77,7 @@ def find_existing_mm_install():
     else:
         raise ValueError(f"Unsupported OS: {platform}")
 
-def download_and_install(destination='auto', mm_install_log_path=None):
+def download_and_install(destination='auto', mm_install_log_path=None, ci_build=False):
     """
     Download and install the latest nightly build of Micro-Manager
 
@@ -71,6 +85,10 @@ def download_and_install(destination='auto', mm_install_log_path=None):
     ----------
     destination : str
         The directory to install Micro-Manager to. If 'auto', it will install to the user's home directory.
+    mm_install_log_path : str
+        Path to save the installation log to
+    ci_build : bool
+        If True, download the latest CI build instead of nightly build
 
     Returns
     -------
@@ -80,7 +98,7 @@ def download_and_install(destination='auto', mm_install_log_path=None):
     windows = _get_platform() == 'Windows'
     platform = 'Windows' if windows else 'Mac'
     installer = 'mm_installer.exe' if windows else 'mm_installer.dmg'
-    latest_version = MM_DOWNLOAD_URL_BASE + _find_versions()[0]
+    latest_version = _get_download_url(ci_build) + os.sep + _find_versions(ci_build)[0].split(os.sep)[-1]
     # make a progress bar that updates every 0.5 seconds
     def bar(curr, total, width):
         if not hasattr(bar, 'last_update'):
@@ -88,6 +106,7 @@ def download_and_install(destination='auto', mm_install_log_path=None):
         if curr / total*100 - bar.last_update > 0.5:
             print(f"\rDownloading installer: {curr / total*100:.2f}%", end='')
             bar.last_update = curr / total*100
+    print('Downloading: ', latest_version)
     wget.download(latest_version, out=installer, bar=bar)
 
     if windows:
