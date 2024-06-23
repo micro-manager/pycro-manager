@@ -469,6 +469,7 @@ def test_abort_with_no_events(launch_mm_headless, setup_data_folder):
     with Acquisition(setup_data_folder, 'test_abort_with_no_events', show_display=False) as acq:
         acq.abort()
     assert not mmc.is_sequence_running()
+    acq.get_dataset().close()
 
 def test_abort_from_external(launch_mm_headless, setup_data_folder):
     """
@@ -484,6 +485,8 @@ def test_abort_from_external(launch_mm_headless, setup_data_folder):
             for event in events[1:]:
                 acq.acquire(event)
                 time.sleep(5)
+
+    acq.get_dataset().close()
 
 def test_abort_sequenced_zstack(launch_mm_headless, setup_data_folder):
     """
