@@ -476,17 +476,18 @@ def test_abort_from_external(launch_mm_headless, setup_data_folder):
     Simulates the acquisition being shutdown from a remote source (e.g. Xing out the viewer)
     """
     with pytest.raises(AcqAlreadyCompleteException):
-        with Acquisition(setup_data_folder, 'test_abort_from_external', show_display=False) as acq:
-            events = multi_d_acquisition_events(num_time_points=6)
-            acq.acquire(events[0])
-            # this simulates an abort from the java side unbeknownst to python side
-            # it comes from a new thread so it is non-blocking to the port
-            acq._acq.abort()
-            for event in events[1:]:
-                acq.acquire(event)
-                time.sleep(5)
-
-    acq.get_dataset().close()
+        try:
+            with Acquisition(setup_data_folder, 'test_abort_from_external', show_display=False) as acq:
+                events = multi_d_acquisition_events(num_time_points=6)
+                acq.acquire(events[0])
+                # this simulates an abort from the java side unbeknownst to python side
+                # it comes from a new thread so it is non-blocking to the port
+                acq._acq.abort()
+                for event in events[1:]:
+                    acq.acquire(event)
+                    time.sleep(5)
+        finally:
+            acq.get_dataset().close()
 
 def test_abort_sequenced_zstack(launch_mm_headless, setup_data_folder):
     """
