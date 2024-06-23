@@ -98,7 +98,7 @@ def download_and_install(destination='auto', mm_install_log_path=None, ci_build=
     windows = _get_platform() == 'Windows'
     platform = 'Windows' if windows else 'Mac'
     installer = 'mm_installer.exe' if windows else 'mm_installer.dmg'
-    latest_version = _get_download_url(ci_build) + os.sep + _find_versions(ci_build)[0].split(os.sep)[-1]
+    latest_version = _get_download_url(ci_build) + '/' + _find_versions(ci_build)[0].split('/')[-1]
     # make a progress bar that updates every 0.5 seconds
     def bar(curr, total, width):
         if not hasattr(bar, 'last_update'):
