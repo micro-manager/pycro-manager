@@ -11,13 +11,17 @@ import requests
 import time
 
 dep_name = sys.argv[1]
+if len(sys.argv) == 3: # NDTiffStorage.jar comes from NDStorage repo
+    repo_name = sys.argv[2]
+else:
+    repo_name = dep_name
 git_repos_dir = str(Path(__file__).parent.parent.parent) + '/'
 
 
 if('java' in os.listdir(git_repos_dir + dep_name)):
-    pom_path = git_repos_dir + dep_name + '/java/pom.xml'
+    pom_path = git_repos_dir + repo_name + '/java/pom.xml'
 else:
-    pom_path = git_repos_dir + dep_name + '/pom.xml'
+    pom_path = git_repos_dir + repo_name + '/pom.xml'
 
     
 # Get the latest version number
