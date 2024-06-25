@@ -1,3 +1,6 @@
+"""
+APIs (protocols) for devices that can be used in the acquisition module
+"""
 import numpy as np
 from typing_extensions import Protocol, runtime_checkable
 

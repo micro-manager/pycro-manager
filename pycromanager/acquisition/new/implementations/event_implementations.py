@@ -1,0 +1,56 @@
+"""
+This file contains implementations of AcquisitionEvents that can be used to build full experiments
+"""
+from typing import Iterable
+import itertools
+from pycromanager.acquisition.new.acq_events import AcquisitionEvent, DataProducingAcquisitionEvent
+from pycromanager.acquisition.new.devices import Camera
+from pycromanager.acquisition.new.data_coords import DataCoordinates
+
+
+class ReadoutImages(DataProducingAcquisitionEvent):
+    """
+    Readout one or more images (and associated metadata) from a camera
+
+    Attributes:
+        num_images (int): The number of images to read out.
+        camera (Camera): The camera object to read images from.
+        image_coordinate_iterator (Iterable[DataCoordinates]): An iterator or list of ImageCoordinates objects, which
+            specify the coordinates of the images that will be read out, should be able to provide at least num_images
+            elements.
+    """
+    num_images: int
+    camera: Camera
+    # TODO: maybe specify here that this should run on a seperate thread?
+
+    def execute(self):
+        image_counter = itertools.count() if self.num_images is None else range(self.num_images)
+        for image_number, image_coordinates in zip(image_counter, self.image_coordinate_iterator):
+            while True:
+                # TODO: read from state to check for cancel condition
+                #  this can be made more efficient in the future with a new image buffer that provides callbacks
+                # on a new image recieved so that polling can be avoided
+                image, metadata = self.camera.pop_image(timeout=0.01) # only block for 10 ms so stop event can be checked
+                if image is not None:
+                    self.put_data(image_coordinates, image, metadata)
+                    break
+
+
+class StartCapture(AcquisitionEvent):
+    """
+    Special device instruction that captures images from a camera
+    """
+    num_images: int
+    camera: Camera
+
+    def execute(self):
+        """
+        Capture images from the camera
+        """
+        try:
+            self.camera.arm(self.num_images)
+            self.camera.start()
+        except Exception as e:
+            self.camera.stop()
+            raise e
+

@@ -147,7 +147,7 @@ class AcquisitionEventExecutor:
     def _start_new_thread(self):
         self._threads.append(_ExecutionThreadManager())
 
-    def submit_event(self, event, prioritize=False, use_free_thread=False, data_output_queue=None):
+    def submit_event(self, event, prioritize=False, use_free_thread=False, data_handler: DataHandler = None):
         """
         Submit an event for execution on one of the active threads. By default, all events will be executed
         on a single thread in the order they were submitted. This is the simplest way to prevent concurrency issues
@@ -157,19 +157,19 @@ class AcquisitionEventExecutor:
 
         Parameters:
             event (AcquisitionEvent): The event to execute
+            data_storage (DataStorage): The data storage object to put data into if the event produces data
             prioritize (bool): If True, the event will be executed before any other events queued on its execution thread
             use_free_thread (bool): If True, the event will be executed on a thread that is not currently executing
                  and has nothing in its queue, creating a new thread if necessary. This is needed, for example, when using
                  an event to cancel or stop another event that is awaiting a stop signal to be rewritten to the state. If
                  this is set to False (the default), the event will be executed on the primary thread.
-            data_output_queue (DataOutputQueue): The queue to put data into if the event produces data
+            data_handler (DataHandler): The queue to put data into if the event produces data
         """
         # check that DataProducingAcquisitionEvents have a data output queue
-        if isinstance(event, DataProducingAcquisitionEvent) and data_output_queue is None:
+        if isinstance(event, DataProducingAcquisitionEvent) and data_handler is None:
             raise ValueError("DataProducingAcquisitionEvent must have a data_output_queue argument")
 
-        future = AcquisitionFuture(event)
-        event._future = future
+        future = AcquisitionFuture(event=event, data_handler=data_handler)
         if use_free_thread:
             for thread in self._threads:
                 if thread.is_free():

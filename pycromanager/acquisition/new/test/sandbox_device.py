@@ -1,8 +1,6 @@
-import time
-
 from pycromanager import start_headless
-from pycromanager.acquisition.new.image_coords import ImageCoordinates
-from pycromanager.acquisition.new.mm_device_implementations import MicroManagerCamera
+from pycromanager.acquisition.new.data_coords import DataCoordinates
+from pycromanager.acquisition.new.implementations.mm_device_implementations import MicroManagerCamera
 import os
 
 mm_install_dir = '/Users/henrypinkard/Micro-Manager'
@@ -20,14 +18,14 @@ from pycromanager.acquisition.new.executor import AcquisitionEventExecutor
 executor = AcquisitionEventExecutor()
 
 
-from pycromanager.acquisition.new.acq_events import StartCapture, ReadoutImages, DataOutputQueue
+from pycromanager.acquisition.new.acq_events import StartCapture, ReadoutImages, DataHandler
 
 num_images = 100
-data_output_queue = DataOutputQueue()
+data_output_queue = DataHandler()
 
 start_capture_event = StartCapture(num_images=num_images, camera=camera)
 readout_images_event = ReadoutImages(num_images=num_images, camera=camera,
-                                     image_coordinate_iterator=[ImageCoordinates(time=t) for t in range(num_images)],
+                                     image_coordinate_iterator=[DataCoordinates(time=t) for t in range(num_images)],
                                      output_queue=data_output_queue)
 
 executor.submit_event(start_capture_event)
