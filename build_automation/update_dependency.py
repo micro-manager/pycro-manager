@@ -18,7 +18,7 @@ else:
 git_repos_dir = str(Path(__file__).parent.parent.parent) + '/'
 
 
-if('java' in os.listdir(repo_name + dep_name)):
+if('java' in os.listdir(git_repos_dir + repo_name)):
     pom_path = git_repos_dir + repo_name + '/java/pom.xml'
 else:
     pom_path = git_repos_dir + repo_name + '/pom.xml'
