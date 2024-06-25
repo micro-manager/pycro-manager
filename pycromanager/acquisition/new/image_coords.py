@@ -1,13 +1,14 @@
 from typing import Union, List, Tuple, Callable, Dict
 from typing import Dict, Union, Optional, Iterator, List
 from pydantic import BaseModel
+from pydantic.fields import Field
 
 class ImageCoordinates(BaseModel):
     """
     Represents the coordinates of an image. This is a convenience wrapper around a dictionary of axis name to axis value
     where the axis value can be either an integer or a string.
     """
-    coordinate_dict: Dict[str, Union[int, str, Tuple[int, ...], Tuple[str, ...]]]
+    coordinate_dict: Dict[str, Union[int, str, Tuple[int, ...], Tuple[str, ...]]] = Field(default_factory=dict)
 
     def __init__(self, time: int = None, channel: str = None, z: int = None, **kwargs):
         # Initialize the BaseModel (this runs Pydantic validation and parsing)

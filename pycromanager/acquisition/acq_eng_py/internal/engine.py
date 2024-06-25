@@ -3,11 +3,14 @@ from concurrent.futures import ThreadPoolExecutor
 import time
 import datetime
 
-from pycromanager.acquisition.new.acq_events import AcquisitionEvent
+# from pycromanager.acquisition.new.acq_events import AcquisitionEvent
+# TODO
+AcquisitionEvent = None
+
 from pycromanager.acquisition.acq_eng_py.internal.hardware_sequences import HardwareSequences
 import pymmcore
 from pycromanager.acquisition.acq_eng_py.main.acq_notification import AcqNotification
-from pycromanager.acquisition.python_backend_acquisitions import PythonBackendAcquisition
+# from pycromanager.acquisition.python_backend_acquisitions import PythonBackendAcquisition
 
 HARDWARE_ERROR_RETRIES = 6
 DELAY_BETWEEN_RETRIES_MS = 5
@@ -103,7 +106,7 @@ class Engine:
         #
         # return self.acq_executor.submit(process_acquisition_event_inner)
 
-    def execute_acquisition_event(self, acquisition: PythonBackendAcquisition,event: AcquisitionEvent):
+    def execute_acquisition_event(self, acquisition,event: AcquisitionEvent):
         # check if we should pause until the minimum start time of the event has occured
         # while event.get_minimum_start_time_absolute() is not None and \
         #         time.time() * 1000 < event.get_minimum_start_time_absolute():
@@ -123,7 +126,7 @@ class Engine:
 
 
         
-    def acquire_images(self, acquisition : PythonBackendAcquisition,
+    def acquire_images(self, acquisition ,
                        event: AcquisitionEvent, hardware_sequences_in_progress: HardwareSequences) -> None:
         """
         Acquire 1 or more images in a sequence, add some metadata, then
@@ -146,7 +149,7 @@ class Engine:
 
 
 
-        acquisition._add_to_output(ti)
+        # acquisition._add_to_output(ti)
 
         # TODO stop sequences
         # TODO: exceptiopn handling

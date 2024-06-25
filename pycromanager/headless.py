@@ -6,7 +6,7 @@ import threading
 import types
 import os
 
-from pycromanager.acquisition.acq_eng_py.internal.engine import Engine
+# from pycromanager.acquisition.acq_eng_py.internal.engine import Engine
 from pymmcore import CMMCore
 import pymmcore
 from pyjavaz import DEFAULT_BRIDGE_PORT, server_terminated
@@ -80,7 +80,8 @@ def stop_headless(debug=False):
         c.unloadAllDevices()
         if debug:
             logger.debug('Unloaded all devices.py')
-        Engine.get_instance().shutdown()
+        # TODO: shutdown new engine
+        # Engine.get_instance().shutdown()
         if debug:
             logger.debug('Engine shut down')
     _PYMMCORES.clear()
@@ -136,7 +137,8 @@ def start_headless(
             mmc.load_system_configuration(config_file)
         mmc.set_circular_buffer_memory_footprint(buffer_size_mb)
         _PYMMCORES.append(mmc) # Store so it doesn't get garbage collected
-        Engine(mmc)
+        # TODO: startup new engine
+        # Engine(mmc)
     else:
         classpath = mm_app_path + '/plugins/Micro-Manager/*'
         if java_loc is None:

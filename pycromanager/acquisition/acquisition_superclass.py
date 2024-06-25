@@ -18,8 +18,9 @@ from types import GeneratorType
 
 from queue import Queue
 from typing import Generator, Dict, Union
-from pycromanager.acquisition.new.acq_events import AcquisitionEvent
+# from pycromanager.acquisition.new.acq_events import AcquisitionEvent
 
+AcquisitionEvent = None
 
 class EventQueue(Queue):
     """

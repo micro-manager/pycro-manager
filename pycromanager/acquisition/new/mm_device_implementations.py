@@ -2,11 +2,12 @@
 Implementation of Micro-Manager devices.py in terms of the AcqEng bottom API
 """
 
-from pycromanager.acquisition.acq_eng_py.device_api import SingleAxisMovable, DoubleAxisMovable, Camera
+from pycromanager.acquisition.new.devices import SingleAxisMovable, DoubleAxisMovable, Camera
 from pycromanager.core import Core
 import numpy as np
 import pymmcore
 import time
+from concurrent.futures import ThreadPoolExecutor
 
 
 
@@ -31,6 +32,11 @@ class MicroManagerCamera(Camera):
                 raise ValueError(f"Camera {device_name} not found")
             self.device_name = device_name
 
+        # Make a thread to execute calls to snap asynchronously
+        # This may be removable in the the future with the new camera API if something similar is implemented at the core
+        self._snap_executor = ThreadPoolExecutor(max_workers=1)
+        self._last_snap = None
+
 
     def set_exposure(self, exposure: float) -> None:
         self._core.set_exposure(self.device_name, exposure)
@@ -46,13 +52,13 @@ class MicroManagerCamera(Camera):
             # No need to prepare for continuous sequence acquisition
             pass
         else:
-            self._core.prepare_acquisition()
+            self._core.prepare_sequence_acquisition(self.device_name)
         self._frame_count = 1
 
     def start(self) -> None:
         if self._frame_count == 1:
-            # TODO: put this on a different thread so it can return immediately
-            self._core.snap_image()
+            # Execute this on a separate thread because it blocks
+            self._last_snap = self._snap_executor.submit(lambda : self._core.snap_image())
         elif self._frame_count is None:
             # set core camera to this camera because there's no version of this call where you specify the camera
             self._core.set_camera_device(self.device_name)
@@ -61,7 +67,8 @@ class MicroManagerCamera(Camera):
             self._core.start_sequence_acquisition(self._frame_count, 0, True)
 
     def stop(self) -> None:
-        self._core.stop_acquisition()
+        # This will stop sequences. There is not way to stop snap_image
+        self._core.stop_sequence_acquisition(self.device_name)
 
     def pop_image(self, timeout=None) -> (np.ndarray, dict):
         if self._frame_count != 1:
@@ -73,6 +80,8 @@ class MicroManagerCamera(Camera):
                     break
                 # sleep for the shortest possible time, only to allow the thread to be interrupted and prevent
                 # GIL weirdness. But perhaps this is not necessary
+                # Reading out images should be the highest priority and thus should not be sleeping
+                # This could all be made more efficient in the future with callbacks coming from the C level
                 time.sleep(0.000001)
                 if timeout is not None and time.time() - start_time > timeout:
                     return None, None
@@ -80,6 +89,9 @@ class MicroManagerCamera(Camera):
             metadata = {key: md.GetSingleTag(key).GetValue() for key in md.GetKeys()}
             return pix, metadata
         else:
+            # wait for the snap to finish
+            self._last_snap.result()
+
             # Is there no metadata when calling snapimage?
             metadata = {}
             return self._core.get_image(), metadata
