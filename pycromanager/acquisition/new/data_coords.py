@@ -1,7 +1,5 @@
-from typing import Union, List, Tuple, Callable, Dict
-from typing import Dict, Union, Optional, Iterator, List, Tuple, Iterable, Sequence
-from pydantic import BaseModel
-from pydantic.fields import Field
+from typing import Dict, Union, Optional, Iterator, List, Tuple, Iterable, Sequence, Any
+from pydantic import BaseModel, Field
 
 class DataCoordinates(BaseModel):
     """
@@ -9,14 +7,15 @@ class DataCoordinates(BaseModel):
     around a dictionary of axis name to axis value where the axis value can be either an integer or a string.
     """
     coordinate_dict: Dict[str, Union[int, str]] = Field(default_factory=dict)
+    time: Optional[int] = None
+    channel: Optional[str] = None
+    z: Optional[int] = None
 
     def __init__(self, coordinate_dict: Dict[str, Union[int, str]] = None,
                  time: int = None, channel: str = None, z: int = None, **kwargs):
+        # add coordinate dict to kwargs for pydantic type coercion
         if coordinate_dict is not None:
-            self.coordinate_dict = coordinate_dict
-            if time is not None or channel is not None or z is not None:
-                raise ValueError("If coordinate_dict is provided, time, channel, and z must not be provided.")
-        # if time/channel/z are not None, add them to the kwargs
+            kwargs['coordinate_dict'] = coordinate_dict
         if time is not None:
             kwargs['time'] = time
         if channel is not None:
@@ -25,11 +24,41 @@ class DataCoordinates(BaseModel):
             kwargs['z'] = z
         super().__init__(**kwargs)
 
+        other_axis_names = [key for key in kwargs.keys() if key not in ['coordinate_dict', 'time', 'channel', 'z']]
+        if coordinate_dict is not None and ((time is not None or channel is not None or z is not None) or
+                                            len(other_axis_names) > 0):
+            raise ValueError("If coordinate_dict is provided, time, channel, and z or other axis names "
+                             "must not be provided.")
+
+        # Handle the special case of time, channel, and z
+        if time is not None:
+            self.coordinate_dict['time'] = time
+        if channel is not None:
+            self.coordinate_dict['channel'] = channel
+        if z is not None:
+            self.coordinate_dict['z'] = z
+
+        # set other axis names as attributes
+        for key in other_axis_names: # if theyre in kwargs
+            setattr(self, key, kwargs[key])
+        # if theyre in coordinate_dict
+        if coordinate_dict is not None:
+            for key, value in coordinate_dict.items():
+                if not hasattr(self, key):
+                    setattr(self, key, value)
+
+
+    class Config:
+        validate_assignment = True
+        extra = 'allow' # allow setting of other axis names as attributes that are not in the model
+
     def __getitem__(self, key: str) -> Union[int, str]:
         return self.coordinate_dict[key]
 
     def __setitem__(self, key: str, value: Union[int, str]) -> None:
         self.coordinate_dict[key] = value
+        # update the attribute
+        setattr(self, key, value)
 
     def __delitem__(self, key: str) -> None:
         del self.coordinate_dict[key]
@@ -37,23 +66,16 @@ class DataCoordinates(BaseModel):
     def __contains__(self, key: str) -> bool:
         return key in self.coordinate_dict
 
-    def __getattr__(self, item: str) -> Union[int, str]:
-        if item in self.coordinate_dict:
-            return self.coordinate_dict[item]
-        else:
-            raise AttributeError(f"Attribute {item} not found")
-
     def __setattr__(self, key: str, value: Union[int, str]) -> None:
-        if key == 'coordinate_dict':
-            super().__setattr__(key, value)
-        else:
+        super().__setattr__(key, value)
+        # Keep a redundant copy in the coordinate_dict
+        if not key.startswith('_'):
             self.coordinate_dict[key] = value
 
     def __delattr__(self, item: str) -> None:
+        super().__delattr__(item)
         if item in self.coordinate_dict:
             del self.coordinate_dict[item]
-        else:
-            super().__delattr__(item)
 
     def __eq__(self, other):
         if isinstance(other, DataCoordinates):
@@ -65,12 +87,33 @@ class DataCoordinates(BaseModel):
     def __hash__(self):
         return hash(frozenset(self.coordinate_dict.items()))
 
+    def items(self):
+        return self.coordinate_dict.items()
+
+    def keys(self):
+        return self.coordinate_dict.keys()
+
+    def values(self):
+        return self.coordinate_dict.values()
+
+    def get(self, key, default=None):
+        return self.coordinate_dict.get(key, default)
+
+    def clear(self):
+        self.coordinate_dict.clear()
+
+    def __len__(self):
+        return len(self.coordinate_dict)
+
+    def __iter__(self):
+        return iter(self.coordinate_dict)
+
 
 class DataCoordinatesIterator:
     @classmethod
     def create(cls, image_coordinate_iterable: Union[Iterable[DataCoordinates], Iterable[Dict[str, Union[int, str]]],
-                                                     DataCoordinates, Dict[str, Union[int, str],
-    'DataCoordinatesIterator']]):
+                                                     DataCoordinates,
+                                                     Dict[str, Union[Union[int, str], 'DataCoordinatesIterator']]]):
         """
         Autoconvert ImageCoordinates, dictionaries, or Iterables thereof to ImageCoordinatesIterator
 
@@ -83,13 +126,18 @@ class DataCoordinatesIterator:
             return image_coordinate_iterable
 
         if isinstance(image_coordinate_iterable, DataCoordinates):
-            return cls([image_coordinate_iterable])
-        if isinstance(image_coordinate_iterable, dict):
-            return cls([DataCoordinates(**image_coordinate_iterable)])
+            image_coordinate_iterable = [image_coordinate_iterable]
+        elif isinstance(image_coordinate_iterable, dict):
+            image_coordinate_iterable = [image_coordinate_iterable]
 
         instance = super().__new__(cls)
         instance._initialize(image_coordinate_iterable)
         return instance
+
+    def __new__(cls, *args, **kwargs):
+        raise TypeError(
+            "ImageCoordinatesIterator cannot be instantiated directly. Use ImageCoordinatesIterator.create() instead.")
+
 
     def might_produce_coordinates(self, coordinates: DataCoordinates) -> Optional[bool]:
         """
@@ -120,9 +168,6 @@ class DataCoordinatesIterator:
             coord = DataCoordinates(**coord)
         return all(getattr(coord, key) == value for key, value in target.__dict__.items())
 
-    def __new__(cls, *args, **kwargs):
-        raise TypeError(
-            "ImageCoordinatesIterator cannot be instantiated directly. Use ImageCoordinatesIterator.create() instead.")
 
     def _initialize(self, data):
         self._backing_iterable = data
