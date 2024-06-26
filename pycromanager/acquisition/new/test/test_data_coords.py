@@ -7,6 +7,10 @@ def test_init_with_dict():
     coords = DataCoordinates(coordinate_dict={"time": 1, "channel": "DAPI", "z": 0})
     assert coords.coordinate_dict == {"time": 1, "channel": "DAPI", "z": 0}
 
+def test_init_with_dict_access_as_attr():
+    coords = DataCoordinates(coordinate_dict={"time": 1, "channel": "DAPI", "z": 0})
+    assert coords.time == 1
+
 def test_init_with_individual_axes():
     coords = DataCoordinates(time=1, channel="DAPI", z=0)
     assert coords.coordinate_dict == {"time": 1, "channel": "DAPI", "z": 0}

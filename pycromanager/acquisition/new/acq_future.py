@@ -1,28 +1,17 @@
-from typing import Union, List, Tuple, Callable, Dict, Set, Optional, Any, Sequence
-import numpy as np
-from queue import Queue
-from typing import Iterable
-from abc import ABC, abstractmethod
+from typing import Union, Optional, Any, Dict, Tuple, Sequence, Set
 import threading
-import weakref
 import warnings
-
 from pycromanager.acquisition.new.data_coords import DataCoordinates, DataCoordinatesIterator
-from pycromanager.acquisition.new.data_storage import DataStorageAPI
-from pycromanager.acquisition.new.data_handler import DataHandler
 
-from pydantic import BaseModel
-from pydantic import field_validator
+from typing import TYPE_CHECKING
 
-
-# def atomic_instruction(cls):
-#     cls.atomic_instruction = True
-#     return cls
-
+if TYPE_CHECKING: # avoid circular imports
+    from pycromanager.acquisition.new.data_handler import DataHandler
+from pycromanager.acquisition.new.base_classes.acq_events import AcquisitionEvent, DataProducingAcquisitionEvent
 
 class AcquisitionFuture:
 
-    def __init__(self, event: Union['AcquisitionEvent', 'DataProducingAcquisitionEvent'], data_handler: DataHandler):
+    def __init__(self, event: Union[AcquisitionEvent, DataProducingAcquisitionEvent], data_handler: "DataHandler"):
         self._event = event
         event._set_future(self) # so that the event can notify the future when it is done and when data is acquired
         self._data_handler = data_handler
@@ -31,12 +20,12 @@ class AcquisitionFuture:
         self._event_complete = False
         self._acquired_data_coordinates: Set[DataCoordinates] = set()
         self._processed_data_coordinates: Set[DataCoordinates] = set()
-        self._saved_data_coordinates: Set[DataCoordinates] = set()
+        self._stored_data_coordinates: Set[DataCoordinates] = set()
         self._awaited_acquired_data: Dict[DataCoordinates, Tuple[Any, Any]] = {}
         self._awaited_processed_data: Dict[DataCoordinates, Tuple[Any, Any]] = {}
-        self._awaited_saved_data: Dict[DataCoordinates, Tuple[Any, Any]] = {}
+        self._awaited_stored_data: Dict[DataCoordinates, Tuple[Any, Any]] = {}
 
-    def _notify_execution_complete(self, exception: Exception):
+    def _notify_execution_complete(self, exception: Exception = None):
         """
         Notify the future that the event has completed
         """
@@ -52,41 +41,39 @@ class AcquisitionFuture:
             while not self._event_complete:
                 self._event_complete_condition.wait()
 
-    def _notify_data(self, image_coordinates: DataCoordinates, data, metadata, processed=False, saved=False):
+    def _notify_data(self, image_coordinates: DataCoordinates, data, metadata, processed=False, stored=False):
         """
-        Notify the future that data has been acquired by a data producing event. This does not mean
-        the event is done executing. It also does not mean the data has been stored yet. It is simply
-        in an output queue waiting to be gotten by the image storage/image/processing thread
+        Called by the data handler to notify the future that data has been acquired/processed/saved
+        Passes references to the data and metadata, so that if something is waiting on the future
+        to asynchronously retrieve the data, it is held onto for fast access
 
         Args:
             image_coordinates: The coordinates of the acquired data
             data: The data itself
             metadata: Metadata associated with the data
             processed: Whether the data has been processed
-            saved: Whether the data has been saved
+            stored: Whether the data has been saved
         """
         with self._data_notification_condition:
             # pass the data to the function that is waiting on it
-            if not processed and not saved:
+            if not processed and not stored:
                 self._acquired_data_coordinates.add(image_coordinates)
-                if image_coordinates in self._awaited_acquired_data:
+                if image_coordinates in self._awaited_acquired_data.keys():
                     self._awaited_acquired_data[
                         image_coordinates] = (data if self._awaited_acquired_data[image_coordinates][0] else None,
                                               metadata if self._awaited_acquired_data[image_coordinates][1] else None)
-            elif processed and not saved:
+            elif processed and not stored:
                 self._processed_data_coordinates.add(image_coordinates)
-                if image_coordinates in self._awaited_processed_data:
+                if image_coordinates in self._awaited_processed_data.keys():
                     self._awaited_processed_data[
                         image_coordinates] = (data if self._awaited_processed_data[image_coordinates][0] else None,
                                               metadata if self._awaited_processed_data[image_coordinates][1] else None)
-            elif processed and saved:
-                self._saved_data_coordinates.add(image_coordinates)
-                if image_coordinates in self._awaited_saved_data:
-                    self._awaited_saved_data[
-                        image_coordinates] = (data if self._awaited_saved_data[image_coordinates][0] else None,
-                                              metadata if self._awaited_saved_data[image_coordinates][1] else None)
-            else:
-                raise ValueError("Invalid arguments")
+            else: # stored
+                self._stored_data_coordinates.add(image_coordinates)
+                if image_coordinates in self._awaited_stored_data.keys():
+                    self._awaited_stored_data[
+                        image_coordinates] = (data if self._awaited_stored_data[image_coordinates][0] else None,
+                                              metadata if self._awaited_stored_data[image_coordinates][1] else None)
             self._data_notification_condition.notify_all()
 
     def _check_if_coordinates_possible(self, coordinates):
@@ -107,7 +94,7 @@ class AcquisitionFuture:
                                                DataCoordinatesIterator, Sequence[DataCoordinates],
                                                Sequence[Dict[str, Union[int, str]]]]],
                    return_data: bool = False, return_metadata: bool = False,
-                   data_processed: bool = False, data_stored: bool = False):
+                   processed: bool = False, stored: bool = False):
         """
         Block until the event's data is acquired/processed/saved, and optionally return the data/metadata.
         when waiting for the data to be acquired (i.e. before it is processed), since there is no way to guarantee that
@@ -119,10 +106,13 @@ class AcquisitionFuture:
              objects/dictionaries. If None, this function will block until the next data is acquired/processed/saved
             return_data: whether to return the data
             return_metadata: whether to return the metadata
-            data_processed: whether to wait until data has been processed. If not data processor is in use,
+            processed: whether to wait until data has been processed. If not data processor is in use,
                 then this parameter has no effect
-            data_stored: whether to wait for data that has been saved
+            stored: whether to wait for data that has been stored. If the call to await data occurs before the 
+              data gets passed off to the storage class, then it will be stored in memory and returned immediately.
+              without having to retrieve
         """
+
         # Check if this event produces data
         if not isinstance(self._event, DataProducingAcquisitionEvent):
             raise ValueError("This event does not produce data")
@@ -140,7 +130,7 @@ class AcquisitionFuture:
         with self._data_notification_condition:
             # lock to avoid inconsistencies with the data that is being awaited
             for data_coordinates in coordinates_iterator:
-                if not data_processed and not data_stored:
+                if not processed and not stored:
                     # make sure this is a valid thing to wait for. This can only be done before processing and
                     #  storage, because processors and data storage classes may optionally modify the data
                     self._check_if_coordinates_possible(coordinates)
@@ -150,14 +140,14 @@ class AcquisitionFuture:
                         self._awaited_acquired_data[coordinates] = (return_data, return_metadata)
                     else:
                         to_read.add(data_coordinates)
-                elif data_processed and not data_stored:
+                elif processed and not stored:
                     if data_coordinates not in self._processed_data_coordinates:
                         self._awaited_processed_data[coordinates] = (return_data, return_metadata)
                     else:
                         to_read.add(data_coordinates)
                 else: # data stored
-                    if data_coordinates not in self._saved_data_coordinates:
-                        self._awaited_saved_data[coordinates] = (return_data, return_metadata)
+                    if data_coordinates not in self._stored_data_coordinates:
+                        self._awaited_stored_data[coordinates] = (return_data, return_metadata)
                     else:
                         to_read.add(data_coordinates)
 
@@ -168,11 +158,12 @@ class AcquisitionFuture:
             result[data_coordinates] = (data if return_data else None, metadata if return_metadata else None)
 
         # now that we've gotten all the data from storage that was missed before this method was called,
-        #  proceed to getting all the data was awaited on another thread
+        #  proceed to getting all the data that was awaited on another thread
         with self._data_notification_condition:
             # order doesn't matter here because we're just grabbing it all from RAM
-            if not data_processed and not data_stored:
-                for data_coordinates in self._awaited_acquired_data.keys():
+            if not processed and not stored:
+                data_coordinates_list = list(self._awaited_acquired_data.keys())
+                for data_coordinates in data_coordinates_list:
                     data = return_data
                     while data is True or data is False: # once the data is no longer a boolean, it's the actual data
                         self._data_notification_condition.wait()
@@ -180,20 +171,23 @@ class AcquisitionFuture:
                     # remove from temporary storage and put into result
                     result[data_coordinates] = self._awaited_acquired_data.pop(data_coordinates)
 
-                # Same thing for other steps in the pipeline
-                for data_coordinates in self._awaited_processed_data.keys():
+            elif processed and not stored:
+                data_coordinates_list = list(self._awaited_processed_data.keys())
+                for data_coordinates in data_coordinates_list:
                     data = return_data
                     while data is True or data is False:
                         self._data_notification_condition.wait()
                         data, metadata = self._awaited_processed_data[data_coordinates]
                     result[data_coordinates] = self._awaited_processed_data.pop(data_coordinates)
 
-                for data_coordinates in self._awaited_saved_data.keys():
+            else: # data stored
+                data_coordinates_list = list(self._awaited_stored_data.keys())
+                for data_coordinates in data_coordinates_list:
                     data = return_data
                     while data is True or data is False:
                         self._data_notification_condition.wait()
-                        data, metadata = self._awaited_saved_data[data_coordinates]
-                    result[data_coordinates] = self._awaited_saved_data.pop(data_coordinates)
+                        data, metadata = self._awaited_stored_data[data_coordinates]
+                    result[data_coordinates] = self._awaited_stored_data.pop(data_coordinates)
 
         # Now package the result up
         all_data, all_metadata = zip(*result.values())
@@ -207,71 +201,4 @@ class AcquisitionFuture:
             return all_data
         elif return_metadata:
             return all_metadata
-
-
-class AcquisitionEvent(BaseModel, ABC):
-    num_retries_on_exception: int = 0
-    _exception: Exception = None
-    _future_weakref: Optional[weakref.ReferenceType[AcquisitionFuture]] = None
-
-    # TODO: want to make this specific to certain attributes
-    class Config:
-        arbitrary_types_allowed = True
-
-    @abstractmethod
-    def execute(self):
-        """
-        Execute the event. This event is called by the executor, and should be overriden by subclasses to implement
-        the event's functionality
-        """
-        pass
-
-    def _set_future(self, future: AcquisitionFuture):
-        """
-        Called by the executor to set the future associated with this event
-        """
-        # Store this as a weakref so that if user code does not hold a reference to the future,
-        # it can be garbage collected. The event should not give access to the future to user code
-        self._future_weakref = weakref.ref(future)
-
-    def _post_execution(self):
-        """
-        Method that is called after the event is executed to update acquisition futures about the event's status.
-        This is called automatically by the Executor and should not be overriden by subclasses.
-
-        Args:
-            future (AcquisitionFuture): The future associated with this event
-        """
-        if self._future_weakref is None:
-            raise ValueError("Event has not been executed yet")
-        future = self._future_weakref()
-        if future is not None:
-            future._notify_execution_complete(self._exception)
-
-
-
-class DataProducingAcquisitionEvent(AcquisitionEvent):
-    """
-    Special type of acquisition event that produces data. It must be passed an image_coordinate_iterator
-    object that generates the coordinates of each piece of data (i.e. image) that will be produced by the event.
-    For example, {time: 0}, {time: 1}, {time: 2} for a time series acquisition.
-    """
-    _data_handler: DataHandler = None # executor will provide this at runtime
-    # This is eventually an ImageCoordinatesIterator. If an Iterable[ImageCoordinates] or
-    # Iterable[Dict[str, Union[int, str]]] is provided, it will be auto-converted to an ImageCoordinatesIterator
-    image_coordinate_iterator: Union[DataCoordinatesIterator,
-                                     Iterable[DataCoordinates],
-                                     Iterable[Dict[str, Union[int, str]]]]
-
-    @field_validator('image_coordinate_iterator', mode='before')
-    def _convert_to_image_coordinates_iterator(cls, v):
-        return DataCoordinatesIterator.create(v)
-
-    def put_data(self, data_coordinates: DataCoordinates, image: np.ndarray, metadata: Dict):
-        """
-        Put data into the output queue
-        """
-        self._data_handler.put(data_coordinates, image, metadata, self._future_weakref())
-
-
 

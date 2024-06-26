@@ -3,8 +3,8 @@ This file contains implementations of AcquisitionEvents that can be used to buil
 """
 from typing import Iterable
 import itertools
-from pycromanager.acquisition.new.acq_events import AcquisitionEvent, DataProducingAcquisitionEvent
-from pycromanager.acquisition.new.devices import Camera
+from pycromanager.acquisition.new.base_classes.acq_events import AcquisitionEvent, DataProducingAcquisitionEvent
+from pycromanager.acquisition.new.apis.devices import Camera
 from pycromanager.acquisition.new.data_coords import DataCoordinates
 
 

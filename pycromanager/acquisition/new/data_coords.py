@@ -1,7 +1,8 @@
 from typing import Dict, Union, Optional, Iterator, List, Tuple, Iterable, Sequence, Any
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
+from collections.abc import MutableMapping
 
-class DataCoordinates(BaseModel):
+class DataCoordinates(BaseModel, MutableMapping):
     """
     Represents the coordinates of a piece of data (conventionally, a single 2D image). This is a convenience wrapper
     around a dictionary of axis name to axis value where the axis value can be either an integer or a string.
@@ -47,6 +48,13 @@ class DataCoordinates(BaseModel):
                 if not hasattr(self, key):
                     setattr(self, key, value)
 
+    @model_validator(mode="before")
+    def _set_coordinates(cls, values):
+        coordinate_dict = values.get('coordinate_dict', {})
+        for key, value in coordinate_dict.items():
+            if key not in values:
+                values[key] = value
+        return values
 
     class Config:
         validate_assignment = True
@@ -87,26 +95,19 @@ class DataCoordinates(BaseModel):
     def __hash__(self):
         return hash(frozenset(self.coordinate_dict.items()))
 
-    def items(self):
-        return self.coordinate_dict.items()
-
-    def keys(self):
-        return self.coordinate_dict.keys()
-
-    def values(self):
-        return self.coordinate_dict.values()
-
-    def get(self, key, default=None):
-        return self.coordinate_dict.get(key, default)
-
-    def clear(self):
-        self.coordinate_dict.clear()
-
     def __len__(self):
         return len(self.coordinate_dict)
 
     def __iter__(self):
         return iter(self.coordinate_dict)
+
+    def __repr__(self) -> str:
+        # Provide a concise and clear representation
+        return f"DataCoordinates({self.coordinate_dict})"
+
+    def __str__(self) -> str:
+        # Provide a user-friendly string representation
+        return f"DataCoordinates with coordinates: {self.coordinate_dict}"
 
 
 class DataCoordinatesIterator:

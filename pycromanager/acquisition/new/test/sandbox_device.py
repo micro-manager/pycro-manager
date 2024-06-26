@@ -18,7 +18,7 @@ from pycromanager.acquisition.new.executor import AcquisitionEventExecutor
 executor = AcquisitionEventExecutor()
 
 
-from pycromanager.acquisition.new.acq_events import StartCapture, ReadoutImages, DataHandler
+from pycromanager.acquisition.new.base_classes.acq_events import StartCapture, ReadoutImages, DataHandler
 
 num_images = 100
 data_output_queue = DataHandler()

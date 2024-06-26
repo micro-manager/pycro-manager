@@ -1,18 +1,16 @@
 """
 Class that executes acquistion events across a pool of threads
 """
-
 import threading
 from collections import deque
 from typing import Deque
 import warnings
 import traceback
 from pydantic import BaseModel
-import time
 import uuid
 
-from pycromanager.acquisition.new.acq_events import AcquisitionFuture
-from pycromanager.acquisition.new.acq_events import AcquisitionEvent, DataProducingAcquisitionEvent
+from pycromanager.acquisition.new.base_classes.acq_events import AcquisitionFuture
+from pycromanager.acquisition.new.base_classes.acq_events import AcquisitionEvent, DataProducingAcquisitionEvent
 
 
 class _ExecutionThreadManager(BaseModel):

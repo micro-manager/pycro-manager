@@ -5,14 +5,14 @@ Protocol for storage class that acquisitions ultimate write to where the acquisi
 from typing import Protocol, runtime_checkable, Union, List, Tuple, Dict, Any
 from pycromanager.acquisition.new.data_coords import DataCoordinates
 import numpy as np
-from pydantic.json import JsonValue
-
+from pydantic.types import JsonValue
 
 @runtime_checkable
 class DataStorageAPI(Protocol):
 
-    # TODO: about these type hints: better to use the dicts only or the DataCoordinates.
-    # TODO: Also do this with kwargs
+    # TODO: about these type hints: better to use the dicts only or also include the DataCoordinates?
+    #  DataCoordinates can essentially be used as a dict anyway due to duck typing, so
+    #  maybe its better that other implementations not have to depend on the DataCoordinates class
     def __contains__(self, data_coordinates: Union[DataCoordinates, Dict[str, Union[int, str]]]) -> bool:
         """Check if item is in the container."""
         ...
@@ -63,11 +63,14 @@ class DataStorageAPI(Protocol):
         """
         ...
 
+    #### Other methods copied from the NDStorage API that possibly could be useful to include in the future ####
+
     # @abstractmethod
     # def initialize(self, summary_metadata: dict):
     #     """
     #     Initialize the dataset with summary metadata
     #     """
+    # TODO: if implementation, may want to change this global metadata
     #     pass
 
 #     @abstractmethod

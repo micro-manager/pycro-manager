@@ -3,7 +3,7 @@ from pycromanager.acquisition.new.data_coords import DataCoordinates
 from pycromanager.acquisition.new.implementations.mm_device_implementations import MicroManagerCamera
 import os
 from pycromanager.acquisition.new.executor import AcquisitionEventExecutor
-from pycromanager.acquisition.new.acq_events import StartCapture, ReadoutImages, DataHandler
+from pycromanager.acquisition.new.base_classes.acq_events import StartCapture, ReadoutImages, DataHandler
 
 
 mm_install_dir = '/Users/henrypinkard/Micro-Manager'
