@@ -36,6 +36,7 @@ class MicroManagerCamera(Camera):
         # This may be removable in the the future with the new camera API if something similar is implemented at the core
         self._snap_executor = ThreadPoolExecutor(max_workers=1)
         self._last_snap = None
+        self._snap_active = False
 
 
     def set_exposure(self, exposure: float) -> None:
@@ -58,7 +59,12 @@ class MicroManagerCamera(Camera):
     def start(self) -> None:
         if self._frame_count == 1:
             # Execute this on a separate thread because it blocks
-            self._last_snap = self._snap_executor.submit(lambda : self._core.snap_image())
+            def do_snap():
+                self._snap_active = True
+                self._core.snap_image()
+                self._snap_active = False
+
+            self._last_snap = self._snap_executor.submit(do_snap)
         elif self._frame_count is None:
             # set core camera to this camera because there's no version of this call where you specify the camera
             self._core.set_camera_device(self.device_name)
@@ -69,6 +75,9 @@ class MicroManagerCamera(Camera):
     def stop(self) -> None:
         # This will stop sequences. There is not way to stop snap_image
         self._core.stop_sequence_acquisition(self.device_name)
+
+    def is_stopped(self) -> bool:
+        return self._core.is_sequence_running(self.device_name) and not self._snap_active
 
     def pop_image(self, timeout=None) -> (np.ndarray, dict):
         if self._frame_count != 1:

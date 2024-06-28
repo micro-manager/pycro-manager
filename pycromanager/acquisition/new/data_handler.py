@@ -5,9 +5,14 @@ import numpy as np
 
 from pycromanager.acquisition.new.data_coords import DataCoordinates
 from pycromanager.acquisition.new.apis.data_storage import DataStorageAPI
-from pycromanager.acquisition.new.acq_future import AcquisitionFuture
 from pydantic.types import JsonValue
 from dataclasses import dataclass
+
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from pycromanager.acquisition.new.acq_future import AcquisitionFuture
+
 
 class _PeekableQueue(queue.Queue):
     def peek(self):
@@ -21,7 +26,7 @@ class _PeekableQueue(queue.Queue):
 class _DataMetadataFutureHolder:
     data: np.ndarray
     metadata: Dict
-    future: Optional[AcquisitionFuture]
+    future: Optional["AcquisitionFuture"]
     processed: bool = False
 
     def upack(self):
@@ -186,7 +191,7 @@ class DataHandler:
         return data, metadata
 
 
-    def put(self, coordinates: Any, image: np.ndarray, metadata: Dict, acquisition_future: Optional[AcquisitionFuture]):
+    def put(self, coordinates: Any, image: np.ndarray, metadata: Dict, acquisition_future: Optional["AcquisitionFuture"]):
         """
         Hand off this image to the data handler. It will handle handoff to the storage object and image processing
         if requested, as well as providing temporary access to the image and metadata as it passes throught this

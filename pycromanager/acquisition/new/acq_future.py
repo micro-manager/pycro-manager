@@ -11,10 +11,10 @@ from pycromanager.acquisition.new.base_classes.acq_events import AcquisitionEven
 
 class AcquisitionFuture:
 
-    def __init__(self, event: Union[AcquisitionEvent, DataProducingAcquisitionEvent], data_handler: "DataHandler"):
+    def __init__(self, event: Union[AcquisitionEvent, DataProducingAcquisitionEvent]):
         self._event = event
         event._set_future(self) # so that the event can notify the future when it is done and when data is acquired
-        self._data_handler = data_handler
+        self._data_handler = event.data_handler if isinstance(event, DataProducingAcquisitionEvent) else None
         self._event_complete_condition = threading.Condition()
         self._data_notification_condition = threading.Condition()
         self._event_complete = False

@@ -8,11 +8,11 @@ from pydantic import BaseModel
 from pydantic import field_validator
 
 from pycromanager.acquisition.new.data_coords import DataCoordinates, DataCoordinatesIterator
+from pycromanager.acquisition.new.data_handler import DataHandler
 
 from typing import TYPE_CHECKING
 if TYPE_CHECKING: # avoid circular imports
     from pycromanager.acquisition.new.acq_future import AcquisitionFuture
-    from pycromanager.acquisition.new.data_handler import DataHandler
 
 
 # def atomic_instruction(cls):
@@ -44,16 +44,16 @@ class AcquisitionEvent(BaseModel, ABC):
         # it can be garbage collected. The event should not give access to the future to user code
         self._future_weakref = weakref.ref(future)
 
-    def _post_execution(self):
+    def _post_execution(self, exception: Optional[Exception] = None):
         """
         Method that is called after the event is executed to update acquisition futures about the event's status.
         This is called automatically by the Executor and should not be overriden by subclasses.
 
         Args:
-            future (AcquisitionFuture): The future associated with this event
+            exception: Exception that was raised during execution, if any
         """
         if self._future_weakref is None:
-            raise ValueError("Event has not been executed yet")
+            raise Exception("Future not set for event")
         future = self._future_weakref()
         if future is not None:
             future._notify_execution_complete(self._exception)
@@ -66,7 +66,7 @@ class DataProducingAcquisitionEvent(AcquisitionEvent):
     object that generates the coordinates of each piece of data (i.e. image) that will be produced by the event.
     For example, {time: 0}, {time: 1}, {time: 2} for a time series acquisition.
     """
-    _data_handler: "DataHandler" = None # executor will provide this at runtime
+    data_handler: DataHandler
     # This is eventually an ImageCoordinatesIterator. If an Iterable[ImageCoordinates] or
     # Iterable[Dict[str, Union[int, str]]] is provided, it will be auto-converted to an ImageCoordinatesIterator
     image_coordinate_iterator: Union[DataCoordinatesIterator,
@@ -81,7 +81,7 @@ class DataProducingAcquisitionEvent(AcquisitionEvent):
         """
         Put data into the output queue
         """
-        self._data_handler.put(data_coordinates, image, metadata, self._future_weakref())
+        self.data_handler.put(data_coordinates, image, metadata, self._future_weakref())
 
 
 

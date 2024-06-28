@@ -13,15 +13,15 @@ class ReadoutImages(DataProducingAcquisitionEvent):
     Readout one or more images (and associated metadata) from a camera
 
     Attributes:
-        num_images (int): The number of images to read out.
+        num_images (int): The number of images to read out. If None, the readout will continue until the
+            image_coordinate_iterator is exhausted or the camera is stopped and no more images are available.
         camera (Camera): The camera object to read images from.
         image_coordinate_iterator (Iterable[DataCoordinates]): An iterator or list of ImageCoordinates objects, which
             specify the coordinates of the images that will be read out, should be able to provide at least num_images
             elements.
     """
-    num_images: int
+    num_images: int = None
     camera: Camera
-    # TODO: maybe specify here that this should run on a seperate thread?
 
     def execute(self):
         image_counter = itertools.count() if self.num_images is None else range(self.num_images)
@@ -33,6 +33,9 @@ class ReadoutImages(DataProducingAcquisitionEvent):
                 image, metadata = self.camera.pop_image(timeout=0.01) # only block for 10 ms so stop event can be checked
                 if image is not None:
                     self.put_data(image_coordinates, image, metadata)
+                    break
+                # check stopping condition
+                if self.camera.is_stopped():
                     break
 
 
@@ -54,3 +57,29 @@ class StartCapture(AcquisitionEvent):
             self.camera.stop()
             raise e
 
+
+class StartContinuousCapture(AcquisitionEvent):
+    """
+    Tell data-producing device to start capturing images continuously, until a stop signal is received
+    """
+    camera: Camera
+
+    def execute(self):
+        """
+        Capture images from the camera
+        """
+        try:
+            self.camera.arm()
+            self.camera.start()
+        except Exception as e:
+            self.camera.stop()
+            raise e
+
+class StopCapture(AcquisitionEvent):
+    """
+    Tell data-producing device to start capturing images continuously, until a stop signal is received
+    """
+    camera: Camera
+
+    def execute(self):
+        self.camera.stop()

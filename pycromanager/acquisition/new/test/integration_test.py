@@ -2,7 +2,7 @@ from pycromanager import start_headless
 from pycromanager.acquisition.new.data_coords import DataCoordinates
 from pycromanager.acquisition.new.implementations.mm_device_implementations import MicroManagerCamera
 import os
-from pycromanager.acquisition.new.executor import AcquisitionEventExecutor
+from pycromanager.acquisition.new.executor import ExecutionEngine
 from pycromanager.acquisition.new.base_classes.acq_events import StartCapture, ReadoutImages, DataHandler
 
 
@@ -14,8 +14,7 @@ start_headless(mm_install_dir, config_file,
                debug=False)
 
 
-
-executor = AcquisitionEventExecutor()
+executor = ExecutionEngine()
 
 
 

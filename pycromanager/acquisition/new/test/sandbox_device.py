@@ -14,8 +14,8 @@ start_headless(mm_install_dir, config_file,
 camera = MicroManagerCamera()
 
 
-from pycromanager.acquisition.new.executor import AcquisitionEventExecutor
-executor = AcquisitionEventExecutor()
+from pycromanager.acquisition.new.executor import ExecutionEngine
+executor = ExecutionEngine()
 
 
 from pycromanager.acquisition.new.base_classes.acq_events import StartCapture, ReadoutImages, DataHandler

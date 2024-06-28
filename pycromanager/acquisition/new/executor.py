@@ -8,9 +8,11 @@ import warnings
 import traceback
 from pydantic import BaseModel
 import uuid
+from typing import Union, Iterable
 
-from pycromanager.acquisition.new.base_classes.acq_events import AcquisitionFuture
+from pycromanager.acquisition.new.acq_future import AcquisitionFuture
 from pycromanager.acquisition.new.base_classes.acq_events import AcquisitionEvent, DataProducingAcquisitionEvent
+from pycromanager.acquisition.new.data_handler import DataHandler
 
 
 class _ExecutionThreadManager(BaseModel):
@@ -44,7 +46,7 @@ class _ExecutionThreadManager(BaseModel):
         while True:
             if self._terminate_event.is_set():
                 return
-            if self._shutdown_event.is_set() and self.is_free():
+            if self._shutdown_event.is_set() and not self._deque:
                 return
             # Event retrieval loop
             while event is None:
@@ -80,8 +82,8 @@ class _ExecutionThreadManager(BaseModel):
                         warnings.warn(f"Exception during event execution, retrying {num_retries} more times")
                         traceback.print_exc()
                     else:
-                        event._exception = e
-                        event._post_execution() # notify futures
+                        traceback.print_exc()
+                        event._post_execution(e) # notify futures
                         with self._addition_condition:
                             self._event_executing = False
                         raise e # re-raise the exception to stop the thread
@@ -99,13 +101,7 @@ class _ExecutionThreadManager(BaseModel):
         """
         Submit an event for execution on this thread. If prioritize is True, the event will be executed before any other
         events in the queue.
-
-        Returns:
-            uuid.UUID: A unique identifier for the event, which can be used to check if the event has been executed
         """
-        if event._uuid is not None:
-            warnings.warn("Event has already been executed. Re-executing may lead to unexpected behavior")
-        event._uuid = uuid.uuid1()
         with self._addition_condition:
             if self._shutdown_event.is_set() or self._terminate_event.is_set():
                 raise RuntimeError("Cannot submit event to a thread that has been shutdown")
@@ -114,7 +110,6 @@ class _ExecutionThreadManager(BaseModel):
             else:
                 self._deque.append(event)
             self._addition_condition.notify_all()
-        return event._uuid
 
 
     def terminate(self):
@@ -136,7 +131,7 @@ class _ExecutionThreadManager(BaseModel):
         self._thread.join()
 
 
-class AcquisitionEventExecutor:
+class ExecutionEngine:
     def __init__(self, num_threads=1):
         self._threads = []
         for _ in range(num_threads):
@@ -145,29 +140,72 @@ class AcquisitionEventExecutor:
     def _start_new_thread(self):
         self._threads.append(_ExecutionThreadManager())
 
-    def submit_event(self, event, prioritize=False, use_free_thread=False, data_handler: DataHandler = None):
+    def submit(self, event_or_events: Union[AcquisitionEvent, Iterable[AcquisitionEvent]],
+               transpile: bool = True, prioritize: bool = False, use_free_thread: bool = False,
+               data_handler: DataHandler = None) -> Union[AcquisitionFuture, Iterable[AcquisitionFuture]]:
         """
-        Submit an event for execution on one of the active threads. By default, all events will be executed
-        on a single thread in the order they were submitted. This is the simplest way to prevent concurrency issues
-        with hardware devices. With thread-safe code, events can be parallelized by submitting them to different threads
-        using the use_free_thread argument. By default, events will be executed in the order they were submitted, but
-        if prioritize is set to True, the event will be executed before any other events in the queue on its thread.
+        Submit one or more acquisition events for execution.
+
+        This method handles the submission of acquisition events to be executed on active threads. It provides
+        options for event prioritization, thread allocation, and performance optimization.
+
+        Execution Behavior:
+        - By default, all events are executed on a single thread in submission order to prevent concurrency issues.
+        - Events can be parallelized across different threads using the 'use_free_thread' parameter.
+        - Priority execution can be requested using the 'prioritize' parameter.
 
         Parameters:
-            event (AcquisitionEvent): The event to execute
-            data_storage (DataStorage): The data storage object to put data into if the event produces data
-            prioritize (bool): If True, the event will be executed before any other events queued on its execution thread
-            use_free_thread (bool): If True, the event will be executed on a thread that is not currently executing
-                 and has nothing in its queue, creating a new thread if necessary. This is needed, for example, when using
-                 an event to cancel or stop another event that is awaiting a stop signal to be rewritten to the state. If
-                 this is set to False (the default), the event will be executed on the primary thread.
-            data_handler (DataHandler): The queue to put data into if the event produces data
-        """
-        # check that DataProducingAcquisitionEvents have a data output queue
-        if isinstance(event, DataProducingAcquisitionEvent) and data_handler is None:
-            raise ValueError("DataProducingAcquisitionEvent must have a data_output_queue argument")
+        ----------
+        event_or_events : Union[AcquisitionEvent, Iterable[AcquisitionEvent]]
+            A single AcquisitionEvent or an iterable of AcquisitionEvents to be submitted.
 
-        future = AcquisitionFuture(event=event, data_handler=data_handler)
+        transpile : bool, optional (default=True)
+            If True and multiple events are submitted, attempt to optimize them for better performance.
+            This may result in events being combined or reorganized.
+
+        prioritize : bool, optional (default=False)
+            If True, execute the event(s) before any others in the queue on its assigned thread.
+            Useful for system-wide changes affecting other events, like hardware adjustments.
+
+        use_free_thread : bool, optional (default=False)
+            If True, execute the event(s) on an available thread with an empty queue, creating a new one if necessary.
+            Useful for operations like cancelling or stopping events awaiting signals.
+            If False, execute on the primary thread.
+
+        data_handler : DataHandler, optional (default=None)
+            Object to handle data and metadata produced by DataProducingAcquisitionEvents.
+
+        Returns:
+        -------
+        Union[AcquisitionFuture, Iterable[AcquisitionFuture]]
+            For a single event: returns a single AcquisitionFuture.
+            For multiple events: returns an Iterable of AcquisitionFutures.
+            Note: The number of returned futures may differ from the input if transpilation occurs.
+
+        Notes:
+        -----
+        - Transpilation may optimize multiple events, potentially altering their number or structure.
+        - Use 'prioritize' for critical system changes that should occur before other queued events.
+        - 'use_free_thread' is essential for operations that need to run independently, like cancellation events.
+        """
+        if isinstance(event_or_events, AcquisitionEvent):
+            event_or_events = [event_or_events]
+
+        if transpile:
+            # TODO: transpile events
+            pass
+
+        futures = tuple(self._submit_single_event(event, use_free_thread, prioritize)
+                   for event in event_or_events)
+        if len(futures) == 1:
+            return futures[0]
+        return futures
+
+    def _submit_single_event(self, event: AcquisitionEvent, use_free_thread: bool = False, prioritize: bool = False):
+        """
+        Submit a single event for execution
+        """
+        future = AcquisitionFuture(event=event)
         if use_free_thread:
             for thread in self._threads:
                 if thread.is_free():
@@ -180,11 +218,9 @@ class AcquisitionEventExecutor:
 
         return future
 
-
-
     def shutdown(self):
         """
-        Stop all threads and wait for them to finish
+        Stop all threads managed by this executor and wait for them to finish
         """
         for thread in self._threads:
             thread.shutdown()

@@ -41,6 +41,9 @@ class Camera(Protocol):
     def stop(self) -> None:
         ...
 
+    def is_stopped(self) -> bool:
+        ...
+
     def pop_image(self, timeout=None) -> (np.ndarray, dict):
         """
         Get the next image and metadata from the camera buffer. If timeout is None, this function will block until
