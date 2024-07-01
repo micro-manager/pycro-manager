@@ -29,8 +29,8 @@ readout_images_event = ReadoutImages(num_images=num_images, camera=camera,
                                      image_coordinate_iterator=[DataCoordinates(time=t) for t in range(num_images)],
                                      output_queue=data_output_queue)
 
-executor.submit_event(start_capture_event)
-executor.submit_event(readout_images_event)
+executor.submit(start_capture_event)
+executor.submit(readout_images_event)
 
 image_count = 0
 while True:

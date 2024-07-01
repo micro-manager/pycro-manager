@@ -78,7 +78,6 @@ class DataHandler:
             if self._process_function:
                 # don't remove it until it has been processed
                 coordinates = self._intake_queue.peek()
-                print('peek success')
                 # shutdown condition
                 if coordinates is None:
                     self._intake_queue.get()

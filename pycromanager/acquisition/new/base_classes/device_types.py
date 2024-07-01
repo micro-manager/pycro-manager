@@ -1,31 +1,39 @@
+""""
+Base classes for devices that can be used by the execution engine
 """
-APIs (protocols) for devices that can be used in the acquisition module
-"""
-import numpy as np
-from typing_extensions import Protocol, runtime_checkable
 
-@runtime_checkable
-class SingleAxisMovable(Protocol):
+from abc import abstractmethod
+from pycromanager.acquisition.new.internal.device import Device
+
+
+class SingleAxisActuator(Device):
+
+    @abstractmethod
     def move(self, position: float) -> None:
         ...
 
-@runtime_checkable
-class DoubleAxisMovable(Protocol):
+
+class DoubleAxisActuator(Device):
+
+    @abstractmethod
     def move(self, x: float, y: float) -> None:
         ...
 
-@runtime_checkable
-class Camera(Protocol):
+class Camera(Device):
     """
     Generic class for a camera and the buffer where it stores data
     """
 
+    # TODO: maybe change these to attributes?
+    @abstractmethod
     def set_exposure(self, exposure: float) -> None:
         ...
 
+    @abstractmethod
     def get_exposure(self) -> float:
         ...
 
+    @abstractmethod
     def arm(self, frame_count=None) -> None:
         """
         Arms the device before an start command. This optional command validates all the current features for
@@ -35,15 +43,19 @@ class Camera(Protocol):
         """
         ...
 
+    @abstractmethod
     def start(self) -> None:
         ...
 
+    @abstractmethod
     def stop(self) -> None:
         ...
 
+    @abstractmethod
     def is_stopped(self) -> bool:
         ...
 
+    @abstractmethod
     def pop_image(self, timeout=None) -> (np.ndarray, dict):
         """
         Get the next image and metadata from the camera buffer. If timeout is None, this function will block until

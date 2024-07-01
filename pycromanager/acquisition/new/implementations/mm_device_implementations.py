@@ -2,7 +2,7 @@
 Implementation of Micro-Manager devices.py in terms of the AcqEng bottom API
 """
 
-from pycromanager.acquisition.new.apis.devices import Camera
+from pycromanager.acquisition.new.base_classes.devices import Camera
 from pycromanager.core import Core
 import numpy as np
 import pymmcore

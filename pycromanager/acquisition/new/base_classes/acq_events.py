@@ -24,7 +24,7 @@ class AcquisitionEvent(BaseModel, ABC):
     _exception: Exception = None
     _future_weakref: Optional[weakref.ReferenceType['AcquisitionFuture']] = None
 
-    # TODO: want to make this specific to certain attributes
+    # TODO: want to make this specific to certain attributes?
     class Config:
         arbitrary_types_allowed = True
 
