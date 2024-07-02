@@ -5,8 +5,8 @@ from abc import ABC, ABCMeta
 from functools import wraps
 from typing import Any, Dict
 
-from pycromanager.acquisition.new.base_classes.acq_events import AcquisitionEvent
-from pycromanager.acquisition.new.executor import ExecutionEngine
+from pycromanager.acquisition.execution_engine.base_classes.acq_events import AcquisitionEvent
+from pycromanager.acquisition.execution_engine.executor import ExecutionEngine
 
 
 class MethodCallAcquisitionEvent(AcquisitionEvent):

@@ -3,7 +3,7 @@ from concurrent.futures import ThreadPoolExecutor
 import time
 import datetime
 
-# from pycromanager.acquisition.new.acq_events import AcquisitionEvent
+# from pycromanager.acquisition.execution_engine.acq_events import AcquisitionEvent
 # TODO
 AcquisitionEvent = None
 
@@ -88,7 +88,7 @@ class Engine:
         #             # all events
         #             sequence_event = self.merge_sequence_event(self.sequenced_events)
         #             self.sequenced_events.clear()
-        #             # Add in the start of the new sequence
+        #             # Add in the start of the execution_engine sequence
         #             if not event.is_acquisition_sequence_end_event():
         #                 self.sequenced_events.append(event)
         #             if event.acquisition_.is_debug_mode():
@@ -377,7 +377,7 @@ class Engine:
 
                 # Compare to last event to see what needs to change
                 if self.last_event is not None and self.last_event.acquisition_ != event.acquisition_:
-                    self.last_event = None  # Update all hardware if switching to a new acquisition
+                    self.last_event = None  # Update all hardware if switching to a execution_engine acquisition
 
 
             # Other stage devices.py

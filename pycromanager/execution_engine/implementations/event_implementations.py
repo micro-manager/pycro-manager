@@ -3,9 +3,9 @@ This file contains implementations of AcquisitionEvents that can be used to buil
 """
 from typing import Iterable
 import itertools
-from pycromanager.acquisition.new.base_classes.acq_events import AcquisitionEvent, DataProducing
-from pycromanager.acquisition.new.base_classes.devices import Camera
-from pycromanager.acquisition.new.data_coords import DataCoordinates
+from pycromanager.acquisition.execution_engine.base_classes.acq_events import AcquisitionEvent, DataProducing
+from pycromanager.acquisition.execution_engine.base_classes.devices import Camera
+from pycromanager.acquisition.execution_engine.data_coords import DataCoordinates
 
 
 class ReadoutImages(AcquisitionEvent, DataProducing):
@@ -28,8 +28,8 @@ class ReadoutImages(AcquisitionEvent, DataProducing):
         for image_number, image_coordinates in zip(image_counter, self.image_coordinate_iterator):
             while True:
                 # TODO: read from state to check for cancel condition
-                #  this can be made more efficient in the future with a new image buffer that provides callbacks
-                # on a new image recieved so that polling can be avoided
+                #  this can be made more efficient in the future with a execution_engine image buffer that provides callbacks
+                # on a execution_engine image recieved so that polling can be avoided
                 image, metadata = self.camera.pop_image(timeout=0.01) # only block for 10 ms so stop event can be checked
                 if image is not None:
                     self.put_data(image_coordinates, image, metadata)

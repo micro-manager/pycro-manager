@@ -2,7 +2,7 @@
 Implementation of Micro-Manager devices.py in terms of the AcqEng bottom API
 """
 
-from pycromanager.acquisition.new.base_classes.devices import Camera
+from pycromanager.acquisition.execution_engine.base_classes.devices import Camera
 from pycromanager.core import Core
 import numpy as np
 import pymmcore
@@ -33,7 +33,7 @@ class MicroManagerCamera(Camera):
             self.device_name = device_name
 
         # Make a thread to execute calls to snap asynchronously
-        # This may be removable in the the future with the new camera API if something similar is implemented at the core
+        # This may be removable in the the future with the execution_engine camera API if something similar is implemented at the core
         self._snap_executor = ThreadPoolExecutor(max_workers=1)
         self._last_snap = None
         self._snap_active = False

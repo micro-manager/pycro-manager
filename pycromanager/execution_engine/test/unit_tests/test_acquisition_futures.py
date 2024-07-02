@@ -1,14 +1,14 @@
 import threading
 import pytest
 import numpy as np
-from pycromanager.acquisition.new.data_coords import DataCoordinates, DataCoordinatesIterator
+from pycromanager.acquisition.execution_engine.data_coords import DataCoordinates, DataCoordinatesIterator
 from typing import Dict, Any
 import time
 
 # Assuming these are the correct imports based on the provided code
-from pycromanager.acquisition.new.data_handler import DataHandler
-from pycromanager.acquisition.new.base_classes.acq_events import AcquisitionEvent, DataProducing
-from pycromanager.acquisition.new.acq_future import AcquisitionFuture
+from pycromanager.acquisition.execution_engine.data_handler import DataHandler
+from pycromanager.acquisition.execution_engine.base_classes.acq_events import AcquisitionEvent, DataProducing
+from pycromanager.acquisition.execution_engine.acq_future import AcquisitionFuture
 
 
 class MockDataHandler(DataHandler):

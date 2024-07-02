@@ -1,13 +1,13 @@
 from typing import Union, Optional, Any, Dict, Tuple, Sequence, Set
 import threading
 import warnings
-from pycromanager.acquisition.new.data_coords import DataCoordinates, DataCoordinatesIterator
+from pycromanager.acquisition.execution_engine.data_coords import DataCoordinates, DataCoordinatesIterator
 
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING: # avoid circular imports
-    from pycromanager.acquisition.new.data_handler import DataHandler
-from pycromanager.acquisition.new.base_classes.acq_events import AcquisitionEvent, DataProducing, Stoppable, Abortable
+    from pycromanager.acquisition.execution_engine.data_handler import DataHandler
+from pycromanager.acquisition.execution_engine.base_classes.acq_events import AcquisitionEvent, DataProducing, Stoppable, Abortable
 
 class AcquisitionFuture:
 

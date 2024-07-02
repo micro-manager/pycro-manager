@@ -3,15 +3,15 @@ import queue
 from typing import Any, Dict, Tuple, Callable, Union, Sequence, Optional
 import numpy as np
 
-from pycromanager.acquisition.new.data_coords import DataCoordinates
-from pycromanager.acquisition.new.apis.data_storage import DataStorageAPI
+from pycromanager.acquisition.execution_engine.data_coords import DataCoordinates
+from pycromanager.acquisition.execution_engine.apis.data_storage import DataStorageAPI
 from pydantic.types import JsonValue
 from dataclasses import dataclass
 
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from pycromanager.acquisition.new.acq_future import AcquisitionFuture
+    from pycromanager.acquisition.execution_engine.acq_future import AcquisitionFuture
 
 
 class _PeekableQueue(queue.Queue):
@@ -82,7 +82,7 @@ class DataHandler:
                 if coordinates is None:
                     self._intake_queue.get()
                     # TODO: it would be nice to give a signal to the image processor to shut down
-                    #  probably could do this by adding a new protocol that can be checked
+                    #  probably could do this by adding a execution_engine protocol that can be checked
                     #  to allow backwards compatibility
                     self._processed_queue.put(None)  # propagate the shutdown signal
                     break
@@ -116,7 +116,7 @@ class DataHandler:
                         if future:
                             future._notify_data(coordinates, data, metadata, processed=True, stored=False)
                 if not original_data_coordinates_replaced:
-                    # if the image processor did not provide a new image with the same coordinates, discard the original
+                    # if the image processor did not provide a execution_engine image with the same coordinates, discard the original
                     self._data_metadata_future_tuple.pop(original_coordinates)
                 # remove the item from the intake queue
                 self._intake_queue.get()

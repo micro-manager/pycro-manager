@@ -3,7 +3,7 @@ Base classes for devices that can be used by the execution engine
 """
 
 from abc import abstractmethod
-from pycromanager.acquisition.new.internal.device import Device
+from pycromanager.execution_engine.internal.device import Device
 
 
 class SingleAxisActuator(Device):

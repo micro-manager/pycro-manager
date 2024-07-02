@@ -159,7 +159,7 @@ def _run_image_processor(
     while True:
         message = None
         while message is None:
-            message = pull_socket.receive(timeout=30, suppress_debug_message=True)  # check for new message
+            message = pull_socket.receive(timeout=30, suppress_debug_message=True)  # check for execution_engine message
 
         if "special" in message and message["special"] == "finished":
             pull_socket.close()
@@ -304,7 +304,7 @@ class JavaBackendAcquisition(Acquisition, metaclass=NumpyDocstringInheritanceMet
         # Acquistition.start is now deprecated, so this can be removed later
         # Acquisitions now get started automatically when the first events submitted
         # but Magellan acquisitons (and probably others that generate their own events)
-        # will need some new method to submit events only after image processors etc have been added
+        # will need some execution_engine method to submit events only after image processors etc have been added
         self._acq.start()
         self._dataset_disk_location = (
             self._acq.get_data_sink().get_storage().get_disk_location()
@@ -498,7 +498,7 @@ class JavaBackendAcquisition(Acquisition, metaclass=NumpyDocstringInheritanceMet
     def _create_remote_acquisition(self, **kwargs):
         core = ZMQRemoteMMCoreJ(port=self._port, timeout=self._timeout, debug=self._debug)
         acq_factory = JavaObject("org.micromanager.remote.RemoteAcquisitionFactory",
-            # create a new socket for it to run on so that it can have blocking calls without interfering with
+            # create a execution_engine socket for it to run on so that it can have blocking calls without interfering with
             # the main socket or other internal sockets
             new_socket=True,
             port=self._port, args=[core], debug=self._debug, timeout=self._timeout)

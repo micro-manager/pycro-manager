@@ -479,7 +479,7 @@ def test_abort_from_external(launch_mm_headless, setup_data_folder):
             events = multi_d_acquisition_events(num_time_points=6)
             acq.acquire(events[0])
             # this simulates an abort from the java side unbeknownst to python side
-            # it comes from a new thread so it is non-blocking to the port
+            # it comes from a execution_engine thread so it is non-blocking to the port
             acq._acq.abort()
             for event in events[1:]:
                 acq.acquire(event)

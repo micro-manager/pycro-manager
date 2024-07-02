@@ -3,8 +3,8 @@ from unittest.mock import MagicMock, call
 from typing import Any
 
 # Assuming these are imported from your actual implementation
-from pycromanager.acquisition.new.internal.device import (Device, AttrAccessAcquisitionEvent,
-                                                          AttrSetAcquisitionEvent, MethodCallAcquisitionEvent)
+from pycromanager.execution_engine.internal.device import (Device, AttrAccessAcquisitionEvent,
+                                                           AttrSetAcquisitionEvent, MethodCallAcquisitionEvent)
 
 
 

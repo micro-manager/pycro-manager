@@ -1,10 +1,7 @@
 from pycromanager import start_headless
-from pycromanager.acquisition.new.data_coords import DataCoordinates
-from pycromanager.acquisition.new.implementations.mm_device_implementations import MicroManagerCamera
+from pycromanager.acquisition.execution_engine.data_coords import DataCoordinates
+from pycromanager.acquisition.execution_engine.implementations.mm_device_implementations import MicroManagerCamera
 import os
-from pycromanager.acquisition.new.executor import ExecutionEngine
-from pycromanager.acquisition.new.base_classes.acq_events import StartCapture, ReadoutImages, DataHandler
-
 
 mm_install_dir = '/Users/henrypinkard/Micro-Manager'
 config_file = os.path.join(mm_install_dir, 'MMConfig_demo.cfg')
@@ -14,12 +11,14 @@ start_headless(mm_install_dir, config_file,
                debug=False)
 
 
+camera = MicroManagerCamera()
+
+
+from pycromanager.acquisition.execution_engine.executor import ExecutionEngine
 executor = ExecutionEngine()
 
 
-
-camera = MicroManagerCamera()
-
+from pycromanager.acquisition.execution_engine.base_classes.acq_events import StartCapture, ReadoutImages, DataHandler
 
 num_images = 100
 data_output_queue = DataHandler()
@@ -29,18 +28,15 @@ readout_images_event = ReadoutImages(num_images=num_images, camera=camera,
                                      image_coordinate_iterator=[DataCoordinates(time=t) for t in range(num_images)],
                                      output_queue=data_output_queue)
 
-executor.submit(start_capture_event)
-executor.submit(readout_images_event)
+executor.submit_event(start_capture_event)
+executor.submit_event(readout_images_event, use_free_thread=True)
 
 image_count = 0
 while True:
     coordinates, image, metadata = data_output_queue.get()
     image_count += 1
     print(f"Got image {image_count}  ", f'pixel mean {image.mean()}' )
-    if image_count == num_images:
-        break
 
-executor.shutdown()
 
 
 #

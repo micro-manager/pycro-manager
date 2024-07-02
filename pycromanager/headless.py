@@ -36,7 +36,7 @@ def _create_pymmcore_instance():
     2. add convenience methods to match the MMCoreJ API:
     """
 
-    # Create a new dictionary for the class attributes
+    # Create a execution_engine dictionary for the class attributes
     new_attributes = {}
 
     # Iterate through the original attributes
@@ -49,7 +49,7 @@ def _create_pymmcore_instance():
             new_attr_name = _camel_to_snake(attr_name)
             new_attributes[new_attr_name] = attr_value
 
-    # Create and return a new class that subclasses the original class and has the new attributes
+    # Create and return a execution_engine class that subclasses the original class and has the execution_engine attributes
     clz = type(CMMCore.__name__ + "SnakeCase", (CMMCore,), new_attributes)
     instance = clz()
     return instance
@@ -80,7 +80,7 @@ def stop_headless(debug=False):
         c.unloadAllDevices()
         if debug:
             logger.debug('Unloaded all devices.py')
-        # TODO: shutdown new engine
+        # TODO: shutdown execution_engine engine
         # Engine.get_instance().shutdown()
         if debug:
             logger.debug('Engine shut down')
@@ -137,7 +137,7 @@ def start_headless(
             mmc.load_system_configuration(config_file)
         mmc.set_circular_buffer_memory_footprint(buffer_size_mb)
         _PYMMCORES.append(mmc) # Store so it doesn't get garbage collected
-        # TODO: startup new engine
+        # TODO: startup execution_engine engine
         # Engine(mmc)
     else:
         classpath = mm_app_path + '/plugins/Micro-Manager/*'

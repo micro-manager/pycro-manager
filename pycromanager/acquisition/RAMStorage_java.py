@@ -22,7 +22,7 @@ class NDRAMDatasetJava(NDStorageBase):
 
     def add_available_axes(self, image_coordinates):
         """
-        The Java RAM storage has received a new image with the given axes. Add these axes to the index.
+        The Java RAM storage has received a execution_engine image with the given axes. Add these axes to the index.
         """
         self._index_keys.add(frozenset(image_coordinates.items()))
         # update information about the available images

@@ -18,7 +18,7 @@ from types import GeneratorType
 
 from queue import Queue
 from typing import Generator, Dict, Union
-# from pycromanager.acquisition.new.acq_events import AcquisitionEvent
+# from pycromanager.acquisition.execution_engine.acq_events import AcquisitionEvent
 
 AcquisitionEvent = None
 
@@ -110,12 +110,12 @@ class Acquisition(metaclass=Meta):
             or two arguments (current event, event_queue)
         pre_hardware_hook_fn : Callable
             hook function that will be run just before the hardware is updated before acquiring
-            a new image. In the case of hardware sequencing, it will be run just before a sequence of instructions are
+            a execution_engine image. In the case of hardware sequencing, it will be run just before a sequence of instructions are
             dispatched to the hardware. Accepts either one argument (the current acquisition event) or two arguments
             (current event, event_queue)
         post_hardware_hook_fn : Callable
             hook function that will be run just before the hardware is updated before acquiring
-            a new image. In the case of hardware sequencing, it will be run just after a sequence of instructions are
+            a execution_engine image. In the case of hardware sequencing, it will be run just after a sequence of instructions are
             dispatched to the hardware, but before the camera sequence has been started. Accepts either one argument
             (the current acquisition event) or two arguments (current event, event_queue)
         post_camera_hook_fn : Callable
@@ -131,7 +131,7 @@ class Acquisition(metaclass=Meta):
             so as to not back up the processing of other notifications.
         image_saved_fn : Callable
             function that takes two arguments (the Axes of the image that just finished saving, and the Dataset)
-            or three arguments (Axes, Dataset and the event_queue) and gets called whenever a new image is written to
+            or three arguments (Axes, Dataset and the event_queue) and gets called whenever a execution_engine image is written to
             disk
         napari_viewer : napari.Viewer
             Provide a napari viewer to display acquired data in napari (https://napari.org/) rather than the built-in
@@ -315,7 +315,7 @@ class Acquisition(metaclass=Meta):
 
     def _add_storage_monitor_fn(self, image_saved_fn=None):
         """
-        Add a callback function that gets called whenever a new image is writtern to disk (for acquisitions in
+        Add a callback function that gets called whenever a execution_engine image is writtern to disk (for acquisitions in
         progress only)
 
         Parameters

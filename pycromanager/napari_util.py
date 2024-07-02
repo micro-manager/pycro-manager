@@ -8,7 +8,7 @@ import time
 
 def start_napari_signalling(viewer, dataset):
     """
-    Start up a threadworker, which will check for new images arrived in the dataset
+    Start up a threadworker, which will check for execution_engine images arrived in the dataset
     and then signal to napari to update or refresh as needed
     :param viewer: the napari Viewer
     :param dataset: the Datatset being acquired
@@ -17,7 +17,7 @@ def start_napari_signalling(viewer, dataset):
 
     def update_layer(image):
         """
-        update the napari layer with the new image
+        update the napari layer with the execution_engine image
         """
         if image is not None:
             try:
@@ -29,7 +29,7 @@ def start_napari_signalling(viewer, dataset):
     @thread_worker(connect={'yielded': update_layer})
     def napari_signaller():
         """
-        Monitor for signals that Acquisition has a new image ready, and when that happens
+        Monitor for signals that Acquisition has a execution_engine image ready, and when that happens
         update napari appropriately
         """
         # don't update faster than the display can handle

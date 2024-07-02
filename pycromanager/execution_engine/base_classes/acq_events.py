@@ -7,12 +7,12 @@ import weakref
 from pydantic import BaseModel
 from pydantic import field_validator
 
-from pycromanager.acquisition.new.data_coords import DataCoordinates, DataCoordinatesIterator
-from pycromanager.acquisition.new.data_handler import DataHandler
+from pycromanager.acquisition.execution_engine.data_coords import DataCoordinates, DataCoordinatesIterator
+from pycromanager.acquisition.execution_engine.data_handler import DataHandler
 
 from typing import TYPE_CHECKING
 if TYPE_CHECKING: # avoid circular imports
-    from pycromanager.acquisition.new.acq_future import AcquisitionFuture
+    from pycromanager.acquisition.execution_engine.acq_future import AcquisitionFuture
 
 class AcquisitionEvent(BaseModel, ABC):
     num_retries_on_exception: int = 0

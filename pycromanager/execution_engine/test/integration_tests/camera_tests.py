@@ -1,14 +1,14 @@
 import time
 
 from pycromanager import start_headless
-from pycromanager.acquisition.new.data_coords import DataCoordinates
-from pycromanager.acquisition.new.implementations.mm_device_implementations import MicroManagerCamera
+from pycromanager.acquisition.execution_engine.data_coords import DataCoordinates
+from pycromanager.acquisition.execution_engine.implementations.mm_device_implementations import MicroManagerCamera
 import os
-from pycromanager.acquisition.new.executor import ExecutionEngine
-from pycromanager.acquisition.new.implementations.event_implementations import StartCapture, ReadoutImages, \
+from pycromanager.acquisition.execution_engine.executor import ExecutionEngine
+from pycromanager.acquisition.execution_engine.implementations.event_implementations import StartCapture, ReadoutImages, \
     StartContinuousCapture, StopCapture
-from pycromanager.acquisition.new.data_handler import DataHandler
-from pycromanager.acquisition.new.implementations.data_storage_implementations import NDStorage
+from pycromanager.acquisition.execution_engine.data_handler import DataHandler
+from pycromanager.acquisition.execution_engine.implementations.data_storage_implementations import NDStorage
 import itertools
 
 

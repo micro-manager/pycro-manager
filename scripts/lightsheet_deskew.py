@@ -104,7 +104,7 @@ class ObliqueStackProcessor:
 
         for z_index_camera in np.arange(self.camera_shape[0]):
             for y_index_camera in np.arange(self.camera_shape[1]):
-                # where does each line of x pixels belong in the new image?
+                # where does each line of x pixels belong in the execution_engine image?
                 if (z_index_camera, y_index_camera) not in self.recon_coord_LUT:
                     print('ignoring: ', z_index_camera, y_index_camera)
                     continue
@@ -145,7 +145,7 @@ class ObliqueStackProcessor:
 
         # do the projection/reconstruction
         # iterate through each z slice of the image
-        # at each z slice, iterate through each x pixel and copy a line of y pixels to the new image
+        # at each z slice, iterate through each x pixel and copy a line of y pixels to the execution_engine image
         for z_index_camera in np.arange(0, self.camera_shape[0], 1):
             image_on_camera = data[z_index_camera]
             for y_index_camera in range(self.camera_shape[1]):
@@ -153,7 +153,7 @@ class ObliqueStackProcessor:
                     continue
                 source_line_of_x_pixels = image_on_camera[y_index_camera]
 
-                # where does each line of x pixels belong in the new image?
+                # where does each line of x pixels belong in the execution_engine image?
                 dest_coords = self.recon_coord_LUT[(z_index_camera, y_index_camera)]
                 for dest_coord in dest_coords:
                     recon_z, recon_y = dest_coord

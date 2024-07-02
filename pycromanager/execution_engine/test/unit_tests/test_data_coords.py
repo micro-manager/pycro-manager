@@ -1,6 +1,6 @@
 import pytest
 from pydantic import ValidationError
-from pycromanager.acquisition.new.data_coords import DataCoordinates, DataCoordinatesIterator
+from pycromanager.acquisition.execution_engine.data_coords import DataCoordinates, DataCoordinatesIterator
 import numpy as np
 
 def test_init_with_dict():

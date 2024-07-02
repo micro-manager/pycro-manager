@@ -3,7 +3,7 @@ Protocol for storage class that acquisitions ultimate write to where the acquisi
 """
 
 from typing import Protocol, runtime_checkable, Union, List, Tuple, Dict, Any
-from pycromanager.acquisition.new.data_coords import DataCoordinates
+from pycromanager.acquisition.execution_engine.data_coords import DataCoordinates
 import numpy as np
 from pydantic.types import JsonValue
 
@@ -88,7 +88,7 @@ class DataStorageAPI(Protocol):
 #     @abstractmethod
 #     def await_new_image(self, timeout=None):
 #         """
-#         Wait for a new image to arrive in the dataset
+#         Wait for a execution_engine image to arrive in the dataset
 #
 #         Parameters
 #         ----------
@@ -98,7 +98,7 @@ class DataStorageAPI(Protocol):
 #         Returns
 #         -------
 #         bool
-#             True if a new image has arrived, False if the timeout was reached
+#             True if a execution_engine image has arrived, False if the timeout was reached
 #         """
 #         pass
 #

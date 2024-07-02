@@ -1,7 +1,7 @@
 import warnings
 from docstring_inheritance import NumpyDocstringInheritanceMeta
 from pycromanager.acquisition.acquisition_superclass import _validate_acq_events, Acquisition
-# from pycromanager.acquisition.new.acq_events import AcquisitionEvent
+# from pycromanager.acquisition.execution_engine.acq_events import AcquisitionEvent
 #TODO:
 AcquisitionEvent = None
 from pycromanager.acquisition.acq_eng_py.main.acq_eng_metadata import AcqEngMetadata

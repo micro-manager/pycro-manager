@@ -2,8 +2,8 @@
 Adapters for NDTiff and NDRam storage classes
 """
 from typing import Union, Dict
-from pycromanager.acquisition.new.apis.data_storage import DataStorageAPI
-from pycromanager.acquisition.new.data_coords import DataCoordinates
+from pycromanager.acquisition.execution_engine.apis.data_storage import DataStorageAPI
+from pycromanager.acquisition.execution_engine.data_coords import DataCoordinates
 from ndstorage import NDRAMDataset, NDTiffDataset
 import numpy as np
 from pydantic.types import JsonValue

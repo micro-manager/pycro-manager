@@ -221,7 +221,7 @@ class MultiStagePosition:
         """Change the name of the xy stage.
 
         Args:
-            label: The new name for the xy Stage
+            label: The execution_engine name for the xy Stage
         """
         self.defaultXYStage = label
         self.getXYPosition().renameStage(label)
@@ -230,7 +230,7 @@ class MultiStagePosition:
         """Creates a copy fo the object
 
         Returns:
-            A new `MultiStagePosition` object.
+            A execution_engine `MultiStagePosition` object.
         """
         return copy.deepcopy(self)
 
@@ -340,7 +340,7 @@ class PositionList:
         """Change the name of the xy stage.
 
         Args:
-            label: The new name for the xy Stage
+            label: The execution_engine name for the xy Stage
 
         Returns:
             A reference to this object
@@ -523,7 +523,7 @@ if __name__ == "__main__":
 
 
     def generateList(data: np.ndarray) -> PositionList:
-        """Example function to create a brand new position list in python.
+        """Example function to create a brand execution_engine position list in python.
 
         Args:
             data: An Nx2 array of xy coordinates. These coordinates will be converted to a PositionList which can be

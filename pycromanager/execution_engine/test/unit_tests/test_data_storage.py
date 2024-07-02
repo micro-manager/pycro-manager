@@ -1,8 +1,8 @@
 import pytest
 import numpy as np
-from pycromanager.acquisition.new.data_coords import DataCoordinates
-from pycromanager.acquisition.new.implementations.data_storage_implementations import NDStorage
-from pycromanager.acquisition.new.apis.data_storage import DataStorageAPI
+from pycromanager.acquisition.execution_engine.data_coords import DataCoordinates
+from pycromanager.acquisition.execution_engine.implementations.data_storage_implementations import NDStorage
+from pycromanager.acquisition.execution_engine.apis.data_storage import DataStorageAPI
 
 @pytest.fixture(params=["tiff", "ram"])
 def data_storage(request, tmp_path):

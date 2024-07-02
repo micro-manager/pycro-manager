@@ -74,7 +74,7 @@ class ZMQRemoteMMCoreJ(JavaObject):
         port: int
             The port of the Bridge used to create the object
         new_socket: bool
-            If True, will create new java object on a new port so that blocking calls will not interfere
+            If True, will create execution_engine java object on a execution_engine port so that blocking calls will not interfere
             with the bridges main port
         debug:
             print debug messages
@@ -117,7 +117,7 @@ class Magellan(JavaObject):
         port: int
             The port of the Bridge used to create the object
         new_socket: bool
-            If True, will create new java object on a new port so that blocking calls will not interfere
+            If True, will create execution_engine java object on a execution_engine port so that blocking calls will not interfere
             with the bridges main port
         debug: bool
             print debug messages
@@ -142,7 +142,7 @@ class Studio(JavaObject):
         port: int
             The port of the Bridge used to create the object
         new_socket: bool
-            If True, will create new java object on a new port so that blocking calls will not interfere
+            If True, will create execution_engine java object on a execution_engine port so that blocking calls will not interfere
             with the bridges main port
         debug: bool
             print debug messages

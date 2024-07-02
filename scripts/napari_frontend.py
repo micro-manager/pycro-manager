@@ -22,7 +22,7 @@ update_ready = False
 
 def image_saved_callback(axes, d):
     """
-    Callback function that will be used to signal to napari that a new image is ready
+    Callback function that will be used to signal to napari that a execution_engine image is ready
     """
     global dataset
     global update_ready
@@ -48,7 +48,7 @@ viewer = napari.Viewer()
 
 def update_layer(image):
     """
-    update the napari layer with the new image
+    update the napari layer with the execution_engine image
     """
     if len(viewer.layers) == 0:
         viewer.add_image(image)
@@ -61,14 +61,14 @@ def update_layer(image):
 @thread_worker(connect={'yielded': update_layer})
 def update_images():
     """
-    Monitor for signals that Acqusition has a new image ready, and when that happens
+    Monitor for signals that Acqusition has a execution_engine image ready, and when that happens
     update napari appropriately
     """
     global update_ready
     while True:
         if update_ready:
             update_ready = False
-            # A new image has arrived, but we only need to regenerate the dask array
+            # A execution_engine image has arrived, but we only need to regenerate the dask array
             # if its shape has changed
             shape = np.array([len(dataset.axes[name]) for name in dataset.axes.keys()])
             if not hasattr(update_images, 'old_shape') or \

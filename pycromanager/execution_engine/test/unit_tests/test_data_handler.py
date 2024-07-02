@@ -2,12 +2,12 @@ import time
 
 import pytest
 import numpy as np
-from pycromanager.acquisition.new.data_coords import DataCoordinates
-from pycromanager.acquisition.new.apis.data_storage import DataStorageAPI
-from pycromanager.acquisition.new.acq_future import AcquisitionFuture
+from pycromanager.acquisition.execution_engine.data_coords import DataCoordinates
+from pycromanager.acquisition.execution_engine.apis.data_storage import DataStorageAPI
+from pycromanager.acquisition.execution_engine.acq_future import AcquisitionFuture
 from typing import Callable, Optional, Union, Sequence, Dict, Tuple, Any
 
-from pycromanager.acquisition.new.data_handler import DataHandler
+from pycromanager.acquisition.execution_engine.data_handler import DataHandler
 
 
 class MockDataStorage(DataStorageAPI):

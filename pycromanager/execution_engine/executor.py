@@ -10,9 +10,9 @@ from pydantic import BaseModel
 import uuid
 from typing import Union, Iterable
 
-from pycromanager.acquisition.new.acq_future import AcquisitionFuture
-from pycromanager.acquisition.new.base_classes.acq_events import AcquisitionEvent, DataProducing, Stoppable, Abortable
-from pycromanager.acquisition.new.data_handler import DataHandler
+from pycromanager.acquisition.execution_engine.acq_future import AcquisitionFuture
+from pycromanager.acquisition.execution_engine.base_classes.acq_events import AcquisitionEvent, DataProducing, Stoppable, Abortable
+from pycromanager.acquisition.execution_engine.data_handler import DataHandler
 
 
 class ExecutionEngine:
@@ -62,7 +62,7 @@ class ExecutionEngine:
             Useful for system-wide changes affecting other events, like hardware adjustments.
 
         use_free_thread : bool, optional (default=False)
-            If True, execute the event(s) on an available thread with an empty queue, creating a new one if necessary.
+            If True, execute the event(s) on an available thread with an empty queue, creating a execution_engine one if necessary.
             Useful for operations like cancelling or stopping events awaiting signals.
             If False, execute on the primary thread.
 
