@@ -4,6 +4,7 @@ Base classes for devices that can be used by the execution engine
 
 from abc import abstractmethod
 from pycromanager.execution_engine.internal.device import Device
+import numpy as np
 
 
 class SingleAxisActuator(Device):

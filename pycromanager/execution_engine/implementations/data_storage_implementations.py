@@ -2,25 +2,18 @@
 Adapters for NDTiff and NDRam storage classes
 """
 from typing import Union, Dict
-from pycromanager.acquisition.execution_engine.apis.data_storage import DataStorageAPI
-from pycromanager.acquisition.execution_engine.data_coords import DataCoordinates
+from pycromanager.execution_engine.apis.data_storage import DataStorageAPI
+from pycromanager.execution_engine.data_coords import DataCoordinates
 from ndstorage import NDRAMDataset, NDTiffDataset
 import numpy as np
 from pydantic.types import JsonValue
 
-class NDStorage(DataStorageAPI):
+class _NDRAMOrTiffStorage(DataStorageAPI):
     """
     Wrapper class for NDTiffDataset and NDRAMDataset to implement the DataStorageAPI protocol
     """
 
-    def __init__(self, directory: str = None, name: str = None, summary_metadata: JsonValue = None):
-        if directory is None:
-            self._storage = NDRAMDataset()
-        else:
-            self._storage = NDTiffDataset(dataset_path=directory, name=name, writable=True)
-        if summary_metadata is None:
-            summary_metadata = {}
-        self._storage.initialize(summary_metadata)
+    _storage: Union[NDTiffDataset, NDRAMDataset]
 
     def __contains__(self, data_coordinates: Union[DataCoordinates, Dict[str, Union[int, str]]]) -> bool:
         """Check if item is in the container."""
@@ -70,3 +63,22 @@ class NDStorage(DataStorageAPI):
         self._storage.close()
 
 
+class NDTiffStorage(_NDRAMOrTiffStorage):
+    """
+    Adapter for NDTiffDataset to implement the DataStorageAPI protocol
+    """
+    def __init__(self, directory: str, name: str = None, summary_metadata: JsonValue = None):
+        self._storage = NDTiffDataset(dataset_path=directory, name=name, writable=True)
+        if summary_metadata is None:
+            summary_metadata = {}
+        self._storage.initialize(summary_metadata)
+
+class NDRAMStorage(_NDRAMOrTiffStorage):
+    """
+    Adapter for NDRAMDataset to implement the DataStorageAPI protocol
+    """
+    def __init__(self, summary_metadata: JsonValue = None):
+        self._storage = NDRAMDataset()
+        if summary_metadata is None:
+            summary_metadata = {}
+        self._storage.initialize(summary_metadata)

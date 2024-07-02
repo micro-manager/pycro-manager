@@ -5,14 +5,14 @@ from abc import ABC, abstractmethod
 import weakref
 
 from pydantic import BaseModel
-from pydantic import field_validator
+from pydantic import field_validator, Field
 
-from pycromanager.acquisition.execution_engine.data_coords import DataCoordinates, DataCoordinatesIterator
-from pycromanager.acquisition.execution_engine.data_handler import DataHandler
+from pycromanager.execution_engine.data_coords import DataCoordinates, DataCoordinatesIterator
+from pycromanager.execution_engine.data_handler import DataHandler
 
 from typing import TYPE_CHECKING
 if TYPE_CHECKING: # avoid circular imports
-    from pycromanager.acquisition.execution_engine.acq_future import AcquisitionFuture
+    from pycromanager.execution_engine.acq_future import AcquisitionFuture
 
 class AcquisitionEvent(BaseModel, ABC):
     num_retries_on_exception: int = 0
@@ -100,12 +100,16 @@ class DataProducing(BaseModel):
     coordinates of each piece of data (i.e. image) that will be produced by the event. For example, {time: 0},
     {time: 1}, {time: 2} for a time series acquisition.
     """
-    data_handler: DataHandler
+    data_handler: DataHandler = None
     # This is eventually an ImageCoordinatesIterator. If an Iterable[ImageCoordinates] or
     # Iterable[Dict[str, Union[int, str]]] is provided, it will be auto-converted to an ImageCoordinatesIterator
     image_coordinate_iterator: Union[DataCoordinatesIterator,
                                      Iterable[DataCoordinates],
                                      Iterable[Dict[str, Union[int, str]]]]
+
+    # TODO: is there any point to pydantic if I'm just telling it to ignore stuff anyway?
+    class Config:
+        arbitrary_types_allowed = True
 
     @field_validator('image_coordinate_iterator', mode='before')
     def _convert_to_image_coordinates_iterator(cls, v):

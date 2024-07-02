@@ -3,7 +3,7 @@ from unittest.mock import MagicMock, call
 from typing import Any
 
 # Assuming these are imported from your actual implementation
-from pycromanager.execution_engine.internal.device import (Device, AttrAccessAcquisitionEvent,
+from pycromanager.execution_engine.internal.device import (Device, AttrGetAcquisitionEvent,
                                                            AttrSetAcquisitionEvent, MethodCallAcquisitionEvent)
 
 
@@ -90,7 +90,7 @@ def test_public_attribute_get(test_device, mock_executor):
     _ = test_device.public_attr
 
     # get the list of attribute access events
-    attr_access_events = [call[0][0] for call in mock_executor.execute.call_args_list if isinstance(call[0][0], AttrAccessAcquisitionEvent)]
+    attr_access_events = [call[0][0] for call in mock_executor.execute.call_args_list if isinstance(call[0][0], AttrGetAcquisitionEvent)]
     # filter to only AttrAccessAcquisitionEvents with the correct attribute name
     attr_access_events = [event for event in attr_access_events if event.attr_name == 'public_attr']
     # check for only one AttrAccessAcquisitionEvent in the calls (other types of events are ok)

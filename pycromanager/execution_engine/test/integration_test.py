@@ -1,9 +1,9 @@
 from pycromanager import start_headless
-from pycromanager.acquisition.execution_engine.data_coords import DataCoordinates
-from pycromanager.acquisition.execution_engine.implementations.mm_device_implementations import MicroManagerCamera
+from pycromanager.execution_engine.data_coords import DataCoordinates
+from pycromanager.execution_engine.implementations.mm_device_implementations import MicroManagerCamera
 import os
-from pycromanager.acquisition.execution_engine.executor import ExecutionEngine
-from pycromanager.acquisition.execution_engine.base_classes.acq_events import StartCapture, ReadoutImages, DataHandler
+from pycromanager.execution_engine.executor import ExecutionEngine
+from pycromanager.execution_engine.base_classes.acq_events import StartCapture, ReadoutImages, DataHandler
 
 
 mm_install_dir = '/Users/henrypinkard/Micro-Manager'

@@ -3,7 +3,7 @@ Protocol for storage class that acquisitions ultimate write to where the acquisi
 """
 
 from typing import Protocol, runtime_checkable, Union, List, Tuple, Dict, Any
-from pycromanager.acquisition.execution_engine.data_coords import DataCoordinates
+from pycromanager.execution_engine.data_coords import DataCoordinates
 import numpy as np
 from pydantic.types import JsonValue
 

@@ -1,13 +1,13 @@
 from typing import Union, Optional, Any, Dict, Tuple, Sequence, Set
 import threading
 import warnings
-from pycromanager.acquisition.execution_engine.data_coords import DataCoordinates, DataCoordinatesIterator
+from pycromanager.execution_engine.data_coords import DataCoordinates, DataCoordinatesIterator
 
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING: # avoid circular imports
-    from pycromanager.acquisition.execution_engine.data_handler import DataHandler
-from pycromanager.acquisition.execution_engine.base_classes.acq_events import AcquisitionEvent, DataProducing, Stoppable, Abortable
+    from pycromanager.execution_engine.data_handler import DataHandler
+from pycromanager.execution_engine.base_classes.acq_events import AcquisitionEvent, DataProducing, Stoppable, Abortable
 
 class AcquisitionFuture:
 
@@ -29,11 +29,17 @@ class AcquisitionFuture:
 
         # remove unsupported methods
         if not isinstance(self._event, DataProducing):
-            del self.await_data
+            def raise_not_implemented(*args, **kwargs):
+                raise NotImplementedError("This event does not DataProducing")
+            self.await_data = raise_not_implemented
         if not isinstance(self._event, Stoppable):
-            del self.stop
+            def raise_not_implemented(*args, **kwargs):
+                raise NotImplementedError("This event is not Stoppable")
+            self.stop = raise_not_implemented
         if not isinstance(self._event, Abortable):
-            del self.abort
+            def raise_not_implemented(*args, **kwargs):
+                raise NotImplementedError("This event is not Abortable")
+            self.abort = raise_not_implemented
 
     def await_execution(self) -> Any:
         """

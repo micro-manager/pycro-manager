@@ -2,7 +2,7 @@
 Implementation of Micro-Manager devices.py in terms of the AcqEng bottom API
 """
 
-from pycromanager.acquisition.execution_engine.base_classes.devices import Camera
+from pycromanager.execution_engine.base_classes.device_types import Camera
 from pycromanager.core import Core
 import numpy as np
 import pymmcore
@@ -18,6 +18,7 @@ class MicroManagerCamera(Camera):
         :param device_name: Name of the camera device in Micro-Manager. If None, and there is only one camera, that camera
         will be used. If None and there are multiple cameras, an error will be raised
         """
+        super().__init__()
         self._core = Core()
         camera_names = self._core.get_loaded_devices_of_type(2) # 2 means camera...
         if not camera_names:

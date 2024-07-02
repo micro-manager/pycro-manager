@@ -10,9 +10,9 @@ from pydantic import BaseModel
 import uuid
 from typing import Union, Iterable
 
-from pycromanager.acquisition.execution_engine.acq_future import AcquisitionFuture
-from pycromanager.acquisition.execution_engine.base_classes.acq_events import AcquisitionEvent, DataProducing, Stoppable, Abortable
-from pycromanager.acquisition.execution_engine.data_handler import DataHandler
+from pycromanager.execution_engine.acq_future import AcquisitionFuture
+from pycromanager.execution_engine.base_classes.acq_events import AcquisitionEvent, DataProducing, Stoppable, Abortable
+from pycromanager.execution_engine.data_handler import DataHandler
 
 
 class ExecutionEngine:
@@ -20,10 +20,10 @@ class ExecutionEngine:
     _instance = None
 
     def __init__(self, num_threads=1):
-        self._threads = []
+        self._thread_managers: list[_ExecutionThreadManager] = []
         for _ in range(num_threads):
             self._start_new_thread()
-        self._instance = self
+        ExecutionEngine._instance = self
 
     @classmethod
     def get_instance(cls):
@@ -31,8 +31,20 @@ class ExecutionEngine:
             raise RuntimeError("ExecutionEngine has not been initialized")
         return cls._instance
 
+    @classmethod
+    def on_main_executor_thread(self):
+        """
+        Check if the current thread is an executor thread
+        """
+        return threading.current_thread() is ExecutionEngine.get_instance()._thread_managers[0]
+
+    @classmethod
+    def on_any_executor_thread(self):
+        return any([m.is_managed_thread(threading.current_thread()) for m in
+                    ExecutionEngine.get_instance()._thread_managers])
+
     def _start_new_thread(self):
-        self._threads.append(_ExecutionThreadManager())
+        self._thread_managers.append(_ExecutionThreadManager())
 
     def submit(self, event_or_events: Union[AcquisitionEvent, Iterable[AcquisitionEvent]],
                transpile: bool = True, prioritize: bool = False, use_free_thread: bool = False,
@@ -101,14 +113,14 @@ class ExecutionEngine:
         """
         future = AcquisitionFuture(event=event)
         if use_free_thread:
-            for thread in self._threads:
+            for thread in self._thread_managers:
                 if thread.is_free():
                     thread.submit_event(event)
                     break
             self._start_new_thread()
-            self._threads[-1].submit_event(event)
+            self._thread_managers[-1].submit_event(event)
         else:
-            self._threads[0].submit_event(event, prioritize=prioritize)
+            self._thread_managers[0].submit_event(event, prioritize=prioritize)
 
         return future
 
@@ -116,9 +128,9 @@ class ExecutionEngine:
         """
         Stop all threads managed by this executor and wait for them to finish
         """
-        for thread in self._threads:
+        for thread in self._thread_managers:
             thread.shutdown()
-        for thread in self._threads:
+        for thread in self._thread_managers:
             thread.join()
 
 
@@ -144,6 +156,9 @@ class _ExecutionThreadManager(BaseModel):
         self._event_executing = False
         self._addition_condition = threading.Condition()
         self._thread.start()
+
+    def is_managed_thread(self, thread):
+        return self._thread == thread
 
     def join(self):
         self._thread.join()

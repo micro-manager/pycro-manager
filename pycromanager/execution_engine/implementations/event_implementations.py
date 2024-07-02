@@ -3,9 +3,9 @@ This file contains implementations of AcquisitionEvents that can be used to buil
 """
 from typing import Iterable
 import itertools
-from pycromanager.acquisition.execution_engine.base_classes.acq_events import AcquisitionEvent, DataProducing
-from pycromanager.acquisition.execution_engine.base_classes.devices import Camera
-from pycromanager.acquisition.execution_engine.data_coords import DataCoordinates
+from pycromanager.execution_engine.base_classes.acq_events import AcquisitionEvent, DataProducing
+from pycromanager.execution_engine.base_classes.device_types import Camera
+from pycromanager.execution_engine.data_coords import DataCoordinates
 
 
 class ReadoutImages(AcquisitionEvent, DataProducing):

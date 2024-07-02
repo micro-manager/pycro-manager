@@ -3,15 +3,15 @@ import queue
 from typing import Any, Dict, Tuple, Callable, Union, Sequence, Optional
 import numpy as np
 
-from pycromanager.acquisition.execution_engine.data_coords import DataCoordinates
-from pycromanager.acquisition.execution_engine.apis.data_storage import DataStorageAPI
+from pycromanager.execution_engine.data_coords import DataCoordinates
+from pycromanager.execution_engine.apis.data_storage import DataStorageAPI
 from pydantic.types import JsonValue
 from dataclasses import dataclass
 
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from pycromanager.acquisition.execution_engine.acq_future import AcquisitionFuture
+    from pycromanager.execution_engine.acq_future import AcquisitionFuture
 
 
 class _PeekableQueue(queue.Queue):
@@ -132,13 +132,13 @@ class DataHandler:
             shutdown = self._transfer_to_storage()
             if shutdown:
                 break
+
     def _transfer_to_storage(self):
         """
         Take items from the source queue and put them into the storage queue. If there is a processing function,
         the source queue is the output queue of the processing function. If there is no processing function, the source
         queue is the intake queue.
         """
-
         coordinates = self._processed_queue.peek() if self._process_function else self._intake_queue.peek()
         if coordinates is None:
             # shutdown condition
