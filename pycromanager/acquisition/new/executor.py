@@ -11,7 +11,7 @@ import uuid
 from typing import Union, Iterable
 
 from pycromanager.acquisition.new.acq_future import AcquisitionFuture
-from pycromanager.acquisition.new.base_classes.acq_events import AcquisitionEvent, DataProducingAcquisitionEvent
+from pycromanager.acquisition.new.base_classes.acq_events import AcquisitionEvent, DataProducing, Stoppable, Abortable
 from pycromanager.acquisition.new.data_handler import DataHandler
 
 
@@ -176,8 +176,13 @@ class _ExecutionThreadManager(BaseModel):
             # Event execution loop
             while True:
                 try:
-                    event.execute()
-                    event._post_execution() # notify futures
+                    if event._finished:
+                        raise RuntimeError("Event was already executed")
+                    return_val = event.execute()
+                    event._finished = True
+                    stopped = isinstance(event, Stoppable) and event.is_stop_requested()
+                    aborted = isinstance(event, Abortable) and event.is_abort_requested()
+                    event._post_execution(return_value=return_val, stopped=stopped, aborted=aborted) # notify futures
                     with self._addition_condition:
                         self._event_executing = False
                     break
@@ -190,9 +195,10 @@ class _ExecutionThreadManager(BaseModel):
                         traceback.print_exc()
                     else:
                         traceback.print_exc()
-                        event._post_execution(e) # notify futures
+                        event._post_execution(exception=e) # notify futures
                         with self._addition_condition:
                             self._event_executing = False
+                        event._finished = True
                         raise e # re-raise the exception to stop the thread
             event = None
 

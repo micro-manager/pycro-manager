@@ -7,7 +7,7 @@ import time
 
 # Assuming these are the correct imports based on the provided code
 from pycromanager.acquisition.new.data_handler import DataHandler
-from pycromanager.acquisition.new.base_classes.acq_events import AcquisitionEvent, DataProducingAcquisitionEvent
+from pycromanager.acquisition.new.base_classes.acq_events import AcquisitionEvent, DataProducing
 from pycromanager.acquisition.new.acq_future import AcquisitionFuture
 
 
@@ -25,7 +25,7 @@ class MockDataHandler(DataHandler):
         return (data if return_data else None, metadata if return_metadata else None)
 
 
-class MockDataProducingAcquisitionEvent(DataProducingAcquisitionEvent):
+class MockDataProducing(AcquisitionEvent, DataProducing):
 
     def __init__(self):
         super().__init__(image_coordinate_iterator=DataCoordinatesIterator.create(
@@ -41,7 +41,7 @@ def mock_data_handler():
 
 @pytest.fixture
 def mock_event():
-    return MockDataProducingAcquisitionEvent()
+    return MockDataProducing()
 
 
 @pytest.fixture

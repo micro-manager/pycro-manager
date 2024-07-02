@@ -1,6 +1,6 @@
 import pytest
 from unittest.mock import MagicMock
-from pycromanager.acquisition.new.base_classes.acq_events import AcquisitionEvent, DataProducingAcquisitionEvent
+from pycromanager.acquisition.new.base_classes.acq_events import AcquisitionEvent, DataProducing
 from pycromanager.acquisition.new.executor import ExecutionEngine
 from pycromanager.acquisition.new.acq_future import AcquisitionFuture
 import threading
