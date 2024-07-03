@@ -56,8 +56,14 @@ class AcquisitionEvent(BaseModel, ABC):
         future = self._future_weakref()
         if future is not None:
             future._notify_execution_complete(return_value, exception)
+        self._finished = True
+
+    def is_finished(self):
+        return self._finished
 
 class Stoppable:
+    # TODO: this should be on the future, if youre not going to merge them into one
+    #  becuase the event can be reused
     """
     Acquistition events that can be stopped should inherit from this class. They are responsible for checking if
     is_stop_requested() returns True and stopping their execution if it does. When stopping, an orderly shutdown
@@ -68,7 +74,7 @@ class Stoppable:
 
     def _stop(self):
         """
-        This is handled by the Future
+        This is called by the acquisitionFuture object
         """
         self._stop_requested = True
 

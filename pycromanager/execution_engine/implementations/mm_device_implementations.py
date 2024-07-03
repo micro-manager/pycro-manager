@@ -55,7 +55,7 @@ class MicroManagerCamera(Camera):
             pass
         else:
             self._core.prepare_sequence_acquisition(self.device_name)
-        self._frame_count = 1
+        self._frame_count = frame_count
 
     def start(self) -> None:
         if self._frame_count == 1:
@@ -78,14 +78,17 @@ class MicroManagerCamera(Camera):
         self._core.stop_sequence_acquisition(self.device_name)
 
     def is_stopped(self) -> bool:
-        return self._core.is_sequence_running(self.device_name) and not self._snap_active
+        return not self._core.is_sequence_running(self.device_name) and not self._snap_active
 
     def pop_image(self, timeout=None) -> (np.ndarray, dict):
         if self._frame_count != 1:
             md = pymmcore.Metadata()
             start_time = time.time()
             while True:
-                pix = self._core.pop_next_image_md(0, 0, md)
+                try:
+                    pix = self._core.pop_next_image_md(0, 0, md)
+                except IndexError as e:
+                    pix = None
                 if pix is not None:
                     break
                 # sleep for the shortest possible time, only to allow the thread to be interrupted and prevent

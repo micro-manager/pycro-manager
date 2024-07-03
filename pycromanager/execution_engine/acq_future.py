@@ -53,23 +53,31 @@ class AcquisitionFuture:
             raise self._exception
         return self._return_value
 
-    def stop(self):
+    def stop(self, await_completion: bool = False):
         """
         (Only for AcquistionEvents that also inherit from Stoppable)
-        Request the acquisition event to stop its execution. This will return immediately,
-        but set a flag that the event should stop at the next opportunity. It is up to the implementation of the
-        event to check this flag and stop its execution.
+        Request the acquisition event to stop its execution. Stop means the event should initiate a graceful shutdown.
+        The details of what this means are up to the implementation of the event.
+
+        Args:
+            await_completion: Whether to block until the event has completed its execution
         """
         self._event._stop()
+        if await_completion:
+            self.await_execution()
 
-    def abort(self):
+    def abort(self, await_completion: bool = False):
         """
         (Only for AcquistionEvents that also inherit from Abortable)
-        Request the acquisition event to abort its execution. This will return immediately,
-        but set a flag that the event should abort at the next opportunity. It is up to the implementation of the
-        event to check this flag and abort its execution.
+        Request the acquisition event to abort its execution. Abort means the event should immediately stop its execution
+        The details of what this means are up to the implementation of the event.
+
+        Args:
+            await_completion: Whether to block until the event has completed its execution
         """
         self._event._abort()
+        if await_completion:
+            self.await_execution()
 
 
     def await_data(self, coordinates: Optional[Union[DataCoordinates, Dict[str, Union[int, str]],

@@ -18,6 +18,7 @@ from pycromanager.execution_engine.data_handler import DataHandler
 class ExecutionEngine:
 
     _instance = None
+    _debug = False
 
     def __init__(self, num_threads=1):
         self._thread_managers: list[_ExecutionThreadManager] = []
@@ -32,19 +33,24 @@ class ExecutionEngine:
         return cls._instance
 
     @classmethod
-    def on_main_executor_thread(self):
+    def on_main_executor_thread(cls):
         """
         Check if the current thread is an executor thread
         """
         return threading.current_thread() is ExecutionEngine.get_instance()._thread_managers[0]
 
     @classmethod
-    def on_any_executor_thread(self):
+    def on_any_executor_thread(cls):
+        if ExecutionEngine.get_instance() is None:
+            raise RuntimeError("ExecutionEngine has not been initialized")
         return any([m.is_managed_thread(threading.current_thread()) for m in
                     ExecutionEngine.get_instance()._thread_managers])
 
     def _start_new_thread(self):
         self._thread_managers.append(_ExecutionThreadManager())
+
+    def set_debug_mode(self, debug):
+        ExecutionEngine._debug = debug
 
     def submit(self, event_or_events: Union[AcquisitionEvent, Iterable[AcquisitionEvent]],
                transpile: bool = True, prioritize: bool = False, use_free_thread: bool = False,
@@ -113,12 +119,15 @@ class ExecutionEngine:
         """
         future = AcquisitionFuture(event=event)
         if use_free_thread:
+            need_new_thread = True
             for thread in self._thread_managers:
                 if thread.is_free():
                     thread.submit_event(event)
+                    need_new_thread = False
                     break
-            self._start_new_thread()
-            self._thread_managers[-1].submit_event(event)
+            if need_new_thread:
+                self._start_new_thread()
+                self._thread_managers[-1].submit_event(event)
         else:
             self._thread_managers[0].submit_event(event, prioritize=prioritize)
 
@@ -189,32 +198,32 @@ class _ExecutionThreadManager(BaseModel):
                     self._event_executing = True
 
             # Event execution loop
-            while True:
+            exception = None
+            return_val = None
+            for attempt_number in range(event.num_retries_on_exception + 1):
+                if self._terminate_event.is_set():
+                    return  # Executor has been terminated
                 try:
-                    if event._finished:
-                        raise RuntimeError("Event was already executed")
+                    if ExecutionEngine._debug:
+                        print("Executing event", event.__class__.__name__, threading.current_thread())
+                    if event.is_finished():
+                        raise RuntimeError("Event ", event, " was already executed")
                     return_val = event.execute()
-                    event._finished = True
-                    stopped = isinstance(event, Stoppable) and event.is_stop_requested()
-                    aborted = isinstance(event, Abortable) and event.is_abort_requested()
-                    event._post_execution(return_value=return_val, stopped=stopped, aborted=aborted) # notify futures
-                    with self._addition_condition:
-                        self._event_executing = False
+                    if ExecutionEngine._debug:
+                        print("Finished executing", event.__class__.__name__, threading.current_thread())
                     break
                 except Exception as e:
-                    if num_retries > 0:
-                        if self._terminate_event.is_set():
-                            return
-                        num_retries -= 1
-                        warnings.warn(f"Exception during event execution, retrying {num_retries} more times")
-                        traceback.print_exc()
-                    else:
-                        traceback.print_exc()
-                        event._post_execution(exception=e) # notify futures
-                        with self._addition_condition:
-                            self._event_executing = False
-                        event._finished = True
-                        raise e # re-raise the exception to stop the thread
+                    warnings.warn(f"Exception during event execution, retrying {num_retries} more times")
+                    traceback.print_exc()
+                    exception = e
+
+            stopped = isinstance(event, Stoppable) and event.is_stop_requested()
+            aborted = isinstance(event, Abortable) and event.is_abort_requested()
+            event._post_execution(return_value=return_val, stopped=stopped, aborted=aborted, exception=exception)
+            with self._addition_condition:
+                self._event_executing = False
+            if exception:
+                raise exception
             event = None
 
     def is_free(self):
@@ -238,7 +247,6 @@ class _ExecutionThreadManager(BaseModel):
             else:
                 self._deque.append(event)
             self._addition_condition.notify_all()
-
 
     def terminate(self):
         """

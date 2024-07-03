@@ -48,6 +48,7 @@ class Camera(Device):
     def start(self) -> None:
         ...
 
+    # TODO: is it possible to make this return the number of images captured?
     @abstractmethod
     def stop(self) -> None:
         ...
@@ -56,6 +57,7 @@ class Camera(Device):
     def is_stopped(self) -> bool:
         ...
 
+    # TODO: perhaps this should be a seperate buffer class
     @abstractmethod
     def pop_image(self, timeout=None) -> (np.ndarray, dict):
         """
