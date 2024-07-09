@@ -5,6 +5,5 @@ ndstorage>=0.1.6
 docstring-inheritance
 pymmcore
 sortedcontainers
-wget
 pyjavaz==1.2.4
 wget
