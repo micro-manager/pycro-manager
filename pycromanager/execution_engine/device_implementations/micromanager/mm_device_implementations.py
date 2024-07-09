@@ -11,6 +11,7 @@ from concurrent.futures import ThreadPoolExecutor
 from typing import List, Union, Iterable
 
 
+
 class MicroManagerDevice(Device):
     """
     Base class for all Micro-Manager device_implementations, which enables access to their properties
@@ -50,8 +51,8 @@ class MicroManagerDevice(Device):
             if not self._core.has_property(self._device_name, name):
                 raise AttributeError(f"Device {self._device_name} does not have property {name}")
             # check if read only
-            meta
-
+            if self.is_property_read_only(self._device_name, name):
+                raise ValueError("Read only properties cannot have values set")
         else:
             # private attributes are defined in the class
             object.__setattr__(self, name, value)
