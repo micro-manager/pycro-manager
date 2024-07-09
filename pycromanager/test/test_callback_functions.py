@@ -90,7 +90,7 @@ def test_event_serialize_and_deserialize(launch_mm_headless, setup_data_folder):
         return None  # cancel the event
 
     with Acquisition(show_display=False, pre_hardware_hook_fn=hook_fn) as acq:
-        # copy list of event_implementations to avoid popping from original
+        # copy list of events to avoid popping from original
         events_copy = [e for e in events]
         for test_event in events:
             acq.acquire(test_event)

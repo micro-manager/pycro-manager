@@ -72,7 +72,7 @@ def install_mm():
         # find pycro-manager/java path
         if os.path.isdir('java'):
             java_path = os.path.abspath('java')
-        # in case cwd is '/pycromanager/integration_tests'
+        # in case cwd is '/pycromanager/test'
         elif os.path.isdir('../../java'):
             java_path = os.path.abspath('../../java')
         else:
@@ -86,7 +86,7 @@ def install_mm():
                 print(f'Removed {file_path}')
 
             # Copy the pycromanagerjava.jar file that was compiled by the github action
-            # into the nightly build so that it will integration_tests with the latest code
+            # into the nightly build so that it will test with the latest code
             compiled_jar_path = os.path.join(java_path, 'target', 'PycromanagerJava-*.jar')
             destination_path = os.path.join(mm_install_dir, 'plugins', 'Micro-Manager', 'PycromanagerJava.jar')
 
