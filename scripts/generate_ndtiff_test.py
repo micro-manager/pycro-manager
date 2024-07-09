@@ -26,7 +26,7 @@ save_dir = "/Users/henrypinkard/tmp"
 
 with JavaBackendAcquisition(directory=save_dir, name="ndtiffv3.0_test", show_display=True,
                             ) as acq:
-    # Generate the event_implementations for a single z-stack
+    # Generate the events for a single z-stack
     events = multi_d_acquisition_events(
         num_time_points=5,
         time_interval_s=0,

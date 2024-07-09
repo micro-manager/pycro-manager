@@ -8,7 +8,7 @@ labels: enhancement
 Welcome! Thanks for thinking of a way to improve pycromanager. If this solves a problem for you, then it probably solves that problem for lots of people! So the whole community will benefit from this request.
 
 
-Before creating a execution_engine feature request please search the issues for relevant feature requests.
+Before creating a new feature request please search the issues for relevant feature requests.
 -->
 
 ### Problem

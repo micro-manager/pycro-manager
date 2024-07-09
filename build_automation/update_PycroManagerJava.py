@@ -39,7 +39,7 @@ patch_version_increased = False
 for lib_name in main_branch_versions.keys():
     old_version = main_branch_versions[lib_name]
     new_version = updated_versions[lib_name]
-    print('\t', lib_name, '\t\told: ', old_version, '\texecution_engine: ', new_version)
+    print('\t', lib_name, '\t\told: ', old_version, '\tnew: ', new_version)
     if new_version > old_version:
         if new_version.minor > old_version.minor:
             minor_version_increased = True

@@ -13,7 +13,7 @@ with JavaBackendAcquisition(
     name="tcz_acq",
     post_camera_hook_fn=external_trigger_fn,
 ) as acq:
-    # Generate the event_implementations for a single z-stack
+    # Generate the events for a single z-stack
     events = multi_d_acquisition_events(
         num_time_points=10,
         time_interval_s=0,

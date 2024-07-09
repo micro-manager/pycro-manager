@@ -82,7 +82,7 @@ class Property(_JsonAble):
 
     @staticmethod
     def hook(d: dict):
-        """Check if a dictionary represents an instance of this class and return a execution_engine instance. If this dict does not match
+        """Check if a dictionary represents an instance of this class and return a new instance. If this dict does not match
         the correct pattern then just return the original dict."""
         if "type" in d and d["type"] in Property.pTypes.values():
             if "scalar" in d:
@@ -101,7 +101,7 @@ class PropertyArray(_JsonAble):
 
     @staticmethod
     def hook(d: dict):
-        """Check if a dictionary represents an instance of this class and return a execution_engine instance. If this dict does not match
+        """Check if a dictionary represents an instance of this class and return a new instance. If this dict does not match
         the correct pattern then just return the original dict."""
         if "type" in d and d["type"] in Property.pTypes.values():
             if "array" in d:
@@ -239,7 +239,7 @@ PropertyMap._hookRegistry.addHook(PropertyArray.hook)
 
 
 if __name__ == "__main__":
-    """Test that opens a position list file, saves it to a execution_engine file and then checks that both versions
+    """Test that opens a position list file, saves it to a new file and then checks that both versions
     are still identical"""
     path1 = r"PositionList.pos"
     path2 = r"PositionListOut.pos"

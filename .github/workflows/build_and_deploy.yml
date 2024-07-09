@@ -1,9 +1,9 @@
 # If changes to java versions
-#  Deploy execution_engine version of pycromanager java to maven,
+#  Deploy new version of pycromanager java to maven, 
 #  and then update micro-manager ivy file and make PR
 # If changes to python version
-#  await for PR to merge into execution_engine MM version
-#  then publish execution_engine version to pypi
+#  await for PR to merge into new MM version
+#  then publish new version to pypi
 
 name: Build and deploy Java and Python components of Pycro-Manager
 
@@ -20,7 +20,7 @@ concurrency: PM_version_update
 
 jobs:
 
-  # Use a filter to determine whether to deploy execution_engine java version
+  # Use a filter to determine whether to deploy new java version
   check-java-version:
     if: ${{ github.repository == 'micro-manager/pycro-manager' }}
     runs-on: ubuntu-latest
@@ -123,7 +123,7 @@ jobs:
         repository: micro-manager/pycro-manager
         ref: main
         
-    - name: Wait for execution_engine version to be available and update ivy.xml
+    - name: Wait for new version to be available and update ivy.xml
       run: |
         cd pycro-manager
         git config --global user.email "41898282+github-actions[bot]@users.noreply.github.com"
@@ -194,7 +194,7 @@ jobs:
         git push origin --delete dependency_update_from_pycromanager
 
 
-  # After java deps have updated in MM, time to check if a execution_engine python version is needed
+  # After java deps have updated in MM, time to check if a new python version is needed
   check-python-version:
     if: ${{ github.repository == 'micro-manager/pycro-manager' }}
     runs-on: ubuntu-latest
@@ -213,12 +213,12 @@ jobs:
 
       
   pypi-deploy:
-    # Once any changes to java have gone into micro-manager, a execution_engine version of PM can be deployed to PyPi
+    # Once any changes to java have gone into micro-manager, a new version of PM can be deployed to PyPi
     needs: [check-java-version, mm-update, maven-deploy, check-python-version]
-    name: Deploy execution_engine version to PyPi if needed
+    name: Deploy new version to PyPi if needed
     
     # Run if 
-    #    java update is complete without errors and execution_engine version is merged into MM main (or no java update)
+    #    java update is complete without errors and new version is merged into MM main (or no java update)
     #   and python version changed
     # weird syntax needed, see: https://github.com/actions/runner/issues/491#issuecomment-850884422
     if: ${{ github.repository == 'micro-manager/pycro-manager' && always() && needs.check-python-version.outputs.changed == 'true' && !contains(needs.*.result, 'failure') &&  !contains(needs.*.result, 'cancelled')}}

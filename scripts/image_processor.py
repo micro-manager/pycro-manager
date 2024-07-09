@@ -10,7 +10,7 @@ def img_process_fn(image, metadata):
 with JavaBackendAcquisition(
     directory=r"C:\Users\henry\Desktop\datadump", name="tcz_acq", image_process_fn=img_process_fn
 ) as acq:
-    # Generate the event_implementations for a single z-stack
+    # Generate the events for a single z-stack
     events = multi_d_acquisition_events(
         num_time_points=10,
         time_interval_s=0,

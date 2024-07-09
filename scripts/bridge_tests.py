@@ -10,7 +10,7 @@ Thread(target=other_thread, args=(core,) ).start()
 
 core = None
 
-### Create an object and a child object on a execution_engine socket
+### Create an object and a child object on a new socket
 
 core = ZMQRemoteMMCoreJ(debug=False)
 core.get_system_state_cache(new)

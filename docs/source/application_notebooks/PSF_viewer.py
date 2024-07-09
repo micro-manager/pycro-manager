@@ -163,8 +163,8 @@ def grab_image(image, metadata):
 
 
 def acquire_data(z_range):
-    """ micro-manager data acquisition. Creates acquisition event_implementations for z-stack.
-        This example: use custom event_implementations, not multi_d_acquisition because the
+    """ micro-manager data acquisition. Creates acquisition events for z-stack.
+        This example: use custom events, not multi_d_acquisition because the 
         z-stage is not run from micro-manager but controlled via external DAQ."""
     with JavaBackendAcquisition(directory=None, name=None,
                                 show_display=True,
@@ -177,7 +177,7 @@ def acquire_data(z_range):
         
         
 def acquire_multid(z_range):
-    """ micro-manager data acquisition. Creates acquisition event_implementations for z-stack.
+    """ micro-manager data acquisition. Creates acquisition events for z-stack.
         This example: use multi_d_acquisition because the z-stage is run 
         from micro-manager.
         Unless hardware triggering is set up in micro-manager, this will be fairly slow:
