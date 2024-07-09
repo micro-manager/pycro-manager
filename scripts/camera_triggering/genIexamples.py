@@ -130,7 +130,7 @@ def live_mode_hardware_trigger():
     core.set_exposure(camera_name, 500)
     core.arm_acquisition(camera_name)
     core.start_acquisition(camera_name)
-    # TODO: events
+    # TODO: event_implementations
     # Register(Camera.EventExposureEnd, CallbackDataObject, CallbackFunctionPtr)
     # EventSelector = ExposureEnd;
     # EventNotification = On;
@@ -178,7 +178,7 @@ def multiple_bursts_hardware_trigger():
     # TriggerMode = On;
     # TriggerActivation = RisingEdge;
     # TriggerSource = Line1;
-    # TODO events
+    # TODO event_implementations
     # Register(Camera.EventFrameBurstEnd,CallbackDataObject,CallbackFunctionPtr)
     # EventSelector = FrameBurstEnd;
     # EventNotification = On;

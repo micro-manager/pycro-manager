@@ -41,7 +41,7 @@ class AcquisitionFuture:
 
     def _notify(self, notification):
         """
-        Called by the internal notification dispatcher in order so that it can check off that the notification was
+        Called by the kernel notification dispatcher in order so that it can check off that the notification was
         received. Want to store this, rather than just waiting around for it, in case the await methods are called
         after the notification has already been sent.
         """
@@ -66,10 +66,10 @@ class AcquisitionFuture:
 
     def _monitor_axes(self, axes_or_axes_list):
         """
-        In the case where the acquisition future is constructed for a Generator, the events to be monitored
+        In the case where the acquisition future is constructed for a Generator, the event_implementations to be monitored
         are not known until the generator is run. If user code awaits for an event and that event has already
         passed, the future must be able to check if the event has already passed and return immediately.
-        So this function is called by the generator as events are created to add them to the list of events to
+        So this function is called by the generator as event_implementations are created to add them to the list of event_implementations to
         keep track of.
 
         :param axes_or_axes_list: the axes of the event

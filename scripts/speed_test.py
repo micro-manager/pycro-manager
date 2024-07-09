@@ -1,7 +1,7 @@
 from pycromanager import JavaClass, ZMQRemoteMMCoreJ
 
 
-tester = JavaClass('org.micromanager.acquisition.internal.acqengjcompat.speedtest.SpeedTest')
+tester = JavaClass('org.micromanager.acquisition.kernel.acqengjcompat.speedtest.SpeedTest')
 pass
 
 dir = r'C:\Users\henry\Desktop\data'

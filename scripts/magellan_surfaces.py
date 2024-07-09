@@ -27,7 +27,7 @@ with _Bridge() as bridge:
 
     ### Part 3a run autofocus #####
 
-    # TODO: maybe run an initial focus test to see how off the surface is
+    # TODO: maybe run an initial focus integration_tests to see how off the surface is
 
 
     # this function will run after the hardware has been updated (i.e. xy stage moved) but before each image is acquired

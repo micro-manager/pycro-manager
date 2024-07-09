@@ -8,9 +8,9 @@ import numpy as np
 # TODO: add tests for timing of blocking until different parts of the hardware sequence
 # def test_async_images_read(launch_mm_headless, setup_data_folder):
 #     start = time.time()
-#     events = multi_d_acquisition_events(num_time_points=10, time_interval_s=0.5)
+#     event_implementations = multi_d_acquisition_events(num_time_points=10, time_interval_s=0.5)
 #     with Acquisition(directory=setup_data_folder, show_display=False) as acq:
-#         future = acq.acquire(events)
+#         future = acq.acquire(event_implementations)
 #
 #         future.await_execution({'time': 5}, AcqNotification.Hardware.POST_HARDWARE)
 

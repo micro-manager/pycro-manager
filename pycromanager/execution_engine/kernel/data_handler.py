@@ -1,17 +1,17 @@
 import threading
 import queue
-from typing import Any, Dict, Tuple, Callable, Union, Sequence, Optional
+from typing import Any, Dict, Tuple, Callable, Union, Optional
 import numpy as np
 
-from pycromanager.execution_engine.data_coords import DataCoordinates
-from pycromanager.execution_engine.apis.data_storage import DataStorageAPI
+from pycromanager.execution_engine.kernel.data_coords import DataCoordinates
+from pycromanager.execution_engine.kernel.data_storage_api import DataStorageAPI
 from pydantic.types import JsonValue
 from dataclasses import dataclass
 
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from pycromanager.execution_engine.acq_future import AcquisitionFuture
+    from pycromanager.execution_engine.kernel.acq_future import AcquisitionFuture
 
 
 class _PeekableQueue(queue.Queue):
@@ -39,7 +39,7 @@ class DataHandler:
 
     This class manages one or two queues/threads, depending on whether a processing function is provided. If a
     processing function is provided, the data will be processed in a separate thread before being passed to the data
-    storage object. If no processing function is provided, the data will be passed directly to the data storage object.
+    storage_implementations object. If no processing function is provided, the data will be passed directly to the data storage_implementations object.
     """
 
     # This class must create at least one additional thread (the saving thread)
@@ -121,7 +121,7 @@ class DataHandler:
                 # remove the item from the intake queue
                 self._intake_queue.get()
             else:
-                # transfer to storage thread
+                # transfer to storage_implementations thread
                 shutdown = self._transfer_to_storage()
                 if shutdown:
                     break
@@ -135,7 +135,7 @@ class DataHandler:
 
     def _transfer_to_storage(self):
         """
-        Take items from the source queue and put them into the storage queue. If there is a processing function,
+        Take items from the source queue and put them into the storage_implementations queue. If there is a processing function,
         the source queue is the output queue of the processing function. If there is no processing function, the source
         queue is the intake queue.
         """
@@ -147,7 +147,7 @@ class DataHandler:
             return True
         else:
             data, metadata, future = self._data_metadata_future_tuple[coordinates].upack()
-            self._storage.put(coordinates, data, metadata) # once this returns the storage is responsible for the data
+            self._storage.put(coordinates, data, metadata) # once this returns the storage_implementations is responsible for the data
             coordinates = self._processed_queue.get() if self._process_function else self._intake_queue.get()
             self._data_metadata_future_tuple.pop(coordinates)
             if future:
@@ -165,8 +165,8 @@ class DataHandler:
     def get(self, coordinates: DataCoordinates, return_data=True, return_metadata=True, processed=None,
             ) -> Optional[Tuple[np.ndarray, JsonValue]]:
         """
-        Get an image and associated metadata. If they are present, either in the intake queue or the storage queue
-        (if it exists), return them. If not present, get them from the storage object. If not present there, return None
+        Get an image and associated metadata. If they are present, either in the intake queue or the storage_implementations queue
+        (if it exists), return them. If not present, get them from the storage_implementations object. If not present there, return None
         """
         data_metadata_future = self._data_metadata_future_tuple.get(coordinates, None)
         if processed is not None:
@@ -177,7 +177,7 @@ class DataHandler:
         if data_metadata_future:
             data, metadata, future = data_metadata_future.upack()
         else:
-            # its not currently managed by the data handler, so check the storage object
+            # its not currently managed by the data handler, so check the storage_implementations object
             # don't do both if you dont have to because this may be from disk
             if return_data:
                 data = self._storage.get_data(coordinates)
@@ -192,7 +192,7 @@ class DataHandler:
 
     def put(self, coordinates: Any, image: np.ndarray, metadata: Dict, acquisition_future: Optional["AcquisitionFuture"]):
         """
-        Hand off this image to the data handler. It will handle handoff to the storage object and image processing
+        Hand off this image to the data handler. It will handle handoff to the storage_implementations object and image processing
         if requested, as well as providing temporary access to the image and metadata as it passes throught this
         pipeline. If an acquisition future is provided, it will be notified when the image arrives, is processed, and
         is stored.
@@ -208,6 +208,6 @@ class DataHandler:
     def finish(self):
         """
         Signal to the data handler that no more data will be added. This will cause all threads to initiate shutdown
-        and call the finish() method of the storage object.
+        and call the finish() method of the storage_implementations object.
         """
         self._intake_queue.put(None)

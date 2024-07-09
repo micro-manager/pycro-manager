@@ -28,7 +28,7 @@ def image_saved_fn(axes, dataset):
 with JavaBackendAcquisition(directory=save_dir, name="tcz_acq", show_display=True,
                             image_saved_fn=image_saved_fn
                             ) as acq:
-    # Generate the events for a single z-stack
+    # Generate the event_implementations for a single z-stack
     events = multi_d_acquisition_events(
         num_time_points=5,
         time_interval_s=0,

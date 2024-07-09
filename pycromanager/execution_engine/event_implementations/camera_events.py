@@ -1,21 +1,10 @@
-"""
-This file contains implementations of AcquisitionEvents that can be used to build full experiments
-"""
+# TODO: may want to abstract this to data-producing device_implementations in general, not just cameras
 from typing import Iterable
 import itertools
-from pycromanager.execution_engine.base_classes.acq_events import AcquisitionEvent, DataProducing, Stoppable
-from pycromanager.execution_engine.base_classes.device_types import Camera
-from pycromanager.execution_engine.data_coords import DataCoordinates
-import time
+from pycromanager.execution_engine.kernel.acq_event_base import AcquisitionEvent, DataProducing, Stoppable
+from pycromanager.execution_engine.kernel.device_types_base import Camera
+from pycromanager.execution_engine.kernel.data_coords import DataCoordinates
 
-class Sleep(AcquisitionEvent):
-    """
-    Sleep for a specified amount of time
-    """
-    time_s: int
-
-    def execute(self):
-        time.sleep(self.time_s)
 
 class ReadoutImages(AcquisitionEvent, DataProducing, Stoppable):
     """

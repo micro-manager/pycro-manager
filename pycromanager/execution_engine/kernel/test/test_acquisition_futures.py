@@ -1,14 +1,15 @@
 import threading
 import pytest
 import numpy as np
-from pycromanager.acquisition.execution_engine.data_coords import DataCoordinates, DataCoordinatesIterator
-from typing import Dict, Any
+from typing import Dict
 import time
 
-# Assuming these are the correct imports based on the provided code
-from pycromanager.acquisition.execution_engine.data_handler import DataHandler
-from pycromanager.acquisition.execution_engine.base_classes.acq_events import AcquisitionEvent, DataProducing
-from pycromanager.acquisition.execution_engine.acq_future import AcquisitionFuture
+from pycromanager.execution_engine.kernel.data_handler import DataHandler
+from pycromanager.execution_engine.kernel.data_coords import DataCoordinates, DataCoordinatesIterator
+from pycromanager.execution_engine.kernel.acq_event_base import AcquisitionEvent, DataProducing
+from pycromanager.execution_engine.kernel.acq_future import AcquisitionFuture
+
+
 
 
 class MockDataHandler(DataHandler):
@@ -30,13 +31,10 @@ class MockDataProducing(AcquisitionEvent, DataProducing):
     def __init__(self):
         super().__init__(image_coordinate_iterator=DataCoordinatesIterator.create(
             [{"time": 0}, {"time": 1}, {"time": 2}]))
+        self.data_handler = MockDataHandler()
 
     def execute(self):
         pass
-
-@pytest.fixture
-def mock_data_handler():
-    return MockDataHandler()
 
 
 @pytest.fixture
@@ -46,7 +44,7 @@ def mock_event():
 
 @pytest.fixture
 def acquisition_future(mock_event, mock_data_handler):
-    return AcquisitionFuture(event=mock_event, data_handler=mock_data_handler)
+    return AcquisitionFuture(event=mock_event)
 
 
 def test_notify_execution_complete(acquisition_future):
@@ -83,7 +81,7 @@ def test_await_data(acquisition_future):
 
     def wait_and_notify():
         # Delay so that the await_data call is made before the data is added it it gets held in RAM
-        # rather than retrieved from the storage by the data handler
+        # rather than retrieved from the storage_implementations by the data handler
         time.sleep(2)
         acquisition_future._notify_data(coords, image, metadata)
     thread = threading.Thread(target=wait_and_notify)
@@ -102,7 +100,7 @@ def test_await_data_processed(acquisition_future):
 
     def wait_and_notify():
         # Delay so that the await_data call is made before the data is added it it gets held in RAM
-        # rather than retrieved from the storage by the data handler
+        # rather than retrieved from the storage_implementations by the data handler
         time.sleep(2)
         acquisition_future._notify_data(coords, image, metadata, processed=True)
     thread = threading.Thread(target=wait_and_notify)
@@ -120,7 +118,7 @@ def test_await_data_saved(acquisition_future):
 
     def wait_and_notify():
         # Delay so that the await_data call is made before the data is added it it gets held in RAM
-        # rather than retrieved from the storage by the data handler
+        # rather than retrieved from the storage_implementations by the data handler
         time.sleep(2)
         acquisition_future._notify_data(coords, image, metadata, stored=True)
 

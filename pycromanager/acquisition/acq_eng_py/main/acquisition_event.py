@@ -214,8 +214,8 @@
 #
 #     def to_json(self):
 #         if self.sequence_:
-#             events = [self.event_to_json(e) for e in self.sequence_]
-#             return events
+#             event_implementations = [self.event_to_json(e) for e in self.sequence_]
+#             return event_implementations
 #         else:
 #             return self.event_to_json(self)
 #

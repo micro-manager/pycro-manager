@@ -7,7 +7,7 @@ def img_process_fn(image, metadata):
     pass  # send them somewhere else, not default saving and display
 
 with JavaBackendAcquisition(image_process_fn=img_process_fn) as acq:
-    # Generate the events for a single z-stack
+    # Generate the event_implementations for a single z-stack
     events = multi_d_acquisition_events(
         num_time_points=10,
         time_interval_s=0,

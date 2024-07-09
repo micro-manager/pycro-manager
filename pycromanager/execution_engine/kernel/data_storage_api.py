@@ -1,9 +1,9 @@
 """
-Protocol for storage class that acquisitions ultimate write to where the acquisition data ultimately gets stored
+Protocol for storage_implementations class that acquisitions ultimate write to where the acquisition data ultimately gets stored
 """
 
-from typing import Protocol, runtime_checkable, Union, List, Tuple, Dict, Any
-from pycromanager.execution_engine.data_coords import DataCoordinates
+from typing import Protocol, runtime_checkable, Union, Dict
+from pycromanager.execution_engine.kernel.data_coords import DataCoordinates
 import numpy as np
 from pydantic.types import JsonValue
 
@@ -15,6 +15,10 @@ class DataStorageAPI(Protocol):
     #  maybe its better that other implementations not have to depend on the DataCoordinates class
     def __contains__(self, data_coordinates: Union[DataCoordinates, Dict[str, Union[int, str]]]) -> bool:
         """Check if item is in the container."""
+        ...
+
+    def __getitem__(self, data_coordinates: Union[DataCoordinates, Dict[str, Union[int, str]]]) -> np.ndarray:
+        """ Read a single data corresponding to the given coordinates. Same as get_data() """
         ...
 
     def get_data(self, data_coordinates: Union[DataCoordinates, Dict[str, Union[int, str]]]) -> np.ndarray:
@@ -30,13 +34,13 @@ class DataStorageAPI(Protocol):
         ...
 
     # TODO: one alternative to saying you have to make the data immediately available is to have a callback
-    #  that is called when the data is available. This would allow for disk-backed storage to write the data
+    #  that is called when the data is available. This would allow for disk-backed storage_implementations to write the data
     #  to disk before calling the callback.
     def put(self, data_coordinates: Union[DataCoordinates, Dict[str, Union[int, str]]], data: np.ndarray,
             metadata: JsonValue):
         """
         Add data and corresponding metadata to the dataset. Once this method has been called, the data and metadata
-        should be immediately available to be read by get_data and get_metadata. For disk-backed storage, this may
+        should be immediately available to be read by get_data and get_metadata. For disk-backed storage_implementations, this may
         require temporarily caching the data in memory until it can be written to disk.
 
         Parameters

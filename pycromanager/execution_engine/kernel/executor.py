@@ -1,34 +1,41 @@
 """
-Class that executes acquistion events across a pool of threads
+Class that executes acquistion event_implementations across a pool of threads
 """
 import threading
 from collections import deque
 from typing import Deque
 import warnings
 import traceback
-from pydantic import BaseModel
-import uuid
 from typing import Union, Iterable
 
-from pycromanager.execution_engine.acq_future import AcquisitionFuture
-from pycromanager.execution_engine.base_classes.acq_events import AcquisitionEvent, DataProducing, Stoppable, Abortable
-from pycromanager.execution_engine.data_handler import DataHandler
+from pycromanager.execution_engine.kernel.acq_future import AcquisitionFuture
+from pycromanager.execution_engine.kernel.acq_event_base import AcquisitionEvent, Stoppable, Abortable
+from pycromanager.execution_engine.kernel.data_handler import DataHandler
 
 
 class ExecutionEngine:
 
     _instance = None
+    _lock = threading.Lock()
     _debug = False
 
+    def __new__(cls, *args, **kwargs):
+        with cls._lock:
+            if cls._instance is None:
+                cls._instance = super().__new__(cls)
+        return cls._instance
+
     def __init__(self, num_threads=1):
-        self._thread_managers: list[_ExecutionThreadManager] = []
-        for _ in range(num_threads):
-            self._start_new_thread()
-        ExecutionEngine._instance = self
+        with self._lock:
+            if not hasattr(self, '_initialized'):
+                self._thread_managers = []
+                for _ in range(num_threads):
+                    self._start_new_thread()
+                self._initialized = True
 
     @classmethod
     def get_instance(cls):
-        if not hasattr(cls, "_instance"):
+        if cls._instance is None:
             raise RuntimeError("ExecutionEngine has not been initialized")
         return cls._instance
 
@@ -43,8 +50,9 @@ class ExecutionEngine:
     def on_any_executor_thread(cls):
         if ExecutionEngine.get_instance() is None:
             raise RuntimeError("ExecutionEngine has not been initialized")
-        return any([m.is_managed_thread(threading.current_thread()) for m in
-                    ExecutionEngine.get_instance()._thread_managers])
+        result = (hasattr(threading.current_thread(), 'execution_engine_thread')
+                  and threading.current_thread().execution_engine_thread)
+        return result
 
     def _start_new_thread(self):
         self._thread_managers.append(_ExecutionThreadManager())
@@ -56,13 +64,13 @@ class ExecutionEngine:
                transpile: bool = True, prioritize: bool = False, use_free_thread: bool = False,
                data_handler: DataHandler = None) -> Union[AcquisitionFuture, Iterable[AcquisitionFuture]]:
         """
-        Submit one or more acquisition events for execution.
+        Submit one or more acquisition event_implementations for execution.
 
-        This method handles the submission of acquisition events to be executed on active threads. It provides
+        This method handles the submission of acquisition event_implementations to be executed on active threads. It provides
         options for event prioritization, thread allocation, and performance optimization.
 
         Execution Behavior:
-        - By default, all events are executed on a single thread in submission order to prevent concurrency issues.
+        - By default, all event_implementations are executed on a single thread in submission order to prevent concurrency issues.
         - Events can be parallelized across different threads using the 'use_free_thread' parameter.
         - Priority execution can be requested using the 'prioritize' parameter.
 
@@ -72,16 +80,16 @@ class ExecutionEngine:
             A single AcquisitionEvent or an iterable of AcquisitionEvents to be submitted.
 
         transpile : bool, optional (default=True)
-            If True and multiple events are submitted, attempt to optimize them for better performance.
-            This may result in events being combined or reorganized.
+            If True and multiple event_implementations are submitted, attempt to optimize them for better performance.
+            This may result in event_implementations being combined or reorganized.
 
         prioritize : bool, optional (default=False)
             If True, execute the event(s) before any others in the queue on its assigned thread.
-            Useful for system-wide changes affecting other events, like hardware adjustments.
+            Useful for system-wide changes affecting other event_implementations, like hardware adjustments.
 
         use_free_thread : bool, optional (default=False)
             If True, execute the event(s) on an available thread with an empty queue, creating a execution_engine one if necessary.
-            Useful for operations like cancelling or stopping events awaiting signals.
+            Useful for operations like cancelling or stopping event_implementations awaiting signals.
             If False, execute on the primary thread.
 
         data_handler : DataHandler, optional (default=None)
@@ -91,20 +99,20 @@ class ExecutionEngine:
         -------
         Union[AcquisitionFuture, Iterable[AcquisitionFuture]]
             For a single event: returns a single AcquisitionFuture.
-            For multiple events: returns an Iterable of AcquisitionFutures.
+            For multiple event_implementations: returns an Iterable of AcquisitionFutures.
             Note: The number of returned futures may differ from the input if transpilation occurs.
 
         Notes:
         -----
-        - Transpilation may optimize multiple events, potentially altering their number or structure.
-        - Use 'prioritize' for critical system changes that should occur before other queued events.
-        - 'use_free_thread' is essential for operations that need to run independently, like cancellation events.
+        - Transpilation may optimize multiple event_implementations, potentially altering their number or structure.
+        - Use 'prioritize' for critical system changes that should occur before other queued event_implementations.
+        - 'use_free_thread' is essential for operations that need to run independently, like cancellation event_implementations.
         """
         if isinstance(event_or_events, AcquisitionEvent):
             event_or_events = [event_or_events]
 
         if transpile:
-            # TODO: transpile events
+            # TODO: transpile event_implementations
             pass
 
         futures = tuple(self._submit_single_event(event, use_free_thread, prioritize)
@@ -143,34 +151,33 @@ class ExecutionEngine:
             thread.join()
 
 
-class _ExecutionThreadManager(BaseModel):
+class _ExecutionThreadManager:
     """
-    Class which manages a single thread that executes events from a queue, one at a time. Events can be added
+    Class which manages a single thread that executes event_implementations from a queue, one at a time. Events can be added
     to either end of the queue, in order to prioritize them. The thread will stop when the shutdown method is called,
     or in the event of an unhandled exception during event execution.
 
-    This class handles thread safety so that it is possible to check if the thread has any currently executing events
-    or events in its queue with the is_free method.
+    This class handles thread safety so that it is possible to check if the thread has any currently executing event_implementations
+    or event_implementations in its queue with the is_free method.
 
     """
     _deque: Deque[AcquisitionEvent]
+    thread: threading.Thread
 
-    def __init__(self):
+    def __init__(self, name='UnnamedExectorThread'):
         super().__init__()
-        self._thread = threading.Thread(target=self._run_thread)
+        self.thread = threading.Thread(target=self._run_thread, name=name)
+        self.thread.execution_engine_thread = True
         self._deque = deque()
         self._shutdown_event = threading.Event()
         self._terminate_event = threading.Event()
         self._exception = None
         self._event_executing = False
         self._addition_condition = threading.Condition()
-        self._thread.start()
-
-    def is_managed_thread(self, thread):
-        return self._thread == thread
+        self.thread.start()
 
     def join(self):
-        self._thread.join()
+        self.thread.join()
 
     def _run_thread(self):
         event = None
@@ -237,7 +244,7 @@ class _ExecutionThreadManager(BaseModel):
     def submit_event(self, event, prioritize=False):
         """
         Submit an event for execution on this thread. If prioritize is True, the event will be executed before any other
-        events in the queue.
+        event_implementations in the queue.
         """
         with self._addition_condition:
             if self._shutdown_event.is_set() or self._terminate_event.is_set():
@@ -256,7 +263,7 @@ class _ExecutionThreadManager(BaseModel):
             self._terminate_event.set()
             self._shutdown_event.set()
             self._addition_condition.notify_all()
-        self._thread.join()
+        self.thread.join()
     def shutdown(self):
         """
         Stop the thread and wait for it to finish
@@ -264,5 +271,5 @@ class _ExecutionThreadManager(BaseModel):
         with self._addition_condition:
             self._shutdown_event.set()
             self._addition_condition.notify_all()
-        self._thread.join()
+        self.thread.join()
 

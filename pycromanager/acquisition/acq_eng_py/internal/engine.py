@@ -85,7 +85,7 @@ class Engine:
         #             # merge event into the sequence
         #             self.sequenced_events.append(event)
         #         else:
-        #             # all events
+        #             # all event_implementations
         #             sequence_event = self.merge_sequence_event(self.sequenced_events)
         #             self.sequenced_events.clear()
         #             # Add in the start of the execution_engine sequence
@@ -190,7 +190,7 @@ class Engine:
                 if event.is_xy_sequenced():
                     self.core.start_xy_stage_sequence(xy_stage)
                 else:
-                    # Could be sequenced over other devices.py, in that case get xy position from first in sequence
+                    # Could be sequenced over other device_implementations.py, in that case get xy position from first in sequence
                     prev_x_position = None if self.last_event is None else None if self.last_event.get_sequence() is None else \
                         self.last_event.get_sequence()[0].get_x_position()
                     x_position = event.get_sequence()[
@@ -380,8 +380,8 @@ class Engine:
                     self.last_event = None  # Update all hardware if switching to a execution_engine acquisition
 
 
-            # Other stage devices.py
-            loop_hardware_command_retries(lambda: move_other_stage_devices(event), "Moving other stage devices.py")
+            # Other stage device_implementations.py
+            loop_hardware_command_retries(lambda: move_other_stage_devices(event), "Moving other stage device_implementations.py")
             # XY Stage
             loop_hardware_command_retries(lambda: move_xy_stage(event), "Moving XY stage")
             # Channels
@@ -496,7 +496,7 @@ class Engine:
                     return False
 
             # arbitrary z stages
-            # TODO implement sequences along arbitrary other stage devices.py
+            # TODO implement sequences along arbitrary other stage device_implementations.py
             for stage_device in previous_event.get_stage_device_names():
                 return False
 
@@ -522,7 +522,7 @@ class Engine:
                         new_seq_length > self.core.get_exposure_sequence_max_length(self.core.get_camera_device()):
                     return False
 
-            # If there is a nonzero delay between events, then its not sequencable
+            # If there is a nonzero delay between event_implementations, then its not sequencable
             if previous_event.get_t_index() is not None and next_event.get_t_index() is not None and \
                     previous_event.get_t_index() != next_event.get_t_index():
                 if previous_event.get_minimum_start_time_absolute() is not None and \

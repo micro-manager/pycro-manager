@@ -300,7 +300,7 @@ def test_channel_seq_z_noseq_acq(launch_mm_headless, setup_data_folder):
 def test_channel_noseq_z_seq_acq(launch_mm_headless, setup_data_folder):
     """
     Test that z-steps can be sequenced even if channels are not sequenced in TPCZ order acquisitions.
-    Also test that channels exposure times are set correctly
+    Also integration_tests that channels exposure times are set correctly
 
     """
     channels = ['DAPI', 'FITC', 'Rhodamine', 'Cy5']
@@ -463,7 +463,7 @@ def test_abort_sequenced_timelapse(launch_mm_headless, setup_data_folder):
 
 def test_abort_with_no_events(launch_mm_headless, setup_data_folder):
     """
-    Test that aborting before any events processed doesnt cause hang or exception
+    Test that aborting before any event_implementations processed doesnt cause hang or exception
     """
     mmc = Core()
     with Acquisition(setup_data_folder, 'test_abort_with_no_events', show_display=False) as acq:

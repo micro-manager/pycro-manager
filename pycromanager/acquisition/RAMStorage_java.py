@@ -3,10 +3,10 @@ from ndstorage.ndstorage_base import NDStorageBase
 
 class NDRAMDatasetJava(NDStorageBase):
     """
-    A python class that wraps a Java-backend RAM data storage.
+    A python class that wraps a Java-backend RAM data storage_implementations.
 
     This class maintains an index of which images have been saved, but otherwise routes all calls to the Java
-    implementation of the RAM data storage.
+    implementation of the RAM data storage_implementations.
     """
 
     def __init__(self, java_RAM_data_storage):
@@ -22,7 +22,7 @@ class NDRAMDatasetJava(NDStorageBase):
 
     def add_available_axes(self, image_coordinates):
         """
-        The Java RAM storage has received a execution_engine image with the given axes. Add these axes to the index.
+        The Java RAM storage_implementations has received a execution_engine image with the given axes. Add these axes to the index.
         """
         self._index_keys.add(frozenset(image_coordinates.items()))
         # update information about the available images

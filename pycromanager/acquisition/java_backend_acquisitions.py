@@ -44,7 +44,7 @@ def _run_acq_event_source(acquisition, event_port, event_queue, debug=False):
                 # Initiate the normal shutdown process
                 if not acquisition._acq.is_finished():
                     # if it has been finished through something happening on the other side
-                    event_socket.send({"events": [{"special": "acquisition-end"}]})
+                    event_socket.send({"event_implementations": [{"special": "acquisition-end"}]})
                     # wait for signal that acquisition has received the end signal
                     while not acquisition._acq.is_finished():
                         acquisition._acq.block_until_events_finished(0.01)
@@ -55,9 +55,9 @@ def _run_acq_event_source(acquisition, event_port, event_queue, debug=False):
                 break
             # TODO in theory it could be aborted in between the check above and sending below,
             #  maybe consider putting a timeout on the send?
-            event_socket.send({"events": events if type(events) == list else [events]})
+            event_socket.send({"event_implementations": events if type(events) == list else [events]})
             if debug:
-                logger.debug("sent events")
+                logger.debug("sent event_implementations")
     except Exception as e:
         acquisition.abort(e)
     finally:
@@ -81,8 +81,8 @@ def _run_acq_hook(acquisition, pull_port,
             pull_socket.close()
             return
         else:
-            if "events" in event_msg.keys():
-                event_msg = event_msg["events"]  # convert from sequence
+            if "event_implementations" in event_msg.keys():
+                event_msg = event_msg["event_implementations"]  # convert from sequence
             params = signature(hook_fn).parameters
             if len(params) == 1 or len(params) == 2:
                 try:
@@ -100,7 +100,7 @@ def _run_acq_hook(acquisition, pull_port,
 
         if isinstance(new_event_msg, list):
             new_event_msg = {
-                "events": new_event_msg
+                "event_implementations": new_event_msg
             }  # convert back to the expected format for a sequence
         push_socket.send(new_event_msg)
 
@@ -198,16 +198,16 @@ def _notification_handler_fn(acquisition, notification_push_port, connected_even
             notification = AcqNotification.from_json(message)
 
             # these are processed seperately to handle image saved callback
-            # Decode the Data storage class-specific notification
+            # Decode the Data storage_implementations class-specific notification
             if AcqNotification.is_image_saved_notification(notification): # it was saved to RAM, not disk
                 if not notification.is_data_sink_finished_notification():
-                    # check if NDTiff data storage used
+                    # check if NDTiff data storage_implementations used
                     if acquisition._directory is not None:
                         index_entry = notification.payload.encode('ISO-8859-1')
                         axes = acquisition._dataset.add_index_entry(index_entry)
                         # swap the notification.payload from the byte array of index information to axes
                         notification.payload = axes
-                    else: # RAM storage
+                    else: # RAM storage_implementations
                         axes = json.loads(notification.payload)
                         acquisition._dataset.add_available_axes(axes)
                         notification.payload = axes
@@ -302,9 +302,9 @@ class JavaBackendAcquisition(Acquisition, metaclass=NumpyDocstringInheritanceMet
 
         # Start remote acquisition
         # Acquistition.start is now deprecated, so this can be removed later
-        # Acquisitions now get started automatically when the first events submitted
-        # but Magellan acquisitons (and probably others that generate their own events)
-        # will need some execution_engine method to submit events only after image processors etc have been added
+        # Acquisitions now get started automatically when the first event_implementations submitted
+        # but Magellan acquisitons (and probably others that generate their own event_implementations)
+        # will need some execution_engine method to submit event_implementations only after image processors etc have been added
         self._acq.start()
         self._dataset_disk_location = (
             self._acq.get_data_sink().get_storage().get_disk_location()
@@ -314,11 +314,11 @@ class JavaBackendAcquisition(Acquisition, metaclass=NumpyDocstringInheritanceMet
 
         self._start_events()
 
-        # Load remote storage
+        # Load remote storage_implementations
         data_sink = self._acq.get_data_sink()
         # load a view of the dataset in progress. This is used so that acq.get_dataset() can be called
         # while the acquisition is still running, and (optionally )so that a image_saved_fn can be called
-        # when images are written to disk/RAM storage
+        # when images are written to disk/RAM storage_implementations
         storage_java_class = data_sink.get_storage()
         summary_metadata = storage_java_class.get_summary_metadata()
         if directory is not None:
@@ -459,7 +459,7 @@ class JavaBackendAcquisition(Acquisition, metaclass=NumpyDocstringInheritanceMet
             self._acq.add_image_processor(java_processor)
             self._processor_thread = self._start_processor(
                 java_processor, kwargs['image_process_fn'],
-                # Some acquisitions (e.g. Explore acquisitions) create events on Java side
+                # Some acquisitions (e.g. Explore acquisitions) create event_implementations on Java side
                 self._event_queue if hasattr(self, '_event_queue') else None,
                 process=False)
 
@@ -499,7 +499,7 @@ class JavaBackendAcquisition(Acquisition, metaclass=NumpyDocstringInheritanceMet
         core = ZMQRemoteMMCoreJ(port=self._port, timeout=self._timeout, debug=self._debug)
         acq_factory = JavaObject("org.micromanager.remote.RemoteAcquisitionFactory",
             # create a execution_engine socket for it to run on so that it can have blocking calls without interfering with
-            # the main socket or other internal sockets
+            # the main socket or other kernel sockets
             new_socket=True,
             port=self._port, args=[core], debug=self._debug, timeout=self._timeout)
         show_viewer = kwargs['show_display'] is True and kwargs['napari_viewer'] is None
@@ -670,7 +670,7 @@ class XYTiledAcquisition(JavaBackendAcquisition):
 class ExploreAcquisition(JavaBackendAcquisition):
     """
     Launches a user interface for an "Explore Acquisition"--a type of XYTiledAcquisition
-    in which acquisition events come from the user dynamically driving the stage and selecting
+    in which acquisition event_implementations come from the user dynamically driving the stage and selecting
     areas to image
     """
 

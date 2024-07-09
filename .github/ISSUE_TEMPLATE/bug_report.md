@@ -19,7 +19,7 @@ labels: bug
     configuration, it is likely unrelated to pycro-manager
     -->
 
-<!--The best bug reports are those which can be converted into an automated test. 
+<!--The best bug reports are those which can be converted into an automated integration_tests. 
 This ensures that once fixed, the bug can be avoided in the future. Tests are minimal 
 scripts that reproduce the errant behavior using the Micro-Manager Demo configuration.
 Examples of tests can be found here: 
@@ -27,7 +27,7 @@ https://github.com/micro-manager/pycro-manager/tree/main/pycromanager/test
 -->
 
 <!--If you're familiar with the process of making pull requests, the most helpful type of
-bug report to create is one with a linked pull request with a execution_engine test added (which should 
+bug report to create is one with a linked pull request with a execution_engine integration_tests added (which should 
 currently fail due to the bug). More information running the testing framework can be found here:
 (https://github.com/micro-manager/pycro-manager/blob/main/Contributing.md#testing-the-code). 
 If you're not familiar with this process, it is also okay to simply paste a snippet of 

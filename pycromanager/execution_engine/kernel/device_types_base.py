@@ -1,24 +1,55 @@
 """"
-Base classes for devices that can be used by the execution engine
+Base classes for device_implementations that can be used by the execution engine
 """
 
 from abc import abstractmethod
-from pycromanager.execution_engine.internal.device import Device
+from pycromanager.execution_engine.kernel.device import Device
 import numpy as np
 
 
-class SingleAxisActuator(Device):
+class SingleAxisPositioner(Device):
 
     @abstractmethod
-    def move(self, position: float) -> None:
+    def set_position(self, position: float) -> None:
+        ...
+
+    @abstractmethod
+    def get_position(self) -> float:
         ...
 
 
-class DoubleAxisActuator(Device):
+class TriggerableSingleAxisPositioner(SingleAxisPositioner):
+    """
+    A special type of positioner that can accept a sequence of positions to move to when provided external TTL triggers
+    """
+    @abstractmethod
+    def set_position_sequence(self, positions: np.ndarray) -> None:
+        ...
 
     @abstractmethod
-    def move(self, x: float, y: float) -> None:
+    def get_triggerable_sequence_max_length(self) -> int:
         ...
+
+
+class DoubleAxisPositioner(Device):
+
+        @abstractmethod
+        def set_position(self, x: float, y: float) -> None:
+            ...
+
+        @abstractmethod
+        def get_position(self) -> (float, float):
+            ...
+
+class TriggerableDoubleAxisPositioner(DoubleAxisPositioner):
+
+        @abstractmethod
+        def set_position_sequence(self, positions: np.ndarray) -> None:
+            ...
+
+        @abstractmethod
+        def get_triggerable_sequence_max_length(self) -> int:
+            ...
 
 class Camera(Device):
     """
@@ -48,7 +79,7 @@ class Camera(Device):
     def start(self) -> None:
         ...
 
-    # TODO: is it possible to make this return the number of images captured?
+    # TODO: is it possible to make this return the number of images captured, to know about when to stop readout?
     @abstractmethod
     def stop(self) -> None:
         ...

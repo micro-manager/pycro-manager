@@ -63,8 +63,8 @@ class PythonBackendAcquisition(Acquisition, metaclass=NumpyDocstringInheritanceM
         self._image_processor = ImageProcessor(self) if image_process_fn is not None else None
 
 
-        # create a thread that submits events
-        # events can be added to the queue through image processors, hooks, or the acquire method
+        # create a thread that submits event_implementations
+        # event_implementations can be added to the queue through image processors, hooks, or the acquire method
         def submit_events():
             while True:
                 event_or_events = self._event_queue.get()
@@ -208,7 +208,7 @@ class PythonBackendAcquisition(Acquisition, metaclass=NumpyDocstringInheritanceM
 
     def _are_acquisition_notifications_finished(self):
         """
-        Called by the storage to check if all notifications have been processed
+        Called by the storage_implementations to check if all notifications have been processed
         """
         return self._notifications_finished
 

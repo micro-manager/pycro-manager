@@ -6,7 +6,7 @@ import threading
 import types
 import os
 
-# from pycromanager.acquisition.acq_eng_py.internal.engine import Engine
+# from pycromanager.acquisition.acq_eng_py.kernel.engine import Engine
 from pymmcore import CMMCore
 import pymmcore
 from pyjavaz import DEFAULT_BRIDGE_PORT, server_terminated
@@ -79,7 +79,7 @@ def stop_headless(debug=False):
             logger.debug('Stopping pymmcore instance')
         c.unloadAllDevices()
         if debug:
-            logger.debug('Unloaded all devices.py')
+            logger.debug('Unloaded all device_implementations.py')
         # TODO: shutdown execution_engine engine
         # Engine.get_instance().shutdown()
         if debug:

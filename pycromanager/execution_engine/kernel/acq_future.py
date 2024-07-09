@@ -1,13 +1,13 @@
 from typing import Union, Optional, Any, Dict, Tuple, Sequence, Set
 import threading
 import warnings
-from pycromanager.execution_engine.data_coords import DataCoordinates, DataCoordinatesIterator
+from pycromanager.execution_engine.kernel.data_coords import DataCoordinates, DataCoordinatesIterator
 
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING: # avoid circular imports
-    from pycromanager.execution_engine.data_handler import DataHandler
-from pycromanager.execution_engine.base_classes.acq_events import AcquisitionEvent, DataProducing, Stoppable, Abortable
+    pass
+from pycromanager.execution_engine.kernel.acq_event_base import AcquisitionEvent, DataProducing, Stoppable, Abortable
 
 class AcquisitionFuture:
 
@@ -100,7 +100,7 @@ class AcquisitionFuture:
             processed: whether to wait until data has been processed. If not data processor is in use,
                 then this parameter has no effect
             stored: whether to wait for data that has been stored. If the call to await data occurs before the
-              data gets passed off to the storage class, then it will be stored in memory and returned immediately.
+              data gets passed off to the storage_implementations class, then it will be stored in memory and returned immediately.
               without having to retrieve
         """
 
@@ -123,7 +123,7 @@ class AcquisitionFuture:
             for data_coordinates in coordinates_iterator:
                 if not processed and not stored:
                     # make sure this is a valid thing to wait for. This can only be done before processing and
-                    #  storage, because processors and data storage classes may optionally modify the data
+                    #  storage_implementations, because processors and data storage_implementations classes may optionally modify the data
                     self._check_if_coordinates_possible(coordinates)
                     if data_coordinates not in self._acquired_data_coordinates:
                         # register that we're awaiting this data, so that if it arrives on the other thread while other
@@ -142,13 +142,13 @@ class AcquisitionFuture:
                     else:
                         to_read.add(data_coordinates)
 
-        # retrieve any data that has already passed through the pipeline from the data storage, via the data handler
+        # retrieve any data that has already passed through the pipeline from the data storage_implementations, via the data handler
         for data_coordinates in to_read:
             data, metadata = self._data_handler.get(data_coordinates, return_data, return_metadata)
             # save memory for a potential big retrieval
             result[data_coordinates] = (data if return_data else None, metadata if return_metadata else None)
 
-        # now that we've gotten all the data from storage that was missed before this method was called,
+        # now that we've gotten all the data from storage_implementations that was missed before this method was called,
         #  proceed to getting all the data that was awaited on another thread
         with self._data_notification_condition:
             # order doesn't matter here because we're just grabbing it all from RAM
@@ -159,7 +159,7 @@ class AcquisitionFuture:
                     while data is True or data is False: # once the data is no longer a boolean, it's the actual data
                         self._data_notification_condition.wait()
                         data, metadata = self._awaited_acquired_data[data_coordinates]
-                    # remove from temporary storage and put into result
+                    # remove from temporary storage_implementations and put into result
                     result[data_coordinates] = self._awaited_acquired_data.pop(data_coordinates)
 
             elif processed and not stored:

@@ -1,18 +1,18 @@
-from typing import Union, Tuple, Dict, Set, Optional, Any, Sequence
+from typing import Union, Dict, Optional, Any
 import numpy as np
 from typing import Iterable
 from abc import ABC, abstractmethod
 import weakref
 
 from pydantic import BaseModel
-from pydantic import field_validator, Field
+from pydantic import field_validator
 
-from pycromanager.execution_engine.data_coords import DataCoordinates, DataCoordinatesIterator
-from pycromanager.execution_engine.data_handler import DataHandler
+from pycromanager.execution_engine.kernel.data_coords import DataCoordinates, DataCoordinatesIterator
+from pycromanager.execution_engine.kernel.data_handler import DataHandler
 
 from typing import TYPE_CHECKING
 if TYPE_CHECKING: # avoid circular imports
-    from pycromanager.execution_engine.acq_future import AcquisitionFuture
+    from pycromanager.execution_engine.kernel.acq_future import AcquisitionFuture
 
 class AcquisitionEvent(BaseModel, ABC):
     num_retries_on_exception: int = 0
@@ -30,6 +30,9 @@ class AcquisitionEvent(BaseModel, ABC):
         the event's functionality
         """
         pass
+
+    def is_finished(self):
+        return self._finished
 
     def _set_future(self, future: 'AcquisitionFuture'):
         """
@@ -58,14 +61,27 @@ class AcquisitionEvent(BaseModel, ABC):
             future._notify_execution_complete(return_value, exception)
         self._finished = True
 
-    def is_finished(self):
-        return self._finished
+    def __str__(self):
+        """
+        Show only the attributes of subclasses, not the base class attributes
+        """
+        all_attrs = self.__dict__
+        base_attrs = set(AcquisitionEvent.__fields__.keys())
+        # Filter out base class attributes and private attributes
+        subclass_attrs = {k: v for k, v in all_attrs.items()
+                          if k not in base_attrs and not k.startswith('_')}
+        # Create a string representation of the filtered attributes
+        attrs_str = ', '.join(f"{k}={v}" for k, v in subclass_attrs.items())
+
+        return f"{self.__class__.__name__}({attrs_str})"
+
+    __repr__ = __str__
 
 class Stoppable:
     # TODO: this should be on the future, if youre not going to merge them into one
     #  becuase the event can be reused
     """
-    Acquistition events that can be stopped should inherit from this class. They are responsible for checking if
+    Acquistition event_implementations that can be stopped should inherit from this class. They are responsible for checking if
     is_stop_requested() returns True and stopping their execution if it does. When stopping, an orderly shutdown
     should be performed, unlike when aborting, which should be immediate. The details of what such an orderly
     shutdown entails are up to the implementation of the event.
@@ -83,7 +99,7 @@ class Stoppable:
 
 class Abortable:
     """
-    Acquisition events that can be aborted should inherit from this class. They are responsible for checking if
+    Acquisition event_implementations that can be aborted should inherit from this class. They are responsible for checking if
     is_abort_requested() returns True and aborting their execution if it does. When aborting, the event should
     immediately stop its executiond.
     """
@@ -100,7 +116,7 @@ class Abortable:
 
 class DataProducing(BaseModel):
     """
-    Acquisition events that produce data should inherit from this class. They are responsible for putting data
+    Acquisition event_implementations that produce data should inherit from this class. They are responsible for putting data
     into the output queue. This class provides a method for putting data into the output queue. It must be passed
     a DataHandler object that will handle the data, and an image_coordinate_iterator object that generates the
     coordinates of each piece of data (i.e. image) that will be produced by the event. For example, {time: 0},

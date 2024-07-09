@@ -8,7 +8,7 @@ with JavaBackendAcquisition("/Users/henrypinkard/tmp", "l_axis") as acq:
     for time in range(5):
         for index, z_um in enumerate(np.arange(start=0, stop=10, step=0.5)):
             evt = {
-                #'axes' is required. It is used by the image viewer and data storage to
+                #'axes' is required. It is used by the image viewer and data storage_implementations to
                 # identify the acquired image
                 "axes": {"l": index, "time": time},
                 # the 'z' field provides the z position in µm

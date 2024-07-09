@@ -1,14 +1,14 @@
+"""
+Unit tests for DataHandler.
+"""
 import time
-
 import pytest
 import numpy as np
-from pycromanager.acquisition.execution_engine.data_coords import DataCoordinates
-from pycromanager.acquisition.execution_engine.apis.data_storage import DataStorageAPI
-from pycromanager.acquisition.execution_engine.acq_future import AcquisitionFuture
-from typing import Callable, Optional, Union, Sequence, Dict, Tuple, Any
+from typing import Dict
 
-from pycromanager.acquisition.execution_engine.data_handler import DataHandler
-
+from pycromanager.execution_engine.kernel.data_handler import DataHandler
+from pycromanager.execution_engine.kernel.data_coords import DataCoordinates
+from pycromanager.execution_engine.kernel.data_storage_api import DataStorageAPI
 
 class MockDataStorage(DataStorageAPI):
     def __init__(self):
@@ -93,7 +93,7 @@ def test_data_handler_processing_function(data_handler, mock_data_storage):
 
 def test_data_handler_shutdown(data_handler, mock_data_storage):
     """
-    Test that DataHandler signals the storage to finish correctly.
+    Test that DataHandler signals the storage_implementations to finish correctly.
     """
     data_handler.finish()  # Signal to finish
     data_handler.join()
@@ -105,7 +105,7 @@ def test_data_handler_with_acquisition_future(data_handler):
     """
 
     class MockAcquisitionFuture():
-        def _notify_data(self, coords, data, metadata, processed, saved):
+        def _notify_data(self, coords, data, metadata, processed, stored):
             self.notified = True
 
     future = MockAcquisitionFuture()

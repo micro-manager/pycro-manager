@@ -1,6 +1,6 @@
 import pytest
 from pydantic import ValidationError
-from pycromanager.acquisition.execution_engine.data_coords import DataCoordinates, DataCoordinatesIterator
+from pycromanager.execution_engine.kernel.data_coords import DataCoordinates, DataCoordinatesIterator
 import numpy as np
 
 def test_init_with_dict():
@@ -158,5 +158,46 @@ def test_data_coordinates_iterator_contains():
     coord_not_in_list = DataCoordinates(time=4, channel="DAPI", z=0)
     assert iterator.might_produce_coordinates(coord_not_in_list) == False
 
+
+def test_consistent_integer_type():
+    # Test initialization
+    coords = DataCoordinates(time=np.int64(1), z=np.int32(2), channel="DAPI")
+
+    # Check attribute access
+    assert isinstance(coords.time, int)
+    assert isinstance(coords.z, int)
+
+    # Check dictionary-style access
+    assert isinstance(coords['time'], int)
+    assert isinstance(coords['z'], int)
+
+    # Test setting via attribute
+    coords.new_attr = np.int64(3)
+    assert isinstance(coords.new_attr, int)
+    assert isinstance(coords['new_attr'], int)
+
+    # Test setting via dictionary-style access
+    coords['another_attr'] = np.int32(4)
+    assert isinstance(coords.another_attr, int)
+    assert isinstance(coords['another_attr'], int)
+
+    # Test with numpy array
+    numpy_array = np.array([5, 6, 7], dtype=np.int64)
+    coords.array_attr = numpy_array[0]
+    assert isinstance(coords.array_attr, int)
+    assert isinstance(coords['array_attr'], int)
+
+    # Ensure all integer values are Python int
+    for key, value in coords.coordinate_dict.items():
+        if isinstance(value, (int, np.integer)):
+            assert type(value) == int, f"Value for key '{key}' is not a Python int"
+            assert type(coords[key]) == int, f"Getting '{key}' via [] doesn't return a Python int"
+            assert type(getattr(coords, key)) == int, f"Getting '{key}' via attribute doesn't return a Python int"
+
+    # Test that the original numpy types are converted
+    assert type(coords.time) == int
+    assert type(coords['time']) == int
+    assert type(coords.z) == int
+    assert type(coords['z']) == int
 if __name__ == "__main__":
     pytest.main()

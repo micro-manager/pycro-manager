@@ -1,6 +1,7 @@
-from typing import Dict, Union, Optional, Iterator, List, Tuple, Iterable, Sequence, Any
+from typing import Dict, Union, Optional, Iterator, List, Tuple, Iterable, Sequence, Any, Generator
 from pydantic import BaseModel, Field, model_validator
 from collections.abc import MutableMapping
+import numpy as np
 
 class DataCoordinates(BaseModel, MutableMapping):
     """
@@ -18,11 +19,11 @@ class DataCoordinates(BaseModel, MutableMapping):
         if coordinate_dict is not None:
             kwargs['coordinate_dict'] = coordinate_dict
         if time is not None:
-            kwargs['time'] = time
+            kwargs['time'] = self._convert_to_python_int(time)
         if channel is not None:
-            kwargs['channel'] = channel
+            kwargs['channel'] = self._convert_to_python_int(channel)
         if z is not None:
-            kwargs['z'] = z
+            kwargs['z'] = self._convert_to_python_int(z)
         super().__init__(**kwargs)
 
         other_axis_names = [key for key in kwargs.keys() if key not in ['coordinate_dict', 'time', 'channel', 'z']]
@@ -33,11 +34,11 @@ class DataCoordinates(BaseModel, MutableMapping):
 
         # Handle the special case of time, channel, and z
         if time is not None:
-            self.coordinate_dict['time'] = time
+            self.coordinate_dict['time'] = self._convert_to_python_int(time)
         if channel is not None:
-            self.coordinate_dict['channel'] = channel
+            self.coordinate_dict['channel'] = self._convert_to_python_int(channel)
         if z is not None:
-            self.coordinate_dict['z'] = z
+            self.coordinate_dict['z'] = self._convert_to_python_int(z)
 
         # set other axis names as attributes
         for key in other_axis_names: # if theyre in kwargs
@@ -48,37 +49,45 @@ class DataCoordinates(BaseModel, MutableMapping):
                 if not hasattr(self, key):
                     setattr(self, key, value)
 
-    @model_validator(mode="before")
-    def _set_coordinates(cls, values):
-        coordinate_dict = values.get('coordinate_dict', {})
-        for key, value in coordinate_dict.items():
-            if key not in values:
-                values[key] = value
-        return values
 
     class Config:
         validate_assignment = True
         extra = 'allow' # allow setting of other axis names as attributes that are not in the model
 
+    @staticmethod
+    def _convert_to_python_int(value):
+        if isinstance(value, np.integer):
+            return int(value)
+        return value
+
+    def __setitem__(self, key: str, value: Union[int, str, np.integer]) -> None:
+        value = self._convert_to_python_int(value)
+        self.coordinate_dict[key] = value
+        setattr(self, key, value)
+
+    def __setattr__(self, key: str, value: Union[int, str, np.integer]) -> None:
+        value = self._convert_to_python_int(value)
+        super().__setattr__(key, value)
+        if not key.startswith('_'):
+            self.coordinate_dict[key] = value
+
+    @model_validator(mode="before")
+    def _set_coordinates(cls, values):
+        coordinate_dict = values.get('coordinate_dict', {})
+        for key, value in coordinate_dict.items():
+            coordinate_dict[key] = cls._convert_to_python_int(value)
+            if key not in values:
+                values[key] = coordinate_dict[key]
+        return values
+
     def __getitem__(self, key: str) -> Union[int, str]:
         return self.coordinate_dict[key]
-
-    def __setitem__(self, key: str, value: Union[int, str]) -> None:
-        self.coordinate_dict[key] = value
-        # update the attribute
-        setattr(self, key, value)
 
     def __delitem__(self, key: str) -> None:
         del self.coordinate_dict[key]
 
     def __contains__(self, key: str) -> bool:
         return key in self.coordinate_dict
-
-    def __setattr__(self, key: str, value: Union[int, str]) -> None:
-        super().__setattr__(key, value)
-        # Keep a redundant copy in the coordinate_dict
-        if not key.startswith('_'):
-            self.coordinate_dict[key] = value
 
     def __delattr__(self, item: str) -> None:
         super().__delattr__(item)
@@ -107,7 +116,7 @@ class DataCoordinates(BaseModel, MutableMapping):
 
     def __str__(self) -> str:
         # Provide a user-friendly string representation
-        return f"DataCoordinates with coordinates: {self.coordinate_dict}"
+        return f"DataCoordinates: {self.coordinate_dict}"
 
 
 class DataCoordinatesIterator:
@@ -190,3 +199,17 @@ class DataCoordinatesIterator:
             raise
         except Exception as e:
             raise TypeError(f"Error processing next item: {str(e)}")
+
+
+    def __str__(self):
+        if isinstance(self._backing_iterable, Generator):
+            return "DataCoordinatesIterator(dynamic)"
+        elif isinstance(self._backing_iterable, Sequence):
+            coords_strs = [str(coord) if isinstance(coord, DataCoordinates)
+                           else str(DataCoordinates(**coord))
+                           for coord in self._backing_iterable]
+            return f"DataCoordinatesIterator({', '.join(coords_strs)})"
+        else:
+            return "DataCoordinatesIterator(unknown)"
+
+    __repr__ = __str__
