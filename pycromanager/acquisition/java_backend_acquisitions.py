@@ -44,7 +44,7 @@ def _run_acq_event_source(acquisition, event_port, event_queue, debug=False):
                 # Initiate the normal shutdown process
                 if not acquisition._acq.is_finished():
                     # if it has been finished through something happening on the other side
-                    event_socket.send({"event_implementations": [{"special": "acquisition-end"}]})
+                    event_socket.send({"events": [{"special": "acquisition-end"}]})
                     # wait for signal that acquisition has received the end signal
                     while not acquisition._acq.is_finished():
                         acquisition._acq.block_until_events_finished(0.01)
@@ -55,9 +55,9 @@ def _run_acq_event_source(acquisition, event_port, event_queue, debug=False):
                 break
             # TODO in theory it could be aborted in between the check above and sending below,
             #  maybe consider putting a timeout on the send?
-            event_socket.send({"event_implementations": events if type(events) == list else [events]})
+            event_socket.send({"events": events if type(events) == list else [events]})
             if debug:
-                logger.debug("sent event_implementations")
+                logger.debug("sent events")
     except Exception as e:
         acquisition.abort(e)
     finally:
@@ -81,8 +81,8 @@ def _run_acq_hook(acquisition, pull_port,
             pull_socket.close()
             return
         else:
-            if "event_implementations" in event_msg.keys():
-                event_msg = event_msg["event_implementations"]  # convert from sequence
+            if "events" in event_msg.keys():
+                event_msg = event_msg["events"]  # convert from sequence
             params = signature(hook_fn).parameters
             if len(params) == 1 or len(params) == 2:
                 try:
@@ -100,7 +100,7 @@ def _run_acq_hook(acquisition, pull_port,
 
         if isinstance(new_event_msg, list):
             new_event_msg = {
-                "event_implementations": new_event_msg
+                "events": new_event_msg
             }  # convert back to the expected format for a sequence
         push_socket.send(new_event_msg)
 
@@ -159,7 +159,7 @@ def _run_image_processor(
     while True:
         message = None
         while message is None:
-            message = pull_socket.receive(timeout=30, suppress_debug_message=True)  # check for execution_engine message
+            message = pull_socket.receive(timeout=30, suppress_debug_message=True)  # check for new message
 
         if "special" in message and message["special"] == "finished":
             pull_socket.close()
@@ -198,16 +198,17 @@ def _notification_handler_fn(acquisition, notification_push_port, connected_even
             notification = AcqNotification.from_json(message)
 
             # these are processed seperately to handle image saved callback
-            # Decode the Data storage_implementations class-specific notification
+            # Decode the Data storage class-specific notification
             if AcqNotification.is_image_saved_notification(notification): # it was saved to RAM, not disk
                 if not notification.is_data_sink_finished_notification():
-                    # check if NDTiff data storage_implementations used
-                    if acquisition._directory is not None:
+                    # check if NDTiff data storage used
+                    if acquisition._directory is not None or isinstance(acquisition, MagellanAcquisition) or \
+                            isinstance(acquisition, XYTiledAcquisition):
                         index_entry = notification.payload.encode('ISO-8859-1')
                         axes = acquisition._dataset.add_index_entry(index_entry)
                         # swap the notification.payload from the byte array of index information to axes
                         notification.payload = axes
-                    else: # RAM storage_implementations
+                    else: # RAM storage
                         axes = json.loads(notification.payload)
                         acquisition._dataset.add_available_axes(axes)
                         notification.payload = axes
@@ -300,12 +301,7 @@ class JavaBackendAcquisition(Acquisition, metaclass=NumpyDocstringInheritanceMet
             warnings.warn('Could not create acquisition notification handler. '
                           'Update Micro-Manager and Pyrcro-Manager to the latest versions to fix this')
 
-        # Start remote acquisition
-        # Acquistition.start is now deprecated, so this can be removed later
-        # Acquisitions now get started automatically when the first event_implementations submitted
-        # but Magellan acquisitons (and probably others that generate their own event_implementations)
-        # will need some execution_engine method to submit event_implementations only after image processors etc have been added
-        self._acq.start()
+
         self._dataset_disk_location = (
             self._acq.get_data_sink().get_storage().get_disk_location()
             if self._acq.get_data_sink() is not None
@@ -314,14 +310,14 @@ class JavaBackendAcquisition(Acquisition, metaclass=NumpyDocstringInheritanceMet
 
         self._start_events()
 
-        # Load remote storage_implementations
+        # Load remote storage
         data_sink = self._acq.get_data_sink()
         # load a view of the dataset in progress. This is used so that acq.get_dataset() can be called
         # while the acquisition is still running, and (optionally )so that a image_saved_fn can be called
-        # when images are written to disk/RAM storage_implementations
+        # when images are written to disk/RAM storage
         storage_java_class = data_sink.get_storage()
         summary_metadata = storage_java_class.get_summary_metadata()
-        if directory is not None:
+        if directory is not None or isinstance(self, MagellanAcquisition) or isinstance(self, XYTiledAcquisition):
             # NDTiff dataset saved to disk on Java side
             self._dataset = Dataset(dataset_path=self._dataset_disk_location, summary_metadata=summary_metadata)
         else:
@@ -350,7 +346,7 @@ class JavaBackendAcquisition(Acquisition, metaclass=NumpyDocstringInheritanceMet
 
     def await_completion(self):
         try:
-            while not self._acq._are_events_finished() or (
+            while not self._acq.are_events_finished() or (
                     self._acq.get_data_sink() is not None and not self._acq.get_data_sink().is_finished()):
                 self._check_for_exceptions()
                 self._acq.block_until_events_finished(0.01)
@@ -363,10 +359,6 @@ class JavaBackendAcquisition(Acquisition, metaclass=NumpyDocstringInheritanceMet
 
             if hasattr(self, '_event_thread'):
                 self._event_thread.join()
-
-            # need to do this so its _Bridge can be garbage collected and a reference to the JavaBackendAcquisition
-            # does not prevent Bridge cleanup and process exiting
-            self._remote_acq = None
 
             # Wait on all the other threads to shut down properly
             if hasattr(self, '_storage_monitor_thread'):
@@ -394,10 +386,6 @@ class JavaBackendAcquisition(Acquisition, metaclass=NumpyDocstringInheritanceMet
             return self._nd_viewer
         else:
             return self._napari_viewer
-
-    def abort(self, exception=None):
-        self._exception = exception
-        self._acq.abort()
 
     ########  Private methods ###########
     def _start_receiving_notifications(self):
@@ -436,9 +424,6 @@ class JavaBackendAcquisition(Acquisition, metaclass=NumpyDocstringInheritanceMet
         if self._exception is not None:
             raise self._exception
 
-    def _are_events_finished(self):
-        return self._acq.are_events_finished()
-
     def _start_events(self, **kwargs):
 
         self.event_port = self._acq.get_event_port()
@@ -459,7 +444,7 @@ class JavaBackendAcquisition(Acquisition, metaclass=NumpyDocstringInheritanceMet
             self._acq.add_image_processor(java_processor)
             self._processor_thread = self._start_processor(
                 java_processor, kwargs['image_process_fn'],
-                # Some acquisitions (e.g. Explore acquisitions) create event_implementations on Java side
+                # Some acquisitions (e.g. Explore acquisitions) create events on Java side
                 self._event_queue if hasattr(self, '_event_queue') else None,
                 process=False)
 
@@ -498,8 +483,8 @@ class JavaBackendAcquisition(Acquisition, metaclass=NumpyDocstringInheritanceMet
     def _create_remote_acquisition(self, **kwargs):
         core = ZMQRemoteMMCoreJ(port=self._port, timeout=self._timeout, debug=self._debug)
         acq_factory = JavaObject("org.micromanager.remote.RemoteAcquisitionFactory",
-            # create a execution_engine socket for it to run on so that it can have blocking calls without interfering with
-            # the main socket or other kernel sockets
+            # create a new socket for it to run on so that it can have blocking calls without interfering with
+            # the main socket or other internal sockets
             new_socket=True,
             port=self._port, args=[core], debug=self._debug, timeout=self._timeout)
         show_viewer = kwargs['show_display'] is True and kwargs['napari_viewer'] is None
@@ -640,6 +625,7 @@ class XYTiledAcquisition(JavaBackendAcquisition):
         l = locals()
         named_args = {arg_name: l[arg_name] for arg_name in arg_names}
         super().__init__(**named_args)
+        self._acq.start()
 
     def _create_remote_acquisition(self, port, **kwargs):
         core = ZMQRemoteMMCoreJ(port=self._port, timeout=self._timeout)
@@ -655,7 +641,7 @@ class XYTiledAcquisition(JavaBackendAcquisition):
             x_overlap = self.tile_overlap
             y_overlap = self.tile_overlap
 
-        self._remote_acq = acq_factory.create_tiled_acquisition(
+        self._acq = acq_factory.create_tiled_acquisition(
             kwargs['directory'],
             kwargs['name'],
             show_viewer,
@@ -670,7 +656,7 @@ class XYTiledAcquisition(JavaBackendAcquisition):
 class ExploreAcquisition(JavaBackendAcquisition):
     """
     Launches a user interface for an "Explore Acquisition"--a type of XYTiledAcquisition
-    in which acquisition event_implementations come from the user dynamically driving the stage and selecting
+    in which acquisition events come from the user dynamically driving the stage and selecting
     areas to image
     """
 
@@ -717,6 +703,7 @@ class ExploreAcquisition(JavaBackendAcquisition):
         l = locals()
         named_args = {arg_name: l[arg_name] for arg_name in arg_names}
         super().__init__(**named_args)
+        self._acq.start()
 
     def _create_remote_acquisition(self, port, **kwargs):
         if type(self.tile_overlap) is tuple:
@@ -727,7 +714,7 @@ class ExploreAcquisition(JavaBackendAcquisition):
 
         ui_class = JavaClass('org.micromanager.explore.ExploreAcqUIAndStorage')
         ui = ui_class.create(kwargs['directory'], kwargs['name'], x_overlap, y_overlap, self.z_step_um, self.channel_group)
-        self._remote_acq = ui.get_acquisition()
+        self._acq = ui.get_acquisition()
 
     def _start_events(self, **kwargs):
         pass # These come from the user
@@ -774,6 +761,7 @@ class MagellanAcquisition(JavaBackendAcquisition):
         l = locals()
         named_args = {arg_name: l[arg_name] for arg_name in arg_names}
         super().__init__(**named_args)
+        self._acq.start()
 
     def _start_events(self, **kwargs):
         pass # Magellan handles this on Java side
@@ -784,7 +772,7 @@ class MagellanAcquisition(JavaBackendAcquisition):
     def _create_remote_acquisition(self, **kwargs):
         magellan_api = Magellan()
         if self.magellan_acq_index is not None:
-            self._remote_acq = magellan_api.create_acquisition(self.magellan_acq_index, False)
+            self._acq = magellan_api.create_acquisition(self.magellan_acq_index, False)
         elif self.magellan_explore:
-            self._remote_acq = magellan_api.create_explore_acquisition(False)
+            self._acq = magellan_api.create_explore_acquisition(False)
         self._event_queue = None

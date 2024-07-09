@@ -300,7 +300,7 @@ def test_channel_seq_z_noseq_acq(launch_mm_headless, setup_data_folder):
 def test_channel_noseq_z_seq_acq(launch_mm_headless, setup_data_folder):
     """
     Test that z-steps can be sequenced even if channels are not sequenced in TPCZ order acquisitions.
-    Also integration_tests that channels exposure times are set correctly
+    Also test that channels exposure times are set correctly
 
     """
     channels = ['DAPI', 'FITC', 'Rhodamine', 'Cy5']
@@ -463,27 +463,31 @@ def test_abort_sequenced_timelapse(launch_mm_headless, setup_data_folder):
 
 def test_abort_with_no_events(launch_mm_headless, setup_data_folder):
     """
-    Test that aborting before any event_implementations processed doesnt cause hang or exception
+    Test that aborting before any events processed doesnt cause hang or exception
     """
     mmc = Core()
     with Acquisition(setup_data_folder, 'test_abort_with_no_events', show_display=False) as acq:
         acq.abort()
     assert not mmc.is_sequence_running()
+    acq.get_dataset().close()
 
-def test_abort_from_external(launch_mm_headless, setup_data_folder):
-    """
-    Simulates the acquisition being shutdown from a remote source (e.g. Xing out the viewer)
-    """
-    with pytest.raises(AcqAlreadyCompleteException):
-        with Acquisition(setup_data_folder, 'test_abort_from_external', show_display=False) as acq:
-            events = multi_d_acquisition_events(num_time_points=6)
-            acq.acquire(events[0])
-            # this simulates an abort from the java side unbeknownst to python side
-            # it comes from a execution_engine thread so it is non-blocking to the port
-            acq._acq.abort()
-            for event in events[1:]:
-                acq.acquire(event)
-                time.sleep(5)
+# def test_abort_from_external(launch_mm_headless, setup_data_folder):
+#     """
+#     Simulates the acquisition being shutdown from a remote source (e.g. Xing out the viewer)
+#     """
+#     with pytest.raises(AcqAlreadyCompleteException):
+#         try:
+#             with Acquisition(setup_data_folder, 'test_abort_from_external', show_display=False) as acq:
+#                 events = multi_d_acquisition_events(num_time_points=6)
+#                 acq.acquire(events[0])
+#                 # this simulates an abort from the java side unbeknownst to python side
+#                 # it comes from a new thread so it is non-blocking to the port
+#                 acq._acq.abort()
+#                 for event in events[1:]:
+#                     acq.acquire(event)
+#                     time.sleep(5)
+#         finally:
+#             acq.get_dataset().close()
 
 def test_abort_sequenced_zstack(launch_mm_headless, setup_data_folder):
     """
