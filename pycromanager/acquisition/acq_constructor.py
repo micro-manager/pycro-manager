@@ -1,8 +1,8 @@
-from pycromanager.headless import _PYMMCORES
 from pycromanager.acquisition.java_backend_acquisitions import JavaBackendAcquisition
 from pycromanager.acquisition.python_backend_acquisitions import PythonBackendAcquisition
 from pycromanager.acquisition.acquisition_superclass import Acquisition as PycromanagerAcquisitionBase
 from inspect import signature
+from mmpycorex import is_pymmcore_active
 
 # This is a convenience class that automatically selects the appropriate acquisition
 # type based on backend is running. It is subclassed from the base acquisition class
@@ -29,7 +29,7 @@ class Acquisition(PycromanagerAcquisitionBase):
                                      dict(signature(Acquisition.__init__).parameters.items())[arg_name].default)
                                      for arg_name in arg_names }
 
-        if _PYMMCORES:
+        if is_pymmcore_active():
             # Python backend detected, so create a python backend acquisition
             specific_arg_names = [k for k in signature(PythonBackendAcquisition.__init__).parameters.keys() if k != 'self']
             for name in specific_arg_names:

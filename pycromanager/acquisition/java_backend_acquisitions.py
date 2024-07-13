@@ -1,16 +1,13 @@
 """
 The Pycro-manager Acquisiton system
 """
-import json
 import logging
 import warnings
-import weakref
 
 import numpy as np
 import multiprocessing
 import threading
 from inspect import signature
-import time
 from pyjavaz import deserialize_array
 from pyjavaz import PullSocket, PushSocket, JavaObject, JavaClass
 from pyjavaz import DEFAULT_BRIDGE_PORT as DEFAULT_PORT
@@ -19,11 +16,10 @@ from pycromanager.acquisition.RAMStorage_java import NDRAMDatasetJava
 
 from ndstorage import Dataset
 import os.path
-import queue
 from docstring_inheritance import NumpyDocstringInheritanceMeta
 from pycromanager.acquisition.acquisition_superclass import Acquisition
 import traceback
-from pycromanager.acq_future import AcqNotification, AcquisitionFuture
+from pycromanager.acquisition.acq_future import AcqNotification
 import json
 
 logger = logging.getLogger(__name__)
@@ -337,7 +333,7 @@ class JavaBackendAcquisition(Acquisition, metaclass=NumpyDocstringInheritanceMet
                     import napari
                 except:
                     raise Exception('Napari must be installed in order to use this feature')
-                from pycromanager.napari_util import start_napari_signalling
+                from pycromanager.acquisition.napari_util import start_napari_signalling
                 assert isinstance(napari_viewer, napari.Viewer), 'napari_viewer must be an instance of napari.Viewer'
                 self._napari_viewer = napari_viewer
                 start_napari_signalling(self._napari_viewer, self.get_dataset())

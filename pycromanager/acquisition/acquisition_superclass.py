@@ -5,19 +5,16 @@ Generic acquisition functionality used by both Python and Java backends
 import copy
 import types
 import numpy as np
-from typing import Union, List, Iterable
+from typing import List, Iterable
 import warnings
 from abc import ABCMeta, abstractmethod
 from docstring_inheritance import NumpyDocstringInheritanceMeta
 import queue
 import weakref
-from pycromanager.acq_future import AcqNotification, AcquisitionFuture
-import os
+from pycromanager.acquisition.acq_future import AcqNotification, AcquisitionFuture
 import threading
 from inspect import signature
-from typing import Generator
 from types import GeneratorType
-import time
 
 from queue import Queue
 from typing import Generator, Dict, Union

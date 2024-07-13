@@ -3,8 +3,8 @@ test the ability to acquisitions to have String axes instead of int ones
 """
 
 
-from pycromanager import JavaBackendAcquisition, multi_d_acquisition_events
-from pycromanager.headless import multi_d_acquisition_events_new
+from pycromanager import JavaBackendAcquisition
+from launcher import multi_d_acquisition_events_new
 
 
 with JavaBackendAcquisition(directory="/Users/henrypinkard/tmp", name="NDTiff3.2_monochrome", debug=False) as acq:

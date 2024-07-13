@@ -3,7 +3,7 @@ from docstring_inheritance import NumpyDocstringInheritanceMeta
 from pycromanager.acquisition.acq_eng_py.main.AcqEngPy_Acquisition import Acquisition as pymmcore_Acquisition
 from pycromanager.acquisition.acquisition_superclass import _validate_acq_events, Acquisition
 from pycromanager.acquisition.acq_eng_py.main.acquisition_event import AcquisitionEvent
-from pycromanager.acq_future import AcqNotification
+from pycromanager.acquisition.acq_future import AcqNotification
 import threading
 from inspect import signature
 import traceback
@@ -110,7 +110,7 @@ class PythonBackendAcquisition(Acquisition, metaclass=NumpyDocstringInheritanceM
                 import napari
             except:
                 raise Exception('Napari must be installed in order to use this feature')
-            from pycromanager.napari_util import start_napari_signalling
+            from pycromanager.acquisition.napari_util import start_napari_signalling
             assert isinstance(napari_viewer, napari.Viewer), 'napari_viewer must be an instance of napari.Viewer'
             self._napari_viewer = napari_viewer
             start_napari_signalling(self._napari_viewer, self.get_dataset())

@@ -1,21 +1,15 @@
 import os
 import sys
 import shutil
-import subprocess
 import warnings
 
 import pytest
-import wget
-import requests
 import re
-import time
 import glob
 
-import pycromanager
-from pycromanager import start_headless
-from pycromanager.headless import stop_headless
+from pycromanager import start_headless, stop_headless
 import socket
-from pycromanager.install import download_and_install, find_existing_mm_install
+from mmpycorex import download_and_install_mm, find_existing_mm_install
 
 def is_port_in_use(port):
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
@@ -66,7 +60,7 @@ def install_mm():
         yield find_existing_mm_install()
     else:
         # Download an install latest nightly build
-        mm_install_dir = download_and_install(destination='auto')
+        mm_install_dir = download_and_install_mm(destination='auto')
 
         #### Replace with newer versions of Java libraries ####
         # find pycro-manager/java path
