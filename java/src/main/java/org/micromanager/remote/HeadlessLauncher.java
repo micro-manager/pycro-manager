@@ -37,11 +37,7 @@ public class HeadlessLauncher {
       core.enableStderrLog(true);
       core.enableDebugLog(true);
       core.setPrimaryLogFile(coreLogPath);
-
-
-      //Start acq Engine
-      engine_ = new Engine(core);
-
+      
       //Start ZMQ server
       Function<Class, Object> instanceGrabberFunction = new Function<Class, Object>() {
          @Override
