@@ -46,10 +46,3 @@ Information on the original motivations for Pycro-Manager can be found in the `p
 	
 
 
-
-Indices and tables
-==================
-
-* :ref:`genindex`
-* :ref:`modindex`
-* :ref:`search`
