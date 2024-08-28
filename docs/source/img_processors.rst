@@ -149,6 +149,6 @@ If speeds faster than this are required, consider using the :ref:`image_saved_ca
 
 Alternatively, if the Micro-Manager application is not required, consider using the python backend, in which images are acquired and processed in the same Python process, avoiding the Java-Python transport layer entirely.
 
-: note:
+.. note::
 
     Users of the python backend may also be interested in `ExEngine <https://exengine.readthedocs.io/en/latest/>`_, a newer project which provides a more flexible and powerful module for doing the same things as pycro-manager does, and more.
