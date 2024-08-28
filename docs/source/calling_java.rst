@@ -1,10 +1,3 @@
-
-*********************************************
-Calling Java code 
-*********************************************
-
-
-
 .. _calling_custom_java:
 
 Calling custom Java code

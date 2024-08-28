@@ -82,8 +82,13 @@ class AcquisitionFuture:
     def await_execution(self, milestone, axes=None):
         """
         Block until the given milestone is executed for the given axes
-        :param axes: the axes to wait for
-        :param milestone: the milestone to wait for
+
+        Parameters
+        ----------
+        axes: dict
+            the axes to wait for
+        milestone:
+            the milestone to wait for (e.g. AcqNotification.Hardware.POST_HARDWARE)
         """
         key = _axes_to_key(axes)
         if not self._generator_events:
@@ -94,12 +99,18 @@ class AcquisitionFuture:
             while not self._notification_recieved[key][milestone]:
                 self._condition.wait()
 
-    def await_image_saved(self, axes=None, return_image=False, return_metadata=False):
+    def await_image_saved(self, axes=None, return_image=True, return_metadata=False):
         """
         Block until the image with the given axes is saved. Return the image and/or metadata if requested.
-        :param axes: the axes of the image to wait for. In the case of None, wait for the next image
-        :param return_image: if True, return the image
-        :param return_metadata: if True, return the metadata
+
+        Parameters
+        ----------
+        axes: dict or list of dict
+            the axes of the image to wait for. In the case of None, wait for the next image
+        return_image: bool
+            if True, return the image
+        return_metadata: bool
+            if True, return the metadata
         """
 
         if axes is None:

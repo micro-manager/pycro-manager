@@ -1,11 +1,26 @@
 .. _control_core:
 
-Low-level control with MMCore
-**********************************************
+Low-level Control with MMCore
+=============================
 
-The example below shows how to call the Java bindings for the micro-manager core from Python. Because the core API is discovered at runtime and translated into Python, the easiest way to discover which functions are available is to type ``core.`` and type tab to use IPython autocomplete. Alternatively, the documentation for the Java version of the core API can be found `here <https://valelab4.ucsf.edu/~MM/doc-2.0.0-gamma/mmcorej/mmcorej/CMMCore.html>`_. Note that function names will be automatically translated from the camelCase Java convention to the Python convention of underscores between words (e.g. ``setExposure`` becomes ``set_exposure``)
+Pycro-Manager provides access to the Micro-Manager core via the `mmpycorex <https://github.com/micro-manager/mmpycorex>`_ library. The behavior of the ``Core`` object depends on whether the Python or Java backend is in use (see :ref:`headless_mode`):
 
-An alternative mechanism for controlling the Micro-Manager core is through [pymmcore](https://github.com/micro-manager/pymmcore/), which exposes an almost identical API (but lacks the many additional features of Pycro-Manager). Pymmcore requires a bit more work in to get a configuration loaded and set up and doesn't have it's own GUI.
+- Java backend: Returns an automatically Python-converted version of the Java core object
+- Python backend: Returns a direct reference to a `pymmcore <https://github.com/micro-manager/pymmcore>`_ object
+
+While both wrap the same underlying object, there may be slight differences in their APIs.
+
+Discovering Available Functions
+-------------------------------
+
+To explore available functions:
+
+1. In IPython, type ``core.`` and press Tab for autocomplete suggestions.
+2. Refer to the `Java version of the core API documentation <https://valelab4.ucsf.edu/~MM/doc-2.0.0-gamma/mmcorej/mmcorej/CMMCore.html>`_.
+
+.. note::
+   Function names are automatically translated from Java's camelCase to Python's snake_case (e.g., ``setExposure`` becomes ``set_exposure``).
+
 
 .. code-block:: python
 

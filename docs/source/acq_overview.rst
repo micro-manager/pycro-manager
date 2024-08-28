@@ -1,138 +1,228 @@
+.. _acq_overview:
+
 ******************************************************
 Acquisitions 
 ******************************************************
 
-The :class:`Acquisition<pycromanager.Acquisition>` class is a flexible abstraction built to support a multitude of microscopy experiments. Its essential functions are to parse a set of instructions from the user known as "acquisition events", control the microscope hardware according to these, and efficiently retrieve, save, and provide access to image data from the camera(s). Each of these functionalities can be further modified and/or customized in a variety of ways.
-
-The following shows a minimal example of using :class:`Acquisition<pycromanager.Acquisition>` class to acquire a sequence of 5 images from the camera and save them to disk:
-
-.. code-block:: python
-
-	from pycromanager import Acquisition, multi_d_acquisition_events
-
-	with Acquisition(directory='/path/to/saving/dir', name='acquisition_name') as acq:
-	    events = multi_d_acquisition_events(num_time_points=5)
-	    acq.acquire(events)
-
-
-The data will be displayed in the default :ref:`image viewer <viewers>` as it is acquired, and it can be also be accessed through the :class:`Dataset<pycromanager.Dataset>` class:
-
-.. code-block:: python
-
-	dataset = acq.get_dataset()
-	img = dataset.read_image(time=0) # a numpy array
+Basic usage
+===========
 
 
 
-Standard Multi-Dimensional Acquisitions
-=========================================
+The :class:`Acquisition<pycromanager.Acquisition>` class in Pycro-Manager supports a wide range of microscopy experiments. Its core functions are:
 
-In Micro-Manager/Pycro-Manager, "multi-dimensional acquisitions" refer to experiments where images are systematically collected across various combinations of time, z-stack, channel, and xy position axes (non-standard axes outside of these four require additional customization, as described further below). Pycro-Manager provides the :meth:`multi_d_acquisition_events<pycromanager.multi_d_acquisition_events>` function for generating the instructions (acquisition events) to acquire this type of data.
+1. Parse user-defined "acquisition events"
+2. Control microscope hardware based on these events
+3. Efficiently retrieve, save, and provide access to camera image data
 
-The following shows an example of acquiring a single z-stack:
+
+Here's a minimal example that acquires a sequence of 5 images:
 
 .. code-block:: python
 
-	from pycromanager import Acquisition, multi_d_acquisition_events
+    from pycromanager import Acquisition, multi_d_acquisition_events
 
-	with Acquisition(directory='/path/to/saving/dir', name='acquisition_name') as acq:
-	    # Generate the events for a single z-stack
-	    events = multi_d_acquisition_events(z_start=0, z_end=10, z_step=0.5)
-	    acq.acquire(events)
+    with Acquisition(directory='/path/to/saving/dir', name='acquisition_name') as acq:
+        events = multi_d_acquisition_events(num_time_points=5)
+        acq.acquire(events)
 
-In addition to z-stacks, this function can also be used to do timelapses, different channels, and multiple XY stage positions. This example shows how to run a multi-channel timelapse with z-stacks:
+Alternatively, if you don't provide a ``directory`` and ``name``, the acquired data will be stored in RAM instead of being saved to disk.
 
-.. code-block:: python
+Multi-Dimensional Acquisitions
+```````````````````````````````
 
-    with Acquisition(directory='/path/to/saving/dir', name='acquisition_name') as acq:	
-   	events = multi_d_acquisition_events(
-    					num_time_points=4, time_interval_s=0, 
-    					channel_group='Channel', channels=['DAPI', 'FITC'], 
-    					z_start=0, z_end=6, z_step=0.4, 
-    					order='tcz') 
-    	acq.acquire(events)
-
-More information on this function can be found in the `MDA Tutorial <application_notebooks/multi-d-acq-tutorial.ipynb>`_
+Pycro-Manager supports "multi-dimensional acquisitions" across time, z-stack, channel, and xy position axes, using
+the :ref:`multi_d_acq_events` function. More information about the usage of this function can be found in the `MDA Tutorial <multi-d-acq-tutorial.ipynb>`_
 
 
-
-Special types of Acquisitions
-================================
-
-
-In addition to the regular :class:`Acquisition<pycromanager.Acquisition>` class, Pycro-manager provides a few :ref:`special types of Acquisitions <special_acqs>`, with features designed for specific applications. 
-
- - :class:`XYTiledAcquisition<pycromanager.XYTiledAcquisition>` can be used to image samples that are larger than a single field of view by moving around an XY stage and capturing multiple images, then stitching them together into a single contiguous image. It uses a special, multi-resolution file format to facilitate efficient visualization of the data at multiple scales
- - An :class:`ExploreAcquisition<pycromanager.ExploreAcquisition>` is a special type of :class:`XYTiledAcquisition<pycromanager.XYTiledAcquisition>` that provides a user interface for moving around a XY and Z stage and telling the microscope where to Image
- - The :class:`MagellanAcquisition<pycromanager.MagellanAcquisition>` is a special type of :class:`XYTiledAcquisition<pycromanager.XYTiledAcquisition>` for controlling the `Micro-magellan <https://micro-manager.org/wiki/MicroMagellan>`_ plugin. This plugin provides additional features for mapping samples, defining parts of the sample to image, and collecting specialized 3D datasets.
-
-
-
-
-Hardware sequencing
-=====================
-An important function of the acquisition engine underlying Pycro-Manager is to enable hardware sequencing. In hardware sequencing, multiple images are captured without the computer and hardware having to communicate between each one. In certain cases, this can dramatically increase the speed with which data is acquired. For high-performance applications, hardware sequencing is essential to speed and sufficiently precise synchronization between different hardware components.
-
-The :doc:`application_notebooks/external_hardware_triggering_tutorial` tutorial shows an example of this in action.
-
-Pycro-manager acquisitions will automatically try to use hardware sequencing when the following conditions are met:
- 
- 1. there are no delays requested between successive image
- 2. Any hardware that changes positions between successive images also supports being sent a sequence of instructions that it can execute at once
- 3. The events to be sequenced over were all submitted to ``acq.acquire()`` in a single call.
-
-If an acquisition hook is being used and hardware sequencing is engaged, the ``event`` that gets passed to the hook will not being a single python ``dict``, but instead a ``list`` of ``dict`` objects representing a sequence of events. It will also only be called once, for the whole sequence, instead of once for each event.
-
-If desired, hardware sequencing can be turned off by submitting events for acquisition one at a time. For a list of acquisition events called ``events``:
-
+Here's an example that acquires a 4D dataset with 4 time points, 6 z-planes, and 2 channels:
 
 .. code-block:: python
 
-	with Acquisition(directory='/path/to/saving/dir', name='acquisition_name') as acq:
-		# Create a list of events
-		events = multi_d_acquisition_events(num_time_points=10)
-		# but submit them one at a time so sequencing doesn't occur
-		for event in events:
-			acq.acquire(event)
-
-
-
-
-
-Customizing Acquisitions
-============================
-
-While executing the :class:`Acquisition<pycromanager.Acquisition>` code, several operations are taking place concurrently: events are being interpreted and queued for execution, hardware is being controlled and monitored, and images are being retrieved and saved. To ensure efficient execution, these operations are performed in parallel wherever feasible. 
-
-To tailor an :class:`Acquisition<pycromanager.Acquisition>` to your needs, you may need to interact with specific parts of this process. For this, Pycro-manager provides dedicated APIs, each designed to enable customization for a specific piece of the acquisition process: 
-
- - Creating :ref:`acq_events` tells the :class:`Acquisition<pycromanager.Acquisition>` what to acquire and how to acquire it. 
- - :ref:`acq_hooks` allow alterations to the standard progression of hardware control through injecting custom user code.
- - :ref:`img_processors` allow modification/processing of image data prior to saving/displaying, or for images to be rerouted to custom endpoints instead of being saved to disk.
-
-
-The figure below shows an overview of what happens behind the scenes during an acquisition and where the each API fits. Each color represents a distinct thread that is operating asynchronously from the others.
-
-
-.. figure:: acquisition_figure.png
-   :width: 800
-   :alt: Overview figure of pycro-manager Acquisitions
-
-   **Pycro-Manager's high-level programming interface.** The data acquisition process in Pycro-Manager starts with (blue) a source of acquisition events, which can come from code or a graphical user interface. These events are passed to (green) the hardware control thread, which optimizes them to take advantage of hardware triggering where available, sends instructions to hardware, and acquires images. (Magenta) The resulting images are then saved and displayed in the GUI. The three main abstractions of the Pycro-Manager high-level programming interface (acquisition events, acquisition hooks, and image processors) enable fine-grained control and customization of this process.
-
-###############################
+    with Acquisition(directory='/path/to/saving/dir', name='acquisition_name') as acq:
+        events = multi_d_acquisition_events(
+            num_time_points=4, time_interval_s=0,
+            channel_group='Channel', channels=['DAPI', 'FITC'],
+            z_start=0, z_end=6, z_step=0.4,
+            order='tcz')
+        acq.acquire(events)
 
 .. toctree::
-	:maxdepth: 3
-	:caption: Contents:
+   :maxdepth: 1
+   :hidden:
 
-	acq_events
-	acq_hooks
-	img_processors
-	image_saved_callbacks
-	viewers
-	special_acqs
-	
+   multi-d-acq-tutorial.ipynb
+
+
+Reading Data
+============
+
+Acquired data can be accessed programmatically using a :class:`Dataset<pycromanager.Dataset>` object:
+
+.. code-block:: python
+
+    dataset = acq.get_dataset()
+    img = dataset.read_image(time=0)  # returns a numpy array
+
+For finished acquisitions, open the dataset from disk:
+
+.. code-block:: python
+
+    from pycromanager import Dataset
+    dataset = Dataset('/path/to/data')
+
+Individual images can be accessed using :meth:`read_image<pycromanager.Dataset.read_image>`:
+
+.. code-block:: python
+
+    img = dataset.read_image(z=0)
+    img_metadata = dataset.read_metadata(z=0)
+
+
+Opening Data as Dask Array
+`````````````````````````````
+
+For efficient handling of large datasets, open all data at once as a dask array. This can be used to open datasets that are too large to fit in memory, by only loading the data that is needed for a particular operation:
+
+.. code-block:: python
+
+    dask_array = dataset.as_array()
+
+    # Perform operations like numpy arrays
+    # For example, take max intenisty projection along axis 0
+    max_intensity = np.max(dask_array[0, 0], axis=0)
+
+
+You can also slice along particular axes:
+
+.. code-block:: python
+
+    dask_array = dataset.as_array(z=0, time=2)
+
+
+Data Visualization
+=============================
+
+Pycro-Manager offers flexible options for visualizing while it is being acquired, described in :doc:`viewers`.
+
+Datasets that have already been acquired can be visualized using napari:
+
+.. code-block:: python
+
+    dask_array = dataset.as_array()
+
+    # Visualize data using napari
+    import napari
+    viewer = napari.Viewer()
+    viewer.add_image(dask_array)
+    napari.run()
+
+
+
+.. toctree::
+   :maxdepth: 1
+   :hidden:
+
+   viewers
+
+
+
+
+Advanced Acquisition Features
+=============================
+
+Pycro-Manager offers a range of advanced features for customizing and extending the basic acquisition functionality, enabling complex experimental designs and specialized imaging techniques.
+
+
+Customizing Acquisition Behavior
+````````````````````````````````
+
+Pycro-Manager offers several features to modify the acquisition process:
+
+- :ref:`acq_events`: Define custom acquisition instructions.
+- :ref:`acq_hooks`: Inject custom code at specific points in the acquisition process.
+- :ref:`img_processors`: Modify or process image data on-the-fly.
+- :doc:`image_saved_callbacks`: Execute custom code when images are saved.
+
+The following figure illustrates how these features integrate into the acquisition process:
+
+.. figure:: event_hook_processor_figure.png
+   :width: 800
+   :alt: Overview of Pycro-Manager's acquisition process
+
+   **Pycro-Manager's acquisition process.** Blue: acquisition events from code or GUI. Green: hardware control thread for optimized instructions and image acquisition. Magenta: image saving and display. Acquisition events, hooks, and image processors enable customization throughout the process. Image saved callbacks (not shown) occur after saving and display.
+
+.. toctree::
+   :maxdepth: 1
+   :hidden:
+
+   acq_events
+   acq_hooks
+   img_processors
+   image_saved_callbacks
+
+Monitoring Progress with Notifications
+```````````````````````````````````````
+
+Receive real-time updates about the acquisition process with :doc:`notifications`, enabling better experiment tracking and debugging:
+
+.. toctree::
+   :maxdepth: 1
+   :hidden:
+
+   notifications
+
+
+Adaptive Microscopy
+```````````````````````````````
+
+:doc:`adaptive_acq`: shows how to modify acquisition based on acquired data, allowing for dynamic and responsive experiments (also known as "smart microscopy").
+
+.. toctree::
+   :maxdepth: 1
+   :hidden:
+
+   adaptive_acq
+
+
+Tiling Fields-of-View for large samples
+````````````````````````````````````````
+
+Pycro-Manager provides :ref:`special_acqs`
+
+- :class:`XYTiledAcquisition<pycromanager.XYTiledAcquisition>`: For imaging large samples across multiple fields of view.
+- :class:`ExploreAcquisition<pycromanager.ExploreAcquisition>`: Interactive XY and Z navigation for sample exploration.
+- :class:`MagellanAcquisition<pycromanager.MagellanAcquisition>`: Advanced features for sample mapping and 3D datasets.
+
+
+.. toctree::
+   :maxdepth: 1
+   :hidden:
+
+   special_acqs
+
+
+Hardware triggering
+```````````````````````````````
+
+:doc:`hardware_triggering`: describes how to use hardware synchronization to maximize acquisition speed and precision.
+
+.. toctree::
+   :maxdepth: 1
+   :hidden:
+
+   hardware_triggering
+
+
+
+
+
+
+
+
+
+
+
 
 
 
