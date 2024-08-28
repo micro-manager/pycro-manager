@@ -9,9 +9,11 @@ Overview
 
 Pycro-Manager's high-level API is built upon two mutually exclusive backends, each with unique advantages. Understanding this requires a brief overview of the Micro-Manager architecture.
 
-The Micro-Manager Core, responsible for low-level device control, is implemented in C++. The Core can be wrapped in either Java or Python. The Micro-Manager application, including its GUI, is built in Java using the Java wrapper.
+The Micro-Manager Core, responsible for low-level device control, is implemented in C++. The Core can be wrapped in either Java or Python. The Micro-Manager application, including its GUI, is built in Java on top of the Java wrapper.
 
-Pycro-Manager can communicate with the Micro-Manager Core in two ways: through the Java wrapper (dynamically translated to Python) or directly via the Python wrapper. The following figure illustrates the components of both Pycro-Manager and Micro-Manager:
+Pycro-Manager can communicate with the Micro-Manager Core in two ways: through the Java wrapper (which dynamically translated to Python) or via the Python wrapper. Furthermore, both Java and Python contain Acquisition Engines, which control and automate the image capture process, managing timing, hardware synchronization, and image storage.
+
+The following figure illustrates the components of both Pycro-Manager and Micro-Manager:
 
 .. figure:: pm_arch_full.png
    :alt: Full architecture of Pycro-Manager and Micro-Manager application
@@ -25,7 +27,11 @@ Pycro-Manager offers three operational modes, each utilizing different component
 .. figure:: three_backends.png
    :alt: Three ways of running Pycro-Manager
 
-The choice of mode primarily impacts performance and GUI availability. Regardless of the backend, users interact with Pycro-Manager through its Python API.
+Regardless of the backend, users interact with Pycro-Manager through its Python API. However, the choice of backend may affect performance, depending on the specific use case.
+
+.. note::
+
+    Users of the python backend may also be interested in `ExEngine <https://exengine.readthedocs.io/en/latest/>`_, a newer project which provides a more flexible and powerful module for doing the same things as pycro-manager does, and more.
 
 
 Performance: Java vs Python Backend
@@ -53,7 +59,7 @@ To use headless mode:
 
 .. code-block:: python
 
-    from pycromanager import Core, start_headless
+    from pycromanager import Core, start_headless, stop_headless
     mm_app_path = '/path/to/micromanager'
     config_file = mm_app_path + "/MMConfig_demo.cfg"
 
@@ -62,6 +68,9 @@ To use headless mode:
 
     # Now use Pycro-Manager APIs as normal
     core = Core()
+
+    # Stop the headless process
+    stop_headless()
 
 
 
@@ -86,7 +95,7 @@ Then open a python environment and run the following code:
 
 The location where Java was installed will be printed, which should be something like: ``/Users/pm/.jdk/jdk-11.0.14.1+1``. Next, find the location of the java application on this path, which is likely found by appending ``/Contents/Home/bin/java``.
 
-Now, you're ready to run headless mode with this installed Java version. You just need to pass the location of Java to the ``start_headless`` function:
+Now headless mode can be run with this installed Java version by passing the location of Java to the ``start_headless`` function:
 
 .. code-block:: python
 

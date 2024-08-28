@@ -11,7 +11,7 @@ After completing the :ref:`setup`, Pycro-Manager offers two running modes:
 
 2. :ref:`headless_mode`, where the Micro-Manager Core is launched programmatically without the desktop application.
 
-:ref:`backends` provides more information on pycro-manager's architecture (which is not required for most users).
+The :ref:`backends` page provides more information on pycro-manager's architecture and headless mode (which is not required for most users).
 
 .. toctree::
    :maxdepth: 2
@@ -27,8 +27,8 @@ The :class:`Acquisition<pycromanager.Acquisition>` class provides the best start
 
 - Control of common microscopy experiments (3D volumes, time series, multi-channel data)
 - Customization for non-standard hardware and acquisition schemes
-- Data access via :class:`Dataset<pycromanager.Dataset>` as ``numpy`` or ``dask`` arrays
-- Built-in image viewer (can be disabled for custom applications)
+- Data access via the :class:`Dataset<pycromanager.Dataset>` class as ``numpy`` or ``dask`` arrays
+- A built-in image viewer (which can be disabled for custom applications)
 
 For more information, see :ref:`acq_overview`.
 

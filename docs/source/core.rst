@@ -10,6 +10,20 @@ Pycro-Manager provides access to the Micro-Manager core via the `mmpycorex <http
 
 While both wrap the same underlying object, there may be slight differences in their APIs.
 
+Receiving Core callbacks (Java backend)
+---------------------------------------
+
+The ``Core.get_core_callback(callback_fn)`` is used with the Java backend Core object to set up a callback function that triggers whenever the Core emits a signal (such as when the state of hardware has changed). The callback function should be defined with the following signature:
+
+.. code-block:: python
+
+    def callback_fn(name, *args):
+        pass
+
+Where ``name`` is the name of the signal emitted by the Core, and ``args`` are the arguments passed by the signal.
+
+For more information, see `here <https://github.com/micro-manager/mmCoreAndDevices/blob/main/MMCore/CoreCallback.cpp>`_
+
 Discovering Available Functions
 -------------------------------
 

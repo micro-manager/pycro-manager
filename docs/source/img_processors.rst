@@ -29,7 +29,7 @@ A simple image processor function takes two arguments: ``image`` (numpy array) a
                      image_process_fn=img_process_fn) as acq:
         # Acquisition code here
 
-Tip: Access the original :ref:`acq_events` axes using ``metadata['Axes']``:
+Tip: Access the the image's ``axes`` using ``metadata['Axes']``:
 
 .. code-block:: python
 
@@ -67,7 +67,6 @@ To implement custom saving or viewing, return nothing from the image processor. 
     def img_process_fn(image, metadata):
         # Custom saving or viewing logic here
 
-    # This acquisition won't use the default viewer or save data
     with Acquisition(image_process_fn=img_process_fn) as acq:
         # Acquisition code here
 
@@ -97,7 +96,7 @@ For operations on multiple images (e.g., Z-stacks), accumulate images until a co
         # This returns the original image and metadata, but in
         # this scenario, a possible alternative is to return nothing
         # until an entire Z-stack is processed
-	    return image, metadata
+        return image, metadata
 
 
 
@@ -106,7 +105,7 @@ Adapting acquisition from image processors
 
 .. note::
 
-    Adapting acquisition form image processors is an older feature. The newer :ref:`adaptive_acq` API is now the reccomended way to do this. However, the approach below still works.
+    Adapting acquisition from image processors is an older feature. The newer :ref:`adaptive_acq` API is now the reccomended way to do this. However, the approach below still works.
 
 
 To create additional :ref:`acq_events` based on acquired images, use a three-argument image processor:
@@ -144,10 +143,12 @@ To end the acquisition, put ``None`` in the ``event_queue``:
 Performance
 ------------
 
-The performance of image processors is dependent on the backend used (see :ref:`headless_mode`). When running micro-manager with the Java backend (either by opening the Micro-Manager application or launching Java backend headless mode), images are acquired in a separate Java process and must be passed to the Python process for processing. This transfer is limited to ~100 MB/s.
+The performance of image processors is dependent on the backend used (see :ref:`backends`). When running micro-manager with the Java backend (either by opening the Micro-Manager application or launching Java backend headless mode), images are acquired in a separate Java process and must be passed to the Python process for processing. This transfer is limited to ~100 MB/s.
 
 If speeds faster than this are required, consider using the :ref:`image_saved_callbacks` feature, which allows images to be saved to disk in Java code (which is can be much faster) and then read off the disk in Python. This can be significantly faster than using image processors.
 
 Alternatively, if the Micro-Manager application is not required, consider using the python backend, in which images are acquired and processed in the same Python process, avoiding the Java-Python transport layer entirely.
 
+: note:
 
+    Users of the python backend may also be interested in `ExEngine <https://exengine.readthedocs.io/en/latest/>`_, a newer project which provides a more flexible and powerful module for doing the same things as pycro-manager does, and more.

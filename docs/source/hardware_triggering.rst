@@ -71,7 +71,7 @@ To disable hardware sequencing, submit events one at a time:
 Practical Example: Light-Sheet Microscopy
 --------------------------------------------
 
-This `notebook <external_hardware_triggering_tutorial.ipynb>`_ shows an example of how to setup Pycro-Manager to run a microscope that utilizes an external controller as the leader device. Specifically, this tutorial controls a light-sheet microscope where a sample with fluorescent labels is scanned at a constant speed through an oblique light sheet. The stage controller provides the TTL signals that ensure the camera is synchronized to the scanning stage. This approach makes use of ``post hardware`` and ``post camera`` hook functions built into Pycro-Manager. Using these hook functions, it is possible to rapidly build and acquire a multiple terabyte acquisition consisting of millions of images.
+This `notebook <external_hardware_triggering_tutorial.ipynb>`_ shows an example of how to setup Pycro-Manager to run a microscope that utilizes an external controller as the leader device. Specifically, this tutorial controls a light-sheet microscope where a sample with fluorescent labels is scanned at a constant speed through an oblique light sheet. The stage controller provides the TTL signals that ensure the camera is synchronized to the scanning stage. This approach makes use of ``post_hardware`` and ``post_camera`` hook functions built into Pycro-Manager. Using these hook functions, it is possible to rapidly build and acquire a multiple terabyte acquisition consisting of millions of images.
 
 .. toctree::
    :maxdepth: 1

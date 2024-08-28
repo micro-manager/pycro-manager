@@ -16,7 +16,7 @@ The :class:`Acquisition<pycromanager.Acquisition>` class in Pycro-Manager suppor
 3. Efficiently retrieve, save, and provide access to camera image data
 
 
-Here's a minimal example that acquires a sequence of 5 images:
+Here's an example in which a sequence of 5 images are acquired and saved to disk:
 
 .. code-block:: python
 
@@ -32,8 +32,7 @@ Multi-Dimensional Acquisitions
 ```````````````````````````````
 
 Pycro-Manager supports "multi-dimensional acquisitions" across time, z-stack, channel, and xy position axes, using
-the :ref:`multi_d_acq_events` function. More information about the usage of this function can be found in the `MDA Tutorial <multi-d-acq-tutorial.ipynb>`_
-
+the :ref:`multi_d_acq_events` function.
 
 Here's an example that acquires a 4D dataset with 4 time points, 6 z-planes, and 2 channels:
 
@@ -46,6 +45,9 @@ Here's an example that acquires a 4D dataset with 4 time points, 6 z-planes, and
             z_start=0, z_end=6, z_step=0.4,
             order='tcz')
         acq.acquire(events)
+
+More information about the usage of this function can be found in the `MDA Tutorial <multi-d-acq-tutorial.ipynb>`_
+
 
 .. toctree::
    :maxdepth: 1
@@ -62,6 +64,7 @@ Acquired data can be accessed programmatically using a :class:`Dataset<pycromana
 .. code-block:: python
 
     dataset = acq.get_dataset()
+    # read the first image in a time series
     img = dataset.read_image(time=0)  # returns a numpy array
 
 For finished acquisitions, open the dataset from disk:
@@ -75,14 +78,15 @@ Individual images can be accessed using :meth:`read_image<pycromanager.Dataset.r
 
 .. code-block:: python
 
+    read the first image in a z-stack
     img = dataset.read_image(z=0)
     img_metadata = dataset.read_metadata(z=0)
 
 
-Opening Data as Dask Array
-`````````````````````````````
+Opening Large Datasets using Dask
+``````````````````````````````````
 
-For efficient handling of large datasets, open all data at once as a dask array. This can be used to open datasets that are too large to fit in memory, by only loading the data that is needed for a particular operation:
+The ``as_array()`` function can be used to open datasets that are too large to fit in memory, by using a `Dask array <https://docs.dask.org/en/stable/array.html>`_, which only loads the data that is needed for a particular operation:
 
 .. code-block:: python
 
@@ -90,10 +94,10 @@ For efficient handling of large datasets, open all data at once as a dask array.
 
     # Perform operations like numpy arrays
     # For example, take max intenisty projection along axis 0
-    max_intensity = np.max(dask_array[0, 0], axis=0)
+    max_intensity = np.max(dask_array, axis=0)
 
 
-You can also slice along particular axes:
+Data slices along a particular axis can also be loaded:
 
 .. code-block:: python
 
@@ -150,7 +154,7 @@ The following figure illustrates how these features integrate into the acquisiti
    :width: 800
    :alt: Overview of Pycro-Manager's acquisition process
 
-   **Pycro-Manager's acquisition process.** Blue: acquisition events from code or GUI. Green: hardware control thread for optimized instructions and image acquisition. Magenta: image saving and display. Acquisition events, hooks, and image processors enable customization throughout the process. Image saved callbacks (not shown) occur after saving and display.
+   **Pycro-Manager's acquisition process.** Blue: acquisition events from code or GUI. Green: hardware control thread for optimized instructions and image acquisition. Magenta: image saving and display. Acquisition events, hooks, and image processors enable customization throughout the process. Image saved callbacks (not shown) occur after saving and display. Each of these processes occurs asynchronously (i.e. on different threads) to maximize performance.
 
 .. toctree::
    :maxdepth: 1

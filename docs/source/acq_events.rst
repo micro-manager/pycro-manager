@@ -22,7 +22,7 @@ Every event must have an ``axes`` field to uniquely identify the resulting image
 
 The position in each axis can be either an int or a string.
 
-In most cases, each event will produce a single image. Thus, a series of images in a time-lapse acquisition might be defined as:
+In most cases, each event will produce a single image. Thus, a series of images in a time-lapse acquisition can be defined as:
 
 .. code-block:: python
 
@@ -52,7 +52,7 @@ For example, the ``'z'`` field specifies the z position of the focus stage in mi
 
 
 
-Creating custom acquisition events provides more flexibility in controlling hardware. For example, custom device properties can be specified in events:
+Creating custom acquisition events provides more flexibility in controlling hardware. For example, custom `device properties <https://micro-manager.org/Version_2.0_Users_Guide#device-property-browser>`_ can be specified in events:
 
 .. code-block:: python
 

@@ -165,3 +165,5 @@ def test_acquisition_future_image_consistency(launch_mm_headless, setup_data_fol
         dataset = acq.get_dataset()
         on_disk = [dataset.read_image(time=t) for t in [2, 3, 4]]
         assert all(np.array_equal(on_disk[i], images[i]) for i in range(3))
+
+    dataset.close()

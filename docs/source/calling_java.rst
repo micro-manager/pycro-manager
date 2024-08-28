@@ -3,7 +3,7 @@
 Calling custom Java code
 ================================================
 
-Pycro-Manager uses a translation layer that allows the calling of Java code as if it were written in python. If you want to use specific Java code through Python, this translation layer can be utilized.
+Pycro-Manager uses a `translation layer <https://github.com/PyJavaZ/PyJavaZ>`_ that allows the calling of Java code as if it were written in Python. If you want to use specific Java code through Python, this translation layer can be utilized.
 
 The example below shows construction of an arbitrary Java object using Micro-Magellan as an example:
 
@@ -38,7 +38,7 @@ If you want to call a static methods on static Java classes, this can be accompl
 Calling Micro-manager Java ("Studio") API 
 ================================================
 
-``pycromanager`` provides a way to control the Java/Beanshell APIs of micromanager through Python. In some cases it may be run existing `beanshell scripts <https://micro-manager.org/wiki/Example_Beanshell_scripts>`_ with little to no modifcation. Check out the `Java documentation <https://valelab4.ucsf.edu/~MM/doc-2.0.0-gamma/mmstudio/org/micromanager/Studio.html>`_ for this API for more information. Setting the ``convert_camel_case`` option to ``False`` here may be especially useful, because it keeps the function names in the Java convention of ``camelCaseCapitalization`` rather than automatically converting to the Python convention of ``names_with_underscores``.
+``pycromanager`` provides a way to control the Java/Beanshell APIs of micromanager through Python. In some cases it may be run existing `beanshell scripts <https://micro-manager.org/wiki/Example_Beanshell_scripts>`_ with little to no modifcation. The `Java documentation <https://valelab4.ucsf.edu/~MM/doc-2.0.0-gamma/mmstudio/org/micromanager/Studio.html>`_ for this API provides more information. Setting the ``convert_camel_case`` option to ``False`` here may be especially useful, because it keeps the function names in the Java convention of ``camelCaseCapitalization`` rather than automatically converting to the Python convention of ``names_with_underscores``.
 
 
 

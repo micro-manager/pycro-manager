@@ -6,10 +6,7 @@ Installation/setup
 
 
 - Install pycro-manager using ``pip install pycromanager``
-
-- Download newest version of `micro-manager 2.0 <https://micro-manager.org/wiki/Micro-Manager_Nightly_Builds>`_
-
-- Download and install Micro-Manager, either by downloding a nightly build from the `Micro-Manager website <https://micro-manager.org/wiki/Micro-Manager_Nightly_Builds>`_, or programatically using the :ref:`installation api <download_install_api>` function:
+- Download and install Micro-Manager, either by manually downloading a nightly build of `Micro-Manager 2.0 <https://micro-manager.org/wiki/Micro-Manager_Nightly_Builds>`_, or programmatically using the :ref:`installation api <download_install_api>` function:
 
     .. code-block:: python
 

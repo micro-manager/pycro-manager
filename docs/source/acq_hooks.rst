@@ -5,7 +5,7 @@ Acquisition hooks
 ****************************************************************
 
 
-Acquisition hooks allow you to inject custom code at specific points in the acquisition process. This could be used, for example, to:
+Acquisition hooks allow custom code to be injected at specific points in the acquisition process. This could be used, for example, to:
 
 1. Execute arbitrary code during the acquisition cycle
 2. Modify or delete acquisition events on-the-fly

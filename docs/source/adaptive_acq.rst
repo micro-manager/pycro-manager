@@ -7,13 +7,13 @@ Adaptive Acquisitions
 
 Pycro-Manager's ``Acquisition`` class allows the acquisition process to be modified based on acquired data. This enables dynamic, responsive experiments, also known as "smart microscopy".
 
-Key to the design is the balance between performance and code readability. Parallelization is essential for efficient smart microscopy, which requires simultaneous hardware control, image acquisition, and data processing. However, the logic of an experiment is more easily understood as a sequence of decisions and actions. The API bridges this gap, enabling that looks like a single sequential script but takes advantage of parallelizing operations when possible.
+This API is designed to provide both performance and easily understandable code. Parallelization is essential for many smart microscopy experiments, which require simultaneous hardware control, image acquisition, and data processing. However, the logic of an experiment is more easily understood as a sequence of decisions and actions. The API bridges this gap, enabling that looks like a single sequential script but takes advantage of parallelizing operations when possible.
 
 Unlike simple acquisitions where all events are sent in a single ``Acquisition.submit(...)`` call, adaptive acquisitions require multiple ``submit`` calls. Events are submitted, they produce images, those images are analyzed, and based on this analysis, new events are created.
 
 The key object in adaptive microscopy is the ``AcquisitionFuture``. Any time an event or events are submitted, an ``AcquisitionFuture`` is returned. The ``AcquisitionFuture`` can be used to access specific data as soon as it is ready.
 
-An example showing an experiment which alternates between fast and slow time-lapses based on image analysis is shown below:
+This example shows an experiment which alternates between fast and slow time-lapses based on image analysis:
 
 Example: Alternating Time-lapses
 --------------------------------
@@ -70,6 +70,8 @@ Additional Features
   Specific execution milestones can be awaited:
 
    .. code-block:: python
+
+       from pycromanager import AcqNotification
 
        future = acq.submit(events)
        future.await_execution(milestone=AcqNotification.Hardware.POST_HARDWARE, axes={'time': 1})

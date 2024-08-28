@@ -84,7 +84,7 @@ The example below shows :ref:`headless_mode` in combination with an saved image 
     # Start the Java process
     start_headless(mm_app_path, config_file, timeout=5000)
 
-    save_dir = r"C:\Users\henry\Desktop\data"
+    save_dir = r"\path\to\data"
 
     def image_saved_fn(axes, dataset):
         pixels = dataset.read_image(**axes)
