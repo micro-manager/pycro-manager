@@ -63,6 +63,8 @@ html_theme_options = {
     'navigation_depth': 10,
 }
 
+html_title = "Documentation"
+
 
 # Add any paths that contain custom static files (such as style sheets) here,
 # relative to this directory. They are copied after the builtin static files,

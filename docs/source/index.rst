@@ -1,3 +1,8 @@
+.. title:: Pycro-Manager
+
+:orphan:
+
+
 .. image:: pycromanager_banner.png
   :width: 600
   :alt: Alternative text
