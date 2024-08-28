@@ -52,10 +52,11 @@ def start_headless(
         port=port, debug=debug)
     if python_backend:
         Engine(Core())
+    else:
+        # make sure any Java processes are cleaned up when Python exits
+        atexit.register(stop_headless)
 
 def stop_headless(debug=False):
     terminate_core_instances(debug=debug)
     Engine.get_instance().shutdown()
 
-# make sure any Java processes are cleaned up when Python exits
-atexit.register(stop_headless)

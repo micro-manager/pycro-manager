@@ -4,30 +4,32 @@
 Image processors
 **************************
 
-Image processors provide access to data as it is being acquired. This allows it to be modified, diverted to customized visualization and saving, or analyzed on-the-fly to control acquisition.
+Image processors allow real-time access to acquired data for modification, custom visualization, saving, or on-the-fly analysis to control acquisition.
 
-The simplest image processor function takes two arguments: the pixel data (a numpy array) and metadata (a python dictionary) of the current image. 
+
+Basic Usage
+-----------
+
+A simple image processor function takes two arguments: ``image`` (numpy array) and ``metadata`` (python dictionary).
 
 .. code-block:: python
 
     def img_process_fn(image, metadata):
-		
-        #add in some new metadata
-        metadata['a_new_metadata_key'] = 'a new value'
+        # Add new metadata
+        metadata['new_key'] = 'new value'
 
-        #modify the pixels by setting a 100 pixel square at the top left to 0
+        # Modify image
         image[:100, :100] = 0
 
-        #propogate the image and metadata to the default viewer and saving classes
+        # propogate the image and metadata to the default viewer and saving classes
         return image, metadata
 
     # run an acquisition using this image processor
     with Acquisition(directory='/path/to/saving/dir', name='acquisition_name',
-    				image_process_fn=img_process_fn) as acq:
-        ### acquire some stuff ###
+                     image_process_fn=img_process_fn) as acq:
+        # Acquisition code here
 
-
-One particularly useful metadata key is ``'Axes'`` which recovers the ``'axes'`` key that was in the **Acquisition event** in this image.
+Tip: Access the the image's ``axes`` using ``metadata['Axes']``:
 
 .. code-block:: python
 
@@ -36,87 +38,43 @@ One particularly useful metadata key is ``'Axes'`` which recovers the ``'axes'``
         time_index = metadata['Axes']['time']
 
 
-Returning multiple or zero images
-====================================
+Advanced Features
+-----------------
 
-Image processors are not required to take in one image and return one image. They can also return multiple images or no images. In the case of multiple images, they should be returned as a list of ``(image, metadata)`` tuples. The ``'Axes'`` or ``Channel`` metadata fields will need to be modified to uniquely identify the two images for the purposes of saving or the image viewer.
+1. Returning multiple Images
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Image processors can return multiple images by returning a list of ``(image, metadata)`` tuples. Be sure to modify the ``'Axes'`` metadata field to uniquely identify each image for saving or viewing. For example, this code shows how to split into a single image into two images in different channels:
 
 .. code-block:: python
 
-    import copy
-
     def img_process_fn(image, metadata):
-		
-        # copy pixels in this example, but in reality
-        # you might want to compute something different
-
         image_2 = np.array(image, copy=True)
-
         metadata_2 = copy.deepcopy(metadata)
-
-        metadata_2['Channel'] = 'A_new_channel'
-
-        #return as a list of tuples
-        return [(image, metadata), (image2, md_2)]
+        metadata_2['Axes']['channel'] = 'New_channel'
+        metadata['Axes']['channel'] = 'Old_channel'
+        return [(image, metadata), (image_2, metadata_2)]
 
 
 
-Rather than returning one or more ``image, metadata`` tuples to propogate the image to the default viewer and saver, the image processing function can return nothing. This can be used if one wants to delete a specific image, or divert all images to customized saving/visualization code. If the latter behavior is desired, the :class:`Acquisition<pycromanager.Acquisition>` should be created without the ``name`` and ``directory`` fields.
+2. Custom Saving and Viewing
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+To implement custom saving or viewing, return nothing from the image processor. Create the :class:`Acquisition<pycromanager.Acquisition>` without ``name`` and ``directory`` fields:
 
 .. code-block:: python
 
     def img_process_fn(image, metadata):
+        # Custom saving or viewing logic here
 
-        ### send image and metadata somewhere ###
-
-    # this acquisition won't show a viewer or save data
     with Acquisition(image_process_fn=img_process_fn) as acq:
-        ### acquire some stuff ###
+        # Acquisition code here
 
 
-Adapting acquisition from image processors
-============================================
+3. Processing multiple images
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-In certain cases one may want to create addition **acquisition events** in response to one of the images. A three argument processing function can be used for this purpose. The third argument is the ``event_queue`` to which additional acquisition events can be added
-
-.. code-block:: python
-
-    def img_process_fn_events(image, metadata, event_queue):
-
-        ### create a new acquisition event in response to something in the image ###
-        # event =
-        event_queue.put(event)
-
-        return image, metadata
-
-In the case of using feedback from the image to control acquisition, the typical syntax of ``with Acquisition...`` cannot be used because it will automatically close the acquisition too soon. Instead the acquisition should be created as:
-
-.. code-block:: python
-
-    acq = Acquisition(directory='/path/to/saving/dir', name='acquisition_name',
-              image_process_fn=img_process_fn)
-
-``acq.acquire`` will then need to be called at least once, so that there is an feedback loop between processed images and new events will be started.
-
-
-When it is finished, it can be closed and cleaned up by passing an ``None`` to the ``event_queue``.
-
-.. code-block:: python
-
-    def img_process_fn_events(image, metadata, event_queue):
-
-        if acq_end_condition:
-            event_queue.put(None)
-        else:
-            #continue adding more events
-
-
-Processing multiple images at once
-====================================
-
-In many cases, it is useful to process multiple images at a time, rather than just a single image. For example, this could be useful when processing should only occur after collecting a 3D volume at the end of a Z-stack. To accomplish
-this, the function can hold onto a list of images until it contains a full Z-stack before processing.
+For operations on multiple images (e.g., Z-stacks), accumulate images until a complete set is available:
 
 .. code-block:: python
 
@@ -132,15 +90,65 @@ this, the function can hold onto a list of images until it contains a full Z-sta
 	    if len(img_process_fn.images) == num_z_steps:
 	        # if last image in z stack, combine into a ZYX array
 	        zyx_array = np.stack(img_process_fn.images, axis=0)
-	        
+
 	        ### Do some processing on the 3D stack ###
 
-	    return image, metadata
+        # This returns the original image and metadata, but in
+        # this scenario, a possible alternative is to return nothing
+        # until an entire Z-stack is processed
+        return image, metadata
+
+
+
+Adapting acquisition from image processors
+-------------------------------------------
+
+.. note::
+
+    Adapting acquisition from image processors is an older feature. The newer :ref:`adaptive_acq` API is now the reccomended way to do this. However, the approach below still works.
+
+
+To create additional :ref:`acq_events` based on acquired images, use a three-argument image processor:
+
+.. code-block:: python
+
+    def img_process_fn_events(image, metadata, event_queue):
+        # Create a new acquisition event based on the image
+        new_event = create_new_event(image, metadata)
+        event_queue.put(new_event)
+        return image, metadata
+
+
+
+For adaptive acquisition, create the ``Acquisition`` object separately and call ``acquire`` manually:
+
+.. code-block:: python
+
+    acq = Acquisition(directory='/path/to/saving/dir', name='acquisition_name',
+                      image_process_fn=img_process_fn_events)
+    acq.acquire()  # Start the feedback loop
+
+To end the acquisition, put ``None`` in the ``event_queue``:
+
+.. code-block:: python
+
+    def img_process_fn_events(image, metadata, event_queue):
+        if acq_end_condition:
+            event_queue.put(None)
+        else:
+            # Continue adding more events
+
+
 
 Performance
-====================================
-In the current implementation, image processors pass data back and forth through the Java-Python transport layer, which requires serializing and deserializing data to pass it from one process to another. This introduces a speed limitation of ~100 MB/s for image processors.
+------------
 
-However, there is a potential workaround for this through the use of :ref:`image_saved_callbacks`. Here, rather than intercepting images after they are acquired, but before they are written to disk, the images are written to disk in Java code (which is very fast) without passing over the Java-Python Bridge, and as soon as they are written, a signal is sent to the Acquisition that enables the data to be read off the disk. With fast enough hard drives, this can give access to acquired data significantly faster than image processors.
+The performance of image processors is dependent on the backend used (see :ref:`backends`). When running micro-manager with the Java backend (either by opening the Micro-Manager application or launching Java backend headless mode), images are acquired in a separate Java process and must be passed to the Python process for processing. This transfer is limited to ~100 MB/s.
 
+If speeds faster than this are required, consider using the :ref:`image_saved_callbacks` feature, which allows images to be saved to disk in Java code (which is can be much faster) and then read off the disk in Python. This can be significantly faster than using image processors.
 
+Alternatively, if the Micro-Manager application is not required, consider using the python backend, in which images are acquired and processed in the same Python process, avoiding the Java-Python transport layer entirely.
+
+: note:
+
+    Users of the python backend may also be interested in `ExEngine <https://exengine.readthedocs.io/en/latest/>`_, a newer project which provides a more flexible and powerful module for doing the same things as pycro-manager does, and more.

@@ -4,33 +4,42 @@
 Saved image callbacks
 **************************
 
-Saved image callbacks, allow a user-supplied ``image_saved_fn`` to be automatically called by the :class:`Acquisition<pycromanager.Acquisition>` as soon as a new image has been saved. The image can then be read directly from disk in Python. This avoids the speed limitations incurred by image processors. It is also a useful way to implement a custom user interface, because the function will be called each time there is new data and the UI should be updated. Alternatively, it can be used to start post-processing large datasets as soon as they are acquired. 
+Saved image callbacks provide a mechanism to execute custom code immediately after an image is saved, which:
+
+1. Avoids speed limitations of image processors when using the Java backend (see :ref:`headless_mode`)
+2. Enables custom user interface updates
+3. Allows immediate post-processing of acquired data
 
 
-The ``image_saved_fn`` takes two arguments, ``axes`` and ``dataset``. The first is the describe the unique identifier of the image (``z=0``, ``time=2``, etc.), and the second provides access to the :class:`Dataset<pycromanager.Dataset>` associated with the Acquisition. The pixels of the image that was just saved can be accessed by calling:
+Basic Usage
+-----------
 
+To use saved image callbacks, supply an ``image_saved_fn`` to the :class:`Acquisition<pycromanager.Acquisition>`. This function takes two arguments:
+
+- ``axes``: A dictionary describing the unique identifier of the image (e.g., ``z=0``, ``time=2``)
+- ``dataset``: A :class:`Dataset<pycromanager.Dataset>` object associated with the Acquisition
+
+Access the newly saved image as follows:
 
 .. code-block:: python
-
-    pixels = dataset.read_image(**axes)
-
-
-Alternatively, a three argument version can be utilized in which the arguments are ``axes``, ``dataset``, and ``event_queue``. The event queue allows new acquisition events to be created in response to images being saved to disk.
-
-
-A full example of using this feature is below:
-
-.. code-block:: python
-
-    from pycromanager import Acquisition, multi_d_acquisition_events,
 
     def image_saved_fn(axes, dataset):
         pixels = dataset.read_image(**axes)
-        # TODO: use the pixels for something, like post-processing or a custom image viewer
+        # Process or display pixels here
+
+
+Example:
+
+.. code-block:: python
+
+    from pycromanager import Acquisition, multi_d_acquisition_events
+
+    def image_saved_fn(axes, dataset):
+        pixels = dataset.read_image(**axes)
+        # TODO: Use pixels for post-processing or custom visualization
 
     with Acquisition(directory=save_dir, name="tcz_acq",
-                    image_saved_fn=image_saved_fn,
-                     ) as acq:
+                     image_saved_fn=image_saved_fn) as acq:
         events = multi_d_acquisition_events(
             num_time_points=5,
             z_start=0, z_end=6, z_step=0.4,
@@ -39,3 +48,53 @@ A full example of using this feature is below:
 
 
 
+Adapting acquisition from image saved callbacks
+-----------------------------------------------
+
+.. note::
+
+    Adapting acquisition form image saved callbacks is an older feature. The newer :ref:`adaptive_acq` API is now the reccomended way to do this. However, the approach below still works.
+
+The ``event_queue`` allows you to create new acquisition events in response to saved images, enabling adaptive acquisition strategies. Use a three-argument version of ``image_saved_fn``:
+
+.. code-block:: python
+
+    def image_saved_fn(axes, dataset, event_queue):
+        pixels = dataset.read_image(**axes)
+        # Process pixels
+        new_event = create_new_event(pixels)  # Create a new acquisition event
+        event_queue.put(new_event)  # Add the new event to the queue
+
+
+
+Custom user interface updates
+-----------------------------
+
+
+The example below shows :ref:`headless_mode` in combination with an saved image callback, which calls a user-defined function whenever new data is stored (on disk or in RAM depending on the arguments to ``Acquisition``). This setup could be used to replace the pycro-manager viewer with a custom user interface (note the ``show_display=False`` in the acquisition).
+
+
+.. code-block:: python
+
+    from pycromanager import Acquisition, multi_d_acquisition_events, start_headless
+
+    mm_app_path = '/path/to/micromanager'
+    config_file = mm_app_path + "/MMConfig_demo.cfg"
+
+    # Start the Java process
+    start_headless(mm_app_path, config_file, timeout=5000)
+
+    save_dir = r"\path\to\data"
+
+    def image_saved_fn(axes, dataset):
+        pixels = dataset.read_image(**axes)
+        # TODO: use the pixels for something, like post-processing or a custom image viewer
+
+    with Acquisition(directory=save_dir, name="tcz_acq", show_display=False,
+                    image_saved_fn=image_saved_fn) as acq:
+        events = multi_d_acquisition_events(num_time_points=5,
+            z_start=0, z_end=6, z_step=0.4,)
+        acq.acquire(events)
+
+    # Another way to access to the saved data
+    d = acq.get_dataset()

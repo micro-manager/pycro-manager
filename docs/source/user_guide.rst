@@ -2,24 +2,75 @@
 User Guide
 ****************
 
-After completing the :ref:`setup`, there are two options for running Pycro-Manager: It can be run alongside the Micro-Manager application by launching Micro-Manager the desktop in the typical way, or it can be run in :ref:`headless_mode`. In this mode, an invisible backend is launched as a separate process, and the Micro-Manager GUI does not appear.
+Starting Micro-Manager
+======================
 
-Pycro-Manager provides both high-level and low-level interfaces for controlling microscopes, which can be used independently or in combination. 
+After completing the :ref:`setup`, Pycro-Manager offers two running modes:
 
-The high-level interface revolves around the :class:`Acquisition<pycromanager.Acquisition>` class, which provides control of common microscopy experiments like acquiring 3D volumes, time series, and multi-channel data. It also supports customization that enables extensions to non-standard hardware and acquisition schemes. The data saved by an :class:`Acquisition<pycromanager.Acquisition>` can be accessed as ``numpy`` or ``dask`` arrays using the :class:`Dataset<pycromanager.Dataset>` class. :class:`Acquisition<pycromanager.Acquisition>` provides its own image viewer, which can be disabled along with the Micro-Manger GUI (see :ref:`headless_mode`), enabling the pycromanager to be used as invisible backend acquisition system for custom applications.
+1. Alongside Micro-Manager's desktop application. This is recommended for new users, as it provides access to the Micro-Manager GUI for microscope configuration and hardware testing.
 
-Low-level hardware control is possible through the :ref:`Micro-Manager Core<core>`. This can be used to do things like, for example, getting/setting the position of an XY stage or focus drive. 
+2. :ref:`headless_mode`, where the Micro-Manager Core is launched programmatically without the desktop application.
 
-Workflows that utilize existing Micro-manager plugins written in Java or scripts written in `beanshell <https://micro-manager.org/wiki/Example_Beanshell_scripts>`_ can be executed through Python by using the Java-Python translation layer used by Pycro-Manager. Examples are shown in the :ref:`studio_api`, :ref:`calling_custom_java` and :ref:`magellan_api` sections.
- 
+The :ref:`backends` page provides more information on pycro-manager's architecture and headless mode (which is not required for most users).
 
 .. toctree::
-	:maxdepth: 3
-	:caption: Contents:
+   :maxdepth: 2
+   :hidden:
 
-	acq_overview
-	read_data
-	core
-	headless_mode
-	calling_java
-	advanced_usage
+   backends
+
+
+High-level APIs
+====================
+
+The :class:`Acquisition<pycromanager.Acquisition>` class provides the best starting point for most users. It offers:
+
+- Control of common microscopy experiments (3D volumes, time series, multi-channel data)
+- Customization for non-standard hardware and acquisition schemes
+- Data access via the :class:`Dataset<pycromanager.Dataset>` class as ``numpy`` or ``dask`` arrays
+- A built-in image viewer (which can be disabled for custom applications)
+
+For more information, see :ref:`acq_overview`.
+
+.. toctree::
+   :maxdepth: 2
+   :hidden:
+
+   acq_overview
+
+Low-level APIs
+===================
+
+The Micro-Manager Core allows direct hardware control, such as:
+
+- Getting/setting XY stage or focus drive positions
+- Snapping a single image on a camera
+
+For more information, see :ref:`control_core`.
+
+.. toctree::
+   :maxdepth: 2
+   :hidden:
+
+   core
+
+Java Control Through Python
+===========================
+
+In addition to the Python interfaces, Pycro-Manager can call Java code from Python (using the `PyJavaZ library <https://github.com/PyJavaZ/PyJavaZ>`_). This offers:
+
+1. **Micro-Manager UI Control**: Interact with the Micro-Manager user interface programmatically through the :ref:`studio_api`.
+
+2. **Plugin Support**: Control Micro-Manager plugins, such as Micro-Magellan, from Python. See :ref:`magellan_api` for more information.
+
+3. **Legacy Script Compatibility**: Run existing `Micro-Manager scripts <https://micro-manager.org/wiki/Example_Beanshell_scripts>`_ written in Beanshell with minimal modifications.
+
+4. **Custom Java Integration**: Incorporate your own Java code into Python workflows. See :ref:`calling_custom_java` for details.
+
+
+.. toctree::
+   :maxdepth: 2
+   :hidden:
+
+   calling_java
+

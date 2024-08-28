@@ -1,33 +1,80 @@
 .. _hardware_triggering:
 
+Hardware Triggering and Sequencing
+==================================
 
-****************************************************
-Fast acquisition with hardware triggering
-****************************************************
+Hardware triggering and sequencing are crucial for achieving fast, precisely synchronized image acquisition by minimizing computer-hardware communication. This approach can significantly reduce latency between image frames.
 
-A standard acquisition is accomplished by sending commands from the computer to the devices each time a change (in, e.g., stage position or illumination) is required. This communication can add unnecessary latency (up to 100 ms) between image frames. Much faster and accurately timed operation is possible with most cameras (when acquiring a preset sequence of frames) as well as many other devices (when executing a pre-programmed sequence of commands).
+How It Works
+------------
 
-For the fastest data acquisition speeds, routing TTL (Transistor-Transistor Logic) pulses over signal cables between hardware devices is essential. In such setups, hardware components are loaded with sequences of instructions (e.g. physical positions on a stage or a sequence of exposures on a camera). The hardware sequence can then be executed independently of the computer, while images are read off of the camera as fast as possible.
+In hardware-triggered setups:
 
-The :class:`Acquisition<pycromanager.Acquisition>` class has built in support for hardware sequencing, and it will automatically applied whenever it is supported by the hardware being used. There are two general synchronization strategies supported, which differ depending on what hardware device is the "leader" (i.e. the one sending out TTL pulses) and which one is the "follower" (i.e. the one receiving them).
+1. Hardware components are pre-loaded with sequences of instructions (e.g., stage positions or digital outputs to control lasers).
+2. The sequence is executed independently of the computer.
+3. TTL (Transistor-Transistor Logic) pulses are routed between devices for synchronization.
+4. Images are read from the camera as quickly as possible.
 
-In the default strategy, the camera is assumed to be the leader device. This means that it will run as fast as possible, and other peripheral devices synchronized with it should update their positions based on the TTL pulses outputed by the camera. Whenever the camera supports this behavior, there is little to no delay between successive frames, and any hardware that needs to repositioned also supports sequenceing, this behavior will automatically occur. If there is a need to adjust additional hardware settings in between successive sequences, this can done using :ref:`acq_hooks`.
+Automatic Hardware Sequencing
+-----------------------------
 
-In the second strategy, the camera is the "follower" device, and there is another external "leader" device which controls the synchronization between different hardware components. In this case, the camera should be placed into a mode where it will wait for external triggers before exposing. The specific properties that need to be set will differ from camera to camera, as this behavior is not currently a part of the micro-manager camera API. Once in this state, a pycro-manager :class:`Acquisition<pycromanager.Acquisition>` will cause the camera to shift into a state where it waits for a TTL pulse to trigger each exposure. The only thing remaining is to signal to the external leader device that the camera is ready, so that the leader device can begin its synchronization routine. This signalling can be done with an `post_camera_hook_fn` that runs after the camera has set into a ready state.
+The :class:`Acquisition<pycromanager.Acquisition>` class automatically applies hardware sequencing when:
 
+1. No delays are requested between successive images.
+2. All hardware position changes support instruction sequencing.
+3. All events are submitted to ``acq.acquire()`` in a single call.
+
+Synchronization Strategies
+--------------------------
+
+Pycro-Manager supports two general synchronization strategies:
+
+1. Camera as Leader (Default):
+   - The camera runs at maximum speed.
+   - Other devices update based on TTL pulses from the camera.
+
+
+2. External Device as Leader:
+   - An external device timing device controls synchronization.
+   - The camera is set to wait for external triggers.
+   - Use a ``post_camera_hook_fn`` to signal the external leader device to start:
+
+   .. code-block:: python
+
+       def hook_fn(event):
+           # Start external leader device here
+           return event
+
+       with Acquisition(directory='/path/to/saving/dir', name='acquisition_name',
+                        post_camera_hook_fn=hook_fn) as acq:
+           # Acquisition code here
+
+Using Acquisition Hooks with Hardware Sequencing
+------------------------------------------------
+
+When hardware sequencing is engaged:
+- The ``event`` passed to hooks will be a ``list`` of ``dict`` objects (a sequence of events).
+- Hooks are called once for the whole sequence, not for each event.
+
+Disabling Hardware Sequencing
+-----------------------------
+
+To disable hardware sequencing, submit events one at a time:
 
 .. code-block:: python
 
-    def hook_fn(event):
-        ### start external leader device here ###
-        return event
+    with Acquisition(directory='/path/to/saving/dir', name='acquisition_name') as acq:
+        events = multi_d_acquisition_events(num_time_points=10)
+        for event in events:
+            acq.acquire(event)
 
-    # pass in the function as a post_hardware_hook
-    with Acquisition(directory='/path/to/saving/dir', name='acquisition_name',
-                    post_camera_hook_fn=hook_fn) as acq:
-            ### acquire some stuff ###
+Practical Example: Light-Sheet Microscopy
+--------------------------------------------
 
+This `notebook <external_hardware_triggering_tutorial.ipynb>`_ shows an example of how to setup Pycro-Manager to run a microscope that utilizes an external controller as the leader device. Specifically, this tutorial controls a light-sheet microscope where a sample with fluorescent labels is scanned at a constant speed through an oblique light sheet. The stage controller provides the TTL signals that ensure the camera is synchronized to the scanning stage. This approach makes use of ``post_hardware`` and ``post_camera`` hook functions built into Pycro-Manager. Using these hook functions, it is possible to rapidly build and acquire a multiple terabyte acquisition consisting of millions of images.
 
+.. toctree::
+   :maxdepth: 1
+   :hidden:
 
-
-
+   external_hardware_triggering_tutorial.ipynb

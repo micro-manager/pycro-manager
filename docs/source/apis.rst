@@ -2,6 +2,16 @@
 API Reference
 ==============
 
+Installation
+####################
+
+.. _download_install_api:
+
+.. currentmodule:: mmpycorex
+.. autofunction:: download_and_install_mm
+
+.. autofunction:: find_existing_mm_install
+
 .. _acq_event_spec:
 
 Acquisition event specification
@@ -83,31 +93,42 @@ The following shows all possible fields in an acquisition event (not all of whic
 Acquisition APIs
 #######################################################
 
-Acquisition
-==============
+
 .. currentmodule:: pycromanager.acquisition.acquisition_superclass
 .. autoclass:: Acquisition
 	:members:
 
 
 .. currentmodule:: pycromanager
+.. autoclass:: AcqNotification
+    :members:
+
+
+.. _multi_d_acq_events:
 
 multi_d_acquisition_events
-===========================
+=====================================
 .. autofunction:: multi_d_acquisition_events
 
-XYTiledAcquisition
+
+
+
+.. _adaptive_acq_api:
+
+Adaptive acquisition
 =====================
+.. autoclass:: AcquisitionFuture
+    :members:
+
+
+Specific acquisition types
+============================
 .. autoclass:: XYTiledAcquisition
 	:members:
 
-ExploreAcquisition
-=====================
 .. autoclass:: ExploreAcquisition
 	:members:
 
-MagellanAcquisition
-=======================
 .. autoclass:: MagellanAcquisition
 	:members:
 
@@ -115,23 +136,20 @@ MagellanAcquisition
 Headless mode
 #######################################################
 
-start_headless
-===========================
+
 .. autofunction:: start_headless
 
-stop_headless
-===========================
 .. autofunction:: stop_headless
 
 
 Dataset
 ##############################################
 
-.. currentmodule:: pycromanager
+.. currentmodule:: ndstorage
 .. autoclass:: Dataset
 	:members:
 
-.. currentmodule:: ndtiff
+.. currentmodule:: ndstorage
 .. autoclass:: NDTiffDataset
 	:members:
 .. autoclass:: NDTiffPyramidDataset
