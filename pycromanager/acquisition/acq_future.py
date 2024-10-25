@@ -139,20 +139,20 @@ class AcquisitionFuture:
                         while not self._notification_recieved[key][AcqNotification.Image.IMAGE_SAVED]:
                             self._condition.wait()
 
-        if return_image:
-            if isinstance(axes, list):
-                return [self._acq.get_dataset().read_image(**ax) for ax in axes]
-            else:
-                return self._acq.get_dataset().read_image(**axes)
-        if return_metadata:
-            if isinstance(axes, list):
-                return [self._acq.get_dataset().read_metadata(**ax) for ax in axes]
-            else:
-                return self._acq.get_dataset().read_metadata(**axes)
         if return_image and return_metadata:
             if isinstance(axes, list):
                 return [(self._acq.get_dataset().read_image(**ax), self._acq.get_dataset().read_metadata(**ax)) for ax in axes]
             else:
                 return self._acq.get_dataset().read_image(**axes), self._acq.get_dataset().read_metadata(**axes)
+        elif return_image:
+            if isinstance(axes, list):
+                return [self._acq.get_dataset().read_image(**ax) for ax in axes]
+            else:
+                return self._acq.get_dataset().read_image(**axes)
+        elif return_metadata:
+            if isinstance(axes, list):
+                return [self._acq.get_dataset().read_metadata(**ax) for ax in axes]
+            else:
+                return self._acq.get_dataset().read_metadata(**axes)
 
 
