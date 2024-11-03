@@ -19,8 +19,8 @@ def current_config():
 
         pnames = core.get_device_property_names(devstr)
 
-        for i in range(pnames.size()):
-            pname = pnames.get(i)
+        for j in range(pnames.size()):
+            pname = pnames.get(j)
             pvalue = core.get_property(devstr, pname)
             ptype = core.get_property_type(devstr, pname).to_string()
             print(f"  {devstr}-{pname} '{pvalue}' {ptype}")
