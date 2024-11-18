@@ -75,10 +75,6 @@ html_title = "Documentation"
 nbsphinx_execute = 'never'
 
 
-extensions = [
-    # ... your other extensions ...
-    ,
-]
 
 googleanalytics_id = 'G-8MC4VCD0JR'  # Replace with your actual GA4 measurement ID
 googleanalytics_enabled = True
