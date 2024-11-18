@@ -4,3 +4,4 @@ pygments
 ipykernel
 sphinx_rtd_theme
 docstring-inheritance
+sphinxcontrib.googleanalytics
