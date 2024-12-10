@@ -17,7 +17,7 @@ class Acquisition():
     BEFORE_HARDWARE_HOOK = 1
     # This hook runs after all changes to the hardware except dor setting th Z drive have been
     # made.  This is useful for things such as autofocus.
-    BEFORE_Z_DRIVE = 2
+    BEFORE_Z_HOOK = 2
     # This hook runs after changes to the hardware took place, but before camera exposure
     # (either a snap or a sequence) is started
     AFTER_HARDWARE_HOOK = 3
