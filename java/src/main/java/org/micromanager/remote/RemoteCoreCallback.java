@@ -24,6 +24,7 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.LinkedBlockingDeque;
 import java.util.function.Function;
 import mmcorej.CMMCore;
+import mmcorej.MMCoreJJNI;
 import mmcorej.MMEventCallback;
 import mmcorej.org.json.JSONArray;
 import mmcorej.org.json.JSONException;
@@ -254,6 +255,24 @@ public final class RemoteCoreCallback extends MMEventCallback {
          JSONArray args = new JSONArray();
          args.put(deviceName);
          args.put(exposure);
+         message.put("arguments", args);
+         eventList_.addLast(message);
+      } catch (JSONException e) {
+         e.printStackTrace();
+         core_.logMessage(e.toString());
+      }
+   }
+
+
+   public void onCameraEvent(String name, String eventName, int timestamp, int eventId, String data) {
+      try {
+         JSONObject message = new JSONObject();
+         message.put("name", "CameraEvent");
+         JSONArray args = new JSONArray();
+         args.put(eventName);
+         args.put(timestamp);
+         args.put(eventId);
+         args.put(data);
          message.put("arguments", args);
          eventList_.addLast(message);
       } catch (JSONException e) {
