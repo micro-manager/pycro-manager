@@ -263,8 +263,7 @@ public final class RemoteCoreCallback extends MMEventCallback {
       }
    }
 
-
-   public void onCameraEvent(String name, String eventName, int timestamp, int eventId, String data) {
+   public void onCameraEvent(String name, String eventName, long timestamp, long eventId, String data) {
       try {
          JSONObject message = new JSONObject();
          message.put("name", "CameraEvent");
@@ -280,5 +279,6 @@ public final class RemoteCoreCallback extends MMEventCallback {
          core_.logMessage(e.toString());
       }
    }
+
 
 }
