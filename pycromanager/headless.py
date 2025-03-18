@@ -58,5 +58,6 @@ def start_headless(
 
 def stop_headless(debug=False):
     terminate_core_instances(debug=debug)
-    Engine.get_instance().shutdown()
+    if Engine.get_instance():
+        Engine.get_instance().shutdown()
 
