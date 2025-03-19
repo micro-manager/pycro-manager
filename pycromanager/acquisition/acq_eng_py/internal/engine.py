@@ -37,6 +37,9 @@ class Engine:
 
     @staticmethod
     def get_instance():
+        if not hasattr(Engine, 'singleton'):
+            return None
+
         return Engine.singleton
 
     def finish_acquisition(self, acq):
