@@ -55,10 +55,12 @@ def install_mm():
     if is_port_in_use(4827):
         print('Using Micro-manager running on port 4827 for testing')
         yield
-    elif find_existing_mm_install():
+    try:
+        path = find_existing_mm_install()
         print('Micro-Manager is already installed, skipping installation')
-        yield find_existing_mm_install()
-    else:
+        yield path
+    except FileNotFoundException:
+        print("No Micro-Manager installation found, installing now")
         # Download an install latest nightly build
         mm_install_dir = download_and_install_mm(destination='auto')
 
