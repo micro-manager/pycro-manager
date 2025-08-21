@@ -59,7 +59,7 @@ def install_mm():
         path = find_existing_mm_install()
         print('Micro-Manager is already installed, skipping installation')
         yield path
-    except FileNotFoundException:
+    except FileNotFoundError:
         print("No Micro-Manager installation found, installing now")
         # Download an install latest nightly build
         mm_install_dir = download_and_install_mm(destination='auto')
