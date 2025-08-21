@@ -62,6 +62,8 @@ def install_mm():
         # Download an install latest nightly build
         mm_install_dir = download_and_install_mm(destination='auto')
 
+        print('Micro-Manager installed in ' + mm_install_dir)
+
         #### Replace with newer versions of Java libraries ####
         # find pycro-manager/java path
         if os.path.isdir('java'):
