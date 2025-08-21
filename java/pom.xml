@@ -23,7 +23,7 @@
        <developer>
           <id>nicost</id>
           <name>Nico Stuurman</name>
-          <organization>UCSF/HHMI</organization>
+          <organization>UCSF</organization>
        </developer>
     </developers>
   
@@ -55,7 +55,7 @@
       <dependency>
          <groupId>org.micro-manager.acqengj</groupId>
          <artifactId>AcqEngJ</artifactId>
-     <version>0.39.0</version>
+     <version>0.39.2</version>
       </dependency>
       <dependency>
          <groupId>org.micro-manager.ndviewer</groupId>
@@ -111,11 +111,11 @@
            <goal>sign</goal>
           </goals>
              
-                          <configuration>
-                <gpgArguments>
-            <arg>--pinentry-mode</arg>
-            <arg>loopback</arg>
-        </gpgArguments>
+         <configuration>
+           <gpgArguments>
+             <arg>--pinentry-mode</arg>
+             <arg>loopback</arg>
+           </gpgArguments>
          </configuration>
              
          </execution>
@@ -123,17 +123,15 @@
        </plugin>
 
       <plugin>
-      <groupId>org.sonatype.plugins</groupId>
-      <artifactId>nexus-staging-maven-plugin</artifactId>
-      <version>1.6.13</version>
-      <extensions>true</extensions>
-      <configuration>
-       <serverId>ossrh</serverId>
-       <nexusUrl>https://s01.oss.sonatype.org/</nexusUrl>
-       <autoReleaseAfterClose>true</autoReleaseAfterClose>
-        <stagingProgressTimeoutMinutes>20</stagingProgressTimeoutMinutes>
-      </configuration>
-
+          <groupId>org.sonatype.central</groupId>
+          <artifactId>central-publishing-maven-plugin</artifactId>
+          <version>0.8.0</version>
+          <extensions>true</extensions>
+          <configuration>
+              <publishingServerId>central</publishingServerId>
+              <autoPublish>true</autoPublish>
+              <waitUntil>published</waitUntil>
+          </configuration>
       </plugin>
     
       </plugins>
