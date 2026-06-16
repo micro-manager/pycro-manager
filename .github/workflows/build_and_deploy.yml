@@ -29,7 +29,7 @@ jobs:
     outputs:
       changed: ${{ steps.filter.outputs.changed }}
     steps:
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v4
     - uses: dorny/paths-filter@v2
       id: filter
       with:
@@ -52,7 +52,7 @@ jobs:
 
     steps:
     
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
 
       - name: Set up JDK 8
         uses: actions/setup-java@v4
@@ -102,7 +102,7 @@ jobs:
       
       
     - name: Checkout Micro-Manager branch
-      uses: actions/checkout@v3
+      uses: actions/checkout@v4
      # env:
       #  GITHUB_TOKEN: ${{ steps.get_workflow_token.outputs.token }}
       with:
@@ -113,7 +113,7 @@ jobs:
     
     
     - name: Checkout pycro-manager # To get the update_mm_ivy.py script
-      uses: actions/checkout@v3
+      uses: actions/checkout@v4
       env:
         GITHUB_TOKEN: ${{ steps.get_workflow_token.outputs.token }}
      
@@ -202,7 +202,7 @@ jobs:
     outputs:
       changed: ${{ steps.filter.outputs.changed }}
     steps:
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v4
     - uses: dorny/paths-filter@v2
       id: filter
       with:
@@ -226,9 +226,9 @@ jobs:
     
     steps:
    
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v4
     - name: Install Python
-      uses: actions/setup-python@v2
+      uses: actions/setup-python@v5
       with:
         python-version: '3.x'
     - name: Install dependencies
