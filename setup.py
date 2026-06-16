@@ -25,7 +25,7 @@ setuptools.setup(
     url="https://github.com/micro-manager/pycro-manager",
     packages=setuptools.find_packages(),
     install_requires=requirements,
-    python_requires=">=3.6",
+    python_requires=">=3.10",
     extras_require={
         "dev": [
             "pytest",
@@ -35,11 +35,10 @@ setuptools.setup(
         ]
     },
     classifiers=[
-        "Programming Language :: Python :: 3.7",
-        "Programming Language :: Python :: 3.8",
-        "Programming Language :: Python :: 3.9",
         "Programming Language :: Python :: 3.10",
         "Programming Language :: Python :: 3.11",
+        "Programming Language :: Python :: 3.12",
+        "Programming Language :: Python :: 3.13",
         "Development Status :: 3 - Alpha",
         "License :: OSI Approved :: BSD License",
         "Operating System :: OS Independent",
